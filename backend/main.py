@@ -1,13 +1,11 @@
-import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from database import get_db
 
 app = FastAPI()
 
-@app.get('/health')
-def health_check():
-    return {"Healthy"}, 200
-
-@app.get('/async')
-async def async_endpoint():
-    await asyncio.sleep(1)
-    return {"status": "non-blocking and fast"}
+@app.get("/health")
+def health_check(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "connected"}
