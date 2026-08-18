@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import String, Text, Integer, Uuid, Table, Column, ForeignKey
+from sqlalchemy import String, Text, Integer, Uuid, Table, Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -51,7 +51,7 @@ class Author(Base):
     __tablename__ = 'authors' 
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(225), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(225), nullable=False, index=True, unique=True)
 
     # Relationships
     books:Mapped[list["Book"]] = relationship(
@@ -66,6 +66,7 @@ class TagType(str, enum.Enum):
 
 class Tag(Base):
     __tablename__ = 'tags'
+    __table_args__ = (UniqueConstraint('name', 'type', name='uq_tag_name_type'),)
     
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
