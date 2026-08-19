@@ -31,7 +31,12 @@ for row in load.itertuples():
     # 3. Process Book
     year = int(row.first_publish_year) if pd.notna(row.first_publish_year) else None
 
-    book = db.query(Book).filter_by(title=row.title, published_year=year).first()
+    book = (
+    db.query(Book)
+    .join(Book.authors)
+    .filter(Book.title == row.title, Author.name == row.author)
+    .first()
+    )
     if not book:
         book = Book(title=row.title, published_year=year)
         book.authors.append(author)

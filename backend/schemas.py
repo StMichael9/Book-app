@@ -1,23 +1,22 @@
 from pydantic import BaseModel, ConfigDict
-from uuid import UUID
 
 
 class AuthorSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: UUID
+    id: int
     name: str
 
 
 class TagSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: UUID
+    id: int
     name: str
     type: str
 
 
 class BookSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: UUID
+    id: int
     title: str
     subtitle: str | None = None
     description: str | None = None

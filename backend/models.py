@@ -1,6 +1,5 @@
-import uuid
 import enum
-from sqlalchemy import String, Text, Integer, Uuid, Table, Column, ForeignKey, UniqueConstraint
+from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 
@@ -10,15 +9,15 @@ from database import Base
 book_authors = Table(
     "book_authors",
     Base.metadata,
-    Column("book_id", Uuid, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
-    Column("author_id", Uuid, ForeignKey("authors.id", ondelete="CASCADE"), primary_key=True),
+    Column("book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
+    Column("author_id", Integer, ForeignKey("authors.id", ondelete="CASCADE"), primary_key=True),
 )
 
 book_tags = Table(
     "book_tags",
     Base.metadata,
-    Column("book_id", Uuid, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
-    Column("tag_id", Uuid, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+    Column("book_id", Integer, ForeignKey("books.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -28,7 +27,7 @@ book_tags = Table(
 class Book(Base):
     __tablename__ = 'books'
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -50,7 +49,7 @@ class Book(Base):
 class Author(Base):
     __tablename__ = 'authors' 
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False, index=True, unique=True)
 
     # Relationships
@@ -69,7 +68,7 @@ class Tag(Base):
     __table_args__ = (UniqueConstraint('name', 'type', name='uq_tag_name_type'),)
     
 
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False, index=True)
     type: Mapped[TagType] = mapped_column(nullable=False)
 
@@ -78,11 +77,3 @@ class Tag(Base):
         secondary=book_tags, 
         back_populates="tags"
     )
-
-
-
-
-
-
-
-    
