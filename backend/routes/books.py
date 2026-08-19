@@ -7,21 +7,26 @@ from models import Book
 from schemas import BookSchema
 from services import search
 
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import paginate
+
 router = APIRouter()
 
 
-@router.get("/books", response_model=list[BookSchema])
+@router.get("/books", response_model=Page[BookSchema])
 def get_books(
     db: Session = Depends(get_db),
     book: str = None,
     author: str = None,
     tag: str = None,
 ):
-    # No filters -> book/author/tag all stay None -> search.search_books()
-    # applies none of its .where() clauses -> equivalent to the old
-    # get_all_books(). Any filters provided behave exactly like the old
-    # basic_search_books().
-    return search.search_books(db, book=book, author=author, tag=tag)
+    query = search.search_books(
+        db,
+        book=book,
+        author=author,
+        tag=tag,
+    )
+    return paginate(db, query)
 
 
 @router.get("/books/{book_id}", response_model=BookSchema)
