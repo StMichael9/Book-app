@@ -20,12 +20,8 @@ def get_books(
     author: str = None,
     tag: str = None,
 ):
-    query = search.search_books(
-        db,
-        book=book,
-        author=author,
-        tag=tag,
-    )
+    service = search.SearchService(db)
+    query = service.search_books(book=book, author=author, tag=tag)
     return paginate(db, query)
 
 
