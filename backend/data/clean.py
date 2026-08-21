@@ -109,3 +109,4 @@ else:
 print(deduped['first_publish_year'].dtype)
 
 deduped.to_json("json_data/books_combined.json", orient="records", force_ascii=False)
+
