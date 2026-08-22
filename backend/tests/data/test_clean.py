@@ -4,6 +4,7 @@ import importlib
 import sys
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 
@@ -118,7 +119,7 @@ def test_pipeline_builds_clean_and_combined_outputs(clean_module):
 
     assert fantasy_rows[0]["genre"] == "fantasy"
     assert fantasy_rows[0]["author"] == "Author One"
-    assert fantasy_rows[1]["first_publish_year"] is None
+    assert pd.isna(fantasy_rows[1]["first_publish_year"])
 
     assert mystery_rows[0]["genre"] == "mystery"
     assert mystery_rows[1]["author"] is None
@@ -131,5 +132,5 @@ def test_pipeline_builds_clean_and_combined_outputs(clean_module):
 
     assert shared_title["author"] == "Author One"
     assert shared_title["genre"] == ["fantasy", "mystery"]
-    assert null_year["first_publish_year"] is None
+    assert pd.isna(null_year["first_publish_year"])
     assert second_mystery["author"] is None

@@ -38,26 +38,34 @@ for genre in genres:
 
     # Normalize into a DataFrame
     df = pd.json_normalize(data["works"])
-    df_small = df[['title', 'authors', 'first_publish_year']].copy()
 
-    # Replace year 0 with None
-    df_small.loc[df_small['first_publish_year'] == 0, 'first_publish_year'] = None
+    # Guard against a genre returning zero works. pd.json_normalize([])
+    # produces a DataFrame with NO columns at all (not just zero rows),
+    # so selecting ['title', 'authors', 'first_publish_year'] below would
+    # raise a KeyError. Build an empty, correctly-shaped frame instead so
+    # the pipeline degrades gracefully rather than crashing mid-loop.
+    if df.empty:
+        df_small = pd.DataFrame(columns=["title", "author", "first_publish_year"])
+    else:
+        df_small = df[['title', 'authors', 'first_publish_year']].copy()
 
+        # Replace year 0 with None
+        df_small.loc[df_small['first_publish_year'] == 0, 'first_publish_year'] = None
+
+        # For each row (x) in the authors column:
+        # - Check if x is a list
+        # - Check if the list is not empty
+        # - If it has data, take the first dictionary and return its 'name'
+        # - Otherwise return None
+        df_small['author'] = df_small['authors'].apply(
+            lambda x: x[0]['name'] if isinstance(x, list) and len(x) > 0 else None
+        )
+        df_small = df_small.drop(columns=['authors'])
 
     # Inspect
     print(df_small.info())
     print(df_small.head())
     print(df_small.describe())
-
-    # For each row (x) in the authors column:
-    # - Check if x is a list
-    # - Check if the list is not empty
-    # - If it has data, take the first dictionary and return its 'name'
-    # - Otherwise return None
-    df_small['author'] = df_small['authors'].apply(
-        lambda x: x[0]['name'] if isinstance(x, list) and len(x) > 0 else None
-    )
-    df_small = df_small.drop(columns=['authors'])
 
     # Add genre tag
     df_small['genre'] = genre
@@ -86,12 +94,12 @@ combined = pd.concat(dfs, ignore_index=True)
 deduped = (
   combined.groupby(['title', 'author']).agg({
       "genre": list,
-    "first_publish_year": "first" 
-  }).reset_index()  
+    "first_publish_year": "first"
+  }).reset_index()
 )
 print(deduped.isna().sum())
 
-all_are_lists  = deduped['genre'].apply(
+all_are_lists = deduped['genre'].apply(
     lambda x: isinstance(x, list)
 ).all()
 print(f"Are all rows in the genre column lists? {all_are_lists}")
@@ -109,4 +117,3 @@ else:
 print(deduped['first_publish_year'].dtype)
 
 deduped.to_json("json_data/books_combined.json", orient="records", force_ascii=False)
-

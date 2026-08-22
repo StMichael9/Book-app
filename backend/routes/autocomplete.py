@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from database import get_db
 from services.autocomplete import AutocompleteService
 from schemas import AuthorSchema, TagSchema
+from rate_limit import limiter
 
 router = APIRouter(
     prefix="/autocomplete",
@@ -12,7 +13,9 @@ router = APIRouter(
 
 
 @router.get("/authors", response_model=list[AuthorSchema])
+@limiter.limit("60/minute")
 def autocomplete_authors(
+    request: Request,
     q: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
 ):
@@ -21,7 +24,9 @@ def autocomplete_authors(
 
 
 @router.get("/tags", response_model=list[TagSchema])
+@limiter.limit("60/minute")
 def autocomplete_tags(
+    request: Request,
     q: str = Query(..., min_length=1),
     db: Session = Depends(get_db),
 ):

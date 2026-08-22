@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,7 @@ from database import get_db      # the dependency I already built
 from models import Book
 from schemas import BookSchema
 from services import search
+from rate_limit import limiter
 
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -14,7 +15,9 @@ router = APIRouter()
 
 
 @router.get("/books", response_model=Page[BookSchema])
+@limiter.limit("30/minute")
 def get_books(
+    request: Request,
     db: Session = Depends(get_db),
     book: str = None,
     author: str = None,
@@ -26,7 +29,8 @@ def get_books(
 
 
 @router.get("/books/{book_id}", response_model=BookSchema)
-def get_book(book_id: int, db: Session = Depends(get_db)):
+@limiter.limit("30/minute")
+def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
      query = select(Book).where(Book.id == book_id)
      result = db.execute(query)
      book = result.scalars().one_or_none()
