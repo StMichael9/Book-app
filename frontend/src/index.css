@@ -1,0 +1,72 @@
+:root {
+  --bg: #f4efe6;
+  --surface: #eae0cc;
+  --text: #2b241c;
+  --accent: #8c3b2e;
+  --accent-2: #4a5d45;
+  --muted: #7a6f5d;
+  --outline: rgba(43, 36, 28, 0.12);
+  --panel: #f8f4ee;
+  --input-bg: #f9f6f2;
+  --sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="dark"] {
+  --bg: #1e1b16;
+  --surface: #2a2621;
+  --text: #ede6d6;
+  --accent: #c1603f;
+  --accent-2: #6b8060;
+  --muted: #a6997e;
+  --outline: rgba(237, 230, 214, 0.12);
+  --panel: #2f2a25;
+  --input-bg: #241f1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--serif);
+  color: var(--text);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
