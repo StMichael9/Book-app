@@ -9,15 +9,6 @@ export default function Hero() {
           browse.
         </p>
       </div>
-
-      <aside className="hero-card">
-        <p className="card-label">This week’s shelf</p>
-        <ul>
-          <li>Fantasy</li>
-          <li>Quiet thrillers</li>
-          <li>Literary fiction</li>
-        </ul>
-      </aside>
     </section>
   );
 }

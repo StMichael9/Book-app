@@ -33,8 +33,9 @@ export default function BookCard({ book }) {
 
       <div className="book-body">
         <div className="book-meta-row">
-          <span>{book.published_year || "Year unknown"}</span>
-          {book.page_count ? <span>{book.page_count} pages</span> : null}
+          <span className="book-year">
+            {book.published_year || "Year unknown"}
+          </span>
         </div>
 
         <Link to={`/book/${book.id}`} className="book-title-link">

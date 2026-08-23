@@ -12,7 +12,6 @@ export default function Header() {
           S
         </Link>
         <div>
-          <p className="eyebrow">Curated discovery</p>
           <h1>Shelfbound</h1>
         </div>
       </div>
@@ -23,18 +22,6 @@ export default function Header() {
           className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
         >
           Browse
-        </NavLink>
-        <NavLink
-          to="/staff-picks"
-          className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-        >
-          Staff Picks
-        </NavLink>
-        <NavLink
-          to="/new-arrivals"
-          className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-        >
-          New Arrivals
         </NavLink>
       </nav>
     </header>

@@ -41,24 +41,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/browse" replace />} />
           <Route path="/browse" element={<HomePage />} />
-          <Route
-            path="/staff-picks"
-            element={
-              <SimpleShelfPage
-                title="Staff Picks"
-                description="Shelf notes from the people who live inside the stacks."
-              />
-            }
-          />
-          <Route
-            path="/new-arrivals"
-            element={
-              <SimpleShelfPage
-                title="New Arrivals"
-                description="Fresh additions to the current reading table."
-              />
-            }
-          />
           <Route path="/book/:bookId" element={<BookDetailPage />} />
         </Routes>
       </main>
@@ -69,9 +51,9 @@ function App() {
 function HomePage() {
   const [filters, setFilters] = useState({ book: "", author: "", tag: "" });
   const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(true);
 
   const runSearch = (nextFilters) => {
     const normalized = {
@@ -81,17 +63,10 @@ function HomePage() {
     };
 
     setFilters(normalized);
-    setHasSearched(Object.values(normalized).some((value) => value.length > 0));
+    setHasSearched(true);
   };
 
   useEffect(() => {
-    if (!hasSearched) {
-      setBooks([]);
-      setError("");
-      setLoading(false);
-      return undefined;
-    }
-
     let ignore = false;
 
     const loadBooks = async () => {
@@ -122,7 +97,9 @@ function HomePage() {
       }
     };
 
-    loadBooks();
+    if (hasSearched) {
+      loadBooks();
+    }
 
     return () => {
       ignore = true;
@@ -143,6 +120,7 @@ function HomePage() {
     <>
       <Hero />
       <SearchBar onSearch={runSearch} activeFilters={{ total: books.length }} />
+
       <ResultsList
         books={books}
         loading={loading}
@@ -161,16 +139,6 @@ function HomePage() {
         </div>
       )}
     </>
-  );
-}
-
-function SimpleShelfPage({ title, description }) {
-  return (
-    <section className="simple-shelf-page">
-      <p className="eyebrow">Library notes</p>
-      <h2>{title}</h2>
-      <p className="subtitle">{description}</p>
-    </section>
   );
 }
 
@@ -224,7 +192,7 @@ function BookDetailPage() {
   if (!book) {
     return (
       <div className="empty-state">
-        <p>That book is not on this shelf.</p>
+        <p>This book could not be found.</p>
         <span>Try another title or head back to the full browse view.</span>
       </div>
     );
