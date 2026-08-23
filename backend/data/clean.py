@@ -45,12 +45,16 @@ for genre in genres:
     # raise a KeyError. Build an empty, correctly-shaped frame instead so
     # the pipeline degrades gracefully rather than crashing mid-loop.
     if df.empty:
-        df_small = pd.DataFrame(columns=["title", "author", "first_publish_year"])
+        df_small = pd.DataFrame(columns=["title", "author", "first_publish_year", "cover_id"])
     else:
-        df_small = df[['title', 'authors', 'first_publish_year']].copy()
+        if "cover_id" not in df.columns:
+            df["cover_id"] = None
+            
+        df_small = df[['title', 'authors', 'first_publish_year', 'cover_id']].copy()
 
         # Replace year 0 with None
         df_small.loc[df_small['first_publish_year'] == 0, 'first_publish_year'] = None
+        
 
         # For each row (x) in the authors column:
         # - Check if x is a list
@@ -61,6 +65,8 @@ for genre in genres:
             lambda x: x[0]['name'] if isinstance(x, list) and len(x) > 0 else None
         )
         df_small = df_small.drop(columns=['authors'])
+
+        df_small["cover_id"] = df_small["cover_id"].fillna(None)
 
     # Inspect
     print(df_small.info())
@@ -94,7 +100,8 @@ combined = pd.concat(dfs, ignore_index=True)
 deduped = (
   combined.groupby(['title', 'author']).agg({
       "genre": list,
-    "first_publish_year": "first"
+    "first_publish_year": "first",
+    "cover_id": "first"
   }).reset_index()
 )
 print(deduped.isna().sum())

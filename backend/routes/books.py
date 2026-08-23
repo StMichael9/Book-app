@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import selectinload, Session
 
 from database import get_db      # the dependency I already built
 from models import Book
@@ -31,7 +31,11 @@ def get_books(
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
 def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
-     query = select(Book).where(Book.id == book_id)
+     query = (
+         select(Book)
+         .where(Book.id == book_id)
+         .options(selectinload(Book.authors), selectinload(Book.tags))
+     )
      result = db.execute(query)
      book = result.scalars().one_or_none()
 
