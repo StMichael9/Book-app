@@ -4325,8 +4325,8 @@
       "availability": {
         "status": "borrow_available",
         "available_to_browse": true,
-        "available_to_borrow": true,
-        "available_to_waitlist": false,
+        "available_to_borrow": false,
+        "available_to_waitlist": true,
         "is_printdisabled": true,
         "is_readable": false,
         "is_lendable": true,

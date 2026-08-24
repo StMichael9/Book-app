@@ -8,7 +8,11 @@ os.makedirs("json_data/raw", exist_ok=True)
 os.makedirs("json_data/clean", exist_ok=True)
 
 
-genres = ["fantasy", "mystery", "horror", "romance", "science_fiction"]
+genres = [
+    "fantasy", "mystery", "horror", "romance", "science_fiction",
+    "thriller", "biography", "poetry", "history", "drama",
+    "adventure", "humor", "classics", "young_adult", "philosophy",
+]
 headers = {"User-Agent": "book-discovery-app/0.1 (your-email@example.com)"}
 
 
@@ -49,12 +53,11 @@ for genre in genres:
     else:
         if "cover_id" not in df.columns:
             df["cover_id"] = None
-            
+
         df_small = df[['title', 'authors', 'first_publish_year', 'cover_id']].copy()
 
         # Replace year 0 with None
         df_small.loc[df_small['first_publish_year'] == 0, 'first_publish_year'] = None
-        
 
         # For each row (x) in the authors column:
         # - Check if x is a list
@@ -65,13 +68,6 @@ for genre in genres:
             lambda x: x[0]['name'] if isinstance(x, list) and len(x) > 0 else None
         )
         df_small = df_small.drop(columns=['authors'])
-
-        df_small["cover_id"] = df_small["cover_id"].fillna(None)
-
-    # Inspect
-    print(df_small.info())
-    print(df_small.head())
-    print(df_small.describe())
 
     # Add genre tag
     df_small['genre'] = genre
@@ -85,13 +81,7 @@ for genre in genres:
 # COMBINE BLOCK (after loop)
 # -------------------------
 
-clean_files = [
-    "json_data/clean/fantasy_clean.json",
-    "json_data/clean/mystery_clean.json",
-    "json_data/clean/horror_clean.json",
-    "json_data/clean/romance_clean.json",
-    "json_data/clean/science_fiction_clean.json"
-]
+clean_files = [f"json_data/clean/{genre}_clean.json" for genre in genres]
 
 dfs = [pd.read_json(f) for f in clean_files]
 combined = pd.concat(dfs, ignore_index=True)
@@ -111,6 +101,22 @@ all_are_lists = deduped['genre'].apply(
 ).all()
 print(f"Are all rows in the genre column lists? {all_are_lists}")
 
+# -------------------------
+# LANGUAGE FILTER (non-English titles)
+# -------------------------
+# Known, deliberate limitation: this is an ASCII-based heuristic, not real
+# language detection. It correctly removes titles with non-Latin scripts
+# (e.g. "Преступление и наказание", "Анна Каренина") but will NOT catch
+# titles that happen to be fully ASCII despite being non-English (e.g.
+# "Le petit prince"). Full language detection was already considered and
+# rejected earlier in this project as unnecessary complexity for V1 - this
+# filter accepts that same tradeoff, just now actually applied rather than
+# left as an unaddressed known limitation.
+before_count = len(deduped)
+deduped = deduped[deduped['title'].apply(lambda t: str(t).isascii())].reset_index(drop=True)
+removed_count = before_count - len(deduped)
+print(f"Removed {removed_count} non-ASCII-title rows out of {before_count} (ASCII heuristic only, not full language detection).")
+
 # Prevent malformed genres or typos from hitting Postgres
 # Explode unrolls the inner lists to check every individual item
 flat_genres = deduped['genre'].explode()
@@ -119,7 +125,7 @@ invalid_found = flat_genres[~flat_genres.isin(genres)].unique()
 if len(invalid_found) > 0:
     print(f"❌ WARNING: Found invalid genres before Postgres load: {invalid_found}")
 else:
-    print("✅ Success: All inner list values belong strictly to your 5 intended genres.")
+    print("✅ Success: All inner list values belong strictly to your intended genres.")
 
 print(deduped['first_publish_year'].dtype)
 

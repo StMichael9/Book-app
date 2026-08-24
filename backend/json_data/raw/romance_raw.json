@@ -5033,11 +5033,24 @@
       "public_scan": false,
       "has_fulltext": true,
       "availability": {
-        "status": "error",
-        "error_message": "not found",
+        "status": "borrow_available",
+        "available_to_browse": true,
+        "available_to_borrow": false,
+        "available_to_waitlist": false,
+        "is_printdisabled": true,
+        "is_readable": false,
+        "is_lendable": true,
+        "is_previewable": true,
         "identifier": "riwageyisheng0000past",
+        "isbn": "9787550602526",
+        "oclc": null,
+        "openlibrary_work": "OL258301W",
+        "openlibrary_edition": "OL36620498M",
+        "last_loan_date": null,
+        "num_waitlist": null,
+        "last_waitlist_date": null,
         "is_restricted": true,
-        "is_browseable": false,
+        "is_browseable": true,
         "__src__": "core.models.lending.get_availability"
       }
     },
@@ -5366,8 +5379,8 @@
       "public_scan": false,
       "has_fulltext": true,
       "availability": {
-        "status": "borrow_available",
-        "available_to_browse": true,
+        "status": "borrow_unavailable",
+        "available_to_browse": false,
         "available_to_borrow": false,
         "available_to_waitlist": false,
         "is_printdisabled": true,
@@ -5383,7 +5396,7 @@
         "num_waitlist": null,
         "last_waitlist_date": null,
         "is_restricted": true,
-        "is_browseable": true,
+        "is_browseable": false,
         "__src__": "core.models.lending.get_availability"
       }
     },
