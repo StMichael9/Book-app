@@ -43,7 +43,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
             type="text"
             value={book}
             onChange={(event) => setBook(event.target.value)}
-            placeholder="Try The Lost Codex"
+            placeholder="Search by title"
           />
         </div>
 
@@ -52,7 +52,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
           label="Author"
           value={author}
           onChange={setAuthor}
-          placeholder="Filter by author"
+          placeholder="Search by author"
           type="author"
         />
 
@@ -61,7 +61,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
           label="Tag"
           value={tag}
           onChange={setTag}
-          placeholder="Filter by tag"
+          placeholder="Search by tag"
           type="tag"
         />
 

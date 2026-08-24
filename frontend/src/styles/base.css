@@ -1,0 +1,39 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--serif);
+  color: var(--text);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}

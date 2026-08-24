@@ -6,11 +6,13 @@ import {
   Route,
   Routes,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 
 import { getBookById, getBooks } from "./api/books.js";
 import Header from "./components/Header.jsx";
 import Hero from "./components/Hero.jsx";
+import Pagination from "./components/Pagination.jsx";
 import ResultsList from "./components/ResultsList.jsx";
 import SearchBar from "./components/SearchBar/SearchBar.jsx";
 import "./App.css";
@@ -49,11 +51,35 @@ function App() {
 }
 
 function HomePage() {
+  const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({ book: "", author: "", tag: "" });
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(true);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const paramTag = searchParams.get("tag")?.trim() ?? "";
+
+    if (paramTag) {
+      setFilters((current) => ({
+        ...current,
+        tag: paramTag,
+      }));
+      setPage(1);
+      setHasSearched(true);
+      return;
+    }
+
+    if (!searchParams.toString()) {
+      setFilters({ book: "", author: "", tag: "" });
+      setPage(1);
+      setHasSearched(true);
+    }
+  }, [searchParams]);
 
   const runSearch = (nextFilters) => {
     const normalized = {
@@ -63,6 +89,7 @@ function HomePage() {
     };
 
     setFilters(normalized);
+    setPage(1);
     setHasSearched(true);
   };
 
@@ -78,16 +105,20 @@ function HomePage() {
           book: filters.book,
           author: filters.author,
           tag: filters.tag,
-          page: 1,
-          size: 20,
+          page,
+          size,
         });
 
         if (!ignore) {
           setBooks(Array.isArray(payload?.items) ? payload.items : []);
+          setTotal(Number(payload?.total ?? 0));
+          setSize(Number(payload?.size ?? size));
+          setPage(Number(payload?.page ?? page));
         }
       } catch (loadError) {
         if (!ignore) {
           setBooks([]);
+          setTotal(0);
           setError(loadError.message || "Unable to load books right now.");
         }
       } finally {
@@ -104,7 +135,15 @@ function HomePage() {
     return () => {
       ignore = true;
     };
-  }, [filters, hasSearched]);
+  }, [filters, hasSearched, page, size]);
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1) return;
+    setPage(nextPage);
+    setHasSearched(true);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / size || 1));
 
   const activeFilters = useMemo(
     () =>
@@ -119,7 +158,7 @@ function HomePage() {
   return (
     <>
       <Hero />
-      <SearchBar onSearch={runSearch} activeFilters={{ total: books.length }} />
+      <SearchBar onSearch={runSearch} activeFilters={{ total }} />
 
       <ResultsList
         books={books}
@@ -129,6 +168,13 @@ function HomePage() {
         author={filters.author}
         tag={filters.tag}
       />
+
+      <Pagination
+        page={page}
+        pages={totalPages}
+        onPageChange={handlePageChange}
+      />
+
       {activeFilters.length > 0 && (
         <div className="active-filter-summary" aria-live="polite">
           {activeFilters.map((filter) => (

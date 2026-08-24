@@ -4,7 +4,9 @@ export default function EmptyState({ query, author, tag }) {
   return (
     <div className="empty-state">
       <p>
-        {hasFilters ? "No books match that search yet." : "Your next great read is waiting."}
+        {hasFilters
+          ? "No books match that search yet."
+          : "Your next great read is waiting."}
       </p>
       <span>
         {hasFilters

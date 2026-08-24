@@ -1,0 +1,52 @@
+.topnav button,
+.reset-button,
+.suggestion-item,
+.primary-button,
+.theme-toggle {
+  border: 1px solid var(--outline);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.topnav button:hover,
+.reset-button:hover,
+.suggestion-item:hover,
+.primary-button:hover,
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(18, 24, 38, 0.08);
+}
+
+.suggestion-item {
+  text-align: left;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.suggestion-empty {
+  padding: 0.8rem 0.9rem;
+  color: var(--muted);
+}
+
+.reset-button,
+.primary-button {
+  min-height: 48px;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: transparent;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  margin-bottom: 16px;
+}

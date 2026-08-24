@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { suggestAuthors, suggestTags } from "../../api/autocomplete.js";
 import { useDebounce } from "../../hooks/useDebounce.js";
@@ -14,33 +14,53 @@ export default function AutocompleteInput({
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const requestIdRef = useRef(0);
   const debouncedValue = useDebounce(value, 300);
 
   useEffect(() => {
+    const trimmed = debouncedValue.trim();
+    const currentRequestId = ++requestIdRef.current;
+
+    if (!trimmed) {
+      setItems([]);
+      setOpen(false);
+      setLoading(false);
+      return;
+    }
+
     const runLookup = async () => {
-      const trimmed = debouncedValue.trim();
-
-      if (!trimmed) {
-        setItems([]);
-        setOpen(false);
-        return;
-      }
-
       setLoading(true);
+
       try {
         const lookup = type === "author" ? suggestAuthors : suggestTags;
         const result = await lookup(trimmed);
-        setItems(Array.isArray(result) ? result : []);
+
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
+        const nextItems = Array.isArray(result) ? result : [];
+        setItems(nextItems);
         setOpen(true);
       } catch {
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
         setItems([]);
         setOpen(false);
       } finally {
-        setLoading(false);
+        if (currentRequestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     runLookup();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
   }, [debouncedValue, type]);
 
   const displayItems = useMemo(() => items.slice(0, 6), [items]);
@@ -54,7 +74,7 @@ export default function AutocompleteInput({
         value={value}
         onChange={(event) => {
           onChange(event.target.value);
-          setOpen(true);
+          setOpen(Boolean(event.target.value.trim()));
         }}
         onFocus={() => {
           if (value.trim() && displayItems.length) setOpen(true);
@@ -73,7 +93,7 @@ export default function AutocompleteInput({
         >
           {displayItems.map((item) => (
             <button
-              key={item.id}
+              key={item.id ?? `${item.name}-${label}`}
               type="button"
               className="suggestion-item"
               onMouseDown={(event) => event.preventDefault()}
