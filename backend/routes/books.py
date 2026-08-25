@@ -1,6 +1,4 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, Session
 
@@ -23,7 +21,7 @@ def get_books(
     db: Session = Depends(get_db),
     book: str = None,
     author: str = None,
-    tag: List[str] = Query(None),
+    tag: list[str] = Query(None),
 ):
     service = search.SearchService(db)
     query = service.search_books(book=book, author=author, tags=tag)
@@ -33,6 +31,9 @@ def get_books(
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
 def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
+     # Same fix as search.py: without eager loading, serializing this one
+     # book still fires 2 extra lazy queries (authors, tags) - small here,
+     # but worth staying consistent with the same pattern everywhere.
      query = (
          select(Book)
          .where(Book.id == book_id)
