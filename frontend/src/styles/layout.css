@@ -121,10 +121,9 @@
 
 .controls-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(180px, 1fr) minmax(
-      180px,
-      1fr
-    ) auto;
+  grid-template-columns:
+    minmax(220px, 1.4fr) minmax(180px, 1fr) minmax(180px, 1fr)
+    auto;
   gap: 14px;
   align-items: end;
   padding: 18px;
