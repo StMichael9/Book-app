@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -18,9 +20,14 @@ from rate_limit import limiter
 
 app = FastAPI()
 
+def _parse_cors_origins() -> list[str]:
+    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # your React dev server's origin
+    allow_origins=_parse_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],

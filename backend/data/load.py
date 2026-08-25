@@ -49,6 +49,10 @@ for row in load.itertuples():
             f"https://covers.openlibrary.org/b/id/{int(row.cover_id)}-L.jpg"
         )
 
+    # 3b. Description, straight from the pipeline's Works API fetch.
+    # Same "may legitimately be missing" handling as everything else here.
+    description = row.description if pd.notna(row.description) else None
+
 
     # 4. Process Book
     year = (
@@ -71,7 +75,8 @@ for row in load.itertuples():
         book = Book(
             title=row.title,
             published_year=year,
-            cover_image_url=cover_image_url
+            cover_image_url=cover_image_url,
+            description=description
         )
 
         book.authors.append(author)
@@ -82,12 +87,16 @@ for row in load.itertuples():
         db.add(book)
         print(book.title)
     else:
-        # Existing books (already loaded before cover_image_url existed)
-        # would otherwise never get their cover backfilled, since this
+        # Existing books (already loaded before cover_image_url/description
+        # existed) would otherwise never get these backfilled, since this
         # branch previously did nothing for books that already exist.
         if not book.cover_image_url and cover_image_url:
             book.cover_image_url = cover_image_url
             print(f"Backfilled cover for: {book.title}")
+
+        if not book.description and description:
+            book.description = description
+            print(f"Backfilled description for: {book.title}")
 
 
 db.commit()
