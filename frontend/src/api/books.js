@@ -2,10 +2,17 @@ import { apiRequest } from "./client.js";
 
 export async function getBooks(params = {}) {
   const searchParams = new URLSearchParams();
+  const tagValues = Array.isArray(params.tag)
+    ? params.tag
+    : Array.isArray(params.tags)
+      ? params.tags
+      : params.tag
+        ? [params.tag]
+        : [];
 
   if (params.book) searchParams.set("book", params.book);
   if (params.author) searchParams.set("author", params.author);
-  if (params.tag) searchParams.set("tag", params.tag);
+  tagValues.forEach((tag) => searchParams.append("tag", tag));
   if (params.page) searchParams.set("page", String(params.page));
   if (params.size) searchParams.set("size", String(params.size));
 

@@ -62,10 +62,6 @@ export default function BookCard({ book }) {
             ))}
           </div>
         ) : null}
-
-        {book.description ? (
-          <p className="description">{book.description}</p>
-        ) : null}
       </div>
     </article>
   );

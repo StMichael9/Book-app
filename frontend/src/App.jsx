@@ -52,7 +52,7 @@ function App() {
 
 function HomePage() {
   const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState({ book: "", author: "", tag: "" });
+  const [filters, setFilters] = useState({ book: "", author: "", tags: [] });
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -62,12 +62,19 @@ function HomePage() {
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
-    const paramTag = searchParams.get("tag")?.trim() ?? "";
+    const paramTags = searchParams
+      .getAll("tag")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const paramBook = searchParams.get("book")?.trim() ?? "";
+    const paramAuthor = searchParams.get("author")?.trim() ?? "";
 
-    if (paramTag) {
+    if (paramBook || paramAuthor || paramTags.length > 0) {
       setFilters((current) => ({
         ...current,
-        tag: paramTag,
+        book: paramBook,
+        author: paramAuthor,
+        tags: paramTags,
       }));
       setPage(1);
       setHasSearched(true);
@@ -75,7 +82,7 @@ function HomePage() {
     }
 
     if (!searchParams.toString()) {
-      setFilters({ book: "", author: "", tag: "" });
+      setFilters({ book: "", author: "", tags: [] });
       setPage(1);
       setHasSearched(true);
     }
@@ -85,7 +92,13 @@ function HomePage() {
     const normalized = {
       book: nextFilters.book.trim(),
       author: nextFilters.author.trim(),
-      tag: nextFilters.tag.trim(),
+      tags: Array.from(
+        new Set(
+          (nextFilters.tags ?? [])
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        ),
+      ),
     };
 
     setFilters(normalized);
@@ -104,7 +117,7 @@ function HomePage() {
         const payload = await getBooks({
           book: filters.book,
           author: filters.author,
-          tag: filters.tag,
+          tags: filters.tags,
           page,
           size,
         });
@@ -150,7 +163,7 @@ function HomePage() {
       [
         filters.book && `Title: ${filters.book}`,
         filters.author && `Author: ${filters.author}`,
-        filters.tag && `Tag: ${filters.tag}`,
+        ...filters.tags.map((tag) => `Tag: ${tag}`),
       ].filter(Boolean),
     [filters],
   );
@@ -166,7 +179,7 @@ function HomePage() {
         error={error}
         query={filters.book}
         author={filters.author}
-        tag={filters.tag}
+        tags={filters.tags}
       />
 
       <Pagination
@@ -297,7 +310,10 @@ function BookDetailPage() {
           ) : null}
 
           {book.description ? (
-            <p className="description">{book.description}</p>
+            <section className="detail-section" aria-label="Description">
+              <p className="detail-section-label">Description</p>
+              <p className="description">{book.description}</p>
+            </section>
           ) : null}
         </div>
       </div>

@@ -7,7 +7,7 @@ export default function ResultsList({
   error,
   query,
   author,
-  tag,
+  tags,
 }) {
   if (error) {
     return <p className="error-message">{error}</p>;
@@ -18,7 +18,7 @@ export default function ResultsList({
   }
 
   if (books.length === 0) {
-    return <EmptyState query={query} author={author} tag={tag} />;
+    return <EmptyState query={query} author={author} tags={tags} />;
   }
 
   return (

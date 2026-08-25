@@ -5,28 +5,53 @@ import AutocompleteInput from "./AutocompleteInput.jsx";
 export default function SearchBar({ onSearch, activeFilters }) {
   const [book, setBook] = useState("");
   const [author, setAuthor] = useState("");
-  const [tag, setTag] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState([]);
+
+  const addTag = (nextTag) => {
+    const trimmed = nextTag.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    setTags((current) =>
+      current.includes(trimmed) ? current : [...current, trimmed],
+    );
+    setTagInput("");
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags((current) => current.filter((tag) => tag !== tagToRemove));
+  };
 
   const pills = useMemo(
     () =>
       [
         book && `Title: ${book}`,
         author && `Author: ${author}`,
-        tag && `Tag: ${tag}`,
+        ...tags.map((tag) => `Tag: ${tag}`),
       ].filter(Boolean),
-    [book, author, tag],
+    [book, author, tags],
   );
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    onSearch({ book, author, tag });
+    const nextTags = Array.from(
+      new Set([...tags, tagInput.trim()].filter(Boolean)),
+    );
+
+    setTags(nextTags);
+    setTagInput("");
+    onSearch({ book, author, tags: nextTags });
   };
 
   const handleReset = () => {
     setBook("");
     setAuthor("");
-    setTag("");
-    onSearch({ book: "", author: "", tag: "" });
+    setTagInput("");
+    setTags([]);
+    onSearch({ book: "", author: "", tags: [] });
   };
 
   return (
@@ -59,11 +84,28 @@ export default function SearchBar({ onSearch, activeFilters }) {
         <AutocompleteInput
           id="tag-filter"
           label="Tag"
-          value={tag}
-          onChange={setTag}
+          value={tagInput}
+          onChange={setTagInput}
+          onSelect={addTag}
+          selectedValues={tags}
           placeholder="Search by tag"
           type="tag"
         />
+
+        {tags.length > 0 && (
+          <div className="filter-pills" aria-label="Selected tags">
+            {tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="filter-pill tag-chip"
+                onClick={() => removeTag(tag)}
+              >
+                {tag} ×
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="controls-actions">
           <button type="submit" className="primary-button">

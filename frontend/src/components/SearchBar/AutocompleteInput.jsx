@@ -8,6 +8,8 @@ export default function AutocompleteInput({
   label,
   value,
   onChange,
+  onSelect,
+  selectedValues = [],
   placeholder,
   type,
 }) {
@@ -63,7 +65,13 @@ export default function AutocompleteInput({
     };
   }, [debouncedValue, type]);
 
-  const displayItems = useMemo(() => items.slice(0, 6), [items]);
+  const displayItems = useMemo(
+    () =>
+      items
+        .filter((item) => !selectedValues.includes(item.name))
+        .slice(0, 6),
+    [items, selectedValues],
+  );
 
   return (
     <div className="field-group autocomplete-field">
@@ -98,7 +106,11 @@ export default function AutocompleteInput({
               className="suggestion-item"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                onChange(item.name);
+                if (onSelect) {
+                  onSelect(item.name);
+                } else {
+                  onChange(item.name);
+                }
                 setOpen(false);
                 setItems([]);
               }}

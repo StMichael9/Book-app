@@ -215,6 +215,11 @@
   border: 1px solid var(--outline);
 }
 
+.tag-chip {
+  font: inherit;
+  cursor: pointer;
+}
+
 .loading-state,
 .empty-state,
 .error-message {
@@ -362,6 +367,20 @@
 .detail-copy {
   display: grid;
   gap: 14px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.detail-section-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.74rem;
+  color: var(--muted);
 }
 
 .detail-copy h2 {
