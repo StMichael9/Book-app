@@ -29,6 +29,18 @@ def fetch_with_retry(url, headers, max_attempts=3, timeout=10):
             time.sleep(2 * attempt)  # back off a bit longer each retry
 
 
+def extract_description(work_json):
+    # Open Library's description field is inconsistent: sometimes a plain
+    # string, sometimes {"type": "/type/text", "value": "..."}, and often
+    # missing entirely (community-contributed data). Handle all three.
+    desc = work_json.get("description")
+    if desc is None:
+        return None
+    if isinstance(desc, dict):
+        return desc.get("value")
+    return desc
+
+
 for genre in genres:
     url = f"https://openlibrary.org/subjects/{genre}.json?limit=50"
     raw_file = f"json_data/raw/{genre}_raw.json"
@@ -45,16 +57,18 @@ for genre in genres:
 
     # Guard against a genre returning zero works. pd.json_normalize([])
     # produces a DataFrame with NO columns at all (not just zero rows),
-    # so selecting ['title', 'authors', 'first_publish_year'] below would
-    # raise a KeyError. Build an empty, correctly-shaped frame instead so
-    # the pipeline degrades gracefully rather than crashing mid-loop.
+    # so selecting columns below would raise a KeyError. Build an empty,
+    # correctly-shaped frame instead so the pipeline degrades gracefully
+    # rather than crashing mid-loop.
     if df.empty:
-        df_small = pd.DataFrame(columns=["title", "author", "first_publish_year", "cover_id"])
+        df_small = pd.DataFrame(columns=["title", "author", "first_publish_year", "cover_id", "key"])
     else:
         if "cover_id" not in df.columns:
             df["cover_id"] = None
+        if "key" not in df.columns:
+            df["key"] = None
 
-        df_small = df[['title', 'authors', 'first_publish_year', 'cover_id']].copy()
+        df_small = df[['title', 'authors', 'first_publish_year', 'cover_id', 'key']].copy()
 
         # Replace year 0 with None
         df_small.loc[df_small['first_publish_year'] == 0, 'first_publish_year'] = None
@@ -91,7 +105,8 @@ deduped = (
   combined.groupby(['title', 'author']).agg({
       "genre": list,
     "first_publish_year": "first",
-    "cover_id": "first"
+    "cover_id": "first",
+    "key": "first"
   }).reset_index()
 )
 print(deduped.isna().sum())
@@ -128,5 +143,38 @@ else:
     print("✅ Success: All inner list values belong strictly to your intended genres.")
 
 print(deduped['first_publish_year'].dtype)
+
+# -------------------------
+# FETCH DESCRIPTIONS (Works API - separate endpoint, one call per unique book)
+# -------------------------
+# The Subjects API used above never includes descriptions - only the
+# Works API does (https://openlibrary.org/works/{id}.json), and only for
+# some works (community-contributed, inconsistent). This means one extra
+# HTTP request per unique book here, on top of the 15 genre requests
+# above - a deliberate tradeoff, not free, but it only happens during this
+# occasional pipeline run, never per user request against the live app.
+descriptions = []
+total = len(deduped)
+for i, key in enumerate(deduped['key'], start=1):
+    if pd.isna(key):
+        descriptions.append(None)
+        continue
+
+    try:
+        work_data = fetch_with_retry(f"https://openlibrary.org{key}.json", headers)
+        descriptions.append(extract_description(work_data))
+    except requests.exceptions.RequestException as e:
+        print(f"Skipping description for {key} after repeated failures: {e}")
+        descriptions.append(None)
+
+    if i % 25 == 0 or i == total:
+        print(f"Fetched descriptions: {i}/{total}")
+
+    time.sleep(1)  # same politeness pattern as the genre fetch loop
+
+deduped['description'] = descriptions
+deduped = deduped.drop(columns=['key'])
+
+print(f"Books with a description: {deduped['description'].notna().sum()} / {len(deduped)}")
 
 deduped.to_json("json_data/books_combined.json", orient="records", force_ascii=False)

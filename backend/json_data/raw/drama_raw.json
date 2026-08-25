@@ -3,7 +3,7 @@
   "name": "drama",
   "subject_type": "subject",
   "solr_query": "subject_key:\"drama\"",
-  "work_count": 63119,
+  "work_count": 63121,
   "works": [
     {
       "key": "/works/OL66554W",

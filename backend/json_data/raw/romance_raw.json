@@ -5379,8 +5379,8 @@
       "public_scan": false,
       "has_fulltext": true,
       "availability": {
-        "status": "borrow_unavailable",
-        "available_to_browse": false,
+        "status": "borrow_available",
+        "available_to_browse": true,
         "available_to_borrow": false,
         "available_to_waitlist": false,
         "is_printdisabled": true,
@@ -5396,7 +5396,7 @@
         "num_waitlist": null,
         "last_waitlist_date": null,
         "is_restricted": true,
-        "is_browseable": false,
+        "is_browseable": true,
         "__src__": "core.models.lending.get_availability"
       }
     },

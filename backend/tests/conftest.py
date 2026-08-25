@@ -143,7 +143,7 @@ def db_session(app_modules) -> Session:
     books["dracula"].tags.extend([tags["horror"], tags["gothic"]])
 
     books["good_omens"].authors.extend([authors["gaiman"], authors["pratchett"]])
-    books["good_omens"].tags.extend([tags["fantasy"], tags["humor"]])
+    books["good_omens"].tags.extend([tags["fantasy"], tags["humor"], tags["epic"]])
 
     books["unknown_year"].authors.append(authors["stoker"])
     books["unknown_year"].tags.append(tags["gothic"])

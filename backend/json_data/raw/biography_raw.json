@@ -3,7 +3,7 @@
   "name": "biography",
   "subject_type": "subject",
   "solr_query": "subject_key:\"biography\"",
-  "work_count": 913628,
+  "work_count": 913706,
   "works": [
     {
       "key": "/works/OL20600W",

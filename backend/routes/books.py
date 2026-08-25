@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, Session
 
@@ -21,10 +23,10 @@ def get_books(
     db: Session = Depends(get_db),
     book: str = None,
     author: str = None,
-    tag: str = None,
+    tag: List[str] = Query(None),
 ):
     service = search.SearchService(db)
-    query = service.search_books(book=book, author=author, tag=tag)
+    query = service.search_books(book=book, author=author, tags=tag)
     return paginate(db, query)
 
 

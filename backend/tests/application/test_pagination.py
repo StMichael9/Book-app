@@ -22,6 +22,16 @@ def test_total_is_not_inflated_by_join_duplicates(client):
     assert len(_book_titles(payload)) == len(set(_book_titles(payload)))
 
 
+def test_total_stays_correct_for_multi_tag_filter_with_extra_relationships(client):
+    response = client.get("/books", params={"tag": ["fantasy", "humor"]})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["title"] == "Good Omens"
+
+
 def test_multi_tag_book_appears_once_and_keeps_all_tags(client):
     response = client.get("/books", params={"book": "Dracula"})
 

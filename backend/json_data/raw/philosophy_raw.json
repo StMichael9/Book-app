@@ -3,7 +3,7 @@
   "name": "philosophy",
   "subject_type": "subject",
   "solr_query": "subject_key:\"philosophy\"",
-  "work_count": 204052,
+  "work_count": 204078,
   "works": [
     {
       "key": "/works/OL9170454W",

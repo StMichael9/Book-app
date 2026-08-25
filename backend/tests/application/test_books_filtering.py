@@ -41,6 +41,24 @@ def test_tag_filter_requires_exact_tag_name(client):
     assert partial_response.json()["items"] == []
 
 
+def test_multi_tag_filter_requires_all_selected_tags(client):
+    response = client.get("/books", params={"tag": ["fantasy", "humor"]})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert _titles(payload) == {"Good Omens"}
+
+
+def test_multi_tag_filter_returns_empty_when_no_book_has_both_tags(client):
+    response = client.get("/books", params={"tag": ["fantasy", "gothic"]})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 0
+    assert payload["items"] == []
+
+
 def test_book_and_author_filters_can_be_combined(client):
     response = client.get("/books", params={"book": "Fellowship", "author": "Tolkien"})
 
