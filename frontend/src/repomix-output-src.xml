@@ -1,0 +1,1998 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+api/
+  autocomplete.js
+  books.js
+  client.js
+assets/
+  hero.png
+  react.svg
+  vite.svg
+components/
+  SearchBar/
+    AutocompleteInput.jsx
+    SearchBar.jsx
+  BookCard.jsx
+  CuratedShelves.jsx
+  EmptyState.jsx
+  Header.jsx
+  Hero.jsx
+  Pagination.jsx
+  ResultsList.jsx
+hooks/
+  useDebounce.js
+styles/
+  base.css
+  components.css
+  index.css
+  layout.css
+  mobile.css
+  variables.css
+App.css
+App.jsx
+index.css
+main.jsx
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="api/autocomplete.js">
+import { apiRequest } from "./client.js";
+
+export async function suggestAuthors(q) {
+  const trimmed = q.trim();
+  if (!trimmed) return [];
+
+  try {
+    return await apiRequest(
+      `/autocomplete/authors?q=${encodeURIComponent(trimmed)}`,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function suggestTags(q) {
+  const trimmed = q.trim();
+  if (!trimmed) return [];
+
+  try {
+    return await apiRequest(
+      `/autocomplete/tags?q=${encodeURIComponent(trimmed)}`,
+    );
+  } catch {
+    return [];
+  }
+}
+</file>
+
+<file path="api/books.js">
+import { apiRequest } from "./client.js";
+
+export async function getBooks(params = {}) {
+  const searchParams = new URLSearchParams();
+  const tagValues = Array.isArray(params.tag)
+    ? params.tag
+    : Array.isArray(params.tags)
+      ? params.tags
+      : params.tag
+        ? [params.tag]
+        : [];
+
+  if (params.book) searchParams.set("book", params.book);
+  if (params.author) searchParams.set("author", params.author);
+  tagValues.forEach((tag) => searchParams.append("tag", tag));
+  if (params.page) searchParams.set("page", String(params.page));
+  if (params.size) searchParams.set("size", String(params.size));
+
+  const query = searchParams.toString();
+  const path = query ? `/books?${query}` : "/books";
+  return apiRequest(path);
+}
+
+export async function getBookById(id) {
+  return apiRequest(`/books/${id}`);
+}
+</file>
+
+<file path="api/client.js">
+const DEFAULT_API_BASE_URL = "https://book-app-8bn6.onrender.com";
+
+export const API_BASE_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
+  DEFAULT_API_BASE_URL;
+
+export async function apiRequest(path, options = {}) {
+  const url = `${API_BASE_URL}${path}`;
+
+  const response = await fetch(url, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const message = `Request failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+</file>
+
+<file path="assets/react.svg">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="35.93" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 228"><path fill="#00D8FF" d="M210.483 73.824a171.49 171.49 0 0 0-8.24-2.597c.465-1.9.893-3.777 1.273-5.621c6.238-30.281 2.16-54.676-11.769-62.708c-13.355-7.7-35.196.329-57.254 19.526a171.23 171.23 0 0 0-6.375 5.848a155.866 155.866 0 0 0-4.241-3.917C100.759 3.829 77.587-4.822 63.673 3.233C50.33 10.957 46.379 33.89 51.995 62.588a170.974 170.974 0 0 0 1.892 8.48c-3.28.932-6.445 1.924-9.474 2.98C17.309 83.498 0 98.307 0 113.668c0 15.865 18.582 31.778 46.812 41.427a145.52 145.52 0 0 0 6.921 2.165a167.467 167.467 0 0 0-2.01 9.138c-5.354 28.2-1.173 50.591 12.134 58.266c13.744 7.926 36.812-.22 59.273-19.855a145.567 145.567 0 0 0 5.342-4.923a168.064 168.064 0 0 0 6.92 6.314c21.758 18.722 43.246 26.282 56.54 18.586c13.731-7.949 18.194-32.003 12.4-61.268a145.016 145.016 0 0 0-1.535-6.842c1.62-.48 3.21-.974 4.76-1.488c29.348-9.723 48.443-25.443 48.443-41.52c0-15.417-17.868-30.326-45.517-39.844Zm-6.365 70.984c-1.4.463-2.836.91-4.3 1.345c-3.24-10.257-7.612-21.163-12.963-32.432c5.106-11 9.31-21.767 12.459-31.957c2.619.758 5.16 1.557 7.61 2.4c23.69 8.156 38.14 20.213 38.14 29.504c0 9.896-15.606 22.743-40.946 31.14Zm-10.514 20.834c2.562 12.94 2.927 24.64 1.23 33.787c-1.524 8.219-4.59 13.698-8.382 15.893c-8.067 4.67-25.32-1.4-43.927-17.412a156.726 156.726 0 0 1-6.437-5.87c7.214-7.889 14.423-17.06 21.459-27.246c12.376-1.098 24.068-2.894 34.671-5.345a134.17 134.17 0 0 1 1.386 6.193ZM87.276 214.515c-7.882 2.783-14.16 2.863-17.955.675c-8.075-4.657-11.432-22.636-6.853-46.752a156.923 156.923 0 0 1 1.869-8.499c10.486 2.32 22.093 3.988 34.498 4.994c7.084 9.967 14.501 19.128 21.976 27.15a134.668 134.668 0 0 1-4.877 4.492c-9.933 8.682-19.886 14.842-28.658 17.94ZM50.35 144.747c-12.483-4.267-22.792-9.812-29.858-15.863c-6.35-5.437-9.555-10.836-9.555-15.216c0-9.322 13.897-21.212 37.076-29.293c2.813-.98 5.757-1.905 8.812-2.773c3.204 10.42 7.406 21.315 12.477 32.332c-5.137 11.18-9.399 22.249-12.634 32.792a134.718 134.718 0 0 1-6.318-1.979Zm12.378-84.26c-4.811-24.587-1.616-43.134 6.425-47.789c8.564-4.958 27.502 2.111 47.463 19.835a144.318 144.318 0 0 1 3.841 3.545c-7.438 7.987-14.787 17.08-21.808 26.988c-12.04 1.116-23.565 2.908-34.161 5.309a160.342 160.342 0 0 1-1.76-7.887Zm110.427 27.268a347.8 347.8 0 0 0-7.785-12.803c8.168 1.033 15.994 2.404 23.343 4.08c-2.206 7.072-4.956 14.465-8.193 22.045a381.151 381.151 0 0 0-7.365-13.322Zm-45.032-43.861c5.044 5.465 10.096 11.566 15.065 18.186a322.04 322.04 0 0 0-30.257-.006c4.974-6.559 10.069-12.652 15.192-18.18ZM82.802 87.83a323.167 323.167 0 0 0-7.227 13.238c-3.184-7.553-5.909-14.98-8.134-22.152c7.304-1.634 15.093-2.97 23.209-3.984a321.524 321.524 0 0 0-7.848 12.897Zm8.081 65.352c-8.385-.936-16.291-2.203-23.593-3.793c2.26-7.3 5.045-14.885 8.298-22.6a321.187 321.187 0 0 0 7.257 13.246c2.594 4.48 5.28 8.868 8.038 13.147Zm37.542 31.03c-5.184-5.592-10.354-11.779-15.403-18.433c4.902.192 9.899.29 14.978.29c5.218 0 10.376-.117 15.453-.343c-4.985 6.774-10.018 12.97-15.028 18.486Zm52.198-57.817c3.422 7.8 6.306 15.345 8.596 22.52c-7.422 1.694-15.436 3.058-23.88 4.071a382.417 382.417 0 0 0 7.859-13.026a347.403 347.403 0 0 0 7.425-13.565Zm-16.898 8.101a358.557 358.557 0 0 1-12.281 19.815a329.4 329.4 0 0 1-23.444.823c-7.967 0-15.716-.248-23.178-.732a310.202 310.202 0 0 1-12.513-19.846h.001a307.41 307.41 0 0 1-10.923-20.627a310.278 310.278 0 0 1 10.89-20.637l-.001.001a307.318 307.318 0 0 1 12.413-19.761c7.613-.576 15.42-.876 23.31-.876H128c7.926 0 15.743.303 23.354.883a329.357 329.357 0 0 1 12.335 19.695a358.489 358.489 0 0 1 11.036 20.54a329.472 329.472 0 0 1-11 20.722Zm22.56-122.124c8.572 4.944 11.906 24.881 6.52 51.026c-.344 1.668-.73 3.367-1.15 5.09c-10.622-2.452-22.155-4.275-34.23-5.408c-7.034-10.017-14.323-19.124-21.64-27.008a160.789 160.789 0 0 1 5.888-5.4c18.9-16.447 36.564-22.941 44.612-18.3ZM128 90.808c12.625 0 22.86 10.235 22.86 22.86s-10.235 22.86-22.86 22.86s-22.86-10.235-22.86-22.86s10.235-22.86 22.86-22.86Z"></path></svg>
+</file>
+
+<file path="assets/vite.svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="77" height="47" fill="none" aria-labelledby="vite-logo-title" viewBox="0 0 77 47"><title id="vite-logo-title">Vite</title><style>.parenthesis{fill:#000}@media (prefers-color-scheme:dark){.parenthesis{fill:#fff}}</style><path fill="#9135ff" d="M40.151 45.71c-.663.844-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.493c-.92 0-1.457-1.04-.92-1.788l7.479-10.471c1.07-1.498 0-3.578-1.842-3.578H15.443c-.92 0-1.456-1.04-.92-1.788l9.696-13.576c.213-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.472c-1.07 1.497 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.087.89 1.83L40.153 45.712z"/><mask id="a" width="48" height="47" x="14" y="0" maskUnits="userSpaceOnUse" style="mask-type:alpha"><path fill="#000" d="M40.047 45.71c-.663.843-2.02.374-2.02-.699V34.708a2.26 2.26 0 0 0-2.262-2.262H24.389c-.92 0-1.457-1.04-.92-1.788l7.479-10.472c1.07-1.497 0-3.578-1.842-3.578H15.34c-.92 0-1.456-1.04-.92-1.788l9.696-13.575c.213-.297.556-.474.92-.474H53.93c.92 0 1.456 1.04.92 1.788L47.37 13.03c-1.07 1.498 0 3.578 1.842 3.578h11.376c.944 0 1.474 1.088.89 1.831L40.049 45.712z"/></mask><g mask="url(#a)"><g filter="url(#b)"><ellipse cx="5.508" cy="14.704" fill="#eee6ff" rx="5.508" ry="14.704" transform="rotate(269.814 20.96 11.29)scale(-1 1)"/></g><g filter="url(#c)"><ellipse cx="10.399" cy="29.851" fill="#eee6ff" rx="10.399" ry="29.851" transform="rotate(89.814 -16.902 -8.275)scale(1 -1)"/></g><g filter="url(#d)"><ellipse cx="5.508" cy="30.487" fill="#8900ff" rx="5.508" ry="30.487" transform="rotate(89.814 -19.197 -7.127)scale(1 -1)"/></g><g filter="url(#e)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.928 4.177)scale(1 -1)"/></g><g filter="url(#f)"><ellipse cx="5.508" cy="30.599" fill="#8900ff" rx="5.508" ry="30.599" transform="rotate(89.814 -25.738 5.52)scale(1 -1)"/></g><g filter="url(#g)"><ellipse cx="14.072" cy="22.078" fill="#eee6ff" rx="14.072" ry="22.078" transform="rotate(93.35 31.245 55.578)scale(-1 1)"/></g><g filter="url(#h)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#i)"><ellipse cx="3.47" cy="21.501" fill="#8900ff" rx="3.47" ry="21.501" transform="rotate(89.009 35.419 55.202)scale(-1 1)"/></g><g filter="url(#j)"><ellipse cx="14.592" cy="9.743" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(39.51 14.592 9.743)"/></g><g filter="url(#k)"><ellipse cx="61.728" cy="-5.321" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 61.728 -5.32)"/></g><g filter="url(#l)"><ellipse cx="55.618" cy="7.104" fill="#00c2ff" rx="5.971" ry="9.665" transform="rotate(37.892 55.618 7.104)"/></g><g filter="url(#m)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#n)"><ellipse cx="12.326" cy="39.103" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 12.326 39.103)"/></g><g filter="url(#o)"><ellipse cx="49.857" cy="30.678" fill="#8900ff" rx="4.407" ry="29.108" transform="rotate(37.892 49.857 30.678)"/></g><g filter="url(#p)"><ellipse cx="52.623" cy="33.171" fill="#00c2ff" rx="5.971" ry="15.297" transform="rotate(37.892 52.623 33.17)"/></g></g><path d="M6.919 0c-9.198 13.166-9.252 33.575 0 46.789h6.215c-9.25-13.214-9.196-33.623 0-46.789zm62.424 0h-6.215c9.198 13.166 9.252 33.575 0 46.789h6.215c9.25-13.214 9.196-33.623 0-46.789" class="parenthesis"/><defs><filter id="b" width="60.045" height="41.654" x="-5.564" y="16.92" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="c" width="90.34" height="51.437" x="-40.407" y="-6.762" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="d" width="79.355" height="29.4" x="-35.435" y="2.801" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="e" width="79.579" height="29.4" x="-30.84" y="20.8" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="f" width="79.579" height="29.4" x="-29.307" y="21.949" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="g" width="74.749" height="58.852" x="29.961" y="-17.13" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="7.659"/></filter><filter id="h" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="i" width="61.377" height="25.362" x="37.754" y="3.055" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="j" width="56.045" height="63.649" x="-13.43" y="-22.082" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="k" width="54.814" height="64.646" x="34.321" y="-37.644" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="l" width="33.541" height="35.313" x="38.847" y="-10.552" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="m" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="n" width="54.814" height="64.646" x="-15.081" y="6.78" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="o" width="54.814" height="64.646" x="22.45" y="-1.645" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter><filter id="p" width="39.409" height="43.623" x="32.919" y="11.36" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse"><feFlood flood-opacity="0" result="BackgroundImageFix"/><feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape"/><feGaussianBlur result="effect1_foregroundBlur_2002_17286" stdDeviation="4.596"/></filter></defs></svg>
+</file>
+
+<file path="components/SearchBar/AutocompleteInput.jsx">
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { suggestAuthors, suggestTags } from "../../api/autocomplete.js";
+import { useDebounce } from "../../hooks/useDebounce.js";
+
+export default function AutocompleteInput({
+  id,
+  label,
+  value,
+  onChange,
+  onSelect,
+  selectedValues = [],
+  placeholder,
+  type,
+}) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const requestIdRef = useRef(0);
+  const debouncedValue = useDebounce(value, 300);
+
+  useEffect(() => {
+    const trimmed = debouncedValue.trim();
+    const currentRequestId = ++requestIdRef.current;
+
+    if (!trimmed) {
+      setItems([]);
+      setOpen(false);
+      setLoading(false);
+      return;
+    }
+
+    const runLookup = async () => {
+      setLoading(true);
+
+      try {
+        const lookup = type === "author" ? suggestAuthors : suggestTags;
+        const result = await lookup(trimmed);
+
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
+        const nextItems = Array.isArray(result) ? result : [];
+        setItems(nextItems);
+        setOpen(true);
+      } catch {
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
+        setItems([]);
+        setOpen(false);
+      } finally {
+        if (currentRequestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    runLookup();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [debouncedValue, type]);
+
+  const displayItems = useMemo(
+    () =>
+      items
+        .filter((item) => !selectedValues.includes(item.name))
+        .slice(0, 6),
+    [items, selectedValues],
+  );
+
+  return (
+    <div className="field-group autocomplete-field">
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(Boolean(event.target.value.trim()));
+        }}
+        onFocus={() => {
+          if (value.trim() && displayItems.length) setOpen(true);
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setOpen(false), 120);
+        }}
+        placeholder={placeholder}
+      />
+
+      {open && !loading && displayItems.length > 0 ? (
+        <div
+          className="suggestion-box"
+          role="listbox"
+          aria-label={`${label} suggestions`}
+        >
+          {displayItems.map((item) => (
+            <button
+              key={item.id ?? `${item.name}-${label}`}
+              type="button"
+              className="suggestion-item"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                if (onSelect) {
+                  onSelect(item.name);
+                } else {
+                  onChange(item.name);
+                }
+                setOpen(false);
+                setItems([]);
+              }}
+            >
+              {item.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {open && !loading && value.trim() && displayItems.length === 0 ? (
+        <div className="suggestion-box suggestion-empty" role="status">
+          <span>No matches found.</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+</file>
+
+<file path="components/SearchBar/SearchBar.jsx">
+import { useMemo, useState } from "react";
+
+import AutocompleteInput from "./AutocompleteInput.jsx";
+
+export default function SearchBar({ onSearch, activeFilters }) {
+  const [book, setBook] = useState("");
+  const [author, setAuthor] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [tags, setTags] = useState([]);
+
+  const addTag = (nextTag) => {
+    const trimmed = nextTag.trim();
+
+    if (!trimmed) {
+      return;
+    }
+
+    setTags((current) =>
+      current.includes(trimmed) ? current : [...current, trimmed],
+    );
+    setTagInput("");
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags((current) => current.filter((tag) => tag !== tagToRemove));
+  };
+
+  const pills = useMemo(
+    () =>
+      [
+        book && `Title: ${book}`,
+        author && `Author: ${author}`,
+        ...tags.map((tag) => `Tag: ${tag}`),
+      ].filter(Boolean),
+    [book, author, tags],
+  );
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const nextTags = Array.from(
+      new Set([...tags, tagInput.trim()].filter(Boolean)),
+    );
+
+    setTags(nextTags);
+    setTagInput("");
+    onSearch({ book, author, tags: nextTags });
+  };
+
+  const handleReset = () => {
+    setBook("");
+    setAuthor("");
+    setTagInput("");
+    setTags([]);
+    onSearch({ book: "", author: "", tags: [] });
+  };
+
+  return (
+    <>
+      <form
+        className="controls-panel"
+        onSubmit={handleSubmit}
+        aria-label="Book filters"
+      >
+        <div className="field-group search-field">
+          <label htmlFor="book-search">Title</label>
+          <input
+            id="book-search"
+            type="text"
+            value={book}
+            onChange={(event) => setBook(event.target.value)}
+            placeholder="Search by title"
+          />
+        </div>
+
+        <AutocompleteInput
+          id="author-filter"
+          label="Author"
+          value={author}
+          onChange={setAuthor}
+          placeholder="Search by author"
+          type="author"
+        />
+
+        <AutocompleteInput
+          id="tag-filter"
+          label="Tag"
+          value={tagInput}
+          onChange={setTagInput}
+          onSelect={addTag}
+          selectedValues={tags}
+          placeholder="Search by tag"
+          type="tag"
+        />
+
+        {tags.length > 0 && (
+          <div className="filter-pills" aria-label="Selected tags">
+            {tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="filter-pill tag-chip"
+                onClick={() => removeTag(tag)}
+              >
+                {tag} ×
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="controls-actions">
+          <button type="submit" className="primary-button">
+            Search
+          </button>
+          <button type="button" className="reset-button" onClick={handleReset}>
+            Reset
+          </button>
+        </div>
+      </form>
+
+      {pills.length > 0 && (
+        <div className="results-header" aria-live="polite">
+          <div>
+            <p className="eyebrow">Results</p>
+            <h3>{activeFilters.total ?? 0} books found</h3>
+          </div>
+
+          <div className="filter-pills">
+            {pills.map((filter) => (
+              <span key={filter} className="filter-pill">
+                {filter}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+</file>
+
+<file path="components/BookCard.jsx">
+import { useState } from "react";
+import { Link } from "react-router-dom";
+
+function coverInitials(book) {
+  const source = book.title || book.authors?.[0]?.name || "Book";
+  return (
+    source
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("") || "BK"
+  );
+}
+
+export default function BookCard({ book }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const coverText = coverInitials(book);
+
+  return (
+    <article className="book-card">
+      <div className="book-cover" aria-label={book.title || "Book cover"}>
+        {book.cover_image_url && !imageFailed ? (
+          <img
+            src={book.cover_image_url}
+            alt={book.title || "Book cover"}
+            onError={() => setImageFailed(true)}
+          />
+        ) : (
+          <span>{coverText}</span>
+        )}
+      </div>
+
+      <div className="book-body">
+        <div className="book-meta-row">
+          <span className="book-year">
+            {book.published_year || "Year unknown"}
+          </span>
+        </div>
+
+        <Link to={`/book/${book.id}`} className="book-title-link">
+          <h4>{book.title}</h4>
+        </Link>
+
+        {book.subtitle ? (
+          <p className="subtitle-line">{book.subtitle}</p>
+        ) : null}
+
+        <div className="author-line">
+          {book.authors?.length
+            ? book.authors.map((author) => author.name).join(", ")
+            : "Unknown author"}
+        </div>
+
+        {book.tags?.length ? (
+          <div className="tag-list">
+            {book.tags.map((tag) => (
+              <span key={`${book.id}-${tag.id}`} className="tag-chip">
+                {tag.name}
+                <small>{tag.type || "tag"}</small>
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+</file>
+
+<file path="components/CuratedShelves.jsx">
+export default function CuratedShelves() {
+  return null;
+}
+</file>
+
+<file path="components/EmptyState.jsx">
+export default function EmptyState({ query, author, tags = [] }) {
+  const hasFilters = Boolean(query || author || tags.length > 0);
+
+  return (
+    <div className="empty-state">
+      <p>
+        {hasFilters
+          ? "No books match that search yet."
+          : "Your next great read is waiting."}
+      </p>
+      <span>
+        {hasFilters
+          ? "Try a broader title, a different author, fewer tags, or clear a filter to browse more books."
+          : "Start with a title, author, or tag to discover books worth keeping on your nightstand."}
+      </span>
+    </div>
+  );
+}
+</file>
+
+<file path="components/Header.jsx">
+import { Link, NavLink } from "react-router-dom";
+
+const navItems = [
+  { label: "Browse", to: "/browse" },
+  { label: "Staff Picks", to: "/browse?tag=fantasy" },
+  { label: "", to: "" },
+];
+
+export default function Header() {
+  return (
+    <header className="topbar">
+      <div className="brand-block">
+        <Link
+          to="/browse"
+          className="brand-mark"
+          aria-label="Go to Shelfbound home"
+        >
+          S
+        </Link>
+        <div>
+          <h1>Shelfbound</h1>
+        </div>
+      </div>
+
+      <nav className="topnav" aria-label="Main navigation">
+        {navItems
+          .filter(({ label }) => label)
+          .map(({ label, to }) => (
+            <NavLink
+              key={label}
+              to={to}
+              className={({ isActive }) =>
+                `nav-link${isActive ? " active" : ""}`
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+      </nav>
+    </header>
+  );
+}
+</file>
+
+<file path="components/Hero.jsx">
+export default function Hero() {
+  return (
+    <section className="hero-panel">
+      <div className="hero-copy">
+        <p className="eyebrow">Find your next read</p>
+        <h2>Search by title, author, or the mood you want to live inside.</h2>
+        <p className="subtitle">
+          A bookstore-style reader discovery space that narrows results as you
+          browse.
+        </p>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="components/Pagination.jsx">
+export default function Pagination({ page, pages, onPageChange }) {
+  if (pages <= 1) return null;
+
+  // Show up to 5 page numbers centered on the current page, trimmed to
+  // stay within [1, pages]. This keeps the control usable at both small
+  // page counts (12) and large ones (25+) without listing every page.
+  const windowSize = 5;
+  let start = Math.max(1, page - Math.floor(windowSize / 2));
+  let end = Math.min(pages, start + windowSize - 1);
+  start = Math.max(1, end - windowSize + 1);
+
+  const pageNumbers = [];
+  for (let p = start; p <= end; p++) pageNumbers.push(p);
+
+  return (
+    <nav className="pagination" aria-label="Pagination navigation">
+      <button
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onPageChange(1)}
+        aria-label="First page"
+      >
+        « First
+      </button>
+      <button
+        type="button"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        ‹ Previous
+      </button>
+
+      {start > 1 && <span className="pagination-ellipsis">…</span>}
+
+      {pageNumbers.map((p) => (
+        <button
+          key={p}
+          type="button"
+          className={p === page ? "pagination-current" : ""}
+          aria-current={p === page ? "page" : undefined}
+          onClick={() => onPageChange(p)}
+        >
+          {p}
+        </button>
+      ))}
+
+      {end < pages && <span className="pagination-ellipsis">…</span>}
+
+      <button
+        type="button"
+        disabled={page >= pages}
+        onClick={() => onPageChange(page + 1)}
+      >
+        Next ›
+      </button>
+      <button
+        type="button"
+        disabled={page >= pages}
+        onClick={() => onPageChange(pages)}
+        aria-label="Last page"
+      >
+        Last »
+      </button>
+    </nav>
+  );
+}
+</file>
+
+<file path="components/ResultsList.jsx">
+import BookCard from "./BookCard.jsx";
+import EmptyState from "./EmptyState.jsx";
+
+export default function ResultsList({
+  books,
+  loading,
+  error,
+  query,
+  author,
+  tags,
+}) {
+  if (error) {
+    return <p className="error-message">{error}</p>;
+  }
+
+  if (loading) {
+    return <div className="loading-state">Loading books…</div>;
+  }
+
+  if (books.length === 0) {
+    return <EmptyState query={query} author={author} tags={tags} />;
+  }
+
+  return (
+    <section className="book-grid" aria-label="Book results">
+      {books.map((book) => (
+        <BookCard key={book.id} book={book} />
+      ))}
+    </section>
+  );
+}
+</file>
+
+<file path="hooks/useDebounce.js">
+import { useEffect, useState } from "react";
+
+export function useDebounce(value, delay = 300) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+</file>
+
+<file path="styles/base.css">
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--serif);
+  color: var(--text);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+</file>
+
+<file path="styles/components.css">
+.topnav button,
+.reset-button,
+.suggestion-item,
+.primary-button,
+.theme-toggle {
+  border: 1px solid var(--outline);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.topnav button:hover,
+.reset-button:hover,
+.suggestion-item:hover,
+.primary-button:hover,
+.theme-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(18, 24, 38, 0.08);
+}
+
+.suggestion-item {
+  text-align: left;
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.suggestion-empty {
+  padding: 0.8rem 0.9rem;
+  color: var(--muted);
+}
+
+.reset-button,
+.primary-button {
+  min-height: 48px;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: transparent;
+}
+
+.theme-toggle {
+  margin-left: auto;
+  margin-bottom: 16px;
+}
+</file>
+
+<file path="styles/index.css">
+/* 1. Initialize Tailwind v4 */
+@import "tailwindcss";
+
+/* 2. Your existing project styles */
+@import "./variables.css";
+@import "./base.css";
+@import "./layout.css";
+@import "./components.css";
+@import "./mobile.css";
+</file>
+
+<file path="styles/layout.css">
+.app-shell {
+  width: min(1200px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0 28px;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--surface);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  letter-spacing: -0.06em;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.topnav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  color: var(--text);
+  text-decoration: none;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.nav-link.active {
+  background: rgba(140, 59, 46, 0.08);
+  border-color: var(--outline);
+}
+
+.page {
+  display: grid;
+  gap: 24px;
+}
+
+.hero-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  align-items: stretch;
+  padding: 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(122, 111, 93, 0.06)
+  );
+  border: 1px solid var(--outline);
+  border-radius: 24px;
+}
+
+.hero-copy {
+  padding: 8px 0;
+}
+
+.hero-copy h2 {
+  margin: 0 0 14px;
+  font-size: clamp(2.5rem, 5vw, 4.25rem);
+  line-height: 0.96;
+  letter-spacing: -0.08em;
+  max-width: 700px;
+}
+
+.subtitle,
+.subtitle-line,
+.description,
+.author-line,
+.card-label,
+.loading-state,
+.empty-state span,
+.error-message,
+.filter-pill,
+.book-meta-row,
+.field-group label {
+  color: var(--muted);
+}
+
+.subtitle {
+  max-width: 560px;
+  font-size: 1.05rem;
+}
+
+.controls-panel {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.4fr) minmax(180px, 1fr) minmax(180px, 1fr)
+    auto;
+  gap: 14px;
+  align-items: end;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+}
+
+.controls-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-group label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.field-group input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font: inherit;
+}
+
+.field-group input:focus {
+  outline: 2px solid rgba(139, 76, 59, 0.24);
+  outline-offset: 2px;
+}
+
+.suggestion-box {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 16px 28px rgba(18, 24, 38, 0.08);
+}
+
+.reset-button,
+.primary-button {
+  min-height: 48px;
+}
+
+.results-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.results-header h3 {
+  margin: 0;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
+.filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-pill {
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(140, 59, 46, 0.08);
+  color: var(--muted);
+  border: 1px solid var(--outline);
+}
+
+.tag-chip {
+  font: inherit;
+  cursor: pointer;
+}
+
+.loading-state,
+.empty-state,
+.error-message {
+  padding: 1.2rem 1.4rem;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+}
+
+.empty-state {
+  display: grid;
+  gap: 6px;
+}
+
+.empty-state p {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.error-message {
+  color: #b35748;
+  background: rgba(193, 96, 63, 0.08);
+  border-color: rgba(193, 96, 63, 0.2);
+}
+
+.curated-shelves {
+  display: grid;
+  gap: 26px;
+}
+
+.shelf-section {
+  display: grid;
+  gap: 16px;
+}
+
+.shelf-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shelf-header h3 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+  letter-spacing: -0.06em;
+}
+
+.shelf-note {
+  margin: 0;
+  color: var(--muted);
+  max-width: 38ch;
+  line-height: 1.5;
+}
+
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.book-card {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 100%;
+}
+
+.book-cover {
+  position: relative;
+  min-height: 200px;
+  background: linear-gradient(135deg, #1f2a37, #485f4a);
+  display: grid;
+  place-items: center;
+  color: #f5f1e8;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+}
+
+.book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.book-cover span {
+  position: relative;
+  z-index: 1;
+}
+
+.book-detail {
+  display: grid;
+  gap: 18px;
+}
+
+.back-link {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back-link:hover,
+.back-link:focus,
+.back-link:active {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 8px 0 0;
+}
+
+.detail-cover {
+  width: 100%;
+  max-width: 280px;
+  aspect-ratio: 3 / 4;
+  min-height: 330px;
+  border-radius: 20px;
+  box-shadow: 0 20px 34px rgba(18, 24, 38, 0.12);
+}
+
+.detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-copy {
+  display: grid;
+  gap: 14px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.detail-section-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.detail-copy h2 {
+  margin: 0;
+  font-size: clamp(2.3rem, 4vw, 3.6rem);
+  letter-spacing: -0.08em;
+  line-height: 0.95;
+}
+
+.detail-subtitle {
+  margin: 0;
+  font-size: 1.06rem;
+  color: var(--muted);
+}
+
+.book-body {
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 16px;
+}
+
+.book-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.book-year {
+  color: var(--muted);
+}
+
+.book-body h4 {
+  margin: 0;
+  font-size: 1.3rem;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.book-title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.book-title-link:hover,
+.book-title-link:focus,
+.book-title-link:active {
+  color: inherit;
+  text-decoration: none;
+}
+
+.subtitle-line {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.author-line {
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0.42rem 0.7rem;
+  background: rgba(200, 164, 106, 0.1);
+  border: 1px solid rgba(200, 164, 106, 0.22);
+  border-radius: 999px;
+  font-size: 0.74rem;
+  color: var(--text);
+}
+
+.tag-chip small {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.description {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pagination button {
+  border: 1px solid var(--outline);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.7rem 1.1rem;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.active-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+</file>
+
+<file path="styles/mobile.css">
+@media (max-width: 820px) {
+  .app-shell {
+    width: min(1200px, calc(100% - 20px));
+    padding-top: 18px;
+  }
+
+  .topbar {
+    display: grid;
+    gap: 16px;
+    padding-top: 10px;
+  }
+
+  .topnav,
+  .controls-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .brand-block {
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hero-panel,
+  .results-header,
+  .controls-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .controls-panel {
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .field-group {
+    min-width: 0;
+  }
+
+  .field-group input {
+    min-height: 48px;
+  }
+
+  .suggestion-box {
+    position: absolute;
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 30;
+  }
+
+  .suggestion-item {
+    min-height: 44px;
+    padding: 0.85rem 0.9rem;
+  }
+
+  .controls-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .controls-actions button {
+    width: 100%;
+  }
+
+  .book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .book-card {
+    border-radius: 14px;
+  }
+
+  .book-cover {
+    min-height: 160px;
+    font-size: 1.5rem;
+  }
+
+  .book-body {
+    gap: 8px;
+    padding: 10px 10px 12px;
+  }
+
+  .book-body h4 {
+    font-size: 1.14rem;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(2.2rem, 11vw, 3.4rem);
+    line-height: 0.96;
+    max-width: 100%;
+  }
+
+  .results-header {
+    gap: 12px;
+  }
+
+  .filter-pills {
+    gap: 6px;
+  }
+
+  .filter-pill {
+    padding: 0.38rem 0.6rem;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pagination button {
+    min-height: 44px;
+    min-width: 112px;
+  }
+
+  .pagination span {
+    width: 100%;
+    text-align: center;
+    order: 3;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-shell {
+    width: min(100% - 16px, 1200px);
+  }
+
+  .topbar {
+    gap: 10px;
+    padding-top: 8px;
+  }
+
+  .topnav {
+    gap: 8px;
+  }
+
+  .nav-link {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.94rem;
+  }
+
+  .controls-panel {
+    padding: 14px;
+  }
+
+  .controls-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .book-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .book-cover {
+    min-height: 138px;
+  }
+
+  .book-body {
+    padding: 9px 9px 11px;
+  }
+
+  .book-body h4 {
+    font-size: 1.02rem;
+  }
+
+  .tag-chip {
+    padding: 0.32rem 0.56rem;
+    font-size: 0.68rem;
+  }
+
+  .pagination {
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .pagination button {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+}
+</file>
+
+<file path="styles/variables.css">
+:root {
+  --bg: #f4efe6;
+  --surface: #eae0cc;
+  --text: #2b241c;
+  --accent: #8c3b2e;
+  --accent-2: #4a5d45;
+  --muted: #7a6f5d;
+  --outline: rgba(43, 36, 28, 0.12);
+  --panel: #f8f4ee;
+  --input-bg: #f9f6f2;
+  --sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="dark"] {
+  --bg: #1e1b16;
+  --surface: #2a2621;
+  --text: #ede6d6;
+  --accent: #c1603f;
+  --accent-2: #6b8060;
+  --muted: #a6997e;
+  --outline: rgba(237, 230, 214, 0.12);
+  --panel: #2f2a25;
+  --input-bg: #241f1c;
+}
+</file>
+
+<file path="App.css">
+@import "./styles/index.css";
+</file>
+
+<file path="App.jsx">
+import { useEffect, useMemo, useState } from "react";
+import {
+  Link,
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+
+import { getBookById, getBooks } from "./api/books.js";
+import Header from "./components/Header.jsx";
+import Hero from "./components/Hero.jsx";
+import Pagination from "./components/Pagination.jsx";
+import ResultsList from "./components/ResultsList.jsx";
+import SearchBar from "./components/SearchBar/SearchBar.jsx";
+import "./App.css";
+
+function App() {
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  return (
+    <div className="app-shell">
+      <Header />
+
+      <button
+        type="button"
+        className="theme-toggle"
+        onClick={() =>
+          setTheme((current) => (current === "light" ? "dark" : "light"))
+        }
+        aria-label="Toggle warm dark mode"
+      >
+        {theme === "light" ? "Warm dark" : "Vintage light"}
+      </button>
+
+      <main className="page">
+        <Routes>
+          <Route path="/" element={<Navigate to="/browse" replace />} />
+          <Route path="/browse" element={<HomePage />} />
+          <Route path="/book/:bookId" element={<BookDetailPage />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+function HomePage() {
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState({ book: "", author: "", tags: [] });
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [hasSearched, setHasSearched] = useState(true);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    const paramTags = searchParams
+      .getAll("tag")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const paramBook = searchParams.get("book")?.trim() ?? "";
+    const paramAuthor = searchParams.get("author")?.trim() ?? "";
+
+    if (paramBook || paramAuthor || paramTags.length > 0) {
+      setFilters((current) => ({
+        ...current,
+        book: paramBook,
+        author: paramAuthor,
+        tags: paramTags,
+      }));
+      setPage(1);
+      setHasSearched(true);
+      return;
+    }
+
+    if (!searchParams.toString()) {
+      setFilters({ book: "", author: "", tags: [] });
+      setPage(1);
+      setHasSearched(true);
+    }
+  }, [searchParams]);
+
+  const runSearch = (nextFilters) => {
+    const normalized = {
+      book: nextFilters.book.trim(),
+      author: nextFilters.author.trim(),
+      tags: Array.from(
+        new Set(
+          (nextFilters.tags ?? [])
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        ),
+      ),
+    };
+
+    setFilters(normalized);
+    setPage(1);
+    setHasSearched(true);
+  };
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadBooks = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const payload = await getBooks({
+          book: filters.book,
+          author: filters.author,
+          tags: filters.tags,
+          page,
+          size,
+        });
+
+        if (!ignore) {
+          setBooks(Array.isArray(payload?.items) ? payload.items : []);
+          setTotal(Number(payload?.total ?? 0));
+          setSize(Number(payload?.size ?? size));
+          setPage(Number(payload?.page ?? page));
+        }
+      } catch (loadError) {
+        if (!ignore) {
+          setBooks([]);
+          setTotal(0);
+          setError(loadError.message || "Unable to load books right now.");
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (hasSearched) {
+      loadBooks();
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [filters, hasSearched, page, size]);
+
+  const handlePageChange = (nextPage) => {
+    if (nextPage < 1) return;
+    setPage(nextPage);
+    setHasSearched(true);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / size || 1));
+
+  const activeFilters = useMemo(
+    () =>
+      [
+        filters.book && `Title: ${filters.book}`,
+        filters.author && `Author: ${filters.author}`,
+        ...filters.tags.map((tag) => `Tag: ${tag}`),
+      ].filter(Boolean),
+    [filters],
+  );
+
+  return (
+    <>
+      <Hero />
+      <SearchBar onSearch={runSearch} activeFilters={{ total }} />
+
+      <ResultsList
+        books={books}
+        loading={loading}
+        error={error}
+        query={filters.book}
+        author={filters.author}
+        tags={filters.tags}
+      />
+
+      <Pagination
+        page={page}
+        pages={totalPages}
+        onPageChange={handlePageChange}
+      />
+
+      {activeFilters.length > 0 && (
+        <div className="active-filter-summary" aria-live="polite">
+          {activeFilters.map((filter) => (
+            <span key={filter} className="filter-pill">
+              {filter}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function BookDetailPage() {
+  const { bookId } = useParams();
+  const [book, setBook] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadBook = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const nextBook = await getBookById(bookId);
+        if (!ignore) {
+          setBook(nextBook);
+        }
+      } catch (loadError) {
+        if (!ignore) {
+          setError(loadError.message || "Unable to load this book.");
+          setBook(null);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (bookId) {
+      loadBook();
+    }
+
+    return () => {
+      ignore = true;
+    };
+  }, [bookId]);
+
+  if (loading) {
+    return <div className="loading-state">Loading book…</div>;
+  }
+
+  if (error) {
+    return <div className="error-message">{error}</div>;
+  }
+
+  if (!book) {
+    return (
+      <div className="empty-state">
+        <p>This book could not be found.</p>
+        <span>Try another title or head back to the full browse view.</span>
+      </div>
+    );
+  }
+
+  const coverText =
+    (book.title || "Book")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("") || "BK";
+
+  return (
+    <article className="book-detail">
+      <Link to="/browse" className="back-link">
+        ← Back to browse
+      </Link>
+
+      <div className="detail-layout">
+        <div className="book-cover detail-cover" aria-label={book.title}>
+          {book.cover_image_url ? (
+            <img src={book.cover_image_url} alt={book.title} />
+          ) : (
+            <span>{coverText}</span>
+          )}
+        </div>
+
+        <div className="detail-copy">
+          <p className="eyebrow">Book details</p>
+          <h2>{book.title}</h2>
+          {book.subtitle ? (
+            <p className="detail-subtitle">{book.subtitle}</p>
+          ) : null}
+
+          <div className="book-meta-row">
+            <span>{book.published_year || "Year unknown"}</span>
+            {book.page_count ? <span>{book.page_count} pages</span> : null}
+          </div>
+
+          <p className="author-line">
+            {book.authors?.length
+              ? book.authors.map((author) => author.name).join(", ")
+              : "Unknown author"}
+          </p>
+
+          {book.tags?.length ? (
+            <div className="tag-list">
+              {book.tags.map((tag) => (
+                <span key={`${book.id}-${tag.id}`} className="tag-chip">
+                  {tag.name}
+                  <small>{tag.type || "tag"}</small>
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {book.description ? (
+            <section className="detail-section" aria-label="Description">
+              <p className="detail-section-label">Description</p>
+              <p className="description">{book.description}</p>
+            </section>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export default App;
+</file>
+
+<file path="index.css">
+:root {
+  --bg: #f4efe6;
+  --surface: #eae0cc;
+  --text: #2b241c;
+  --accent: #8c3b2e;
+  --accent-2: #4a5d45;
+  --muted: #7a6f5d;
+  --outline: rgba(43, 36, 28, 0.12);
+  --panel: #f8f4ee;
+  --input-bg: #f9f6f2;
+  --sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-theme="dark"] {
+  --bg: #1e1b16;
+  --surface: #2a2621;
+  --text: #ede6d6;
+  --accent: #c1603f;
+  --accent-2: #6b8060;
+  --muted: #a6997e;
+  --outline: rgba(237, 230, 214, 0.12);
+  --panel: #2f2a25;
+  --input-bg: #241f1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--serif);
+  color: var(--text);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+</file>
+
+<file path="main.jsx">
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import "./styles/index.css";
+import App from "./App.jsx";
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
+);
+</file>
+
+</files>

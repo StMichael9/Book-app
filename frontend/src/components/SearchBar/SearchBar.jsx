@@ -10,10 +10,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
 
   const addTag = (nextTag) => {
     const trimmed = nextTag.trim();
-
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
 
     setTags((current) =>
       current.includes(trimmed) ? current : [...current, trimmed],
@@ -61,7 +58,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
         onSubmit={handleSubmit}
         aria-label="Book filters"
       >
-        <div className="field-group search-field">
+        <div className="field-group">
           <label htmlFor="book-search">Title</label>
           <input
             id="book-search"

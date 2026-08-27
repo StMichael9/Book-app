@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Link,
   Navigate,
-  NavLink,
   Route,
   Routes,
   useParams,
@@ -15,7 +14,7 @@ import Hero from "./components/Hero.jsx";
 import Pagination from "./components/Pagination.jsx";
 import ResultsList from "./components/ResultsList.jsx";
 import SearchBar from "./components/SearchBar/SearchBar.jsx";
-import "./App.css";
+import BookDetailPage from "./components/BookDetailPage.jsx";
 
 function App() {
   const [theme, setTheme] = useState("light");
@@ -43,6 +42,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/browse" replace />} />
           <Route path="/browse" element={<HomePage />} />
+          <Route path="/book/:bookId" element={<BookDetailPage />} />
           <Route path="/book/:bookId" element={<BookDetailPage />} />
         </Routes>
       </main>
@@ -94,9 +94,7 @@ function HomePage() {
       author: nextFilters.author.trim(),
       tags: Array.from(
         new Set(
-          (nextFilters.tags ?? [])
-            .map((tag) => tag.trim())
-            .filter(Boolean),
+          (nextFilters.tags ?? []).map((tag) => tag.trim()).filter(Boolean),
         ),
       ),
     };
@@ -198,126 +196,6 @@ function HomePage() {
         </div>
       )}
     </>
-  );
-}
-
-function BookDetailPage() {
-  const { bookId } = useParams();
-  const [book, setBook] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let ignore = false;
-
-    const loadBook = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const nextBook = await getBookById(bookId);
-        if (!ignore) {
-          setBook(nextBook);
-        }
-      } catch (loadError) {
-        if (!ignore) {
-          setError(loadError.message || "Unable to load this book.");
-          setBook(null);
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    };
-
-    if (bookId) {
-      loadBook();
-    }
-
-    return () => {
-      ignore = true;
-    };
-  }, [bookId]);
-
-  if (loading) {
-    return <div className="loading-state">Loading book…</div>;
-  }
-
-  if (error) {
-    return <div className="error-message">{error}</div>;
-  }
-
-  if (!book) {
-    return (
-      <div className="empty-state">
-        <p>This book could not be found.</p>
-        <span>Try another title or head back to the full browse view.</span>
-      </div>
-    );
-  }
-
-  const coverText =
-    (book.title || "Book")
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() || "")
-      .join("") || "BK";
-
-  return (
-    <article className="book-detail">
-      <Link to="/browse" className="back-link">
-        ← Back to browse
-      </Link>
-
-      <div className="detail-layout">
-        <div className="book-cover detail-cover" aria-label={book.title}>
-          {book.cover_image_url ? (
-            <img src={book.cover_image_url} alt={book.title} />
-          ) : (
-            <span>{coverText}</span>
-          )}
-        </div>
-
-        <div className="detail-copy">
-          <p className="eyebrow">Book details</p>
-          <h2>{book.title}</h2>
-          {book.subtitle ? (
-            <p className="detail-subtitle">{book.subtitle}</p>
-          ) : null}
-
-          <div className="book-meta-row">
-            <span>{book.published_year || "Year unknown"}</span>
-            {book.page_count ? <span>{book.page_count} pages</span> : null}
-          </div>
-
-          <p className="author-line">
-            {book.authors?.length
-              ? book.authors.map((author) => author.name).join(", ")
-              : "Unknown author"}
-          </p>
-
-          {book.tags?.length ? (
-            <div className="tag-list">
-              {book.tags.map((tag) => (
-                <span key={`${book.id}-${tag.id}`} className="tag-chip">
-                  {tag.name}
-                  <small>{tag.type || "tag"}</small>
-                </span>
-              ))}
-            </div>
-          ) : null}
-
-          {book.description ? (
-            <section className="detail-section" aria-label="Description">
-              <p className="detail-section-label">Description</p>
-              <p className="description">{book.description}</p>
-            </section>
-          ) : null}
-        </div>
-      </div>
-    </article>
   );
 }
 

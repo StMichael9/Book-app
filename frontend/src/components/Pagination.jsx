@@ -1,9 +1,6 @@
 export default function Pagination({ page, pages, onPageChange }) {
   if (pages <= 1) return null;
 
-  // Show up to 5 page numbers centered on the current page, trimmed to
-  // stay within [1, pages]. This keeps the control usable at both small
-  // page counts (12) and large ones (25+) without listing every page.
   const windowSize = 5;
   let start = Math.max(1, page - Math.floor(windowSize / 2));
   let end = Math.min(pages, start + windowSize - 1);
@@ -30,13 +27,12 @@ export default function Pagination({ page, pages, onPageChange }) {
         ‹ Previous
       </button>
 
-      {start > 1 && <span className="pagination-ellipsis">…</span>}
+      {start > 1 && <span>…</span>}
 
       {pageNumbers.map((p) => (
         <button
           key={p}
           type="button"
-          className={p === page ? "pagination-current" : ""}
           aria-current={p === page ? "page" : undefined}
           onClick={() => onPageChange(p)}
         >
@@ -44,7 +40,7 @@ export default function Pagination({ page, pages, onPageChange }) {
         </button>
       ))}
 
-      {end < pages && <span className="pagination-ellipsis">…</span>}
+      {end < pages && <span>…</span>}
 
       <button
         type="button"

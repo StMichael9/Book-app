@@ -37,18 +37,12 @@ export default function AutocompleteInput({
         const lookup = type === "author" ? suggestAuthors : suggestTags;
         const result = await lookup(trimmed);
 
-        if (currentRequestId !== requestIdRef.current) {
-          return;
-        }
+        if (currentRequestId !== requestIdRef.current) return;
 
-        const nextItems = Array.isArray(result) ? result : [];
-        setItems(nextItems);
+        setItems(Array.isArray(result) ? result : []);
         setOpen(true);
       } catch {
-        if (currentRequestId !== requestIdRef.current) {
-          return;
-        }
-
+        if (currentRequestId !== requestIdRef.current) return;
         setItems([]);
         setOpen(false);
       } finally {
@@ -67,14 +61,12 @@ export default function AutocompleteInput({
 
   const displayItems = useMemo(
     () =>
-      items
-        .filter((item) => !selectedValues.includes(item.name))
-        .slice(0, 6),
+      items.filter((item) => !selectedValues.includes(item.name)).slice(0, 6),
     [items, selectedValues],
   );
 
   return (
-    <div className="field-group autocomplete-field">
+    <div className="field-group">
       <label htmlFor={id}>{label}</label>
       <input
         id={id}

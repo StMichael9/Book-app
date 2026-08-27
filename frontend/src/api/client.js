@@ -1,4 +1,8 @@
-const DEFAULT_API_BASE_URL = "https://book-app-8bn6.onrender.com";
+const isDev = typeof import.meta !== "undefined" && import.meta.env?.DEV;
+
+const DEFAULT_API_BASE_URL = isDev
+  ? "http://localhost:8000"
+  : "https://book-app-8bn6.onrender.com";
 
 export const API_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL) ||
