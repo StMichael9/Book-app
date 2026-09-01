@@ -1,0 +1,12 @@
+name: Keep Backend Awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health check
+        run: curl -f https://book-app-8bn6.onrender.com/health
