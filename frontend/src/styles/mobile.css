@@ -80,6 +80,8 @@
   }
 
   .book-cover {
+    width: 100%;
+    aspect-ratio: 2 / 3;
     min-height: 160px;
     font-size: 1.5rem;
   }
@@ -130,7 +132,14 @@
 
 @media (max-width: 480px) {
   .app-shell {
-    width: min(100% - 16px, 1200px);
+    width: min(calc(100% - 16px), 1200px);
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  [aria-label="First page"],
+  [aria-label="Last page"] {
+    display: none;
   }
 
   .topbar {
@@ -156,11 +165,13 @@
   }
 
   .book-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
   .book-cover {
+    width: 100%;
+    aspect-ratio: 2 / 3;
     min-height: 138px;
   }
 
@@ -180,10 +191,16 @@
   .pagination {
     justify-content: center;
     gap: 8px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+  }
+
+  .pagination button:nth-of-type(n + 6) {
+    display: none;
   }
 
   .pagination button {
-    flex: 1 1 calc(50% - 8px);
+    flex: 0 0 auto;
     min-width: 0;
   }
 }
