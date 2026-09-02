@@ -29,16 +29,18 @@ export default function Pagination({ page, pages, onPageChange }) {
 
       {start > 1 && <span>…</span>}
 
-      {pageNumbers.map((p) => (
-        <button
-          key={p}
-          type="button"
-          aria-current={p === page ? "page" : undefined}
-          onClick={() => onPageChange(p)}
-        >
-          {p}
-        </button>
-      ))}
+      <div className="pagination-numbers">
+        {pageNumbers.map((p) => (
+          <button
+            key={p}
+            type="button"
+            aria-current={p === page ? "page" : undefined}
+            onClick={() => onPageChange(p)}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
 
       {end < pages && <span>…</span>}
 
