@@ -299,6 +299,8 @@
 
 .book-cover {
   position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
   min-height: 200px;
   background: linear-gradient(135deg, #1f2a37, #485f4a);
   display: grid;

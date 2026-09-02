@@ -4,6 +4,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useParams,
   useSearchParams,
 } from "react-router-dom";
@@ -18,10 +19,15 @@ import BookDetailPage from "./components/BookDetailPage.jsx";
 
 function App() {
   const [theme, setTheme] = useState("light");
+  const location = useLocation();
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.pathname]);
 
   return (
     <div className="app-shell">
@@ -43,7 +49,6 @@ function App() {
           <Route path="/" element={<Navigate to="/browse" replace />} />
           <Route path="/browse" element={<HomePage />} />
           <Route path="/book/:bookId" element={<BookDetailPage />} />
-          <Route path="/book/:bookId" element={<BookDetailPage />} />
         </Routes>
       </main>
     </div>
@@ -60,6 +65,10 @@ function HomePage() {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [page]);
 
   useEffect(() => {
     const paramTags = searchParams

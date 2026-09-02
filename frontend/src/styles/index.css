@@ -1,9 +1,0 @@
-/* 1. Initialize Tailwind v4 */
-@import "tailwindcss";
-
-/* 2. Your existing project styles */
-@import "./variables.css";
-@import "./base.css";
-@import "./layout.css";
-@import "./components.css";
-@import "./mobile.css";
