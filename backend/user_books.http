@@ -1,0 +1,140 @@
+### ==========================================
+### SHELFBOUND V2 — OWN/WANT SMOKE TEST
+### ==========================================
+
+
+### 1. Register
+# If test@example.com already exists, expect 409 and continue to Login.
+POST http://127.0.0.1:8000/auth/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+
+### 2. Login
+# This should establish the access_token and refresh_token cookies.
+POST http://127.0.0.1:8000/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+
+### 3. Verify the test book exists
+# Book ID 1769 was confirmed to exist in the database.
+GET http://127.0.0.1:8000/books/1769
+
+
+### ==========================================
+### BASIC OWN/WANT
+### ==========================================
+
+
+### 4. Mark book as WANT
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}
+
+
+### 5. List my books
+# Expected: book 1769 appears with status "want".
+GET http://127.0.0.1:8000/me/books
+
+
+### 6. Change the SAME book to OWNED
+# This tests the upsert/update behavior.
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "owned"
+}
+
+
+### 7. List my books again
+# Expected: book 1769 appears ONCE with status "owned".
+# It should NOT appear twice.
+GET http://127.0.0.1:8000/me/books
+
+
+### ==========================================
+### STATUS FILTERING
+### ==========================================
+
+
+### 8. Filter by WANT
+# Expected: empty list because book 1769 is now owned.
+GET http://127.0.0.1:8000/me/books?status=want
+
+
+### 9. Filter by OWNED
+# Expected: book 1769 appears.
+GET http://127.0.0.1:8000/me/books?status=owned
+
+
+### ==========================================
+### DELETE STATUS
+### ==========================================
+
+
+### 10. Delete the status
+DELETE http://127.0.0.1:8000/books/1769/status
+
+
+### 11. List my books again
+# Expected: empty list.
+GET http://127.0.0.1:8000/me/books
+
+
+### ==========================================
+### EDGE CASES
+### ==========================================
+
+
+### 12. Nonexistent book
+# Book 999999 should not exist.
+# Expected: 404 Book not found.
+POST http://127.0.0.1:8000/books/999999/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}
+
+
+### 13. Delete status that doesn't exist
+# Book 1769 no longer has a status.
+# Expected: 404.
+DELETE http://127.0.0.1:8000/books/1769/status
+
+
+### ==========================================
+### LOGOUT / PROTECTED ROUTES
+### ==========================================
+
+
+### 14. Logout
+POST http://127.0.0.1:8000/auth/logout
+
+
+### 15. Access protected route after logout
+# Expected: 401 Unauthorized.
+GET http://127.0.0.1:8000/me/books
+
+
+### 16. Try to modify books after logout
+# Expected: 401 Unauthorized.
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}

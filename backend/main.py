@@ -8,9 +8,13 @@ from database import get_db
 
 from routes import books
 from routes import autocomplete
+from routes import user_books
+from routes import user_preferences
+
+from auth.auth import router as auth_router
+
 
 from fastapi_pagination import add_pagination
-
 from fastapi.middleware.cors import CORSMiddleware
 
 from slowapi import _rate_limit_exceeded_handler
@@ -29,7 +33,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_parse_cors_origins(),
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -38,6 +42,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(books.router)
 app.include_router(autocomplete.router)
+app.include_router(auth_router)
+app.include_router(user_books.router)
+app.include_router(user_preferences.router)
+
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)
 

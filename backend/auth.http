@@ -1,0 +1,26 @@
+### Register
+POST http://127.0.0.1:8000/auth/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+### Login
+POST http://127.0.0.1:8000/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+### Refresh
+POST http://127.0.0.1:8000/auth/refresh
+
+### Logout
+POST http://127.0.0.1:8000/auth/logout
+
+### Refresh After Logout
+POST http://127.0.0.1:8000/auth/refresh

@@ -3,12 +3,12 @@
   "name": "thriller",
   "subject_type": "subject",
   "solr_query": "subject_key:\"thriller\"",
-  "work_count": 2755,
+  "work_count": 2757,
   "works": [
     {
       "key": "/works/OL24034W",
       "title": "Treasure Island",
-      "edition_count": 1988,
+      "edition_count": 1991,
       "cover_id": 13859660,
       "cover_edition_key": "OL40812029M",
       "subject": [
@@ -164,8 +164,10 @@
         "cdl",
         "cnusd-ol",
         "cornell",
+        "drakeuniversity-ol",
         "europeanlibraries",
         "gutenberg",
+        "gwulibraries-ol",
         "hamiltonpubliclibrary-ol",
         "inlibrary",
         "internetarchivebooks",
@@ -182,15 +184,18 @@
         "randolph-macon-college-ol",
         "robarts",
         "rochester-ol",
+        "salisburyfreelibrary-ol",
         "stmaryscountylibrary",
         "toronto",
         "trent_university",
+        "tulsacc-ol",
         "ualberta_historical_school",
         "ualbertawiedrick",
         "unb-ol",
         "unclibraries",
         "university_of_alberta_libraries",
         "university_of_toronto",
+        "universityofthewest-ol",
         "victorianbrighamyounguniv",
         "worthingtonlibraries-ol"
       ],
@@ -232,7 +237,7 @@
     {
       "key": "/works/OL85892W",
       "title": "Dracula",
-      "edition_count": 1917,
+      "edition_count": 1918,
       "cover_id": 12216503,
       "cover_edition_key": "OL35373336M",
       "subject": [
@@ -545,6 +550,7 @@
         "delawarecountydistrictlibrary",
         "inlibrary",
         "internetarchivebooks",
+        "library_of_atlantis",
         "library_of_congress",
         "openlibrary-d-ol",
         "printdisabled",
@@ -616,6 +622,7 @@
         "delawarecountydistrictlibrary",
         "inlibrary",
         "internetarchivebooks",
+        "library_of_atlantis",
         "printdisabled"
       ],
       "printdisabled": true,
@@ -899,6 +906,7 @@
         "miltonpubliclibrary-ol",
         "popularchinesebooks",
         "printdisabled",
+        "rochester-ol",
         "thomasfisher",
         "thomasfishercanadiana",
         "toronto",
@@ -908,6 +916,7 @@
         "university_of_alberta_libraries",
         "university_of_alberta_libraries_microfilm",
         "university_of_toronto",
+        "universityofcoloradoboulder-ol",
         "worthingtonlibraries-ol"
       ],
       "printdisabled": true,
@@ -1051,7 +1060,12 @@
         "delawarecountydistrictlibrary",
         "inlibrary",
         "internetarchivebooks",
-        "printdisabled"
+        "library_of_atlantis",
+        "occidentalcollegelibrary-ol",
+        "openlibrary-d-ol",
+        "printdisabled",
+        "rochester-ol",
+        "uni-ol"
       ],
       "printdisabled": true,
       "lending_edition": "OL20607619M",
@@ -1371,22 +1385,29 @@
         "americana",
         "cdl",
         "delawarecountydistrictlibrary",
+        "denverpubliclibrary-ol",
         "europeanlibraries",
+        "framingham-ol",
+        "hamiltonpubliclibrary-ol",
         "inlibrary",
         "internetarchivebooks",
+        "library_of_atlantis",
         "library_of_congress",
         "microfilm",
+        "phillipsacademy-preview",
         "printdisabled",
         "robarts",
         "toronto",
         "university_of_alberta_libraries",
         "university_of_alberta_libraries_microfilm",
         "university_of_illinois_urbana-champaign",
-        "university_of_toronto"
+        "university_of_toronto",
+        "universityofarizona-ol",
+        "universityofcoloradoboulder-ol"
       ],
       "printdisabled": true,
-      "lending_edition": "OL24235185M",
-      "lending_identifier": "cihm_29887",
+      "lending_edition": "OL33199258M",
+      "lending_identifier": "pathfinderorinla00coop_2",
       "authors": [
         {
           "key": "/authors/OL39524A",
@@ -1394,7 +1415,7 @@
         }
       ],
       "first_publish_year": 1800,
-      "ia": "cihm_29887",
+      "ia": "pathfinderorinla00coop_2",
       "public_scan": true,
       "has_fulltext": true,
       "availability": {
@@ -1406,11 +1427,11 @@
         "is_readable": true,
         "is_lendable": false,
         "is_previewable": true,
-        "identifier": "cihm_29887",
-        "isbn": "0665298870",
+        "identifier": "pathfinderorinla00coop_2",
+        "isbn": null,
         "oclc": null,
         "openlibrary_work": "OL78009W",
-        "openlibrary_edition": "OL24235185M",
+        "openlibrary_edition": "OL33199258M",
         "last_loan_date": null,
         "num_waitlist": null,
         "last_waitlist_date": null,
@@ -1921,8 +1942,8 @@
         "wellcomeprintdisabled"
       ],
       "printdisabled": true,
-      "lending_edition": "OL6973587M",
-      "lending_identifier": "pioneersorsource00coop_5",
+      "lending_edition": "OL26320015M",
+      "lending_identifier": "pioneersorsource00coop_6",
       "authors": [
         {
           "key": "/authors/OL39524A",
@@ -1930,7 +1951,7 @@
         }
       ],
       "first_publish_year": 1800,
-      "ia": "pioneersorsource00coop_5",
+      "ia": "pioneersorsource00coop_6",
       "public_scan": true,
       "has_fulltext": true,
       "availability": {
@@ -1942,7 +1963,7 @@
         "is_readable": null,
         "is_lendable": null,
         "is_previewable": true,
-        "identifier": "pioneersorsource00coop_5",
+        "identifier": "pioneersorsource00coop_6",
         "isbn": null,
         "oclc": null,
         "openlibrary_work": null,
@@ -2147,8 +2168,8 @@
         "university_of_toronto"
       ],
       "printdisabled": false,
-      "lending_edition": "OL7208329M",
-      "lending_identifier": "strangedisappear00greeiala",
+      "lending_edition": "OL7173450M",
+      "lending_identifier": "strangedisappear00greeuoft",
       "authors": [
         {
           "key": "/authors/OL9161902A",
@@ -2172,7 +2193,7 @@
         }
       ],
       "first_publish_year": 1879,
-      "ia": "strangedisappear00greeiala",
+      "ia": "strangedisappear00greeuoft",
       "public_scan": true,
       "has_fulltext": true,
       "availability": {
@@ -2184,11 +2205,11 @@
         "is_readable": true,
         "is_lendable": false,
         "is_previewable": true,
-        "identifier": "strangedisappear00greeiala",
+        "identifier": "strangedisappear00greeuoft",
         "isbn": null,
         "oclc": null,
         "openlibrary_work": "OL4885721W",
-        "openlibrary_edition": "OL7208329M",
+        "openlibrary_edition": "OL7173450M",
         "last_loan_date": null,
         "num_waitlist": null,
         "last_waitlist_date": null,
@@ -2280,9 +2301,13 @@
       ],
       "ia_collection": [
         "americana",
+        "binghamton-ol",
+        "bpljordan-ol",
         "cdl",
+        "framingham-ol",
         "inlibrary",
         "internetarchivebooks",
+        "pma-ol",
         "printdisabled"
       ],
       "printdisabled": true,
@@ -2787,13 +2812,7 @@
       "subject": [
         "Classic Literature",
         "Fiction",
-        "Thriller",
-        "Fiction, action & adventure",
-        "Fiction, westerns",
-        "Stallions",
-        "Étalons",
-        "Romans, nouvelles",
-        "Biography"
+        "Thriller"
       ],
       "ia_collection": [
         "americana",
@@ -2953,12 +2972,9 @@
       ],
       "ia_collection": [
         "americana",
-        "goffstownlibrary-ol",
         "inlibrary",
         "internetarchivebooks",
-        "openlibrary-d-ol",
-        "printdisabled",
-        "tulsacc-ol"
+        "printdisabled"
       ],
       "printdisabled": true,
       "lending_edition": "OL58667367M",
@@ -3170,7 +3186,6 @@
         "delawarecountydistrictlibrary",
         "inlibrary",
         "internetarchivebooks",
-        "library_of_atlantis",
         "printdisabled"
       ],
       "printdisabled": true,
@@ -3335,6 +3350,63 @@
       "has_fulltext": false
     },
     {
+      "key": "/works/OL2344450W",
+      "title": "The Drums of Jeopardy",
+      "edition_count": 140,
+      "cover_id": 11351150,
+      "cover_edition_key": "OL32724072M",
+      "subject": [
+        "Classic Literature",
+        "Fiction",
+        "Thriller",
+        "Fiction, action & adventure",
+        "Fiction, general"
+      ],
+      "ia_collection": [
+        "YorkUniversity",
+        "americana",
+        "cdl",
+        "microfilm",
+        "toronto",
+        "university_of_alberta_libraries",
+        "university_of_alberta_libraries_microfilm"
+      ],
+      "printdisabled": false,
+      "lending_edition": "OL24132398M",
+      "lending_identifier": "drumsofjeopardy00macg",
+      "authors": [
+        {
+          "key": "/authors/OL317339A",
+          "name": "Harold MacGrath"
+        }
+      ],
+      "first_publish_year": 1920,
+      "ia": "drumsofjeopardy00macg",
+      "public_scan": true,
+      "has_fulltext": true,
+      "availability": {
+        "status": "open",
+        "available_to_browse": false,
+        "available_to_borrow": false,
+        "available_to_waitlist": false,
+        "is_printdisabled": false,
+        "is_readable": true,
+        "is_lendable": false,
+        "is_previewable": true,
+        "identifier": "drumsofjeopardy00macg",
+        "isbn": null,
+        "oclc": null,
+        "openlibrary_work": "OL2344450W",
+        "openlibrary_edition": "OL24132398M",
+        "last_loan_date": null,
+        "num_waitlist": null,
+        "last_waitlist_date": null,
+        "is_restricted": false,
+        "is_browseable": false,
+        "__src__": "core.models.lending.get_availability"
+      }
+    },
+    {
       "key": "/works/OL2713465W",
       "title": "Nightmare Abbey",
       "edition_count": 140,
@@ -3400,63 +3472,6 @@
         "oclc": null,
         "openlibrary_work": "OL18041747W",
         "openlibrary_edition": "OL24174895M",
-        "last_loan_date": null,
-        "num_waitlist": null,
-        "last_waitlist_date": null,
-        "is_restricted": false,
-        "is_browseable": false,
-        "__src__": "core.models.lending.get_availability"
-      }
-    },
-    {
-      "key": "/works/OL2344450W",
-      "title": "The Drums of Jeopardy",
-      "edition_count": 140,
-      "cover_id": 11351150,
-      "cover_edition_key": "OL32724072M",
-      "subject": [
-        "Classic Literature",
-        "Fiction",
-        "Thriller",
-        "Fiction, action & adventure",
-        "Fiction, general"
-      ],
-      "ia_collection": [
-        "YorkUniversity",
-        "americana",
-        "cdl",
-        "microfilm",
-        "toronto",
-        "university_of_alberta_libraries",
-        "university_of_alberta_libraries_microfilm"
-      ],
-      "printdisabled": false,
-      "lending_edition": "OL24132398M",
-      "lending_identifier": "drumsofjeopardy00macg",
-      "authors": [
-        {
-          "key": "/authors/OL317339A",
-          "name": "Harold MacGrath"
-        }
-      ],
-      "first_publish_year": 1920,
-      "ia": "drumsofjeopardy00macg",
-      "public_scan": true,
-      "has_fulltext": true,
-      "availability": {
-        "status": "open",
-        "available_to_browse": false,
-        "available_to_borrow": false,
-        "available_to_waitlist": false,
-        "is_printdisabled": false,
-        "is_readable": true,
-        "is_lendable": false,
-        "is_previewable": true,
-        "identifier": "drumsofjeopardy00macg",
-        "isbn": null,
-        "oclc": null,
-        "openlibrary_work": "OL2344450W",
-        "openlibrary_edition": "OL24132398M",
         "last_loan_date": null,
         "num_waitlist": null,
         "last_waitlist_date": null,
@@ -3632,10 +3647,7 @@
       "subject": [
         "Classic Literature",
         "Fiction",
-        "Thriller",
-        "Large type books",
-        "Fiction, general",
-        "Fiction, westerns"
+        "Thriller"
       ],
       "ia_collection": [
         "inlibrary",
@@ -3778,7 +3790,7 @@
     {
       "key": "/works/OL81626W",
       "title": "Carrie",
-      "edition_count": 118,
+      "edition_count": 119,
       "cover_id": 9256043,
       "cover_edition_key": "OL27902097M",
       "subject": [
@@ -3853,12 +3865,28 @@
       ],
       "ia_collection": [
         "americana",
+        "americanuniversity-ol",
         "bannedbooks",
         "cnusd-ol",
         "delawarecountydistrictlibrary",
+        "delawarecountydistrictlibrary-ol",
+        "hamiltonpubliclibrary-ol",
         "inlibrary",
         "internetarchivebooks",
-        "printdisabled"
+        "miltonpubliclibrary-ol",
+        "occidentalcollegelibrary-ol",
+        "openlibrary-d-ol",
+        "printdisabled",
+        "riceuniversity-ol",
+        "rochester-ol",
+        "spokanepubliclibrary-ol",
+        "the-claremont-colleges-ol",
+        "tulsacc-ol",
+        "uni-ol",
+        "universityofarizona-ol",
+        "universityofcoloradoboulder-ol",
+        "wilsoncollege-ol",
+        "worthingtonlibraries-ol"
       ],
       "printdisabled": true,
       "lending_edition": "OL53208387M",
@@ -4063,7 +4091,7 @@
       "title": "Cinq semaines en ballon",
       "edition_count": 112,
       "cover_id": 8179189,
-      "cover_edition_key": "OL13126866M",
+      "cover_edition_key": null,
       "subject": [
         "Travel",
         "Hot air balloons",
@@ -4428,6 +4456,62 @@
       }
     },
     {
+      "key": "/works/OL8075012W",
+      "title": "Way of the Lawless",
+      "edition_count": 105,
+      "cover_id": 1845536,
+      "cover_edition_key": "OL9729289M",
+      "subject": [
+        "Outlaws",
+        "Fiction",
+        "Frontier and pioneer life",
+        "Large type books",
+        "Fiction, westerns",
+        "Classic Literature",
+        "Thriller"
+      ],
+      "ia_collection": [
+        "americana",
+        "inlibrary",
+        "internetarchivebooks",
+        "printdisabled"
+      ],
+      "printdisabled": true,
+      "lending_edition": "OL24370715M",
+      "lending_identifier": "wayoflawless00bran",
+      "authors": [
+        {
+          "key": "/authors/OL2748402A",
+          "name": "Frederick Faust"
+        }
+      ],
+      "first_publish_year": 1978,
+      "ia": "wayoflawless00bran",
+      "public_scan": false,
+      "has_fulltext": true,
+      "availability": {
+        "status": "borrow_available",
+        "available_to_browse": true,
+        "available_to_borrow": false,
+        "available_to_waitlist": false,
+        "is_printdisabled": true,
+        "is_readable": false,
+        "is_lendable": true,
+        "is_previewable": true,
+        "identifier": "wayoflawless00bran",
+        "isbn": "0446943010",
+        "oclc": null,
+        "openlibrary_work": "OL15393715W",
+        "openlibrary_edition": "OL24370715M",
+        "last_loan_date": null,
+        "num_waitlist": null,
+        "last_waitlist_date": null,
+        "is_restricted": true,
+        "is_browseable": true,
+        "__src__": "core.models.lending.get_availability"
+      }
+    },
+    {
       "key": "/works/OL267791W",
       "title": "You Only Live Twice",
       "edition_count": 105,
@@ -4523,62 +4607,6 @@
       }
     },
     {
-      "key": "/works/OL8075012W",
-      "title": "Way of the Lawless",
-      "edition_count": 105,
-      "cover_id": 1845536,
-      "cover_edition_key": "OL9729289M",
-      "subject": [
-        "Outlaws",
-        "Fiction",
-        "Frontier and pioneer life",
-        "Large type books",
-        "Fiction, westerns",
-        "Classic Literature",
-        "Thriller"
-      ],
-      "ia_collection": [
-        "americana",
-        "inlibrary",
-        "internetarchivebooks",
-        "printdisabled"
-      ],
-      "printdisabled": true,
-      "lending_edition": "OL24370715M",
-      "lending_identifier": "wayoflawless00bran",
-      "authors": [
-        {
-          "key": "/authors/OL2748402A",
-          "name": "Frederick Faust"
-        }
-      ],
-      "first_publish_year": 1978,
-      "ia": "wayoflawless00bran",
-      "public_scan": false,
-      "has_fulltext": true,
-      "availability": {
-        "status": "borrow_available",
-        "available_to_browse": true,
-        "available_to_borrow": false,
-        "available_to_waitlist": false,
-        "is_printdisabled": true,
-        "is_readable": false,
-        "is_lendable": true,
-        "is_previewable": true,
-        "identifier": "wayoflawless00bran",
-        "isbn": "0446943010",
-        "oclc": null,
-        "openlibrary_work": "OL15393715W",
-        "openlibrary_edition": "OL24370715M",
-        "last_loan_date": null,
-        "num_waitlist": null,
-        "last_waitlist_date": null,
-        "is_restricted": true,
-        "is_browseable": true,
-        "__src__": "core.models.lending.get_availability"
-      }
-    },
-    {
       "key": "/works/OL46241W",
       "title": "I, Robot",
       "edition_count": 99,
@@ -4657,8 +4685,8 @@
         "worthingtonlibraries-ol"
       ],
       "printdisabled": true,
-      "lending_edition": "OL25584856M",
-      "lending_identifier": "iorobot00asim",
+      "lending_edition": "OL9129665M",
+      "lending_identifier": "yorobot0000isaa",
       "authors": [
         {
           "key": "/authors/OL34221A",
@@ -4666,28 +4694,28 @@
         }
       ],
       "first_publish_year": 1950,
-      "ia": "iorobot00asim",
+      "ia": "yorobot0000isaa",
       "public_scan": false,
       "has_fulltext": true,
       "availability": {
-        "status": "private",
-        "available_to_browse": false,
+        "status": "borrow_available",
+        "available_to_browse": true,
         "available_to_borrow": false,
         "available_to_waitlist": false,
         "is_printdisabled": true,
         "is_readable": false,
-        "is_lendable": false,
+        "is_lendable": true,
         "is_previewable": true,
-        "identifier": "iorobot00asim",
-        "isbn": null,
+        "identifier": "yorobot0000isaa",
+        "isbn": "9788435015745",
         "oclc": null,
         "openlibrary_work": "OL46241W",
-        "openlibrary_edition": "OL25584856M",
+        "openlibrary_edition": "OL9129665M",
         "last_loan_date": null,
         "num_waitlist": null,
         "last_waitlist_date": null,
         "is_restricted": true,
-        "is_browseable": false,
+        "is_browseable": true,
         "__src__": "core.models.lending.get_availability"
       }
     },
@@ -4937,7 +4965,6 @@
         "americana",
         "inlibrary",
         "internetarchivebooks",
-        "openlibrary-d-ol",
         "printdisabled"
       ],
       "printdisabled": true,

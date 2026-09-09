@@ -1,8 +1,10 @@
 import enum
-from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint
+import uuid
+from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
-
+from datetime import datetime
+from sqlalchemy import DateTime, func
 
 # ASSOCIATION (JOIN) TABLES
 
@@ -22,6 +24,55 @@ book_tags = Table(
 
 
 # MODELS
+class User(Base):
+    __tablename__ = 'users'
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # relationships
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    books: Mapped[list["UserBook"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    preferences: Mapped[list["UserPreference"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+class UserPreference(Base):
+    __tablename__ = 'user_preferences'
+    __table_args__ = (UniqueConstraint('user_id', 'tag_id', name='uq_user_tag_pref'),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    tag_id: Mapped[int] = mapped_column(Integer, ForeignKey("tags.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="preferences")
+    tag: Mapped["Tag"] = relationship(back_populates="user_preferences")
+
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked: Mapped[bool] = mapped_column(nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="refresh_tokens")
+
 
 
 class Book(Base):
@@ -45,6 +96,30 @@ class Book(Base):
         secondary=book_tags,
         back_populates="books"
     )
+    user_books: Mapped[list["UserBook"]] = relationship(
+        back_populates="book",
+        cascade="all, delete-orphan"
+    )
+
+class UserBookStatus(str, enum.Enum):
+    owned = "owned"
+    want = "want"
+
+
+class UserBook(Base):
+    __tablename__ = 'user_books'
+    __table_args__ = (UniqueConstraint('user_id', 'book_id', name='uq_user_book'),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
+    status: Mapped[UserBookStatus] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+    # relationships
+    user: Mapped["User"] = relationship(back_populates="books")
+    book: Mapped["Book"] = relationship(back_populates="user_books")
 
 class Author(Base):
     __tablename__ = 'authors' 
@@ -66,7 +141,6 @@ class TagType(str, enum.Enum):
 class Tag(Base):
     __tablename__ = 'tags'
     __table_args__ = (UniqueConstraint('name', 'type', name='uq_tag_name_type'),)
-    
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False, index=True)
@@ -76,4 +150,8 @@ class Tag(Base):
     books: Mapped[list["Book"]] = relationship(
         secondary=book_tags, 
         back_populates="tags"
+    )
+    user_preferences: Mapped[list["UserPreference"]] = relationship(
+        back_populates="tag",
+        cascade="all, delete-orphan"
     )
