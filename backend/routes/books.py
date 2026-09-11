@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload, Session
 
-from database import get_db      # the dependency I already built
-from models import Book
+from database import get_db
+from models import Book, User
 from schemas import BookSchema
 from services import search
 from rate_limit import limiter
+from auth.dependencies import get_current_user_optional
 
 from fastapi_pagination import Page
 from fastapi_pagination.ext.sqlalchemy import paginate
@@ -19,21 +20,19 @@ router = APIRouter()
 def get_books(
     request: Request,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
     book: str = None,
     author: str = None,
     tag: list[str] = Query(None),
 ):
     service = search.SearchService(db)
-    query = service.search_books(book=book, author=author, tags=tag)
+    query = service.search_books(book=book, author=author, tags=tag, current_user=current_user)
     return paginate(db, query)
 
 
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
 def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
-     # Same fix as search.py: without eager loading, serializing this one
-     # book still fires 2 extra lazy queries (authors, tags) - small here,
-     # but worth staying consistent with the same pattern everywhere.
      query = (
          select(Book)
          .where(Book.id == book_id)
