@@ -38,13 +38,12 @@ class SetBookStatusRequest(BaseModel):
 
 
 class UserBookSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     book_id: int
     status: UserBookStatus
-    book: BookSchema  # nested, so the frontend gets full book details, not just the FK
+    book: BookSchema
 
-class Config:
-    from_attributes = True
 
 class SetPreferencesRequest(BaseModel):
     tag_ids: list[int]
@@ -52,10 +51,8 @@ class SetPreferencesRequest(BaseModel):
 
 
 class UserPreferenceSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     tag_id: int
     source_text: str | None
-    tag: TagSchema  # nested, assuming you already have a TagSchema from your search feature
-
-class Config:
-    from_attributes = True
+    tag: TagSchema
