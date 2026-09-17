@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import BookStatusControl from "./BookStatusControl.jsx";
 
 export default function BookCard({ book }) {
   const [imageFailed, setImageFailed] = useState(false);
@@ -8,6 +9,14 @@ export default function BookCard({ book }) {
     .slice(0, 2)
     .map((w) => w[0])
     .join("");
+  const visibleCounts = [
+    Number.isInteger(book.owned_count) && book.owned_count >= 5
+      ? `Owned by ${book.owned_count}`
+      : null,
+    Number.isInteger(book.want_count) && book.want_count >= 5
+      ? `Wanted by ${book.want_count}`
+      : null,
+  ].filter(Boolean);
 
   return (
     <article className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-stone-800/10 dark:border-stone-200/10 bg-[var(--surface)] transition-all duration-300 ease-out hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-stone-900/10 dark:hover:shadow-black/40">
@@ -47,6 +56,12 @@ export default function BookCard({ book }) {
           <p className="mt-1 text-sm text-[var(--muted)] font-medium">
             {book.authors?.map((a) => a.name).join(", ") || "Unknown Author"}
           </p>
+
+          {visibleCounts.length > 0 && (
+            <p className="mt-2 text-xs font-semibold text-[var(--muted)]">
+              {visibleCounts.join(" · ")}
+            </p>
+          )}
         </div>
 
         {/* Tags */}
@@ -62,6 +77,7 @@ export default function BookCard({ book }) {
             ))}
           </div>
         )}
+        <BookStatusControl bookId={book.id} compact />
       </div>
     </article>
   );

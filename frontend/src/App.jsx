@@ -1,21 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Link,
-  Navigate,
-  Route,
-  Routes,
-  useLocation,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
+import { Route, Routes, useLocation, useSearchParams } from "react-router-dom";
 
-import { getBookById, getBooks } from "./api/books.js";
+import { getBooks } from "./api/books.js";
+import AuthForm from "./components/AuthForm.jsx";
 import Header from "./components/Header.jsx";
 import Hero from "./components/Hero.jsx";
+import LandingPage from "./components/LandingPage.jsx";
 import Pagination from "./components/Pagination.jsx";
+import PreferencesPage from "./components/PreferencesPage.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import ResultsList from "./components/ResultsList.jsx";
 import SearchBar from "./components/SearchBar/SearchBar.jsx";
 import BookDetailPage from "./components/BookDetailPage.jsx";
+import MyBooksPage from "./components/MyBooksPage.jsx";
+import { useAuth } from "./hooks/AuthContext.jsx";
 
 function App() {
   const [theme, setTheme] = useState("light");
@@ -31,11 +29,11 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Header />
+      <Header theme={theme} setTheme={setTheme} />
 
       <button
         type="button"
-        className="theme-toggle"
+        className="theme-toggle desktop-theme-toggle"
         onClick={() =>
           setTheme((current) => (current === "light" ? "dark" : "light"))
         }
@@ -46,9 +44,35 @@ function App() {
 
       <main className="page">
         <Routes>
-          <Route path="/" element={<Navigate to="/browse" replace />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/browse" element={<HomePage />} />
           <Route path="/book/:bookId" element={<BookDetailPage />} />
+          <Route path="/login" element={<AuthForm mode="login" />} />
+          <Route path="/register" element={<AuthForm mode="register" />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <PreferencesPage onboarding />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/preferences"
+            element={
+              <ProtectedRoute>
+                <PreferencesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-books"
+            element={
+              <ProtectedRoute>
+                <MyBooksPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
     </div>
@@ -56,8 +80,13 @@ function App() {
 }
 
 function HomePage() {
+  const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
   const [filters, setFilters] = useState({ book: "", author: "", tags: [] });
+  const [discoveryFilters, setDiscoveryFilters] = useState({
+    excludeOwned: false,
+    shelfStatus: "",
+  });
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -69,6 +98,13 @@ function HomePage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [page]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setDiscoveryFilters({ excludeOwned: false, shelfStatus: "" });
+      setPage(1);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const paramTags = searchParams
@@ -113,6 +149,12 @@ function HomePage() {
     setHasSearched(true);
   };
 
+  const updateDiscoveryFilters = (nextFilters) => {
+    setDiscoveryFilters((current) => ({ ...current, ...nextFilters }));
+    setPage(1);
+    setHasSearched(true);
+  };
+
   useEffect(() => {
     let ignore = false;
 
@@ -125,6 +167,8 @@ function HomePage() {
           book: filters.book,
           author: filters.author,
           tags: filters.tags,
+          exclude_owned: discoveryFilters.excludeOwned,
+          shelf_status: discoveryFilters.shelfStatus,
           page,
           size,
         });
@@ -155,7 +199,7 @@ function HomePage() {
     return () => {
       ignore = true;
     };
-  }, [filters, hasSearched, page, size]);
+  }, [discoveryFilters, filters, hasSearched, page, size]);
 
   const handlePageChange = (nextPage) => {
     if (nextPage < 1) return;
@@ -178,7 +222,12 @@ function HomePage() {
   return (
     <>
       <Hero />
-      <SearchBar onSearch={runSearch} activeFilters={{ total }} />
+      <SearchBar
+        onSearch={runSearch}
+        activeFilters={{ total }}
+        excludeOwned={discoveryFilters.excludeOwned}
+        onDiscoveryFilterChange={updateDiscoveryFilters}
+      />
 
       <ResultsList
         books={books}

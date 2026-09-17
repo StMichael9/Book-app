@@ -9,6 +9,7 @@ export default function AutocompleteInput({
   value,
   onChange,
   onSelect,
+  onSelectItem,
   selectedValues = [],
   placeholder,
   type,
@@ -98,7 +99,9 @@ export default function AutocompleteInput({
               className="suggestion-item"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                if (onSelect) {
+                if (onSelectItem) {
+                  onSelectItem(item);
+                } else if (onSelect) {
                   onSelect(item.name);
                 } else {
                   onChange(item.name);

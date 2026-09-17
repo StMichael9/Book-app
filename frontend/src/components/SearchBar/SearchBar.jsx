@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 
 import AutocompleteInput from "./AutocompleteInput.jsx";
 
-export default function SearchBar({ onSearch, activeFilters }) {
+export default function SearchBar({
+  onSearch,
+  activeFilters,
+  excludeOwned,
+  onDiscoveryFilterChange,
+}) {
   const [book, setBook] = useState("");
   const [author, setAuthor] = useState("");
   const [tagInput, setTagInput] = useState("");
@@ -48,6 +53,7 @@ export default function SearchBar({ onSearch, activeFilters }) {
     setAuthor("");
     setTagInput("");
     setTags([]);
+    onDiscoveryFilterChange({ excludeOwned: false });
     onSearch({ book: "", author: "", tags: [] });
   };
 
@@ -103,6 +109,17 @@ export default function SearchBar({ onSearch, activeFilters }) {
             ))}
           </div>
         )}
+
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            checked={excludeOwned}
+            onChange={(event) =>
+              onDiscoveryFilterChange({ excludeOwned: event.target.checked })
+            }
+          />
+          <span>Exclude books I own</span>
+        </label>
 
         <div className="controls-actions">
           <button type="submit" className="primary-button">

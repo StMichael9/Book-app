@@ -90,3 +90,114 @@
   -webkit-line-clamp: 1;
   line-clamp: 1;
 }
+
+.nav-button {
+  font: inherit;
+}
+
+.auth-panel,
+.preference-panel,
+.shelf-page {
+  max-width: 760px;
+  margin: 24px auto 0;
+  padding: 28px;
+  border: 1px solid var(--outline);
+  border-radius: 20px;
+  background: var(--surface);
+}
+
+.auth-panel h2,
+.preference-panel h2,
+.shelf-page h2 {
+  margin: 0 0 10px;
+  font-size: clamp(2rem, 5vw, 3.4rem);
+}
+
+.auth-form,
+.preferences-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.field-group textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font: inherit;
+}
+
+.auth-switch {
+  margin-top: 18px;
+  color: var(--muted);
+}
+
+.auth-switch a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.preference-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.book-status {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.book-status-compact {
+  margin-top: 14px;
+}
+
+.book-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-button,
+.shelf-tab {
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+}
+
+.status-button.active,
+.shelf-tab.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.status-button:disabled,
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.status-error {
+  color: #b35748;
+  font-size: 0.8rem;
+}
+
+.shelf-page {
+  max-width: none;
+}
+
+.shelf-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getBookById } from "../api/books.js";
+import BookStatusControl from "./BookStatusControl.jsx";
 
 export default function BookDetailPage() {
   const { bookId } = useParams();
@@ -68,6 +69,14 @@ export default function BookDetailPage() {
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() || "")
       .join("") || "BK";
+  const visibleCounts = [
+    Number.isInteger(book.owned_count) && book.owned_count >= 5
+      ? `Owned by ${book.owned_count}`
+      : null,
+    Number.isInteger(book.want_count) && book.want_count >= 5
+      ? `Wanted by ${book.want_count}`
+      : null,
+  ].filter(Boolean);
 
   return (
     <article className="mx-auto max-w-5xl py-6">
@@ -117,6 +126,14 @@ export default function BookDetailPage() {
               </p>
             )}
           </div>
+
+          <BookStatusControl bookId={book.id} />
+
+          {visibleCounts.length > 0 && (
+            <p className="text-sm font-semibold text-[var(--muted)]">
+              {visibleCounts.join(" · ")}
+            </p>
+          )}
 
           {/* Metadata Divider Row */}
           <div className="flex flex-wrap items-center gap-4 border-y border-stone-800/10 dark:border-stone-200/10 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
