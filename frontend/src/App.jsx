@@ -165,10 +165,10 @@ function HomePage() {
   );
   const hasActiveFilters = Boolean(
     filters.book ||
-      filters.author ||
-      filters.tags.length > 0 ||
-      discoveryFilters.excludeOwned ||
-      discoveryFilters.shelfStatus,
+    filters.author ||
+    filters.tags.length > 0 ||
+    discoveryFilters.excludeOwned ||
+    discoveryFilters.shelfStatus,
   );
   const isDiscoveryMode =
     !hasUrlFilters && !hasActiveFilters && searchParams.get("view") !== "all";
@@ -266,7 +266,10 @@ function HomePage() {
       />
 
       {isDiscoveryMode && (
-        <section className="browse-discovery" aria-labelledby="browse-discovery-title">
+        <section
+          className="browse-discovery"
+          aria-labelledby="browse-discovery-title"
+        >
           <div className="browse-discovery__intro">
             <div>
               <p className="eyebrow">Curated shelves</p>
@@ -286,7 +289,10 @@ function HomePage() {
       )}
 
       {!isDiscoveryMode && (
-        <section className="browse-catalogue" aria-labelledby="browse-catalogue-title">
+        <section
+          className="browse-catalogue"
+          aria-labelledby="browse-catalogue-title"
+        >
           <div className="browse-catalogue__header">
             <div>
               <p className="eyebrow">The complete catalogue</p>

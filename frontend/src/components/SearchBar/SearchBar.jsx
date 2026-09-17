@@ -108,7 +108,10 @@ export default function SearchBar({
           onClick={() => setFiltersOpen((current) => !current)}
         >
           <span>
-            Filters{activeFilterCount > 0 ? ` · ${activeFilterCount} active` : " (optional)"}
+            Filters
+            {activeFilterCount > 0
+              ? ` · ${activeFilterCount} active`
+              : " (optional)"}
           </span>
           <span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
         </button>
@@ -155,7 +158,9 @@ export default function SearchBar({
                 type="checkbox"
                 checked={excludeOwned}
                 onChange={(event) =>
-                  onDiscoveryFilterChange({ excludeOwned: event.target.checked })
+                  onDiscoveryFilterChange({
+                    excludeOwned: event.target.checked,
+                  })
                 }
               />
               <span>Exclude books I own</span>
@@ -177,7 +182,11 @@ export default function SearchBar({
             </div>
 
             <div className="controls-actions">
-              <button type="button" className="reset-button" onClick={handleReset}>
+              <button
+                type="button"
+                className="reset-button"
+                onClick={handleReset}
+              >
                 Reset
               </button>
             </div>
