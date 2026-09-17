@@ -281,6 +281,98 @@
   max-width: 700px;
 }
 
+.discovery-header {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--outline);
+  border-radius: 16px;
+}
+
+.discovery-header__copy {
+  max-width: 650px;
+}
+
+.discovery-header__copy h1 {
+  margin: 0 0 8px;
+  font-size: clamp(2.25rem, 5vw, 3.8rem);
+  font-weight: 400;
+  line-height: 0.98;
+}
+
+.discovery-header__copy > p:last-child {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.discovery-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.discovery-search-row .field-group {
+  gap: 6px;
+}
+
+.discovery-search-row .field-group input {
+  min-height: 48px;
+  border-color: var(--text);
+  background: var(--input-bg);
+}
+
+.discovery-search-row .primary-button {
+  min-width: 120px;
+}
+
+.filters-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 0 2px;
+  border: 0;
+  border-top: 1px solid var(--outline);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.filters-toggle span:last-child {
+  color: var(--accent);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.filters-toggle:focus-visible,
+.discovery-header button:focus-visible,
+.discovery-header input:focus-visible,
+.discovery-header select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.filters-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.filters-panel .filter-pills,
+.filters-panel .checkbox-field,
+.filters-panel .controls-actions {
+  grid-column: 1 / -1;
+}
+
 .subtitle,
 .subtitle-line,
 .description,
@@ -334,6 +426,18 @@
 
 .field-group input {
   width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--text);
+  padding: 0.85rem 1rem;
+  font: inherit;
+}
+
+.field-group select {
+  width: 100%;
+  min-height: 48px;
   box-sizing: border-box;
   border: 1px solid var(--outline);
   border-radius: 12px;

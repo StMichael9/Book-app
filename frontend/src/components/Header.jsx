@@ -96,7 +96,9 @@ export default function Header({ theme, setTheme }) {
         className="mobile-menu-toggle"
         aria-expanded={isMenuOpen}
         aria-controls="mobile-navigation"
-        aria-label={isMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+        aria-label={
+          isMenuOpen ? "Close navigation menu" : "Open navigation menu"
+        }
         onClick={() => {
           if (isMenuOpen) {
             closeMenu();
@@ -180,7 +182,10 @@ export default function Header({ theme, setTheme }) {
             </div>
 
             <nav className="mobile-drawer__nav" aria-label="Mobile navigation">
-              <section className="mobile-drawer__section" aria-labelledby="drawer-explore">
+              <section
+                className="mobile-drawer__section"
+                aria-labelledby="drawer-explore"
+              >
                 <h2 id="drawer-explore">Explore</h2>
                 {navItems.map(({ label, to }) => (
                   <NavLink
@@ -199,7 +204,10 @@ export default function Header({ theme, setTheme }) {
               </section>
 
               {!isLoading && isAuthenticated && (
-                <section className="mobile-drawer__section" aria-labelledby="drawer-shelf">
+                <section
+                  className="mobile-drawer__section"
+                  aria-labelledby="drawer-shelf"
+                >
                   <h2 id="drawer-shelf">Your shelf</h2>
                   <NavLink
                     to="/my-books"
@@ -218,7 +226,10 @@ export default function Header({ theme, setTheme }) {
                 </section>
               )}
 
-              <section className="mobile-drawer__section" aria-labelledby="drawer-account">
+              <section
+                className="mobile-drawer__section"
+                aria-labelledby="drawer-account"
+              >
                 <h2 id="drawer-account">Account</h2>
                 <button
                   type="button"

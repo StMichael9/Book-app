@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Route, Routes, useLocation, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 
 import { getBooks } from "./api/books.js";
 import AuthForm from "./components/AuthForm.jsx";
+import BrowseShelf from "./components/BrowseShelf.jsx";
 import Header from "./components/Header.jsx";
-import Hero from "./components/Hero.jsx";
 import LandingPage from "./components/LandingPage.jsx";
 import Pagination from "./components/Pagination.jsx";
 import PreferencesPage from "./components/PreferencesPage.jsx";
@@ -14,6 +20,7 @@ import SearchBar from "./components/SearchBar/SearchBar.jsx";
 import BookDetailPage from "./components/BookDetailPage.jsx";
 import MyBooksPage from "./components/MyBooksPage.jsx";
 import { useAuth } from "./hooks/AuthContext.jsx";
+import { BROWSE_SHELVES } from "./data/browseShelves.js";
 
 function App() {
   const [theme, setTheme] = useState("light");
@@ -88,9 +95,9 @@ function HomePage() {
     shelfStatus: "",
   });
   const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [hasSearched, setHasSearched] = useState(true);
+  const [hasSearched, setHasSearched] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -114,23 +121,10 @@ function HomePage() {
     const paramBook = searchParams.get("book")?.trim() ?? "";
     const paramAuthor = searchParams.get("author")?.trim() ?? "";
 
-    if (paramBook || paramAuthor || paramTags.length > 0) {
-      setFilters((current) => ({
-        ...current,
-        book: paramBook,
-        author: paramAuthor,
-        tags: paramTags,
-      }));
-      setPage(1);
-      setHasSearched(true);
-      return;
-    }
-
-    if (!searchParams.toString()) {
-      setFilters({ book: "", author: "", tags: [] });
-      setPage(1);
-      setHasSearched(true);
-    }
+    setFilters({ book: paramBook, author: paramAuthor, tags: paramTags });
+    setDiscoveryFilters({ excludeOwned: false, shelfStatus: "" });
+    setPage(1);
+    setHasSearched(false);
   }, [searchParams]);
 
   const runSearch = (nextFilters) => {
@@ -155,6 +149,34 @@ function HomePage() {
     setHasSearched(true);
   };
 
+  const urlFilters = useMemo(
+    () => ({
+      book: searchParams.get("book")?.trim() ?? "",
+      author: searchParams.get("author")?.trim() ?? "",
+      tags: searchParams
+        .getAll("tag")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    }),
+    [searchParams],
+  );
+  const hasUrlFilters = Boolean(
+    urlFilters.book || urlFilters.author || urlFilters.tags.length > 0,
+  );
+  const hasActiveFilters = Boolean(
+    filters.book ||
+      filters.author ||
+      filters.tags.length > 0 ||
+      discoveryFilters.excludeOwned ||
+      discoveryFilters.shelfStatus,
+  );
+  const isDiscoveryMode =
+    !hasUrlFilters && !hasActiveFilters && searchParams.get("view") !== "all";
+  const requestFilters = useMemo(
+    () => (hasUrlFilters ? urlFilters : filters),
+    [filters, hasUrlFilters, urlFilters],
+  );
+
   useEffect(() => {
     let ignore = false;
 
@@ -164,9 +186,9 @@ function HomePage() {
 
       try {
         const payload = await getBooks({
-          book: filters.book,
-          author: filters.author,
-          tags: filters.tags,
+          book: requestFilters.book,
+          author: requestFilters.author,
+          tags: requestFilters.tags,
           exclude_owned: discoveryFilters.excludeOwned,
           shelf_status: discoveryFilters.shelfStatus,
           page,
@@ -192,14 +214,27 @@ function HomePage() {
       }
     };
 
-    if (hasSearched) {
+    if (!isDiscoveryMode) {
       loadBooks();
+    } else {
+      setBooks([]);
+      setTotal(0);
+      setLoading(false);
+      setError("");
     }
 
     return () => {
       ignore = true;
     };
-  }, [discoveryFilters, filters, hasSearched, page, size]);
+  }, [
+    discoveryFilters,
+    filters,
+    hasSearched,
+    isDiscoveryMode,
+    page,
+    requestFilters,
+    size,
+  ]);
 
   const handlePageChange = (nextPage) => {
     if (nextPage < 1) return;
@@ -221,37 +256,72 @@ function HomePage() {
 
   return (
     <>
-      <Hero />
       <SearchBar
         onSearch={runSearch}
         activeFilters={{ total }}
+        initialFilters={filters}
         excludeOwned={discoveryFilters.excludeOwned}
+        shelfStatus={discoveryFilters.shelfStatus}
         onDiscoveryFilterChange={updateDiscoveryFilters}
       />
 
-      <ResultsList
-        books={books}
-        loading={loading}
-        error={error}
-        query={filters.book}
-        author={filters.author}
-        tags={filters.tags}
-      />
+      {isDiscoveryMode && (
+        <section className="browse-discovery" aria-labelledby="browse-discovery-title">
+          <div className="browse-discovery__intro">
+            <div>
+              <p className="eyebrow">Curated shelves</p>
+              <h2 id="browse-discovery-title">Find your next read</h2>
+              <p>Follow a mood, a subject, or a story into something new.</p>
+            </div>
+            <Link className="browse-mode-link" to="/browse?view=all">
+              Browse all books <span aria-hidden="true">&rarr;</span>
+            </Link>
+          </div>
+          <div className="browse-shelves" aria-label="Editorial book shelves">
+            {BROWSE_SHELVES.map((shelf) => (
+              <BrowseShelf key={shelf.id} shelf={shelf} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      <Pagination
-        page={page}
-        pages={totalPages}
-        onPageChange={handlePageChange}
-      />
+      {!isDiscoveryMode && (
+        <section className="browse-catalogue" aria-labelledby="browse-catalogue-title">
+          <div className="browse-catalogue__header">
+            <div>
+              <p className="eyebrow">The complete catalogue</p>
+              <h2 id="browse-catalogue-title">All books</h2>
+            </div>
+            <Link className="browse-mode-link" to="/browse">
+              <span aria-hidden="true">&larr;</span> Discover books
+            </Link>
+          </div>
 
-      {activeFilters.length > 0 && (
-        <div className="active-filter-summary" aria-live="polite">
-          {activeFilters.map((filter) => (
-            <span key={filter} className="filter-pill">
-              {filter}
-            </span>
-          ))}
-        </div>
+          <ResultsList
+            books={books}
+            loading={loading}
+            error={error}
+            query={filters.book}
+            author={filters.author}
+            tags={filters.tags}
+          />
+
+          <Pagination
+            page={page}
+            pages={totalPages}
+            onPageChange={handlePageChange}
+          />
+
+          {activeFilters.length > 0 && (
+            <div className="active-filter-summary" aria-live="polite">
+              {activeFilters.map((filter) => (
+                <span key={filter} className="filter-pill">
+                  {filter}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </>
   );

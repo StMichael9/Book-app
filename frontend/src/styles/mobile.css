@@ -188,6 +188,7 @@
   }
 
   .hero-panel,
+  .discovery-header,
   .results-header,
   .controls-panel {
     display: grid;
@@ -198,6 +199,34 @@
     align-items: stretch;
     gap: 12px;
     padding: 14px;
+  }
+
+  .discovery-header {
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .discovery-header__copy h1 {
+    font-size: clamp(2.15rem, 10vw, 3.1rem);
+  }
+
+  .discovery-search-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .discovery-search-row .primary-button {
+    width: 100%;
+  }
+
+  .filters-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-panel .filter-pills,
+  .filters-panel .checkbox-field,
+  .filters-panel .controls-actions {
+    grid-column: auto;
   }
 
   .field-group {
