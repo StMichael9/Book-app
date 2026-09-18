@@ -3,9 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { Menu, Moon, Sun, UserRound, X } from "lucide-react";
 import { useAuth } from "../hooks/AuthContext.jsx";
 
-const navItems = [
-  { label: "Browse", to: "/browse" },
-];
+const navItems = [{ label: "Browse", to: "/browse" }];
 
 export default function Header({
   theme,
@@ -164,12 +162,9 @@ export default function Header({
   return (
     <header className="topbar">
       <div className="brand-block">
-        <Link to="/" className="brand-mark" aria-label="Go to Shelfbound home">
-          S
+        <Link to="/" className="brand-mark" aria-label="Go to Bookvane home">
+          <img src="/bookvane-logo.png" alt="Bookvane" />
         </Link>
-        <div>
-          <h1>Shelfbound</h1>
-        </div>
       </div>
 
       <button
@@ -213,16 +208,6 @@ export default function Header({
             <NavLink to="/my-books" className="nav-link">
               My books
             </NavLink>
-            <button
-              type="button"
-              className="nav-link nav-button"
-              onClick={(event) => {
-                setIsAccountOpen(false);
-                onOpenPreferences(event.currentTarget);
-              }}
-            >
-              Preferences
-            </button>
           </>
         ) : !isLoading ? (
           <>
@@ -276,6 +261,16 @@ export default function Header({
               <div className="account-menu__popover" role="menu">
                 <button
                   ref={accountItemRef}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    closeAccountMenu(false);
+                    onOpenPreferences(accountButtonRef.current);
+                  }}
+                >
+                  Preferences
+                </button>
+                <button
                   type="button"
                   role="menuitem"
                   disabled={isLoggingOut}
@@ -355,78 +350,8 @@ export default function Header({
                   >
                     My books
                   </NavLink>
-                  <NavLink
-                    to="/preferences"
-                    className="mobile-drawer__link"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      closeMenu({ immediate: true, restoreFocus: false });
-                      onOpenPreferences(menuButtonRef.current);
-                    }}
-                  >
-                    Preferences
-                  </NavLink>
                 </section>
               )}
-
-              <section
-                className="mobile-drawer__section"
-                aria-labelledby="drawer-account"
-              >
-                <h2 id="drawer-account">Account</h2>
-                <button
-                  type="button"
-                  className="mobile-drawer__link mobile-drawer__button theme-toggle"
-                  aria-label={
-                    theme === "light"
-                      ? "Switch to dark mode"
-                      : "Switch to light mode"
-                  }
-                  title={
-                    theme === "light"
-                      ? "Switch to dark mode"
-                      : "Switch to light mode"
-                  }
-                  onClick={() =>
-                    setTheme((current) =>
-                      current === "light" ? "dark" : "light",
-                    )
-                  }
-                >
-                  {theme === "light" ? (
-                    <Sun aria-hidden="true" size={19} />
-                  ) : (
-                    <Moon aria-hidden="true" size={19} />
-                  )}
-                </button>
-                {!isLoading && isAuthenticated ? (
-                  <button
-                    type="button"
-                    className="mobile-drawer__link mobile-drawer__button"
-                    disabled={isLoggingOut}
-                    onClick={handleLogout}
-                  >
-                    {isLoggingOut ? "Logging out…" : "Log out"}
-                  </button>
-                ) : !isLoading ? (
-                  <>
-                    <NavLink
-                      to="/login"
-                      className="mobile-drawer__link"
-                      onClick={closeMenu}
-                    >
-                      Sign in
-                    </NavLink>
-                    <NavLink
-                      to="/register"
-                      className="mobile-drawer__link active"
-                      onClick={closeMenu}
-                    >
-                      Join Shelfbound
-                    </NavLink>
-                  </>
-                ) : null}
-              </section>
             </nav>
           </aside>
         </div>
