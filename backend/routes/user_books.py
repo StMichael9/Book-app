@@ -30,7 +30,7 @@ def set_book_status(
 
 
 @router.get("/me/books", response_model=list[UserBookSchema])
-@limiter.limit("30/minute")
+@limiter.limit("60/minute")
 def get_my_books(
     request: Request,
     status: UserBookStatus | None = None,
