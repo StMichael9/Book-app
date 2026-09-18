@@ -1,34 +1,81 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Menu, Moon, Sun, UserRound, X } from "lucide-react";
 import { useAuth } from "../hooks/AuthContext.jsx";
 
 const navItems = [
   { label: "Browse", to: "/browse" },
-  { label: "Staff Picks", to: "/browse?tag=fantasy" },
 ];
 
-export default function Header({ theme, setTheme }) {
+export default function Header({
+  theme,
+  setTheme,
+  onOpenPreferences,
+  onClosePreferences,
+}) {
   const { isAuthenticated, isLoading, logout } = useAuth();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const menuButtonRef = useRef(null);
   const drawerRef = useRef(null);
   const closeButtonRef = useRef(null);
   const drawerTimerRef = useRef(null);
+  const accountButtonRef = useRef(null);
+  const accountMenuRef = useRef(null);
+  const accountItemRef = useRef(null);
 
-  const closeMenu = () => {
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setLogoutError("");
+    try {
+      await logout();
+      setIsAccountOpen(false);
+      closeMenu({ immediate: true, restoreFocus: false });
+      onClosePreferences();
+      navigate("/", { replace: true });
+    } catch (error) {
+      setLogoutError(error.message || "Unable to log out right now.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const closeMenu = ({ immediate = false, restoreFocus = true } = {}) => {
     setIsMenuOpen(false);
     window.clearTimeout(drawerTimerRef.current);
-    drawerTimerRef.current = window.setTimeout(() => {
+    const unmountDrawer = () => {
       setIsDrawerMounted(false);
-    }, 180);
-    menuButtonRef.current?.focus();
+    };
+    if (immediate) {
+      unmountDrawer();
+    } else {
+      drawerTimerRef.current = window.setTimeout(unmountDrawer, 180);
+    }
+    if (restoreFocus) menuButtonRef.current?.focus();
   };
 
   const openMenu = () => {
+    setIsAccountOpen(false);
+    onClosePreferences();
     window.clearTimeout(drawerTimerRef.current);
     setIsDrawerMounted(true);
     setIsMenuOpen(true);
+  };
+
+  const closeAccountMenu = (restoreFocus = true) => {
+    setIsAccountOpen(false);
+    if (restoreFocus) accountButtonRef.current?.focus();
+  };
+
+  const openAccountMenu = () => {
+    onClosePreferences();
+    setIsAccountOpen(true);
   };
 
   useEffect(() => {
@@ -38,6 +85,41 @@ export default function Header({ theme, setTheme }) {
   }, [isMenuOpen]);
 
   useEffect(() => () => window.clearTimeout(drawerTimerRef.current), []);
+
+  useEffect(() => {
+    if (isAccountOpen) accountItemRef.current?.focus();
+  }, [isAccountOpen]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setIsAccountOpen(false);
+      closeMenu({ immediate: true, restoreFocus: false });
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAccountOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        closeAccountMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAccountMenu();
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isAccountOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -107,7 +189,11 @@ export default function Header({ theme, setTheme }) {
           }
         }}
       >
-        <span aria-hidden="true">{isMenuOpen ? "Close" : "Menu"}</span>
+        {isMenuOpen ? (
+          <X aria-hidden="true" size={19} />
+        ) : (
+          <Menu aria-hidden="true" size={19} />
+        )}
       </button>
 
       <nav className="topnav" aria-label="Main navigation">
@@ -127,15 +213,15 @@ export default function Header({ theme, setTheme }) {
             <NavLink to="/my-books" className="nav-link">
               My books
             </NavLink>
-            <NavLink to="/preferences" className="nav-link">
-              Preferences
-            </NavLink>
             <button
               type="button"
               className="nav-link nav-button"
-              onClick={logout}
+              onClick={(event) => {
+                setIsAccountOpen(false);
+                onOpenPreferences(event.currentTarget);
+              }}
             >
-              Log out
+              Preferences
             </button>
           </>
         ) : !isLoading ? (
@@ -149,6 +235,59 @@ export default function Header({ theme, setTheme }) {
           </>
         ) : null}
       </nav>
+
+      <div className="topbar-actions">
+        <button
+          type="button"
+          className="theme-toggle"
+          onClick={() =>
+            setTheme((current) => (current === "light" ? "dark" : "light"))
+          }
+          aria-label={
+            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+          }
+          title={
+            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+          }
+        >
+          {theme === "light" ? (
+            <Sun aria-hidden="true" size={19} />
+          ) : (
+            <Moon aria-hidden="true" size={19} />
+          )}
+        </button>
+        {!isLoading && isAuthenticated && (
+          <div ref={accountMenuRef} className="account-menu">
+            <button
+              ref={accountButtonRef}
+              type="button"
+              className="icon-button"
+              aria-label="Open account menu"
+              title="Account"
+              aria-haspopup="menu"
+              aria-expanded={isAccountOpen}
+              onClick={() =>
+                isAccountOpen ? closeAccountMenu() : openAccountMenu()
+              }
+            >
+              <UserRound aria-hidden="true" size={19} />
+            </button>
+            {isAccountOpen && (
+              <div className="account-menu__popover" role="menu">
+                <button
+                  ref={accountItemRef}
+                  type="button"
+                  role="menuitem"
+                  disabled={isLoggingOut}
+                  onClick={handleLogout}
+                >
+                  {isLoggingOut ? "Logging out…" : "Log out"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {isDrawerMounted && (
         <div
@@ -177,7 +316,7 @@ export default function Header({ theme, setTheme }) {
                 aria-label="Close navigation menu"
                 onClick={closeMenu}
               >
-                <span aria-hidden="true">&times;</span>
+                <X aria-hidden="true" size={19} />
               </button>
             </div>
 
@@ -219,7 +358,11 @@ export default function Header({ theme, setTheme }) {
                   <NavLink
                     to="/preferences"
                     className="mobile-drawer__link"
-                    onClick={closeMenu}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      closeMenu({ immediate: true, restoreFocus: false });
+                      onOpenPreferences(menuButtonRef.current);
+                    }}
                   >
                     Preferences
                   </NavLink>
@@ -233,25 +376,37 @@ export default function Header({ theme, setTheme }) {
                 <h2 id="drawer-account">Account</h2>
                 <button
                   type="button"
-                  className="mobile-drawer__link mobile-drawer__button"
+                  className="mobile-drawer__link mobile-drawer__button theme-toggle"
+                  aria-label={
+                    theme === "light"
+                      ? "Switch to dark mode"
+                      : "Switch to light mode"
+                  }
+                  title={
+                    theme === "light"
+                      ? "Switch to dark mode"
+                      : "Switch to light mode"
+                  }
                   onClick={() =>
                     setTheme((current) =>
                       current === "light" ? "dark" : "light",
                     )
                   }
                 >
-                  {theme === "light" ? "Warm dark" : "Vintage light"}
+                  {theme === "light" ? (
+                    <Sun aria-hidden="true" size={19} />
+                  ) : (
+                    <Moon aria-hidden="true" size={19} />
+                  )}
                 </button>
                 {!isLoading && isAuthenticated ? (
                   <button
                     type="button"
                     className="mobile-drawer__link mobile-drawer__button"
-                    onClick={() => {
-                      logout();
-                      closeMenu();
-                    }}
+                    disabled={isLoggingOut}
+                    onClick={handleLogout}
                   >
-                    Log out
+                    {isLoggingOut ? "Logging out…" : "Log out"}
                   </button>
                 ) : !isLoading ? (
                   <>
@@ -275,6 +430,11 @@ export default function Header({ theme, setTheme }) {
             </nav>
           </aside>
         </div>
+      )}
+      {logoutError && (
+        <p className="logout-error" role="alert">
+          {logoutError}
+        </p>
       )}
     </header>
   );

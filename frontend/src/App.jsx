@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   Route,
@@ -21,33 +21,103 @@ import BookDetailPage from "./components/BookDetailPage.jsx";
 import MyBooksPage from "./components/MyBooksPage.jsx";
 import { useAuth } from "./hooks/AuthContext.jsx";
 import { BROWSE_SHELVES } from "./data/browseShelves.js";
+import { X } from "lucide-react";
+
+const THEME_STORAGE_KEY = "shelfbound-theme";
+
+function getInitialTheme() {
+  try {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return storedTheme === "dark" || storedTheme === "light"
+      ? storedTheme
+      : "light";
+  } catch {
+    return "light";
+  }
+}
 
 function App() {
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  const preferencesTriggerRef = useRef(null);
+  const preferencesDialogRef = useRef(null);
+
+  const closePreferences = ({ restoreFocus = true } = {}) => {
+    setIsPreferencesOpen(false);
+    if (restoreFocus) {
+      window.setTimeout(() => preferencesTriggerRef.current?.focus(), 0);
+    }
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+    }
   }, [theme]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!isPreferencesOpen) return undefined;
+
+    preferencesDialogRef.current?.querySelector("button")?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closePreferences();
+        return;
+      }
+
+      if (event.key !== "Tab" || !preferencesDialogRef.current) return;
+
+      const focusableElements = preferencesDialogRef.current.querySelectorAll(
+        "a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled])",
+      );
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+
+      if (!firstElement || !lastElement) return;
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isPreferencesOpen]);
+
+  useEffect(() => {
+    if (!isAuthenticated) setIsPreferencesOpen(false);
+  }, [isAuthenticated]);
+
   return (
     <div className="app-shell">
-      <Header theme={theme} setTheme={setTheme} />
-
-      <button
-        type="button"
-        className="theme-toggle desktop-theme-toggle"
-        onClick={() =>
-          setTheme((current) => (current === "light" ? "dark" : "light"))
-        }
-        aria-label="Toggle warm dark mode"
-      >
-        {theme === "light" ? "Warm dark" : "Vintage light"}
-      </button>
+      <Header
+        theme={theme}
+        setTheme={setTheme}
+        isPreferencesOpen={isPreferencesOpen}
+        onOpenPreferences={(trigger) => {
+          preferencesTriggerRef.current = trigger;
+          setIsPreferencesOpen(true);
+        }}
+        onClosePreferences={() => closePreferences({ restoreFocus: false })}
+      />
 
       <main className="page">
         <Routes>
@@ -82,6 +152,45 @@ function App() {
           />
         </Routes>
       </main>
+
+      {isPreferencesOpen && (
+        <div
+          className="preferences-overlay"
+          role="presentation"
+          onPointerDown={(event) => {
+            if (event.target === event.currentTarget) closePreferences();
+          }}
+        >
+          <section
+            ref={preferencesDialogRef}
+            className="preferences-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="preferences-dialog-title"
+          >
+            <div className="preferences-dialog__header">
+              <div>
+                <p className="eyebrow">Your preferences</p>
+                <h2 id="preferences-dialog-title">Your reading shelf</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close preferences"
+                title="Close preferences"
+                onClick={closePreferences}
+              >
+                <X aria-hidden="true" size={18} />
+              </button>
+            </div>
+            <PreferencesPage
+              panel
+              onClose={closePreferences}
+              onSaved={closePreferences}
+            />
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -97,7 +206,6 @@ function HomePage() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [hasSearched, setHasSearched] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -124,7 +232,6 @@ function HomePage() {
     setFilters({ book: paramBook, author: paramAuthor, tags: paramTags });
     setDiscoveryFilters({ excludeOwned: false, shelfStatus: "" });
     setPage(1);
-    setHasSearched(false);
   }, [searchParams]);
 
   const runSearch = (nextFilters) => {
@@ -140,13 +247,11 @@ function HomePage() {
 
     setFilters(normalized);
     setPage(1);
-    setHasSearched(true);
   };
 
   const updateDiscoveryFilters = (nextFilters) => {
     setDiscoveryFilters((current) => ({ ...current, ...nextFilters }));
     setPage(1);
-    setHasSearched(true);
   };
 
   const urlFilters = useMemo(
@@ -176,6 +281,7 @@ function HomePage() {
     () => (hasUrlFilters ? urlFilters : filters),
     [filters, hasUrlFilters, urlFilters],
   );
+  const requestTagsKey = requestFilters.tags.join("\u0000");
 
   useEffect(() => {
     let ignore = false;
@@ -185,15 +291,18 @@ function HomePage() {
       setError("");
 
       try {
-        const payload = await getBooks({
+        const request = getBooks({
           book: requestFilters.book,
           author: requestFilters.author,
-          tags: requestFilters.tags,
+          tags: requestTagsKey ? requestTagsKey.split("\u0000") : [],
           exclude_owned: discoveryFilters.excludeOwned,
           shelf_status: discoveryFilters.shelfStatus,
           page,
           size,
+          cacheScope: isAuthenticated ? "authenticated" : "public",
         });
+
+        const payload = await request;
 
         if (!ignore) {
           setBooks(Array.isArray(payload?.items) ? payload.items : []);
@@ -205,7 +314,11 @@ function HomePage() {
         if (!ignore) {
           setBooks([]);
           setTotal(0);
-          setError(loadError.message || "Unable to load books right now.");
+          setError(
+            loadError.status === 429
+              ? "Books are taking a moment to load. Please try again shortly."
+              : loadError.message || "Unable to load books right now.",
+          );
         }
       } finally {
         if (!ignore) {
@@ -227,19 +340,20 @@ function HomePage() {
       ignore = true;
     };
   }, [
-    discoveryFilters,
-    filters,
-    hasSearched,
+    discoveryFilters.excludeOwned,
+    discoveryFilters.shelfStatus,
+    isAuthenticated,
     isDiscoveryMode,
     page,
-    requestFilters,
+    requestFilters.author,
+    requestFilters.book,
+    requestTagsKey,
     size,
   ]);
 
   const handlePageChange = (nextPage) => {
     if (nextPage < 1) return;
     setPage(nextPage);
-    setHasSearched(true);
   };
 
   const totalPages = Math.max(1, Math.ceil(total / size || 1));

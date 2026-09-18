@@ -4,7 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { getPreferences, savePreferences } from "../api/preferences.js";
 import AutocompleteInput from "./SearchBar/AutocompleteInput.jsx";
 
-export default function PreferencesPage({ onboarding = false }) {
+export default function PreferencesPage({
+  onboarding = false,
+  panel = false,
+  onClose,
+  onSaved,
+}) {
   const navigate = useNavigate();
   const [tags, setTags] = useState([]);
   const [sourceText, setSourceText] = useState("");
@@ -56,6 +61,7 @@ export default function PreferencesPage({ onboarding = false }) {
         tagIds: tags.map((tag) => tag.id),
         sourceText: sourceText.trim(),
       });
+      onSaved?.();
       navigate("/browse", { replace: true });
     } catch (saveError) {
       setError(saveError.message || "Unable to save preferences.");
@@ -64,12 +70,16 @@ export default function PreferencesPage({ onboarding = false }) {
     }
   };
 
-  if (loading) return <div className="loading-state">Loading preferences…</div>;
+  if (loading) return <div className="loading-state">Loading preferences...</div>;
 
   return (
     <section className="preference-panel">
-      <p className="eyebrow">{onboarding ? "A small first step" : "Your preferences"}</p>
-      <h2>{onboarding ? "What do you reach for?" : "Shape your reading shelf"}</h2>
+      {!panel && (
+        <>
+          <p className="eyebrow">{onboarding ? "A small first step" : "Your preferences"}</p>
+          <h2>{onboarding ? "What do you reach for?" : "Shape your reading shelf"}</h2>
+        </>
+      )}
       <p className="subtitle">
         {onboarding
           ? "Choose a few themes so Shelfbound feels like your kind of library."
@@ -115,9 +125,16 @@ export default function PreferencesPage({ onboarding = false }) {
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? "Saving…" : "Save preferences"}
           </button>
-          {onboarding && (
-            <button type="button" className="reset-button" onClick={() => navigate("/browse")}>
-              Skip for now
+          {(onboarding || panel) && (
+            <button
+              type="button"
+              className="reset-button"
+              onClick={() => {
+                onClose?.();
+                if (!panel) navigate("/browse");
+              }}
+            >
+              {panel ? "Cancel" : "Skip for now"}
             </button>
           )}
         </div>

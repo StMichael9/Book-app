@@ -46,11 +46,8 @@ export function AuthProvider({ children }) {
         setIsAuthenticated(true);
       },
       async logout() {
-        try {
-          await logoutUser();
-        } finally {
-          setIsAuthenticated(false);
-        }
+        await logoutUser();
+        setIsAuthenticated(false);
       },
     }),
     [isAuthenticated, isLoading],

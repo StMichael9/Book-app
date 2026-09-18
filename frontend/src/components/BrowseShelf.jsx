@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { getBooks } from "../api/books.js";
 import BookCard from "./BookCard.jsx";
+import { useAuth } from "../hooks/AuthContext.jsx";
 
 const SHELF_SIZE = 6;
 
@@ -24,18 +25,26 @@ function mergeBooks(payloads) {
 }
 
 export default function BrowseShelf({ shelf }) {
+  const { isAuthenticated } = useAuth();
   const [books, setBooks] = useState([]);
   const [state, setState] = useState("loading");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let ignore = false;
 
     const loadShelf = async () => {
       setState("loading");
+      setErrorMessage("");
 
       const results = await Promise.allSettled(
         (shelf.requestTags ?? shelf.tags).map((tag) =>
-          getBooks({ tag, page: 1, size: SHELF_SIZE }),
+          getBooks({
+            tag,
+            page: 1,
+            size: SHELF_SIZE,
+            cacheScope: isAuthenticated ? "authenticated" : "public",
+          }),
         ),
       );
       const successfulPayloads = results
@@ -46,6 +55,14 @@ export default function BrowseShelf({ shelf }) {
         if (successfulPayloads.length === 0) {
           setBooks([]);
           setState("error");
+          setErrorMessage(
+            results.some(
+              (result) =>
+                result.status === "rejected" && result.reason?.status === 429,
+            )
+              ? "Books are taking a moment to load. Please try again shortly."
+              : "This shelf is unavailable right now.",
+          );
         } else {
           setBooks(mergeBooks(successfulPayloads));
           setState("ready");
@@ -58,7 +75,7 @@ export default function BrowseShelf({ shelf }) {
     return () => {
       ignore = true;
     };
-  }, [shelf]);
+  }, [isAuthenticated, shelf]);
 
   return (
     <section className="browse-shelf" aria-labelledby={`${shelf.id}-title`}>
@@ -83,7 +100,7 @@ export default function BrowseShelf({ shelf }) {
       )}
 
       {state === "error" && (
-        <p className="browse-shelf__message">This shelf is unavailable right now.</p>
+        <p className="browse-shelf__message">{errorMessage}</p>
       )}
 
       {state === "ready" && books.length === 0 && (

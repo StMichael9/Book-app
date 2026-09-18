@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { getMyBooks } from "../api/userBooks.js";
 import BookCard from "./BookCard.jsx";
+import { useAuth } from "../hooks/AuthContext.jsx";
 
 const SHELVES = [
   {
@@ -28,12 +29,14 @@ const initialShelfState = {
 };
 
 export default function MyBooksPage() {
+  const { isAuthenticated } = useAuth();
+  const activeRequestRef = useRef(null);
   const [shelves, setShelves] = useState({
     owned: initialShelfState,
     want: initialShelfState,
   });
 
-  const loadShelf = useCallback((status) => {
+  const loadShelf = useCallback((status, activeRef) => {
     setShelves((current) => ({
       ...current,
       [status]: { ...current[status], loading: true, error: false },
@@ -41,6 +44,7 @@ export default function MyBooksPage() {
 
     return getMyBooks(status)
       .then((nextItems) => {
+        if (!activeRef?.current) return;
         setShelves((current) => ({
           ...current,
           [status]: {
@@ -51,6 +55,7 @@ export default function MyBooksPage() {
         }));
       })
       .catch(() => {
+        if (!activeRef?.current) return;
         setShelves((current) => ({
           ...current,
           [status]: { ...current[status], loading: false, error: true },
@@ -59,9 +64,35 @@ export default function MyBooksPage() {
   }, []);
 
   useEffect(() => {
-    loadShelf("owned");
-    loadShelf("want");
-  }, [loadShelf]);
+    const activeRef = { current: true };
+    activeRequestRef.current = activeRef;
+
+    if (!isAuthenticated) {
+      setShelves({
+        owned: { ...initialShelfState, loading: false },
+        want: { ...initialShelfState, loading: false },
+      });
+      return () => {
+        activeRef.current = false;
+        if (activeRequestRef.current === activeRef) {
+          activeRequestRef.current = null;
+        }
+      };
+    }
+
+    setShelves({
+      owned: initialShelfState,
+      want: initialShelfState,
+    });
+    loadShelf("owned", activeRef);
+    loadShelf("want", activeRef);
+    return () => {
+      activeRef.current = false;
+      if (activeRequestRef.current === activeRef) {
+        activeRequestRef.current = null;
+      }
+    };
+  }, [isAuthenticated, loadShelf]);
 
   return (
     <section className="my-books-page">
@@ -79,7 +110,7 @@ export default function MyBooksPage() {
             key={shelf.status}
             shelf={shelf}
             state={shelves[shelf.status]}
-            onRetry={() => loadShelf(shelf.status)}
+            onRetry={() => loadShelf(shelf.status, activeRequestRef.current)}
           />
         ))}
       </div>

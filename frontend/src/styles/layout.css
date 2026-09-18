@@ -52,6 +52,82 @@
   flex-wrap: wrap;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.topbar .theme-toggle,
+.topbar .icon-button {
+  margin: 0;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid var(--outline);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.icon-button:focus-visible,
+.topnav .nav-link:focus-visible,
+.mobile-menu-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.account-menu {
+  position: relative;
+}
+
+.account-menu__popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 28px rgba(43, 36, 28, 0.16);
+}
+
+.account-menu__popover button {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.55rem 0.7rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-menu__popover button:hover,
+.account-menu__popover button:focus-visible {
+  background: rgba(140, 59, 46, 0.1);
+  color: var(--accent);
+  outline: 0;
+}
+
 .nav-link {
   color: var(--text);
   text-decoration: none;
@@ -570,6 +646,11 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
+}
+
+.book-grid.book-grid--sparse {
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 280px));
+  justify-content: start;
 }
 
 .book-card {

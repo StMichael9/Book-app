@@ -47,8 +47,33 @@
 }
 
 .theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   margin-left: auto;
   margin-bottom: 16px;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.theme-toggle svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .book-card-redesign {
@@ -99,6 +124,187 @@
 
 .book-card-redesign:hover .book-card-redesign__cover img {
   transform: scale(1.02);
+}
+
+.book-detail {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 28px 0 56px;
+}
+
+.book-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+
+.book-detail__back:hover,
+.book-detail__back:focus-visible {
+  color: var(--accent);
+}
+
+.book-detail__back:focus-visible,
+.book-detail__tags span:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.book-detail__layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 80px);
+  align-items: start;
+}
+
+.book-detail__cover-column {
+  display: flex;
+  justify-content: center;
+}
+
+.book-detail__cover {
+  width: min(100%, 300px);
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  background: var(--input-bg);
+  box-shadow: 0 18px 36px rgba(43, 36, 28, 0.16);
+}
+
+.book-detail__cover img,
+.book-detail__cover-fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.book-detail__cover img {
+  background: var(--input-bg);
+}
+
+.book-detail__cover-fallback {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--panel);
+  font-family: var(--serif);
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.book-detail__information {
+  min-width: 0;
+  max-width: 720px;
+}
+
+.book-detail__heading h1 {
+  max-width: 18ch;
+  margin: 4px 0 0;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: clamp(2.3rem, 5vw, 4.6rem);
+  line-height: 1.03;
+  overflow-wrap: anywhere;
+}
+
+.book-detail__eyebrow,
+.book-detail__description h2,
+.book-detail__tags h2 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.book-detail__subtitle {
+  max-width: 48ch;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.book-detail__metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px 28px;
+  margin: 28px 0 0;
+  padding: 18px 0;
+  border-top: 1px solid var(--outline);
+  border-bottom: 1px solid var(--outline);
+}
+
+.book-detail__metadata div {
+  min-width: 100px;
+}
+
+.book-detail__metadata dt {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.book-detail__metadata dd {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.book-detail__status {
+  margin-top: 24px;
+}
+
+.book-detail__description,
+.book-detail__tags {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--outline);
+}
+
+.book-detail__description p {
+  max-width: 68ch;
+  margin: 12px 0 0;
+  color: var(--text);
+  font-size: 1.02rem;
+  line-height: 1.8;
+}
+
+.book-detail__tags > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.book-detail__tags span {
+  padding: 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--outline));
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-detail__back {
+    transition: none;
+  }
 }
 
 .book-card-redesign__spine {
@@ -335,6 +541,68 @@
   background: var(--surface);
 }
 
+.auth-panel {
+  max-width: 560px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.auth-brand .brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1.25rem;
+}
+
+.auth-panel h2 {
+  max-width: 12ch;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.auth-password-field input {
+  padding-right: 3.5rem;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible {
+  color: var(--accent);
+}
+
+.logout-error {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  max-width: min(360px, calc(100% - 32px));
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid #b35748;
+  border-radius: 8px;
+  background: var(--surface);
+  color: #b35748;
+}
+
 .auth-panel h2,
 .preference-panel h2,
 .shelf-page h2 {
@@ -375,6 +643,51 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.preferences-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(30, 27, 22, 0.68);
+}
+
+.preferences-dialog {
+  width: min(100%, 560px);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow-y: auto;
+  border: 1px solid var(--outline);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(18, 14, 10, 0.28);
+}
+
+.preferences-dialog__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 24px 0;
+}
+
+.preferences-dialog__header h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 400;
+}
+
+.preferences-dialog .preference-panel {
+  max-width: none;
+  margin: 0;
+  padding: 16px 24px 24px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .book-status {

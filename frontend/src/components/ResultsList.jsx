@@ -21,8 +21,11 @@ export default function ResultsList({
     return <EmptyState query={query} author={author} tags={tags} />;
   }
 
+  const gridClassName =
+    books.length <= 3 ? "book-grid book-grid--sparse" : "book-grid";
+
   return (
-    <section className="book-grid" aria-label="Book results">
+    <section className={gridClassName} aria-label="Book results">
       {books.map((book) => (
         <BookCard key={book.id} book={book} />
       ))}
