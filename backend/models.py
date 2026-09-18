@@ -1,10 +1,9 @@
 import enum
 import uuid
-from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID, DateTime, func, select
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from database import Base
 from datetime import datetime
-from sqlalchemy import DateTime, func
 
 # ASSOCIATION (JOIN) TABLES
 
@@ -85,11 +84,11 @@ class Book(Base):
     published_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
-    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True) 
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     authors: Mapped[list["Author"]] = relationship(
-        secondary=book_authors, 
+        secondary=book_authors,
         back_populates="books"
     )
     tags: Mapped[list["Tag"]] = relationship(
@@ -122,13 +121,13 @@ class UserBook(Base):
     book: Mapped["Book"] = relationship(back_populates="user_books")
 
 class Author(Base):
-    __tablename__ = 'authors' 
+    __tablename__ = 'authors'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False, index=True, unique=True)
 
     # Relationships
-    books:Mapped[list["Book"]] = relationship(
+    books: Mapped[list["Book"]] = relationship(
         secondary=book_authors,
         back_populates="authors"
     )
@@ -148,10 +147,28 @@ class Tag(Base):
 
     # Relationships
     books: Mapped[list["Book"]] = relationship(
-        secondary=book_tags, 
+        secondary=book_tags,
         back_populates="tags"
     )
     user_preferences: Mapped[list["UserPreference"]] = relationship(
         back_populates="tag",
         cascade="all, delete-orphan"
     )
+
+
+# COMPUTED COLUMNS — must be defined after Book and UserBook exist, since they
+# reference both classes directly (not by string name like the relationships above).
+
+Book.owned_count = column_property(
+    select(func.count(UserBook.id))
+    .where(UserBook.book_id == Book.id, UserBook.status == UserBookStatus.owned)
+    .correlate_except(UserBook)
+    .scalar_subquery()
+)
+
+Book.want_count = column_property(
+    select(func.count(UserBook.id))
+    .where(UserBook.book_id == Book.id, UserBook.status == UserBookStatus.want)
+    .correlate_except(UserBook)
+    .scalar_subquery()
+)

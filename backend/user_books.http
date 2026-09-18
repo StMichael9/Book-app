@@ -81,6 +81,36 @@ GET http://127.0.0.1:8000/me/books?status=owned
 
 
 ### ==========================================
+### BROWSE FILTERING (NEW — exclude_owned / shelf_status)
+### ==========================================
+
+
+### 9a. Browse excluding owned books
+# Book 1769 is currently "owned" (from step 6).
+# Expected: book 1769 does NOT appear in the results.
+GET http://127.0.0.1:8000/books?exclude_owned=true
+
+
+### 9b. Browse filtered to shelf_status=owned
+# Expected: book 1769 DOES appear.
+GET http://127.0.0.1:8000/books?shelf_status=owned
+
+
+### 9c. Browse filtered to shelf_status=want
+# Expected: book 1769 does NOT appear (it's owned, not wanted).
+GET http://127.0.0.1:8000/books?shelf_status=want
+
+
+### 9d. Check counts appear on book 1769's detail response
+# owned_count/want_count will likely be null/absent right now —
+# MIN_COUNT_TO_DISPLAY is 5, so a single test-account status won't surface yet.
+# That's the validator working correctly, not a bug. To actually see a number,
+# temporarily lower MIN_COUNT_TO_DISPLAY in schemas.py or insert a few more
+# UserBook rows in the dev DB, then re-run this request.
+GET http://127.0.0.1:8000/books/1769
+
+
+### ==========================================
 ### DELETE STATUS
 ### ==========================================
 
@@ -138,3 +168,10 @@ Content-Type: application/json
 {
     "status": "want"
 }
+
+
+### 17. Anonymous browse still works after logout
+# No current_user — confirms exclude_owned/shelf_status don't break
+# the logged-out path (they should just have no effect since
+# search_books only applies them when current_user is not None).
+GET http://127.0.0.1:8000/books

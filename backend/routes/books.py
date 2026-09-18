@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload, Session
 
 from database import get_db
-from models import Book, User
+from models import Book, User, UserBookStatus
 from schemas import BookSchema
 from services import search
 from rate_limit import limiter
@@ -24,9 +24,18 @@ def get_books(
     book: str = None,
     author: str = None,
     tag: list[str] = Query(None),
+    exclude_owned: bool = False,
+    shelf_status: UserBookStatus | None = None,
 ):
     service = search.SearchService(db)
-    query = service.search_books(book=book, author=author, tags=tag, current_user=current_user)
+    query = service.search_books(
+        book=book,
+        author=author,
+        tags=tag,
+        current_user=current_user,
+        exclude_owned=exclude_owned,
+        shelf_status=shelf_status,
+    )
     return paginate(db, query)
 
 

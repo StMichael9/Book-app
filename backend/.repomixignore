@@ -1,0 +1,4 @@
+backend/dist/
+backend/build/
+backend/.env
+backend/.gitignore
