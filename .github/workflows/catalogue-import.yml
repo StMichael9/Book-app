@@ -1,0 +1,77 @@
+name: Import Open Library catalogue
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Stable identifier for this pinned dump snapshot (reuse to resume)
+        required: true
+        type: string
+      works_url:
+        description: Dated Open Library works .txt.gz dump URL
+        required: true
+        type: string
+      authors_url:
+        description: Dated Open Library authors .txt.gz dump URL
+        required: true
+        type: string
+      editions_url:
+        description: Dated Open Library editions .txt.gz dump URL
+        required: true
+        type: string
+      max_books:
+        description: Maximum selected works
+        required: true
+        default: "100000"
+        type: string
+      max_database_mb:
+        description: Stop threshold in MiB, below the database storage limit
+        required: true
+        default: "450"
+        type: string
+
+concurrency:
+  group: bookvane-catalogue-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    environment: catalogue-production
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      CATALOGUE_DATABASE_URL: ${{ secrets.CATALOGUE_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.CATALOGUE_DATABASE_URL }}
+      SECRET_KEY: importer-only-key-not-used-to-sign-app-tokens
+      IS_DEV: "false"
+      CATALOGUE_IMPORT_PRODUCTION: "yes"
+      CATALOGUE_USER_AGENT: ${{ vars.CATALOGUE_USER_AGENT }}
+      INPUT_RUN_ID: ${{ inputs.run_id }}
+      INPUT_WORKS_URL: ${{ inputs.works_url }}
+      INPUT_AUTHORS_URL: ${{ inputs.authors_url }}
+      INPUT_EDITIONS_URL: ${{ inputs.editions_url }}
+      INPUT_MAX_BOOKS: ${{ inputs.max_books }}
+      INPUT_MAX_DATABASE_MB: ${{ inputs.max_database_mb }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r requirements.txt
+      # Database migrations are deliberately separate. This branch contains
+      # unrelated earlier migrations that must not be applied by an import job.
+      - name: Stream pinned dumps into the prepared database
+        run: |
+          python -m data.load \
+            --mode production \
+            --run-id "$INPUT_RUN_ID" \
+            --works-url "$INPUT_WORKS_URL" \
+            --authors-url "$INPUT_AUTHORS_URL" \
+            --editions-url "$INPUT_EDITIONS_URL" \
+            --max-books "$INPUT_MAX_BOOKS" \
+            --max-database-mb "$INPUT_MAX_DATABASE_MB"

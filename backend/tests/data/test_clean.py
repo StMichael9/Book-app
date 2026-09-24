@@ -1,135 +1,95 @@
 from __future__ import annotations
 
-import importlib
-import sys
-from pathlib import Path
+import gzip
+import io
+import json
 
-import pandas as pd
 import pytest
 
-
-class DummyResponse:
-    def __init__(self, payload):
-        self.payload = payload
-
-    def raise_for_status(self):
-        return None
-
-    def json(self):
-        return self.payload
+from data import clean
 
 
-@pytest.fixture()
-def clean_module(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-
-    payload_by_genre = {
-        "fantasy": {
-            "works": [
-                {
-                    "title": "Shared Title",
-                    "authors": [{"name": "Author One"}],
-                    "first_publish_year": 2001,
-                },
-                {
-                    "title": "Null Year",
-                    "authors": [{"name": "Author Two"}],
-                    "first_publish_year": 0,
-                },
-            ]
-        },
-        "mystery": {
-            "works": [
-                {
-                    "title": "Shared Title",
-                    "authors": [{"name": "Author One"}],
-                    "first_publish_year": 2001,
-                },
-                {
-                    "title": "Second Mystery",
-                    "authors": [],
-                    "first_publish_year": 1999,
-                },
-            ]
-        },
-        "horror": {"works": []},
-        "romance": {"works": []},
-        "science_fiction": {"works": []},
+def test_work_normalization_and_curated_tags():
+    work = clean.normalize_work({
+        "key": "/works/OL123W",
+        "title": "  Shared   Title ",
+        "subjects": ["Fantasy fiction", "SCIENCE", "Fantasy"],
+        "authors": [
+            {"author": {"key": "/authors/OL1A"}},
+            {"author": {"key": "/authors/OL1A"}},
+            {"author": {"key": "/authors/OL2A"}},
+        ],
+        "first_publish_date": "June 1998",
+        "description": {"value": " A  description "},
+        "covers": [123],
+    })
+    assert work == {
+        "source_id": "/works/OL123W",
+        "title": "Shared Title",
+        "description": "A description",
+        "published_year": 1998,
+        "cover_image_url": "https://covers.openlibrary.org/b/id/123-L.jpg",
+        "author_keys": ["/authors/OL1A", "/authors/OL2A"],
+        "tags": ["fantasy", "science"],
     }
-
-    def fake_get(url, headers, timeout):
-        genre = url.split("/subjects/")[1].split(".")[0]
-        return DummyResponse(payload_by_genre.get(genre, {"works": []}))
-
-    monkeypatch.setattr("requests.get", fake_get)
-    monkeypatch.setattr("time.sleep", lambda seconds: None)
-
-    sys.modules.pop("data.clean", None)
-    return importlib.import_module("data.clean")
+    assert clean.normalize_work({"key": "/works/OL7W", "title": "Unmapped", "subjects": []}) is None
+    assert clean.normalize_work({"key": "/works/OL7W", "title": "Книга",
+                                 "subjects": ["fantasy"], "authors": [{"key": "/authors/OL1A"}]}) is None
 
 
-def test_fetch_with_retry_retries_then_succeeds(clean_module, monkeypatch):
-    calls = {"count": 0, "slept": []}
-
-    def fake_get(url, headers, timeout):
-        calls["count"] += 1
-        if calls["count"] < 3:
-            raise clean_module.requests.exceptions.RequestException("temporary failure")
-        return DummyResponse({"works": []})
-
-    monkeypatch.setattr(clean_module.requests, "get", fake_get)
-    monkeypatch.setattr(clean_module.time, "sleep", lambda seconds: calls["slept"].append(seconds))
-
-    result = clean_module.fetch_with_retry("https://example.com", {"User-Agent": "x"}, max_attempts=3, timeout=5)
-
-    assert result == {"works": []}
-    assert calls["count"] == 3
-    assert calls["slept"] == [2, 4]
+def test_malformed_and_missing_metadata():
+    assert clean.normalize_work({"key": "/works/OL7W", "title": "A",
+                                 "subjects": "fantasy", "authors": None}) is None
+    assert clean.normalize_author({"key": "/authors/OL8A", "name": "  Jane   Doe "}) == {
+        "source_id": "/authors/OL8A", "name": "Jane Doe"
+    }
+    assert clean.normalize_author({"key": "/authors/OL8A", "name": None}) is None
+    assert clean.year("unknown") is None
+    assert clean.page_count(0) is None
+    assert clean.page_count("301") is None
+    assert clean.isbn13("978-0-14-032872-1") == "9780140328721"
+    assert clean.isbn13("9780140328722") is None
 
 
-def test_fetch_with_retry_raises_after_max_attempts(clean_module, monkeypatch):
-    calls = {"count": 0, "slept": []}
-
-    def fake_get(url, headers, timeout):
-        calls["count"] += 1
-        raise clean_module.requests.exceptions.RequestException("still failing")
-
-    monkeypatch.setattr(clean_module.requests, "get", fake_get)
-    monkeypatch.setattr(clean_module.time, "sleep", lambda seconds: calls["slept"].append(seconds))
-
-    with pytest.raises(clean_module.requests.exceptions.RequestException):
-        clean_module.fetch_with_retry("https://example.com", {"User-Agent": "x"}, max_attempts=3, timeout=5)
-
-    assert calls["count"] == 3
-    assert calls["slept"] == [2, 4]
+def test_edition_values_come_from_one_record():
+    editions = clean.normalize_edition({
+        "key": "/books/OL10M",
+        "works": [{"key": "/works/OL123W"}],
+        "languages": [{"key": "/languages/eng"}],
+        "isbn_13": ["bad", "9780140328721"],
+        "number_of_pages": 321,
+    })
+    assert editions == [{
+        "source_id": "/works/OL123W", "edition_key": "/books/OL10M",
+        "quality": 7, "isbn13": "9780140328721", "page_count": 321,
+    }]
+    assert clean.normalize_edition({"key": "/books/OL10M", "works": None}) == []
 
 
-def test_pipeline_builds_clean_and_combined_outputs(clean_module):
-    fantasy_clean = Path("json_data/clean/fantasy_clean.json")
-    mystery_clean = Path("json_data/clean/mystery_clean.json")
-    combined = Path("json_data/books_combined.json")
+def test_dump_is_streamed_without_file_outputs(monkeypatch):
+    rows = [
+        "/type/work\t/works/OL1W\t1\t2026-01-01\t" + json.dumps({"key": "/works/OL1W"}),
+        "broken",
+        "/type/work\t/works/OL2W\t1\t2026-01-01\t" + json.dumps({"key": "/works/OL2W"}),
+    ]
+    compressed = gzip.compress(("\n".join(rows) + "\n").encode("utf-8"))
 
-    assert fantasy_clean.exists()
-    assert mystery_clean.exists()
-    assert combined.exists()
+    class Response:
+        def __init__(self):
+            self.raw = io.BytesIO(compressed)
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            pass
+        def raise_for_status(self):
+            pass
 
-    fantasy_rows = clean_module.pd.read_json(fantasy_clean).to_dict(orient="records")
-    mystery_rows = clean_module.pd.read_json(mystery_clean).to_dict(orient="records")
-    combined_rows = clean_module.pd.read_json(combined).to_dict(orient="records")
-
-    assert fantasy_rows[0]["genre"] == "fantasy"
-    assert fantasy_rows[0]["author"] == "Author One"
-    assert pd.isna(fantasy_rows[1]["first_publish_year"])
-
-    assert mystery_rows[0]["genre"] == "mystery"
-    assert pd.isna(mystery_rows[1]["author"])
-
-    # The current loader requires an author, so groupby excludes missing-author rows.
-    assert len(combined_rows) == 2
-
-    shared_title = next(row for row in combined_rows if row["title"] == "Shared Title")
-    null_year = next(row for row in combined_rows if row["title"] == "Null Year")
-
-    assert shared_title["author"] == "Author One"
-    assert shared_title["genre"] == ["fantasy", "mystery"]
-    assert pd.isna(null_year["first_publish_year"])
+    monkeypatch.setattr(clean.requests, "get", lambda *_args, **_kwargs: Response())
+    result = list(clean.stream_dump("https://openlibrary.org/data/ol_dump_works_2026-09-01.txt.gz",
+                                    start_line=1, user_agent="Bookvane (contact@example.org)"))
+    assert [row.line_number for row in result] == [2, 3]
+    assert result[0].error
+    assert result[1].record["key"] == "/works/OL2W"
+    with pytest.raises(ValueError):
+        list(clean.stream_dump("https://openlibrary.org/data/ol_dump_works_latest.txt.gz",
+                               user_agent="Bookvane (contact@example.org)"))

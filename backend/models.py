@@ -2,6 +2,7 @@ import enum
 import uuid
 from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID, DateTime, Index, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
+from sqlalchemy.dialects.postgresql import JSONB
 from database import Base
 from datetime import datetime
 
@@ -109,7 +110,7 @@ class Book(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     published_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True, index=True)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     isbn13: Mapped[str | None] = mapped_column(String(13), nullable=True, index=True)
 
@@ -181,6 +182,78 @@ class Tag(Base):
         back_populates="tag",
         cascade="all, delete-orphan"
     )
+
+
+# Catalogue import state is kept in PostgreSQL, never in local JSON files.
+class CatalogueImportRun(Base):
+    __tablename__ = "catalogue_import_runs"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    works_url: Mapped[str] = mapped_column(Text, nullable=False)
+    authors_url: Mapped[str] = mapped_column(Text, nullable=False)
+    editions_url: Mapped[str] = mapped_column(Text, nullable=False)
+    category_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    max_books: Mapped[int] = mapped_column(Integer, nullable=False)
+    phase: Mapped[str] = mapped_column(String(20), nullable=False, default="works")
+    checkpoint_line: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    merge_cursor: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    selected_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    merged_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class CatalogueStageWork(Base):
+    __tablename__ = "catalogue_stage_works"
+
+    run_id: Mapped[str] = mapped_column(
+        String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+
+
+class CatalogueStageWorkAuthor(Base):
+    __tablename__ = "catalogue_stage_work_authors"
+    __table_args__ = (Index("ix_catalogue_stage_work_authors_author", "run_id", "author_key"),)
+
+    run_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    author_key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class CatalogueStageAuthor(Base):
+    __tablename__ = "catalogue_stage_authors"
+
+    run_id: Mapped[str] = mapped_column(
+        String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    author_key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    name: Mapped[str] = mapped_column(String(225), nullable=False)
+
+
+class CatalogueStageEdition(Base):
+    __tablename__ = "catalogue_stage_editions"
+
+    run_id: Mapped[str] = mapped_column(
+        String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    edition_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    quality: Mapped[int] = mapped_column(Integer, nullable=False)
+    isbn13: Mapped[str | None] = mapped_column(String(13), nullable=True)
+    page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+Index("ix_catalogue_stage_works_title_hash", func.md5(CatalogueStageWork.title))
 
 
 # COMPUTED COLUMNS — must be defined after Book and UserBook exist, since they
