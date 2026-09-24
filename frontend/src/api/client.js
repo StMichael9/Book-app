@@ -15,14 +15,16 @@ async function refreshSession() {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
     }).finally(() => {
       refreshPromise = null;
     });
   }
 
   const response = await refreshPromise;
-  if (!response.ok) return false;
+  if (!response.ok) {
+    window.dispatchEvent(new Event("bookvane:session-expired"));
+    return false;
+  }
   return true;
 }
 
@@ -33,14 +35,19 @@ export async function apiRequest(path, options = {}) {
   const response = await fetch(url, {
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(requestOptions.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(requestOptions.headers || {}),
     },
     ...requestOptions,
   });
 
   if (response.status === 401 && !skipRefresh && path !== "/auth/refresh") {
-    const refreshed = await refreshSession();
+    let refreshed = false;
+    try {
+      refreshed = await refreshSession();
+    } catch {
+      window.dispatchEvent(new Event("bookvane:session-expired"));
+    }
     if (refreshed) {
       return apiRequest(path, { ...requestOptions, skipRefresh: true });
     }

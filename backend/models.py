@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID, DateTime, func, select
+from sqlalchemy import String, Text, Integer, Table, Column, ForeignKey, UniqueConstraint, UUID, DateTime, Index, func, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from database import Base
 from datetime import datetime
@@ -32,11 +32,15 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     # relationships
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan"
+    )
+    password_reset_tokens: Mapped[list["PasswordResetToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
     books: Mapped[list["UserBook"]] = relationship(
         back_populates="user",
@@ -73,6 +77,28 @@ class RefreshToken(Base):
     user: Mapped["User"] = relationship(back_populates="refresh_tokens")
 
 
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="password_reset_tokens")
+
+
+class EmailSignup(Base):
+    __tablename__ = "email_signups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    source: Mapped[str] = mapped_column(String(40), nullable=False, default="landing")
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 
 class Book(Base):
     __tablename__ = 'books'
@@ -85,6 +111,7 @@ class Book(Base):
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     page_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    isbn13: Mapped[str | None] = mapped_column(String(13), nullable=True, index=True)
 
     # Relationships
     authors: Mapped[list["Author"]] = relationship(
@@ -172,3 +199,10 @@ Book.want_count = column_property(
     .correlate_except(UserBook)
     .scalar_subquery()
 )
+
+# Keep ORM metadata aligned with the search/index migration so fresh schema
+# creation in disposable tests matches Alembic-managed environments.
+Index("ix_books_title_trgm", Book.title, postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"})
+Index("ix_authors_name_trgm", Author.name, postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"})
+Index("ix_book_tags_tag_book", book_tags.c.tag_id, book_tags.c.book_id)
+Index("ix_user_books_user_status", UserBook.user_id, UserBook.status)

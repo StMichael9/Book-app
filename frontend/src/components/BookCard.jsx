@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import BookStatusControl from "./BookStatusControl.jsx";
+import { bookshopAffiliateUrl } from "../api/affiliate.js";
 
-export default function BookCard({ book }) {
+export default function BookCard({ book, showWantAffiliate = false }) {
   const [imageFailed, setImageFailed] = useState(false);
   const title = book.title || "Untitled book";
   const initials =
@@ -17,6 +18,7 @@ export default function BookCard({ book }) {
   const hiddenTagCount = Math.max(0, tags.length - visibleTags.length);
   const authors =
     book.authors?.map((author) => author.name).join(", ") || "Unknown Author";
+  const affiliateUrl = showWantAffiliate ? bookshopAffiliateUrl(book) : null;
 
   return (
     <article className="book-card-redesign">
@@ -77,6 +79,10 @@ export default function BookCard({ book }) {
         )}
 
         <BookStatusControl bookId={book.id} compact />
+        {affiliateUrl && <div className="book-affiliate">
+          <a href={affiliateUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop.org</a>
+          <small>Bookvane may earn a commission from this link.</small>
+        </div>}
       </div>
     </article>
   );

@@ -19,6 +19,7 @@ import ResultsList from "./components/ResultsList.jsx";
 import SearchBar from "./components/SearchBar/SearchBar.jsx";
 import BookDetailPage from "./components/BookDetailPage.jsx";
 import MyBooksPage from "./components/MyBooksPage.jsx";
+import PasswordRecoveryPage from "./components/PasswordRecoveryPage.jsx";
 import { useAuth } from "./hooks/AuthContext.jsx";
 import { BROWSE_SHELVES } from "./data/browseShelves.js";
 import { X } from "lucide-react";
@@ -126,6 +127,8 @@ function App() {
           <Route path="/book/:bookId" element={<BookDetailPage />} />
           <Route path="/login" element={<AuthForm mode="login" />} />
           <Route path="/register" element={<AuthForm mode="register" />} />
+          <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
+          <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
           <Route
             path="/onboarding"
             element={

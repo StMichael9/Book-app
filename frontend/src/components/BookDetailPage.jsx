@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getBookById } from "../api/books.js";
 import BookStatusControl from "./BookStatusControl.jsx";
+import ShareBookButton from "./ShareBookButton.jsx";
 
 export default function BookDetailPage() {
   const { bookId } = useParams();
@@ -134,6 +135,7 @@ export default function BookDetailPage() {
 
           <div className="book-detail__status">
             <BookStatusControl bookId={book.id} />
+            <ShareBookButton book={book} />
           </div>
 
           {book.description && (

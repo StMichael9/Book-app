@@ -1,5 +1,7 @@
 import hashlib
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -61,8 +63,8 @@ def auth_test_environment(app_modules, db_session: Session):
     def protected_route(current_user=Depends(get_current_user)):
         return {"email": current_user.email}
 
+    previous_routes = list(app.router.routes)
     app.include_router(router)
-    added_routes = [route for route in app.routes if route.path == PROTECTED_PATH]
 
     try:
         yield
@@ -71,9 +73,7 @@ def auth_test_environment(app_modules, db_session: Session):
         db_session.execute(delete(models.RefreshToken))
         db_session.execute(delete(models.User))
         db_session.commit()
-        app.router.routes[:] = [
-            route for route in app.router.routes if route not in added_routes
-        ]
+        app.router.routes[:] = previous_routes
 
 
 def _new_email() -> str:
@@ -140,6 +140,27 @@ def test_login_with_correct_credentials_sets_both_http_only_cookies(
     assert any("access_token=" in value and "HttpOnly" in value for value in cookie_headers)
     assert any("refresh_token=" in value and "HttpOnly" in value for value in cookie_headers)
     assert all("SameSite=lax" in value for value in cookie_headers)
+
+
+def test_production_cookie_flags_and_write_origin(client: TestClient, monkeypatch):
+    from database import settings
+    from auth import auth as auth_routes
+
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    monkeypatch.setattr(settings, "is_dev", False)
+    monkeypatch.setattr(auth_routes, "COOKIE_SECURE", True)
+    monkeypatch.setattr(auth_routes, "COOKIE_SAMESITE", "none")
+
+    blocked = client.post(f"{AUTH_PATH}/login", json=credentials)
+    assert blocked.status_code == 403
+    allowed = client.post(
+        f"{AUTH_PATH}/login", json=credentials,
+        headers={"Origin": "http://localhost:5173"},
+    )
+    assert allowed.status_code == 200
+    cookie_headers = _set_cookie_headers(allowed)
+    assert all("Secure" in value and "SameSite=none" in value for value in cookie_headers)
 
 
 def test_login_with_wrong_password_fails_with_unauthorized(client: TestClient):
@@ -356,3 +377,147 @@ def test_sixth_login_request_within_a_minute_is_rate_limited(client: TestClient)
 # each test. If a different SlowAPI version is installed, update _reset_limiter
 # to call that version's documented storage reset method rather than disabling
 # the limiter, especially for the sixth-login assertion above.
+
+
+def test_malformed_signed_subject_returns_401(client: TestClient, app_modules):
+    from database import settings
+
+    token = jwt.encode({"sub": "not-a-uuid", "exp": datetime.now(timezone.utc) + timedelta(minutes=5)}, settings.secret_key, algorithm="HS256")
+    response = client.get(PROTECTED_PATH, cookies={"access_token": token})
+    assert response.status_code == 401
+
+
+def test_password_reset_is_single_use_and_invalidates_sessions(
+    client: TestClient, db_session: Session, app_modules, monkeypatch
+):
+    from database import settings
+    from auth import auth as auth_routes
+
+    credentials, login_response = _register_and_login(client)
+    access_token = login_response.cookies.get("access_token")
+    refresh_token = login_response.cookies.get("refresh_token")
+    sent = []
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "password_reset_from", "Bookvane <reset@shelfbound.dev>")
+    monkeypatch.setattr(settings, "frontend_base_url", "https://shelfbound.dev")
+    monkeypatch.setattr(auth_routes, "send_password_reset_email", lambda email, url: sent.append((email, url)))
+
+    unknown = client.post(f"{AUTH_PATH}/forgot-password", json={"email": "missing@example.com"})
+    known = client.post(f"{AUTH_PATH}/forgot-password", json={"email": credentials["email"]})
+    assert unknown.status_code == known.status_code == 202
+    assert unknown.json() == known.json()
+    assert len(sent) == 1
+    token = parse_qs(urlparse(sent[0][1]).fragment)["token"][0]
+
+    reset = client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "new safe password"})
+    assert reset.status_code == 200
+    assert client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "another password"}).status_code == 400
+    assert client.get(PROTECTED_PATH, cookies={"access_token": access_token}).status_code == 401
+    assert client.post(f"{AUTH_PATH}/refresh", cookies={"refresh_token": refresh_token}).status_code == 401
+    assert client.post(f"{AUTH_PATH}/login", json=credentials).status_code == 401
+    assert client.post(f"{AUTH_PATH}/login", json={**credentials, "password": "new safe password"}).status_code == 200
+
+
+def test_expired_password_reset_token_is_rejected(client: TestClient, db_session: Session, app_modules):
+    models = app_modules["models"]
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    user = db_session.execute(select(models.User).where(models.User.email == credentials["email"])).scalar_one()
+    token = "expired-" + uuid.uuid4().hex
+    db_session.add(models.PasswordResetToken(
+        user_id=user.id,
+        token_hash=_refresh_hash(token),
+        expires_at=datetime.now(timezone.utc) - timedelta(seconds=1),
+    ))
+    db_session.commit()
+
+    response = client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "replacement password"})
+    assert response.status_code == 400
+    assert client.post(f"{AUTH_PATH}/login", json=credentials).status_code == 200
+
+
+def test_simultaneous_password_reset_consumes_token_once(client: TestClient, db_session: Session, app_modules):
+    models = app_modules["models"]
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    user = db_session.execute(select(models.User).where(models.User.email == credentials["email"])).scalar_one()
+    token = "simultaneous-" + uuid.uuid4().hex
+    db_session.add(models.PasswordResetToken(
+        user_id=user.id,
+        token_hash=_refresh_hash(token),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+    ))
+    db_session.commit()
+
+    app = app_modules["main"].app
+    overrides = dict(app.dependency_overrides)
+    app.dependency_overrides.clear()
+
+    def submit():
+        with TestClient(app) as other_client:
+            return other_client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "replacement password"}).status_code
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            statuses = list(executor.map(lambda _: submit(), range(2)))
+    finally:
+        app.dependency_overrides.update(overrides)
+    assert sorted(statuses) == [200, 400]
+    db_session.expire_all()
+    assert client.post(f"{AUTH_PATH}/login", json={**credentials, "password": "replacement password"}).status_code == 200
+
+
+def test_user_books_and_preferences_stay_with_the_owner(client: TestClient, seeded_books, db_session: Session):
+    from models import Tag
+
+    book_id = seeded_books["Dracula"].id
+    tag_id = db_session.execute(select(Tag.id)).scalars().first()
+    first = _credentials()
+    second = _credentials()
+    assert _register(client, first).status_code == 201
+    assert _register(client, second).status_code == 201
+
+    assert client.post(f"{AUTH_PATH}/login", json=first).status_code == 200
+    assert client.post(f"/books/{book_id}/status", json={"status": "want"}).status_code == 200
+    assert client.post("/me/preferences", json={"tag_ids": [tag_id]}).status_code == 200
+    assert len(client.get("/me/books").json()) == 1
+
+    assert client.post(f"{AUTH_PATH}/login", json=second).status_code == 200
+    assert client.get("/me/books").json() == []
+    assert client.get("/me/preferences").json() == []
+    assert client.delete(f"/books/{book_id}/status").status_code == 404
+    assert client.post(f"/books/{book_id}/status", json={"status": "owned"}).status_code == 200
+
+    assert client.post(f"{AUTH_PATH}/login", json=first).status_code == 200
+    assert client.get("/me/books").json()[0]["status"] == "want"
+    assert len(client.get("/me/preferences").json()) == 1
+
+
+def test_concurrent_status_creation_does_not_duplicate_or_error(
+    client: TestClient, seeded_books, db_session: Session, app_modules
+):
+    models = app_modules["models"]
+    book_id = seeded_books["Dracula"].id
+    _, login_response = _register_and_login(client)
+    access_token = login_response.cookies.get("access_token")
+    app = app_modules["main"].app
+    overrides = dict(app.dependency_overrides)
+    app.dependency_overrides.clear()
+
+    def submit():
+        with TestClient(app) as other_client:
+            other_client.cookies.set("access_token", access_token)
+            return other_client.post(f"/books/{book_id}/status", json={"status": "want"}).status_code
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            statuses = list(executor.map(lambda _: submit(), range(2)))
+    finally:
+        app.dependency_overrides.update(overrides)
+    assert statuses == [200, 200]
+    db_session.expire_all()
+    assert len(client.get("/me/books").json()) == 1
+    user_book_rows = db_session.execute(
+        select(models.UserBook).where(models.UserBook.book_id == book_id)
+    ).scalars().all()
+    assert len(user_book_rows) == 1

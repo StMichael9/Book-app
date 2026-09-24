@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { Menu, Moon, Sun, UserRound, X } from "lucide-react";
 import { useAuth } from "../hooks/AuthContext.jsx";
 
@@ -12,7 +12,6 @@ export default function Header({
   onClosePreferences,
 }) {
   const { isAuthenticated, isLoading, logout } = useAuth();
-  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDrawerMounted, setIsDrawerMounted] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -36,7 +35,6 @@ export default function Header({
       setIsAccountOpen(false);
       closeMenu({ immediate: true, restoreFocus: false });
       onClosePreferences();
-      navigate("/", { replace: true });
     } catch (error) {
       setLogoutError(error.message || "Unable to log out right now.");
     } finally {

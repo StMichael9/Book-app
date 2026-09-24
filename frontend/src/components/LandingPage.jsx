@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { signUpForUpdates } from "../api/emailSignups.js";
 
 const discoveryLinks = [
   { label: "Fantasy", tag: "fantasy" },
@@ -15,6 +17,27 @@ const steps = [
 ];
 
 export default function LandingPage() {
+  const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [signupState, setSignupState] = useState("idle");
+  const [signupError, setSignupError] = useState("");
+
+  async function submitSignup(event) {
+    event.preventDefault();
+    if (!consent) return;
+    setSignupState("submitting");
+    setSignupError("");
+    try {
+      await signUpForUpdates(email);
+      setSignupState("done");
+      setEmail("");
+      setConsent(false);
+    } catch (error) {
+      setSignupError(error.message || "Unable to sign up right now.");
+      setSignupState("idle");
+    }
+  }
+
   return (
     <div className="landing-page">
       <section className="landing-page__hero" aria-labelledby="landing-title">
@@ -84,6 +107,33 @@ export default function LandingPage() {
         <Link className="landing-page__text-link" to="/browse">
           Explore the shelves <span aria-hidden="true">&rarr;</span>
         </Link>
+      </section>
+
+      <section className="landing-page__section" aria-labelledby="updates-title">
+        <div className="landing-page__section-heading">
+          <h3 id="updates-title">Hear from Bookvane</h3>
+          <p>Occasional product updates. An account is not required.</p>
+        </div>
+        {signupState === "done" ? (
+          <p role="status">Thanks for signing up for Bookvane updates.</p>
+        ) : (
+          <form className="preferences-form" onSubmit={submitSignup}>
+            <div className="field-group">
+              <label htmlFor="updates-email">Email</label>
+              <input id="updates-email" type="email" autoComplete="email" required
+                value={email} onChange={(event) => setEmail(event.target.value)} />
+            </div>
+            <label className="checkbox-field">
+              <input type="checkbox" checked={consent} required
+                onChange={(event) => setConsent(event.target.checked)} />
+              <span>I agree to receive Bookvane product updates by email.</span>
+            </label>
+            {signupError && <p className="error-message" role="alert">{signupError}</p>}
+            <button className="primary-button" type="submit" disabled={!consent || signupState === "submitting"}>
+              {signupState === "submitting" ? "Signing up…" : "Sign up"}
+            </button>
+          </form>
+        )}
       </section>
     </div>
   );

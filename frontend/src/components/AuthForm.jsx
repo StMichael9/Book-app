@@ -101,6 +101,9 @@ export default function AuthForm({ mode }) {
           {submitting ? "Working…" : isRegister ? "Create account" : "Sign in"}
         </button>
       </form>
+      {!isRegister && (
+        <p className="auth-switch"><Link to="/forgot-password">Forgot your password?</Link></p>
+      )}
       <p className="auth-switch">
         {isRegister ? "Already have an account? " : "New to Shelfbound? "}
         <Link to={isRegister ? "/login" : "/register"}>

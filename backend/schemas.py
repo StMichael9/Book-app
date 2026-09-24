@@ -26,6 +26,7 @@ class BookSchema(BaseModel):
     published_year: int | None = None
     cover_image_url: str | None = None
     page_count: int | None = None
+    isbn13: str | None = None
     authors: list[AuthorSchema] = []
     tags: list[TagSchema] = []
     owned_count: int | None = None

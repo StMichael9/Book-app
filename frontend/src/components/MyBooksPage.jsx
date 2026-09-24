@@ -151,7 +151,7 @@ function LibraryShelf({ shelf, state, onRetry }) {
         <div className="library-shelf__track" tabIndex="0" aria-label={`${shelf.title} books`}>
           <div className="library-shelf__books">
             {state.items.map(
-              (item) => item.book && <BookCard key={item.id} book={item.book} />,
+              (item) => item.book && <BookCard key={item.id} book={item.book} showWantAffiliate={shelf.status === "want"} />,
             )}
           </div>
         </div>

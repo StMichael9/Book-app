@@ -16,5 +16,15 @@ services:
         value: 3.11.9
       - key: DATABASE_URL
         sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: IS_DEV
+        value: "false"
       - key: CORS_ORIGINS
-        value: http://localhost:5173
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PASSWORD_RESET_FROM
+        sync: false

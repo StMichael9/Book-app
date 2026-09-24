@@ -743,3 +743,6 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.book-affiliate { display: flex; flex-direction: column; gap: .3rem; margin-top: .75rem; }
+.book-affiliate small { color: var(--muted); }
+.share-book { margin-top: .75rem; }

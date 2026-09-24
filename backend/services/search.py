@@ -1,4 +1,4 @@
-from sqlalchemy import distinct, func, select, exists
+from sqlalchemy import select, exists
 from sqlalchemy.orm import Session, selectinload
 from models import Book, Author, Tag, User, UserBook, UserBookStatus, book_tags
 
@@ -18,20 +18,16 @@ class SearchService:
     ):
         query = (
             select(Book)
-            .join(Book.authors)
-            .join(Book.tags)
-            .group_by(Book.id)
             .options(selectinload(Book.authors), selectinload(Book.tags))
+            .order_by(Book.id)
         )
         if book is not None:
             query = query.where(Book.title.ilike(f"%{book}%"))
         if author is not None:
-            query = query.where(Author.name.ilike(f"%{author}%"))
+            query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))
         if tags:
-            query = (
-                query.where(Tag.name.in_(tags))
-                .having(func.count(distinct(Tag.id)) >= len(tags))
-            )
+            for tag in set(tags):
+                query = query.where(Book.tags.any(Tag.name == tag))
 
         if current_user is not None:
             if exclude_owned:
@@ -59,6 +55,6 @@ class SearchService:
                     .where(book_tags.c.book_id == Book.id)
                     .where(book_tags.c.tag_id.in_(preferred_tag_ids))
                 )
-                query = query.order_by(preference_match.desc())
+                query = query.order_by(None).order_by(preference_match.desc(), Book.id)
 
         return query

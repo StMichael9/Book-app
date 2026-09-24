@@ -14,6 +14,12 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const handleSessionExpired = () => setIsAuthenticated(false);
+    window.addEventListener("bookvane:session-expired", handleSessionExpired);
+    return () => window.removeEventListener("bookvane:session-expired", handleSessionExpired);
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     refreshSession()
@@ -48,6 +54,9 @@ export function AuthProvider({ children }) {
       async logout() {
         await logoutUser();
         setIsAuthenticated(false);
+        // A full navigation prevents a ProtectedRoute redirect from racing
+        // the logout transition and leaving the user on a return-to-login URL.
+        window.location.replace("/");
       },
     }),
     [isAuthenticated, isLoading],

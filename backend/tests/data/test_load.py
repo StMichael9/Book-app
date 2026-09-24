@@ -28,6 +28,9 @@ def loader_environment(app_modules, monkeypatch):
 
     def run_loader(rows: list[dict[str, object]]) -> None:
         dataframe = pd.DataFrame(rows)
+        for optional_column in ("cover_id", "description"):
+            if optional_column not in dataframe:
+                dataframe[optional_column] = None
 
         monkeypatch.setattr(pd, "read_json", lambda *args, **kwargs: dataframe)
         monkeypatch.setattr(database, "SessionLocal", lambda: session_factory())
