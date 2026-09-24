@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { getBookById } from "../api/books.js";
+import BookStatusControl from "./BookStatusControl.jsx";
 
 export default function BookDetailPage() {
   const { bookId } = useParams();
@@ -68,93 +69,95 @@ export default function BookDetailPage() {
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase() || "")
       .join("") || "BK";
+  const authors =
+    book.authors?.map((author) => author.name).filter(Boolean) || [];
+  const hasPublishedYear =
+    book.published_year !== null && book.published_year !== undefined;
+  const hasPageCount =
+    book.page_count !== null && book.page_count !== undefined;
 
   return (
-    <article className="mx-auto max-w-5xl py-6">
-      {/* Back Link with Micro-Interaction */}
-      <Link
-        to="/browse"
-        className="group inline-flex items-center gap-2 text-sm font-semibold text-[var(--muted)] transition-colors hover:text-[var(--accent)] mb-8"
-      >
-        <span className="transition-transform duration-200 group-hover:-translate-x-1">
-          ←
-        </span>{" "}
+    <article className="book-detail" aria-labelledby="book-detail-title">
+      <Link className="book-detail__back" to="/browse">
+        <span aria-hidden="true">←</span>
         Back to browse
       </Link>
 
-      <div className="grid gap-10 md:grid-cols-12 md:items-start">
-        {/* 3D Physical Book Display */}
-        <div className="md:col-span-5 lg:col-span-4">
-          <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-2xl bg-stone-900/5 shadow-2xl shadow-stone-900/30 dark:shadow-black/60 ring-1 ring-stone-900/10 dark:ring-stone-100/10 transition-transform duration-500 hover:scale-[1.02]">
+      <div className="book-detail__layout">
+        <div className="book-detail__cover-column">
+          <div className="book-detail__cover">
             {book.cover_image_url ? (
-              <img
-                src={book.cover_image_url}
-                alt={book.title}
-                className="h-full w-full object-cover"
-              />
+              <img src={book.cover_image_url} alt={`Cover of ${book.title}`} />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-stone-800 to-stone-900 text-stone-200 font-serif text-5xl font-bold tracking-widest">
+              <div
+                className="book-detail__cover-fallback"
+                aria-label={`No cover available for ${book.title}`}
+                role="img"
+              >
                 {coverText}
               </div>
             )}
-            {/* Realistic Spine Depth Shadow */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-transparent w-5" />
           </div>
         </div>
 
-        {/* Editorial Book Information */}
-        <div className="flex flex-col gap-6 md:col-span-7 lg:col-span-8">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]">
-              Book Details
-            </span>
-            <h1 className="font-serif text-4xl md:text-5xl font-extrabold tracking-tight text-[var(--text)] mt-1 leading-[1.1]">
-              {book.title}
-            </h1>
+        <div className="book-detail__information">
+          <header className="book-detail__heading">
+            <p className="book-detail__eyebrow">Book details</p>
+            <h1 id="book-detail-title">{book.title}</h1>
             {book.subtitle && (
-              <p className="mt-2 text-xl font-medium text-[var(--muted)] italic">
-                {book.subtitle}
-              </p>
+              <p className="book-detail__subtitle">{book.subtitle}</p>
             )}
-          </div>
+          </header>
 
-          {/* Metadata Divider Row */}
-          <div className="flex flex-wrap items-center gap-4 border-y border-stone-800/10 dark:border-stone-200/10 py-3 text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">
-            <span>{book.published_year || "Year unknown"}</span>
-            {book.page_count && <span>• {book.page_count} pages</span>}
-            <span>
-              • By{" "}
-              {book.authors?.map((a) => a.name).join(", ") || "Unknown Author"}
-            </span>
-          </div>
-
-          {/* Tag Badges */}
-          {book.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {book.tags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)]/10 px-3 py-1 text-xs font-medium text-[var(--text)] border border-[var(--accent)]/20 shadow-xs"
-                >
-                  {tag.name}
-                  <small className="text-[10px] text-[var(--muted)] uppercase">
-                    {tag.type || "tag"}
-                  </small>
-                </span>
-              ))}
-            </div>
+          {(authors.length > 0 || hasPublishedYear || hasPageCount) && (
+            <dl className="book-detail__metadata">
+              {authors.length > 0 && (
+                <div>
+                  <dt>Author{authors.length > 1 ? "s" : ""}</dt>
+                  <dd>{authors.join(", ")}</dd>
+                </div>
+              )}
+              {hasPublishedYear && (
+                <div>
+                  <dt>Published</dt>
+                  <dd>{book.published_year}</dd>
+                </div>
+              )}
+              {hasPageCount && (
+                <div>
+                  <dt>Pages</dt>
+                  <dd>{book.page_count}</dd>
+                </div>
+              )}
+            </dl>
           )}
 
-          {/* Book Synopsis */}
+          <div className="book-detail__status">
+            <BookStatusControl bookId={book.id} />
+          </div>
+
           {book.description && (
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--muted)]">
-                Synopsis
-              </h3>
-              <p className="text-base leading-relaxed text-[var(--text)] opacity-90 font-sans">
-                {book.description}
-              </p>
-            </div>
+            <section
+              className="book-detail__description"
+              aria-labelledby="book-detail-description"
+            >
+              <h2 id="book-detail-description">Synopsis</h2>
+              <p>{book.description}</p>
+            </section>
+          )}
+
+          {book.tags?.length > 0 && (
+            <section
+              className="book-detail__tags"
+              aria-labelledby="book-detail-tags"
+            >
+              <h2 id="book-detail-tags">Subjects</h2>
+              <div>
+                {book.tags.map((tag) => (
+                  <span key={tag.id}>{tag.name}</span>
+                ))}
+              </div>
+            </section>
           )}
         </div>
       </div>

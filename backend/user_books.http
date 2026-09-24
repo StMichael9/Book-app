@@ -1,0 +1,177 @@
+### ==========================================
+### SHELFBOUND V2 — OWN/WANT SMOKE TEST
+### ==========================================
+
+
+### 1. Register
+# If test@example.com already exists, expect 409 and continue to Login.
+POST http://127.0.0.1:8000/auth/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+
+### 2. Login
+# This should establish the access_token and refresh_token cookies.
+POST http://127.0.0.1:8000/auth/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "TestPassword123!"
+}
+
+
+### 3. Verify the test book exists
+# Book ID 1769 was confirmed to exist in the database.
+GET http://127.0.0.1:8000/books/1769
+
+
+### ==========================================
+### BASIC OWN/WANT
+### ==========================================
+
+
+### 4. Mark book as WANT
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}
+
+
+### 5. List my books
+# Expected: book 1769 appears with status "want".
+GET http://127.0.0.1:8000/me/books
+
+
+### 6. Change the SAME book to OWNED
+# This tests the upsert/update behavior.
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "owned"
+}
+
+
+### 7. List my books again
+# Expected: book 1769 appears ONCE with status "owned".
+# It should NOT appear twice.
+GET http://127.0.0.1:8000/me/books
+
+
+### ==========================================
+### STATUS FILTERING
+### ==========================================
+
+
+### 8. Filter by WANT
+# Expected: empty list because book 1769 is now owned.
+GET http://127.0.0.1:8000/me/books?status=want
+
+
+### 9. Filter by OWNED
+# Expected: book 1769 appears.
+GET http://127.0.0.1:8000/me/books?status=owned
+
+
+### ==========================================
+### BROWSE FILTERING (NEW — exclude_owned / shelf_status)
+### ==========================================
+
+
+### 9a. Browse excluding owned books
+# Book 1769 is currently "owned" (from step 6).
+# Expected: book 1769 does NOT appear in the results.
+GET http://127.0.0.1:8000/books?exclude_owned=true
+
+
+### 9b. Browse filtered to shelf_status=owned
+# Expected: book 1769 DOES appear.
+GET http://127.0.0.1:8000/books?shelf_status=owned
+
+
+### 9c. Browse filtered to shelf_status=want
+# Expected: book 1769 does NOT appear (it's owned, not wanted).
+GET http://127.0.0.1:8000/books?shelf_status=want
+
+
+### 9d. Check counts appear on book 1769's detail response
+# owned_count/want_count will likely be null/absent right now —
+# MIN_COUNT_TO_DISPLAY is 5, so a single test-account status won't surface yet.
+# That's the validator working correctly, not a bug. To actually see a number,
+# temporarily lower MIN_COUNT_TO_DISPLAY in schemas.py or insert a few more
+# UserBook rows in the dev DB, then re-run this request.
+GET http://127.0.0.1:8000/books/1769
+
+
+### ==========================================
+### DELETE STATUS
+### ==========================================
+
+
+### 10. Delete the status
+DELETE http://127.0.0.1:8000/books/1769/status
+
+
+### 11. List my books again
+# Expected: empty list.
+GET http://127.0.0.1:8000/me/books
+
+
+### ==========================================
+### EDGE CASES
+### ==========================================
+
+
+### 12. Nonexistent book
+# Book 999999 should not exist.
+# Expected: 404 Book not found.
+POST http://127.0.0.1:8000/books/999999/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}
+
+
+### 13. Delete status that doesn't exist
+# Book 1769 no longer has a status.
+# Expected: 404.
+DELETE http://127.0.0.1:8000/books/1769/status
+
+
+### ==========================================
+### LOGOUT / PROTECTED ROUTES
+### ==========================================
+
+
+### 14. Logout
+POST http://127.0.0.1:8000/auth/logout
+
+
+### 15. Access protected route after logout
+# Expected: 401 Unauthorized.
+GET http://127.0.0.1:8000/me/books
+
+
+### 16. Try to modify books after logout
+# Expected: 401 Unauthorized.
+POST http://127.0.0.1:8000/books/1769/status
+Content-Type: application/json
+
+{
+    "status": "want"
+}
+
+
+### 17. Anonymous browse still works after logout
+# No current_user — confirms exclude_owned/shelf_status don't break
+# the logged-out path (they should just have no effect since
+# search_books only applies them when current_user is not None).
+GET http://127.0.0.1:8000/books

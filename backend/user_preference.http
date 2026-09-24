@@ -1,0 +1,55 @@
+### Set preferences
+
+POST http://127.0.0.1:8000/me/preferences
+Content-Type: application/json
+
+{
+"tag_ids": [966, 963, 976],
+"source_text": "I enjoy fantasy, mystery, and horror"
+}
+
+### Fetch preferences
+
+GET http://127.0.0.1:8000/me/preferences
+
+### Replace preferences
+
+POST http://127.0.0.1:8000/me/preferences
+Content-Type: application/json
+
+{
+"tag_ids": [963],
+"source_text": null
+}
+
+### Fetch again — should show only mystery
+
+GET http://127.0.0.1:8000/me/preferences
+
+### Test invalid tag ID
+
+POST http://127.0.0.1:8000/me/preferences
+Content-Type: application/json
+
+{
+"tag_ids": [999999],
+"source_text": "This should fail"
+}
+
+### Fetch again — mystery should still exist
+
+GET http://127.0.0.1:8000/me/preferences
+
+### Test duplicate IDs
+
+POST http://127.0.0.1:8000/me/preferences
+Content-Type: application/json
+
+{
+"tag_ids": [963, 963],
+"source_text": "Testing duplicates"
+}
+
+### Fetch again — should contain only one copy of mystery
+
+GET http://127.0.0.1:8000/me/preferences
