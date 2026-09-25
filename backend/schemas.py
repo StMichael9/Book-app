@@ -32,6 +32,16 @@ class BookSchema(BaseModel):
     owned_count: int | None = None
     want_count: int | None = None
 
+    @field_validator("tags", mode="before")
+    @classmethod
+    def show_only_existing_v2_tags(cls, value):
+        if not isinstance(value, list):
+            return value
+        return [tag for tag in value if (
+            tag.get("visible_in_v2", True) if isinstance(tag, dict)
+            else getattr(tag, "visible_in_v2", True)
+        )]
+
     @field_validator("owned_count", "want_count", mode="before")
     @classmethod
     def hide_low_counts(cls, v):

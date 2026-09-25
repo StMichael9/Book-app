@@ -50,6 +50,35 @@ SUBJECT_ALIASES: dict[str, tuple[str, ...]] = {
     "education": ("education",),
 }
 
+CATEGORY_TYPES = {
+    **{name: "genre" for name in (
+        "fantasy", "mystery", "horror", "romance", "science_fiction", "thriller",
+        "biography", "adventure", "humor", "classics",
+    )},
+    "poetry": "form", "drama": "form", "young_adult": "audience",
+    **{name: "topic" for name in (
+        "history", "philosophy", "science", "technology", "business", "art", "music",
+        "cooking", "travel", "health", "nature", "sports", "psychology", "religion",
+        "politics", "education",
+    )},
+}
+
+MOOD_THEME_ALIASES = {
+    "Friendship -- Fiction": ("Friendship", "theme"),
+    "Coming of age -- Fiction": ("Coming of age", "theme"),
+    "Bildungsromans": ("Coming of age", "theme"),
+    "Family life -- Fiction": ("Family", "theme"),
+    "Families -- Fiction": ("Family", "theme"),
+    "Survival -- Fiction": ("Survival", "theme"),
+    "Survival stories": ("Survival", "theme"),
+    "Cozy mysteries": ("Cozy", "mood"),
+    "Cozy mystery fiction": ("Cozy", "mood"),
+    "Humorous stories": ("Humorous", "mood"),
+    "Humorous fiction": ("Humorous", "mood"),
+    "Suspense fiction": ("Suspenseful", "mood"),
+    "Suspense stories": ("Suspenseful", "mood"),
+}
+
 
 def _text(value: object, limit: int | None = None) -> str | None:
     if not isinstance(value, str):
@@ -87,15 +116,17 @@ def year(value: object) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool):
         candidate = value
     elif isinstance(value, str):
-        match = re.search(r"\b(1[4-9][0-9]{2}|20[0-9]{2})\b", value)
+        match = re.search(r"\b([1-9][0-9]{2,3}|20[0-9]{2})\b", value)
         candidate = int(match.group(1)) if match else None
     else:
         candidate = None
-    return candidate if candidate is not None and 1400 <= candidate <= 2100 else None
+    return candidate if candidate is not None and 1 <= candidate <= 2100 else None
 
 
 def description(value: object) -> str | None:
-    return _text(value.get("value") if isinstance(value, dict) else value)
+    result = _text(value.get("value") if isinstance(value, dict) else value)
+    # Outlier records are reported and omitted, never silently truncated.
+    return result if result is None or len(result.encode("utf-8")) <= 262144 else None
 
 
 def cover_url(cover_id: object) -> str | None:
@@ -114,6 +145,21 @@ def isbn13(value: object) -> str | None:
     return digits if (10 - total % 10) % 10 == int(digits[12]) else None
 
 
+def isbn10_to_13(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    digits = re.sub(r"[-\s]", "", value).upper()
+    if not re.fullmatch(r"[0-9]{9}[0-9X]", digits):
+        return None
+    checksum = sum((10 - i) * int(char) for i, char in enumerate(digits[:9]))
+    checksum += 10 if digits[9] == "X" else int(digits[9])
+    if checksum % 11:
+        return None
+    stem = "978" + digits[:9]
+    total = sum(int(char) * (1 if i % 2 == 0 else 3) for i, char in enumerate(stem))
+    return stem + str((10 - total % 10) % 10)
+
+
 def page_count(value: object) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 20000 else None
 
@@ -121,16 +167,25 @@ def page_count(value: object) -> int | None:
 def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) -> dict | None:
     key = work_key(data.get("key"))
     title = _text(data.get("title"))
-    if not key or not title or not title.isascii():
+    if not key or not title:
         return None
     mapping = mapped_subjects or subject_map()
     subjects = data.get("subjects")
     if not isinstance(subjects, list):
         subjects = []
-    tags = sorted({mapping[_subject_key(item)] for item in subjects
+    categories = sorted({mapping[_subject_key(item)] for item in subjects
                    if isinstance(item, str) and _subject_key(item) in mapping})
-    if not tags:
+    if not categories:
         return None
+    subject_keys = {_subject_key(item) for item in subjects if isinstance(item, str)}
+    tags = {(name, CATEGORY_TYPES[name]) for name in categories}
+    if "historical fiction" in subject_keys:
+        if "history" not in subject_keys:
+            tags.discard(("history", "topic"))
+        tags.add(("historical_fiction", "genre"))
+    mood_theme = {_subject_key(alias): target for alias, target in MOOD_THEME_ALIASES.items()}
+    tags.update(mood_theme[subject_key] for item in subjects if isinstance(item, str)
+                if (subject_key := _subject_key(item)) in mood_theme)
     authors = data.get("authors")
     if not isinstance(authors, list):
         authors = []
@@ -148,7 +203,11 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
         "published_year": year(data.get("first_publish_year")) or year(data.get("first_publish_date")),
         "cover_image_url": cover,
         "author_keys": author_keys,
-        "tags": tags,
+        "tags": [{"name": name, "type": tag_type} for name, tag_type in sorted(tags)],
+        "categories": categories,
+        "quality": sum(bool(value) for value in (
+            description(data.get("description")), cover, year(data.get("first_publish_year")) or year(data.get("first_publish_date"))
+        )),
     }
 
 
@@ -165,14 +224,29 @@ def normalize_edition(data: dict) -> list[dict]:
     raw_isbns = data.get("isbn_13")
     if not isinstance(raw_isbns, list):
         raw_isbns = []
-    isbn = next((valid for item in raw_isbns if (valid := isbn13(item))), None)
+    isbns = {valid: False for item in raw_isbns if (valid := isbn13(item))}
+    raw_isbn10 = data.get("isbn_10")
+    if isinstance(raw_isbn10, list):
+        for item in raw_isbn10:
+            valid = isbn10_to_13(item)
+            if valid and valid not in isbns:
+                isbns[valid] = True
     pages = page_count(data.get("number_of_pages"))
     languages = data.get("languages")
     if not isinstance(languages, list):
         languages = []
-    english = any(isinstance(item, dict) and item.get("key") == "/languages/eng" for item in languages)
-    # Prefer complete, usable metadata; English breaks ties.
-    rank = 4 * bool(isbn) + 2 * bool(pages) + english
+    language_keys = sorted({item["key"] for item in languages
+                            if isinstance(item, dict) and isinstance(item.get("key"), str)
+                            and item["key"].startswith("/languages/")})
+    english = "/languages/eng" in language_keys
+    if not isbns and not pages:
+        return []
+    # English takes priority; completeness and stable key break the rest.
+    rank = 100 * english + 10 * bool(isbns) + 5 * bool(pages)
+    publishers = data.get("publishers")
+    publisher_names = list(dict.fromkeys(filter(None, (_text(item, 225) for item in publishers)))) if isinstance(publishers, list) else []
+    covers = data.get("covers")
+    edition_cover = next((url for item in covers if (url := cover_url(item))), None) if isinstance(covers, list) else None
     works = data.get("works")
     if not isinstance(works, list):
         works = []
@@ -181,8 +255,24 @@ def normalize_edition(data: dict) -> list[dict]:
         source_id = work_key(item.get("key")) if isinstance(item, dict) else None
         if source_id:
             result.append({"source_id": source_id, "edition_key": key,
-                           "quality": rank, "isbn13": isbn, "page_count": pages})
+                           "quality": rank, "isbns": [
+                               {"isbn13": isbn, "derived_from_isbn10": derived}
+                               for isbn, derived in sorted(isbns.items())
+                           ], "page_count": pages, "languages": language_keys,
+                           "publication_date": _text(data.get("publish_date"), 100),
+                           "publishers": publisher_names[:20],
+                           "physical_format": _text(data.get("physical_format"), 100),
+                           "cover_image_url": edition_cover})
     return result
+
+
+def normalize_redirect(data: dict) -> tuple[str, str] | None:
+    old, new = work_key(data.get("key")), work_key(data.get("location"))
+    return (old, new) if old and new and old != new else None
+
+
+def normalize_delete(data: dict) -> str | None:
+    return work_key(data.get("key"))
 
 
 @dataclass(frozen=True)

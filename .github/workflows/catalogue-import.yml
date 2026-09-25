@@ -19,15 +19,27 @@ on:
         description: Dated Open Library editions .txt.gz dump URL
         required: true
         type: string
-      max_books:
-        description: Maximum selected works
+      redirects_url:
+        description: Dated Open Library redirects .txt.gz dump URL
         required: true
-        default: "100000"
+        type: string
+      deletes_url:
+        description: Dated Open Library deletes .txt.gz dump URL
+        required: true
+        type: string
+      target_books:
+        description: Total Book rows after import, including existing rows
+        required: true
+        default: "50000"
+        type: string
+      weights_json:
+        description: Optional JSON percentage map; blank means equal weights
+        required: false
         type: string
       max_database_mb:
         description: Stop threshold in MiB, below the database storage limit
         required: true
-        default: "450"
+        default: "400"
         type: string
 
 concurrency:
@@ -53,7 +65,10 @@ jobs:
       INPUT_WORKS_URL: ${{ inputs.works_url }}
       INPUT_AUTHORS_URL: ${{ inputs.authors_url }}
       INPUT_EDITIONS_URL: ${{ inputs.editions_url }}
-      INPUT_MAX_BOOKS: ${{ inputs.max_books }}
+      INPUT_REDIRECTS_URL: ${{ inputs.redirects_url }}
+      INPUT_DELETES_URL: ${{ inputs.deletes_url }}
+      INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
+      INPUT_WEIGHTS_JSON: ${{ inputs.weights_json }}
       INPUT_MAX_DATABASE_MB: ${{ inputs.max_database_mb }}
     steps:
       - uses: actions/checkout@v4
@@ -65,13 +80,20 @@ jobs:
       - run: python -m pip install -r requirements.txt
       # Database migrations are deliberately separate. This branch contains
       # unrelated earlier migrations that must not be applied by an import job.
-      - name: Stream pinned dumps into the prepared database
+      - name: Run one checkpointed import phase
         run: |
-          python -m data.load \
-            --mode production \
-            --run-id "$INPUT_RUN_ID" \
-            --works-url "$INPUT_WORKS_URL" \
-            --authors-url "$INPUT_AUTHORS_URL" \
-            --editions-url "$INPUT_EDITIONS_URL" \
-            --max-books "$INPUT_MAX_BOOKS" \
+          args=(
+            --mode production --one-phase
+            --run-id "$INPUT_RUN_ID"
+            --works-url "$INPUT_WORKS_URL"
+            --authors-url "$INPUT_AUTHORS_URL"
+            --editions-url "$INPUT_EDITIONS_URL"
+            --redirects-url "$INPUT_REDIRECTS_URL"
+            --deletes-url "$INPUT_DELETES_URL"
+            --target-books "$INPUT_TARGET_BOOKS"
             --max-database-mb "$INPUT_MAX_DATABASE_MB"
+          )
+          if [[ -n "$INPUT_WEIGHTS_JSON" ]]; then
+            args+=(--weights-json "$INPUT_WEIGHTS_JSON")
+          fi
+          python -m data.load "${args[@]}"

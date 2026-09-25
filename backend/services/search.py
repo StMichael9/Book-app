@@ -1,4 +1,4 @@
-from sqlalchemy import select, exists
+from sqlalchemy import select, exists, or_
 from sqlalchemy.orm import Session, selectinload
 from models import Book, Author, Tag, User, UserBook, UserBookStatus, book_tags
 
@@ -27,7 +27,12 @@ class SearchService:
             query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))
         if tags:
             for tag in set(tags):
-                query = query.where(Book.tags.any(Tag.name == tag))
+                if tag == "history":
+                    query = query.where(Book.tags.any(or_(
+                        Tag.name == "history", Tag.name == "historical_fiction"
+                    )))
+                else:
+                    query = query.where(Book.tags.any(Tag.name == tag))
 
         if current_user is not None:
             if exclude_owned:
