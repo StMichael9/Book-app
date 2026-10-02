@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import io
 import json
 
 import pytest
 
 from data import clean
+from data import sources
 
 
 def test_work_normalization_and_curated_tags():
@@ -95,6 +97,17 @@ def test_dump_is_streamed_without_file_outputs(monkeypatch):
     assert [row.line_number for row in result] == [2, 3]
     assert result[0].error
     assert result[1].record["key"] == "/works/OL2W"
+    verified = list(clean.stream_dump(
+        "https://archive.org/download/ol_dump_2026-08-31/ol_dump_works_2026-08-31.txt.gz",
+        start_line=1, user_agent="Bookvane (contact@example.org)",
+        expected_size=len(compressed), expected_md5=hashlib.md5(compressed).hexdigest(),
+    ))
+    assert len(verified) == 2
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        list(clean.stream_dump(
+            "https://archive.org/download/ol_dump_2026-08-31/ol_dump_works_2026-08-31.txt.gz",
+            user_agent="Bookvane (contact@example.org)", expected_md5="0" * 32,
+        ))
     with pytest.raises(ValueError):
         list(clean.stream_dump("https://openlibrary.org/data/ol_dump_works_latest.txt.gz",
                                user_agent="Bookvane (contact@example.org)"))
@@ -126,3 +139,28 @@ def test_multiple_valid_isbns_and_isbn10_conversion():
     ] is True
     assert clean.normalize_edition({"key": "/books/OL12M", "works": [{"key": "/works/OL1W"}],
                                     "isbn_13": ["bad"], "number_of_pages": 0}) == []
+
+
+def test_snapshot_discovery_skips_incomplete_items_and_pins_one_date(monkeypatch):
+    def entry(kind, date):
+        return {"name": f"ol_dump_{kind}_{date}.txt.gz",
+                "size": str(sources.MIN_COMPRESSED_BYTES[kind]), "md5": "a" * 32}
+
+    def fake_get(url, *, params, user_agent):
+        if url == sources.SEARCH_URL:
+            return {"response": {"docs": [
+                {"identifier": "ol_dump_2026-09-30"},
+                {"identifier": "ol_dump_2026-08-31"},
+            ]}}
+        date = url.rsplit("_", 1)[-1]
+        kinds = sources.KINDS if date == "2026-08-31" else ("works",)
+        return {"metadata": {"identifier": f"ol_dump_{date}"},
+                "files": [entry(kind, date) for kind in kinds]}
+
+    monkeypatch.setattr(sources, "_get_json", fake_get)
+    snapshot = sources.resolve_snapshot("auto", user_agent="Bookvane (contact@example.org)")
+    assert snapshot.identifier == "ol_dump_2026-08-31"
+    assert set(snapshot.files) == set(sources.KINDS)
+    assert all("2026-08-31" in item["url"] for item in snapshot.files.values())
+    with pytest.raises(ValueError, match="No complete"):
+        sources.resolve_snapshot("2026-09-30", user_agent="Bookvane (contact@example.org)")

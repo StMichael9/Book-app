@@ -5,79 +5,15 @@ The category map is curated to avoid filling Bookvane with raw subject noise.
 """
 from __future__ import annotations
 
-import gzip
-import io
-import json
 import re
 import unicodedata
-from dataclasses import dataclass
-from typing import Iterator
-from urllib.parse import urlparse
+import requests  # Retained for callers that patch the shared requests client.
 
-import requests
+from data.sources import DumpRow, stream_dump
+from data.taxonomy import (SUBJECT_ALIASES, CATEGORY_TYPES, MOOD_THEME_ALIASES, SUBJECT_MAP, MOOD_THEME_MAP, _subject_key, subject_map)
 
 
 # Existing fifteen labels stay intact. Edit this map to expand the catalogue.
-SUBJECT_ALIASES: dict[str, tuple[str, ...]] = {
-    "fantasy": ("fantasy", "fantasy fiction"),
-    "mystery": ("mystery", "mystery fiction", "detective and mystery stories"),
-    "horror": ("horror", "horror stories"),
-    "romance": ("romance", "romance fiction", "love stories"),
-    "science_fiction": ("science fiction", "science-fiction"),
-    "thriller": ("thriller", "thrillers", "suspense fiction"),
-    "biography": ("biography", "biographies"),
-    "poetry": ("poetry", "poems"),
-    "history": ("history", "historical fiction"),
-    "drama": ("drama", "plays"),
-    "adventure": ("adventure", "adventure stories"),
-    "humor": ("humor", "humour", "humorous stories"),
-    "classics": ("classics", "classic literature"),
-    "young_adult": ("young adult", "young adult fiction"),
-    "philosophy": ("philosophy",),
-    "science": ("science", "popular science"),
-    "technology": ("technology", "computers", "computer science"),
-    "business": ("business", "management"),
-    "art": ("art", "arts"),
-    "music": ("music",),
-    "cooking": ("cooking", "cookbooks", "cookery"),
-    "travel": ("travel", "travel writing"),
-    "health": ("health", "medicine"),
-    "nature": ("nature", "natural history"),
-    "sports": ("sports", "sport"),
-    "psychology": ("psychology",),
-    "religion": ("religion", "religions"),
-    "politics": ("politics", "political science"),
-    "education": ("education",),
-}
-
-CATEGORY_TYPES = {
-    **{name: "genre" for name in (
-        "fantasy", "mystery", "horror", "romance", "science_fiction", "thriller",
-        "biography", "adventure", "humor", "classics",
-    )},
-    "poetry": "form", "drama": "form", "young_adult": "audience",
-    **{name: "topic" for name in (
-        "history", "philosophy", "science", "technology", "business", "art", "music",
-        "cooking", "travel", "health", "nature", "sports", "psychology", "religion",
-        "politics", "education",
-    )},
-}
-
-MOOD_THEME_ALIASES = {
-    "Friendship -- Fiction": ("Friendship", "theme"),
-    "Coming of age -- Fiction": ("Coming of age", "theme"),
-    "Bildungsromans": ("Coming of age", "theme"),
-    "Family life -- Fiction": ("Family", "theme"),
-    "Families -- Fiction": ("Family", "theme"),
-    "Survival -- Fiction": ("Survival", "theme"),
-    "Survival stories": ("Survival", "theme"),
-    "Cozy mysteries": ("Cozy", "mood"),
-    "Cozy mystery fiction": ("Cozy", "mood"),
-    "Humorous stories": ("Humorous", "mood"),
-    "Humorous fiction": ("Humorous", "mood"),
-    "Suspense fiction": ("Suspenseful", "mood"),
-    "Suspense stories": ("Suspenseful", "mood"),
-}
 
 
 def _text(value: object, limit: int | None = None) -> str | None:
@@ -87,14 +23,6 @@ def _text(value: object, limit: int | None = None) -> str | None:
     if not result or (limit is not None and len(result) > limit):
         return None
     return result
-
-
-def _subject_key(value: str) -> str:
-    return re.sub(r"[\s_-]+", " ", value.casefold()).strip()
-
-
-def subject_map() -> dict[str, str]:
-    return {_subject_key(alias): label for label, aliases in SUBJECT_ALIASES.items() for alias in aliases}
 
 
 def work_key(value: object) -> str | None:
@@ -169,7 +97,7 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
     title = _text(data.get("title"))
     if not key or not title:
         return None
-    mapping = mapped_subjects or subject_map()
+    mapping = mapped_subjects if mapped_subjects is not None else SUBJECT_MAP
     subjects = data.get("subjects")
     if not isinstance(subjects, list):
         subjects = []
@@ -183,9 +111,8 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
         if "history" not in subject_keys:
             tags.discard(("history", "topic"))
         tags.add(("historical_fiction", "genre"))
-    mood_theme = {_subject_key(alias): target for alias, target in MOOD_THEME_ALIASES.items()}
-    tags.update(mood_theme[subject_key] for item in subjects if isinstance(item, str)
-                if (subject_key := _subject_key(item)) in mood_theme)
+    tags.update(MOOD_THEME_MAP[subject_key] for item in subjects if isinstance(item, str)
+                if (subject_key := _subject_key(item)) in MOOD_THEME_MAP)
     authors = data.get("authors")
     if not isinstance(authors, list):
         authors = []
@@ -196,18 +123,18 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
     if not isinstance(covers, list):
         covers = []
     cover = next((valid for item in covers if (valid := cover_url(item))), None)
+    description_value = description(data.get("description"))
+    year_value = year(data.get("first_publish_year")) or year(data.get("first_publish_date"))
     return {
         "source_id": key,
         "title": title,
-        "description": description(data.get("description")),
-        "published_year": year(data.get("first_publish_year")) or year(data.get("first_publish_date")),
+        "description": description_value,
+        "published_year": year_value,
         "cover_image_url": cover,
         "author_keys": author_keys,
         "tags": [{"name": name, "type": tag_type} for name, tag_type in sorted(tags)],
         "categories": categories,
-        "quality": sum(bool(value) for value in (
-            description(data.get("description")), cover, year(data.get("first_publish_year")) or year(data.get("first_publish_date"))
-        )),
+        "quality": sum(bool(value) for value in (description_value, cover, year_value)),
     }
 
 
@@ -273,49 +200,3 @@ def normalize_redirect(data: dict) -> tuple[str, str] | None:
 
 def normalize_delete(data: dict) -> str | None:
     return work_key(data.get("key"))
-
-
-@dataclass(frozen=True)
-class DumpRow:
-    line_number: int
-    record: dict | None
-    error: str | None = None
-    byte_size: int = 0
-
-
-def stream_dump(url: str, *, start_line: int = 0, user_agent: str, timeout: int = 120) -> Iterator[DumpRow]:
-    """Decode a pinned Open Library TSV gzip stream without storing its body."""
-    parsed = urlparse(url)
-    if (parsed.scheme != "https" or "latest" in url.casefold()
-            or parsed.hostname not in ("openlibrary.org", "archive.org")
-            and not (parsed.hostname or "").endswith(".archive.org")):
-        raise ValueError("Use a pinned HTTPS dump URL, never a changing 'latest' URL")
-    with requests.get(url, headers={"User-Agent": user_agent}, stream=True, timeout=(20, timeout)) as response:
-        response.raise_for_status()
-        response.raw.decode_content = False
-        with gzip.GzipFile(fileobj=response.raw) as compressed:
-            with io.TextIOWrapper(compressed, encoding="utf-8", errors="replace") as lines:
-                number = 0
-                while True:
-                    line = lines.readline(4_000_001)
-                    if not line:
-                        break
-                    number += 1
-                    if len(line) > 4_000_000 and not line.endswith("\n"):
-                        while line and not line.endswith("\n"):
-                            line = lines.readline(4_000_001)
-                        if number > start_line:
-                            yield DumpRow(number, None, "record exceeds four million characters", 4_000_001)
-                        continue
-                    if number <= start_line:
-                        continue
-                    try:
-                        fields = line.rstrip("\n").split("\t", 4)
-                        if len(fields) != 5:
-                            raise ValueError("expected five TSV fields")
-                        record = json.loads(fields[4])
-                        if not isinstance(record, dict):
-                            raise ValueError("JSON record is not an object")
-                        yield DumpRow(number, record, byte_size=len(line))
-                    except ValueError as exc:
-                        yield DumpRow(number, None, str(exc)[:200], len(line))

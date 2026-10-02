@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+from argparse import Namespace
+from dataclasses import replace
 
 import pytest
 import requests
@@ -509,3 +511,95 @@ def test_equal_quality_selection_uses_stable_work_id_not_dump_order(import_env, 
                    key=lambda key: hashlib.sha256(key.encode()).hexdigest())
     with factory() as session:
         assert session.execute(select(models.Book.source_id)).scalar_one() == expected
+
+
+def test_resume_uses_stored_snapshot_and_options_without_network(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    original = config(run_id="pinned")
+    urls = {kind: getattr(original, f"{kind}_url") for kind in
+            ("works", "authors", "editions", "redirects", "deletes")}
+    manifest = {"identifier": "ol_dump_2026-09-01", "date": "2026-09-01",
+                "files": {kind: {"url": url, "size": 100, "md5": "a" * 32}
+                          for kind, url in urls.items()}}
+    original = replace(original, snapshot_id=manifest["identifier"], source_manifest=manifest)
+    from data.config import get_or_create_run
+    with factory.begin() as session:
+        run = get_or_create_run(session, original)
+        assert run.source_manifest == manifest
+        assert run.category_weights == original.category_weights
+        assert run.max_database_mb == original.max_database_mb
+
+    monkeypatch.setattr(importer, "resolve_snapshot", lambda *_args, **_kwargs:
+                        pytest.fail("Resume must not query the archive"))
+    args = Namespace(mode="test", run_id="pinned", snapshot="auto", target_books=None,
+                     weights_json=None, max_database_mb=None, batch_size=2,
+                     restart_paused=False, works_url=None, authors_url=None,
+                     editions_url=None, redirects_url=None, deletes_url=None)
+    resumed = importer._config_for_command(args, original.database_url, original.user_agent)
+    assert resumed.source_manifest == manifest
+    assert resumed.works_url == original.works_url
+    resumed.validate()
+    with pytest.raises(ValueError, match="cannot switch"):
+        importer._config_for_command(Namespace(**{**vars(args), "snapshot": "2026-08-31"}),
+                                     original.database_url, original.user_agent)
+
+
+def test_bad_source_checksum_does_not_advance_phase_or_merge(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    original = config(run_id="bad_checksum", batch_size=2)
+    kinds = ("works", "authors", "editions", "redirects", "deletes")
+    manifest = {"identifier": "ol_dump_2026-09-01", "date": "2026-09-01",
+                "files": {kind: {"url": getattr(original, f"{kind}_url"),
+                                 "size": 100, "md5": "a" * 32} for kind in kinds}}
+    original = replace(original, snapshot_id=manifest["identifier"], source_manifest=manifest)
+
+    def corrupt_stream(url, **_kwargs):
+        assert url == REDIRECTS_URL
+        yield clean.DumpRow(1, {"key": "/works/OL1W", "location": "/works/OL2W"})
+        yield clean.DumpRow(2, {"key": "/works/OL3W", "location": "/works/OL4W"})
+        raise ValueError("Compressed dump checksum mismatch; phase remains incomplete")
+
+    monkeypatch.setattr(clean, "stream_dump", corrupt_stream)
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        importer.run_import(original)
+    with factory() as session:
+        run = session.get(models.CatalogueImportRun, "bad_checksum")
+        assert run.phase == "redirects"
+        assert run.checkpoint_line == 2
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 0
+        assert session.scalar(select(func.count()).select_from(models.CatalogueImportIssue).where(
+            models.CatalogueImportIssue.code == "source_integrity"
+        )) == 1
+
+
+def test_pre_pinning_run_can_resume_with_its_original_urls(import_env):
+    models, factory, importer, config = import_env
+    original = config(run_id="legacy_resume")
+    from data.config import get_or_create_run
+    with factory.begin() as session:
+        run = get_or_create_run(session, original)
+        run.category_weights = {}
+        run.max_database_mb = None
+    args = Namespace(mode="test", run_id=original.run_id, snapshot="auto",
+                     target_books=None, weights_json=None, max_database_mb=None,
+                     batch_size=2, restart_paused=False,
+                     **{f"{kind}_url": getattr(original, f"{kind}_url") for kind in
+                        ("works", "authors", "editions", "redirects", "deletes")})
+    resumed = importer._config_for_command(args, original.database_url, original.user_agent)
+    resumed.validate()
+    with factory.begin() as session:
+        assert get_or_create_run(session, resumed).id == original.run_id
+
+
+def test_automatic_continuation_requires_committed_progress(import_env):
+    models, factory, importer, config = import_env
+    original = config(run_id="continue")
+    from data.config import get_or_create_run
+    with factory.begin() as session:
+        get_or_create_run(session, original)
+    marker = importer._progress_marker(factory, original.run_id)
+    with pytest.raises(RuntimeError, match="No committed checkpoint progress"):
+        importer._continuation_status(factory, original, marker)
+    with factory.begin() as session:
+        session.get(models.CatalogueImportRun, original.run_id).checkpoint_line = 500
+    assert importer._continuation_status(factory, original, marker) == "needs_continuation"
