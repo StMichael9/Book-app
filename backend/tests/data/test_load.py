@@ -59,6 +59,8 @@ def import_env(app_modules, test_database_url, monkeypatch):
     models = app_modules["models"]
     database = app_modules["database"]
     importer = importlib.import_module("data.load")
+    with database.engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
     database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal.begin() as session:
         session.execute(delete(models.CatalogueImportIssue))
