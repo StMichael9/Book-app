@@ -106,7 +106,7 @@ jobs:
       - name: Run or resume the saved import
         id: ingest
         run: |
-          args=(--mode production --time-budget-seconds 17400)
+          args=(--mode production --time-budget-seconds 17400 --batch-size 1000)
           if [[ "$GITHUB_EVENT_NAME" == "repository_dispatch" ]]; then
             args+=(--run-id "$CONTINUE_RUN_ID" --resume-only)
           elif [[ "$INPUT_OPERATION" == "resume" ]]; then

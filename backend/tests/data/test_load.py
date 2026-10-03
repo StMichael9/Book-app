@@ -7,7 +7,7 @@ from dataclasses import replace
 
 import pytest
 import requests
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, event, func, select, text
 from sqlalchemy.exc import OperationalError
 from urllib3.exceptions import ProtocolError
 
@@ -115,7 +115,61 @@ def fake_stream(monkeypatch, source=None, interrupt=None):
     return calls
 
 
-def test_import_backfills_legacy_book_and_preserves_want(import_env, monkeypatch):
+def test_staging_measurement_is_exact_in_one_query(import_env):
+    _, factory, importer, _ = import_env
+    names = (
+        "catalogue_stage_works", "catalogue_stage_work_authors", "catalogue_stage_authors",
+        "catalogue_stage_editions", "catalogue_stage_candidates", "catalogue_stage_author_counts",
+    )
+    with factory() as session:
+        statements = []
+
+        def capture(connection, cursor, statement, parameters, context, executemany):
+            statements.append(statement)
+
+        engine = session.get_bind()
+        event.listen(engine, "before_cursor_execute", capture)
+        try:
+            measured = importer._stage_mb(session)
+        finally:
+            event.remove(engine, "before_cursor_execute", capture)
+        expected = sum(session.scalar(text(
+            "SELECT pg_total_relation_size(to_regclass(:name)) / 1048576.0"
+        ), {"name": name}) for name in names)
+        assert measured == float(expected)
+        assert len(statements) == 1
+
+
+def test_supported_batch_sizes_keep_same_work_shortlist(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    source = {WORKS_URL: [
+        {"key": f"/works/OL{i}W", "title": f"Isolated batch fixture {i}",
+         "subjects": ["Fantasy"], "authors": [{"author": {"key": "/authors/OL1A"}}],
+         "description": "Isolated test metadata", "first_publish_year": 2000, "covers": [111]}
+        for i in range(1, 2101)
+    ]}
+    fake_stream(monkeypatch, source=source)
+    shortlists = []
+    for batch_size in (500, 1000):
+        cfg = config(run_id=f"batch-{batch_size}", batch_size=batch_size, target_books=100)
+        for _ in range(3):
+            importer.run_import(cfg, one_phase=True)
+        with factory.begin() as session:
+            run = session.get(models.CatalogueImportRun, cfg.run_id)
+            assert run.phase == "authors"
+            assert run.checkpoint_line == 0
+            shortlists.append(set(session.execute(select(models.CatalogueStageWork.source_id).where(
+                models.CatalogueStageWork.run_id == cfg.run_id
+            )).scalars()))
+            # Resolve this isolated staging-only run before exercising the next
+            # batch setting. No real source or application Book rows are used.
+            run.phase = "complete"
+    assert len(shortlists[0]) == 10
+    assert shortlists[0] == shortlists[1]
+
+
+@pytest.mark.parametrize("batch_size", [2, 1000])
+def test_import_backfills_legacy_book_and_preserves_want(import_env, monkeypatch, batch_size):
     models, factory, importer, config = import_env
     with factory.begin() as session:
         author = models.Author(name="Same Author")
@@ -127,7 +181,7 @@ def test_import_backfills_legacy_book_and_preserves_want(import_env, monkeypatch
         legacy_id = book.id
         session.add(models.UserBook(user_id=user.id, book_id=book.id, status=models.UserBookStatus.want))
     fake_stream(monkeypatch)
-    importer.run_import(config())
+    importer.run_import(config(batch_size=batch_size))
     with factory() as session:
         books = session.execute(select(models.Book)).scalars().all()
         assert len(books) == 2
@@ -145,7 +199,7 @@ def test_import_backfills_legacy_book_and_preserves_want(import_env, monkeypatch
         assert session.get(models.CatalogueImportRun, "sample").phase == "complete"
         assert session.get(models.CatalogueImportRun, "sample").report["total_books"] == 2
         assert session.execute(select(func.count()).select_from(models.CatalogueStageWork)).scalar_one() == 0
-    importer.run_import(config())
+    importer.run_import(config(batch_size=batch_size))
     with factory() as session:
         assert session.execute(select(func.count()).select_from(models.Book)).scalar_one() == 2
 

@@ -39,8 +39,12 @@ the run for review. Free runners are not a guarantee of import completion time.
   one manual start. The workflow has no schedule and does not run on code pushes.
 - The database must already have the application's migrations. This runner
   never applies migrations or deploys the application.
-- The existing run's 400 MiB guard stays in force. Do not override it without
-  reviewing real provider capacity and import/table sizes.
+- The saved run's reviewed storage guard stays in force (the original default
+  was 400 MiB). Do not override it without reviewing real provider capacity and
+  import/table sizes.
+- Cloud jobs use the already-supported 1,000-record batch size to reduce database
+  round trips. The existing 8 MB input-batch cap and transactional storage checks
+  remain in force. Local command defaults remain compatible at 500 records.
 
 ## Recover a capacity pause
 

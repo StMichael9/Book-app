@@ -18,8 +18,15 @@ def _stage_mb(session: Session) -> float:
         "catalogue_stage_works", "catalogue_stage_work_authors", "catalogue_stage_authors",
         "catalogue_stage_editions", "catalogue_stage_candidates", "catalogue_stage_author_counts",
     )
-    return sum(float(session.execute(text("SELECT pg_total_relation_size(to_regclass(:name)) / 1048576.0"), {"name": name}).scalar_one())
-               for name in names)
+    # One round trip for the same exact measurements; missing migrations must
+    # still fail rather than silently understating staging usage.
+    sizes = session.execute(text("""
+        SELECT pg_total_relation_size(to_regclass(name))
+        FROM unnest(CAST(:names AS text[])) AS stages(name)
+    """), {"names": list(names)}).scalars().all()
+    if any(size is None for size in sizes):
+        raise RuntimeError("Missing catalogue staging tables; apply migrations before importing")
+    return sum(sizes) / 1048576.0
 
 
 def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConfig) -> None:
