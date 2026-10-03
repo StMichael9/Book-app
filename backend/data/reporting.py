@@ -73,6 +73,10 @@ def _build_report(session: Session, run: CatalogueImportRun) -> dict:
                           'editions', 'edition_isbns')
     """)).all())
     return {
+        "capacity_replays": list((run.report or {}).get("capacity_replays", [])),
+        "alias_scope": (run.report or {}).get("alias_scope", "full"),
+        "aliases_before_compaction": (run.report or {}).get("aliases_before_compaction"),
+        "alias_retained_count": (run.report or {}).get("alias_retained_count"),
         "skipped_by_phase": dict((run.report or {}).get("skipped_by_phase", {})),
         "verified_dumps": dict((run.report or {}).get("verified_dumps", {})),
         "target_books": run.target_books,

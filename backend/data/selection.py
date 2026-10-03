@@ -225,9 +225,12 @@ def _select_works(session: Session, config: ImportConfig) -> None:
                          for name, seen in (run.category_seen_counts or {}).items())
         if can_expand:
             run.shortlist_factor *= 2
-            run.phase, run.checkpoint_line, run.category_seen_counts = "works", 0, {}
+            # Alias compaction retained the previous shortlist's chains only.
+            # A wider shortlist must restore the complete pinned alias data.
+            next_phase = "redirects" if (run.report or {}).get("alias_scope") == "shortlist" else "works"
+            run.phase, run.checkpoint_line, run.category_seen_counts = next_phase, 0, {}
             run.selected_count = 0
-            run.report = {}
+            run.report = {"capacity_replays": list((run.report or {}).get("capacity_replays", []))}
             session.execute(update(CatalogueStageWork).where(
                 CatalogueStageWork.run_id == run.id
             ).values(selected=False, allocation_category=None))

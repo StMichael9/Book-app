@@ -141,17 +141,51 @@ def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImport
         session.add(run)
         session.flush()
     elif (run.works_url, run.authors_url, run.editions_url, run.redirects_url, run.deletes_url,
-          run.category_hash, run.target_books, run.snapshot_id, run.source_manifest or {},
-          run.max_database_mb or config.max_database_mb) != (
+          run.category_hash, run.target_books, run.snapshot_id, run.source_manifest or {}) != (
           config.works_url, config.authors_url, config.editions_url, config.redirects_url,
           config.deletes_url, _config_hash(config), config.target_books,
-          config.snapshot_id, config.source_manifest, config.max_database_mb):
+          config.snapshot_id, config.source_manifest):
         raise ValueError("Resume with identical pinned dumps, target, weights, and taxonomy")
-    elif run.phase == "paused_capacity":
+    elif (run.max_database_mb or config.max_database_mb) != config.max_database_mb and not (
+        run.phase == "paused_capacity" and config.restart_paused
+    ):
+        raise ValueError("Changing the storage guard requires an explicit capacity replay")
+    if run.phase == "paused_capacity":
         if not config.restart_paused:
             raise RuntimeError("Capacity pause requires reviewed --restart-paused replay")
-        run.phase, run.checkpoint_line, run.selected_count, run.merged_count = "redirects", 0, 0, 0
+        baseline = session.scalar(select(func.count()).select_from(Book)) or 0
+        if baseline > config.target_books:
+            raise ValueError(f"Existing {baseline} books exceed target_books={config.target_books}")
+        previous = dict(run.report or {})
+        replays = list(previous.get("capacity_replays", []))
+        replays.append({
+            "previous_guard_mb": run.max_database_mb,
+            "guard_mb": config.max_database_mb,
+            "peak_database_mb": run.peak_database_mb,
+            "merged_count": run.merged_count,
+            "baseline_books": baseline,
+        })
+        verified = dict(previous.get("verified_dumps", {}))
+        # Pause cleanup discarded selection staging, not verified source aliases.
+        # Replay only the first unverified alias pass, otherwise begin at works.
+        files = config.source_manifest.get("files") or {}
+        phase = "works"
+        for kind in ("redirects", "deletes"):
+            if (previous.get("alias_scope") == "shortlist" or not files.get(kind)
+                    or verified.get(kind) != files[kind].get("md5")):
+                phase = kind
+                break
+        if previous.get("alias_scope") == "shortlist":
+            # Verification of an old full dump does not prove its compacted
+            # rows have already been restored by this replay.
+            verified.pop("redirects", None)
+            verified.pop("deletes", None)
+        run.phase, run.checkpoint_line, run.selected_count, run.merged_count = phase, 0, 0, 0
+        run.merge_cursor = None
+        run.baseline_count = baseline
+        run.max_database_mb = config.max_database_mb
         run.shortlist_factor = 2
         run.category_seen_counts = {}
-        run.report = {}
+        run.report = {"verified_dumps": verified, "capacity_replays": replays}
+        run.last_error = None
     return run

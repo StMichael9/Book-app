@@ -338,6 +338,145 @@ def test_storage_gate_stops_before_catalogue_writes(import_env, monkeypatch):
         assert session.get(models.CatalogueImportRun, "sample").phase == "paused_capacity"
 
 
+def test_capacity_replay_skips_verified_aliases_and_records_guard_change(import_env):
+    models, factory, importer, config = import_env
+    original = config()
+    manifest = {"files": {kind: {"md5": kind + "-checksum"}
+                           for kind in ("redirects", "deletes")}}
+    original = replace(original, source_manifest=manifest)
+    with factory.begin() as session:
+        run = importer._get_run(session, original)
+        run.phase = "paused_capacity"
+        run.merge_cursor = "/works/OL999W"
+        run.selected_count, run.merged_count = 50, 20
+        run.report = {"verified_dumps": {kind: kind + "-checksum"
+                                         for kind in ("redirects", "deletes")}}
+        session.add(models.Book(title="Previously committed book", source_id="/works/OL999W"))
+    replay = replace(original, restart_paused=True, max_database_mb=6000)
+    with factory.begin() as session:
+        run = importer._get_run(session, replay)
+        assert run.phase == "works"
+        assert run.merge_cursor is None
+        assert run.baseline_count == 1
+        assert run.selected_count == run.merged_count == 0
+        assert run.max_database_mb == 6000
+        assert run.report["capacity_replays"][0]["previous_guard_mb"] == 5000
+        assert len(run.report["verified_dumps"]) == 2
+        assert importer._build_report(session, run)["capacity_replays"] == run.report["capacity_replays"]
+
+
+def test_storage_guard_cannot_change_on_an_active_run(import_env):
+    _models, factory, importer, config = import_env
+    original = config()
+    with factory.begin() as session:
+        importer._get_run(session, original)
+    with factory.begin() as session:
+        with pytest.raises(ValueError, match="explicit capacity replay"):
+            importer._get_run(session, replace(original, max_database_mb=6000))
+
+
+def test_capacity_replay_resets_partial_merge_and_preserves_book_ids(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    fake_stream(monkeypatch)
+    original_merge = importer._merge_batch
+    calls = 0
+
+    def interrupt_merge(session, options):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise importer.CapacityPause("simulated partial merge capacity pause")
+        return original_merge(session, options)
+
+    monkeypatch.setattr(importer, "_merge_batch", interrupt_merge)
+    original = config(batch_size=1, target_books=2)
+    with pytest.raises(importer.CapacityPause, match="partial merge"):
+        importer.run_import(original)
+    with factory() as session:
+        saved = session.execute(select(models.Book)).scalar_one()
+        saved_id, saved_key = saved.id, saved.source_id
+        assert session.get(models.CatalogueImportRun, "sample").merge_cursor
+    monkeypatch.setattr(importer, "_merge_batch", original_merge)
+    assert importer.run_import(replace(original, restart_paused=True)) == "complete"
+    with factory() as session:
+        assert session.get(models.Book, saved_id).source_id == saved_key
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 2
+        assert session.get(models.CatalogueImportRun, "sample").report["baseline_books"] == 1
+
+
+def test_alias_compaction_preserves_relevant_chains_and_deleted_books(import_env):
+    models, factory, importer, config = import_env
+    from data.staging import _compact_aliases, _resolve_aliases
+    with factory.begin() as session:
+        run = importer._get_run(session, config())
+        session.add_all([
+            models.Book(title="Redirected existing book", source_id="/works/OL90W"),
+            models.Book(title="Deleted source retained", source_id="/works/OL80W"),
+        ])
+        session.add(models.CatalogueStageWork(
+            run_id=run.id, source_id="/works/OL1W", title="Shortlisted work",
+            tags=[], categories=["fantasy"], quality=0,
+        ))
+        for old, new, kind in [
+            ("/works/OL3W", "/works/OL2W", "redirect"),
+            ("/works/OL2W", "/works/OL1W", "redirect"),
+            ("/works/OL90W", "/works/OL91W", "redirect"),
+            ("/works/OL91W", "/works/OL92W", "redirect"),
+            ("/works/OL80W", "/works/OL80W", "deleted"),
+            ("/works/OL100W", "/works/OL101W", "redirect"),
+            ("/works/OL200W", "/works/OL200W", "deleted"),
+        ]:
+            session.add(models.CatalogueSourceAlias(old_source_id=old, canonical_source_id=new, source_type=kind))
+    # A failed transaction must restore the complete alias table, including
+    # data removed by TRUNCATE; it must not advance the run's scope marker.
+    with pytest.raises(RuntimeError, match="rollback"):
+        with factory.begin() as session:
+            _compact_aliases(session, session.get(models.CatalogueImportRun, "sample"))
+            raise RuntimeError("rollback")
+    with factory.begin() as session:
+        run = session.get(models.CatalogueImportRun, "sample")
+        assert session.scalar(select(func.count()).select_from(models.CatalogueSourceAlias)) == 7
+        _compact_aliases(session, run)
+        assert run.report["alias_retained_count"] == 5
+        assert _resolve_aliases(session, {"/works/OL3W", "/works/OL90W", "/works/OL80W"}) == {
+            "/works/OL3W": "/works/OL1W", "/works/OL90W": "/works/OL92W", "/works/OL80W": None,
+        }
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 2
+
+
+def test_capacity_replay_restores_alias_dumps_after_shortlist_compaction(import_env):
+    models, factory, importer, config = import_env
+    original = replace(config(), source_manifest={"files": {
+        kind: {"md5": kind + "-checksum"} for kind in ("redirects", "deletes")}})
+    with factory.begin() as session:
+        run = importer._get_run(session, original)
+        run.phase = "paused_capacity"
+        run.report = {"alias_scope": "shortlist", "verified_dumps": {
+            kind: kind + "-checksum" for kind in ("redirects", "deletes")}}
+    with factory.begin() as session:
+        run = importer._get_run(session, replace(original, restart_paused=True))
+        assert run.phase == "redirects"
+        assert "redirects" not in run.report["verified_dumps"]
+        assert "deletes" not in run.report["verified_dumps"]
+
+
+def test_widened_shortlist_restores_pruned_aliases(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    from data import selection
+    options = config(target_books=100)
+    with factory.begin() as session:
+        run = importer._get_run(session, options)
+        run.phase = "select"
+        run.report = {"alias_scope": "shortlist", "capacity_replays": [{"guard_mb": 5000}]}
+        run.category_seen_counts = {"fantasy": 10000}
+    with factory.begin() as session:
+        selection._select_works(session, options)
+        run = session.get(models.CatalogueImportRun, "sample")
+        assert run.phase == "redirects"
+        assert run.shortlist_factor == 4
+        assert run.report["capacity_replays"] == [{"guard_mb": 5000}]
+
+
 def test_transient_network_failure_retries_with_bounded_backoff(import_env, monkeypatch):
     models, factory, importer, config = import_env
     source = records()

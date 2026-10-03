@@ -24,6 +24,13 @@ on:
       weights_json:
         description: Optional percentage weights for NEW imports only
         type: string
+      restart_paused:
+        description: Explicitly replay a storage-paused run after reviewing capacity
+        type: boolean
+        default: false
+      max_database_mb:
+        description: Optional reviewed storage guard in MiB (capacity replay or new run only)
+        type: string
   repository_dispatch:
     types: [bookvane-catalogue-continue]
 
@@ -57,6 +64,8 @@ jobs:
       INPUT_SNAPSHOT: ${{ inputs.snapshot }}
       INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
       INPUT_WEIGHTS_JSON: ${{ inputs.weights_json }}
+      INPUT_RESTART_PAUSED: ${{ inputs.restart_paused }}
+      INPUT_MAX_DATABASE_MB: ${{ inputs.max_database_mb }}
       CONTINUE_RUN_ID: ${{ github.event.client_payload.run_id }}
       CONTINUE_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
     steps:
@@ -106,6 +115,16 @@ jobs:
             args+=(--snapshot "$INPUT_SNAPSHOT" --target-books "$INPUT_TARGET_BOOKS")
             if [[ -n "$INPUT_WEIGHTS_JSON" ]]; then
               args+=(--weights-json "$INPUT_WEIGHTS_JSON")
+            fi
+          fi
+          if [[ "$GITHUB_EVENT_NAME" != "repository_dispatch" ]]; then
+            if [[ "$INPUT_RESTART_PAUSED" == "true" ]]; then
+              [[ "$INPUT_OPERATION" == "resume" ]] || exit 1
+              args+=(--restart-paused)
+            fi
+            if [[ -n "$INPUT_MAX_DATABASE_MB" ]]; then
+              [[ "$INPUT_MAX_DATABASE_MB" =~ ^[0-9]+$ ]] || exit 1
+              args+=(--max-database-mb "$INPUT_MAX_DATABASE_MB")
             fi
           fi
           python -m data.load "${args[@]}"

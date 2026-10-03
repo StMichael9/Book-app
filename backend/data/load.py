@@ -28,7 +28,7 @@ from data.reporting import (
 from data.selection import _backfill_authors, _select_works
 from data.sources import resolve_snapshot
 from data.staging import (
-    _prune_candidates, _write_aliases, _write_authors, _write_editions,
+    _compact_aliases, _prune_candidates, _write_aliases, _write_authors, _write_editions,
     _write_hydrate, _write_works, select_useful_editions,
 )
 from models import CatalogueImportRun
@@ -153,6 +153,7 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                 run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
                 if phase == "works":
                     _prune_candidates(session, run, config)
+                    _compact_aliases(session, run)
                 if expected:
                     report = dict(run.report or {})
                     verified = dict(report.get("verified_dumps", {}))
@@ -196,6 +197,7 @@ def _cleanup(factory: sessionmaker, config: ImportConfig) -> None:
     with factory.begin() as session:
         run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
         _check_storage(session, run, config)
+        _compact_aliases(session, run, include_shortlist=False)
         run.report = _build_report(session, run)
         _release_staging(session, run)
         run.phase = "complete"
@@ -323,6 +325,7 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
                         "weights": existing.category_weights or {},
                         "target": existing.target_books,
                         "guard": existing.max_database_mb,
+                        "phase": existing.phase,
                         "urls": {kind: getattr(existing, f"{kind}_url") for kind in
                                  ("works", "authors", "editions", "redirects", "deletes")},
                     }
@@ -337,7 +340,9 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
                 and json.loads(args.weights_json) != existing["weights"]):
             raise ValueError("Resume cannot change category weights")
         if (existing["guard"] is not None and args.max_database_mb is not None
-                and args.max_database_mb != existing["guard"]):
+                and args.max_database_mb != existing["guard"] and not (
+                    args.restart_paused and existing["phase"] == "paused_capacity"
+                )):
             raise ValueError("Resume cannot change the storage guard")
         if not existing["weights"]:
             supplied = {kind: getattr(args, f"{kind}_url") for kind in existing["urls"]}
@@ -357,7 +362,9 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
         return ImportConfig(
             run_id=args.run_id, database_url=database_url, mode=args.mode,
             user_agent=user_agent, target_books=existing["target"],
-            category_weights=existing["weights"], max_database_mb=existing["guard"] or 400,
+            category_weights=existing["weights"], max_database_mb=(
+                args.max_database_mb if args.max_database_mb is not None else existing["guard"] or 400
+            ),
             batch_size=args.batch_size, restart_paused=args.restart_paused,
             snapshot_id=existing["snapshot_id"], source_manifest=existing["manifest"],
             **{f"{kind}_url": url for kind, url in existing["urls"].items()},

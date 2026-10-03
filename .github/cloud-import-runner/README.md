@@ -42,6 +42,23 @@ the run for review. Free runners are not a guarantee of import completion time.
 - The existing run's 400 MiB guard stays in force. Do not override it without
   reviewing real provider capacity and import/table sizes.
 
+## Recover a capacity pause
+
+After measuring storage and verifying the provider allowance, choose **resume**,
+enable **restart_paused**, and optionally enter a reviewed **max_database_mb**.
+Only a saved capacity pause may change its guard. The importer records the old
+and new guard, recounts already committed Book rows, clears the old merge cursor,
+and replays selection from the same snapshot. Verified redirect/delete passes
+and their persistent alias records are reused rather than rewritten. Automatic
+continuations use the newly saved guard without requiring these inputs again.
+Never change target, weights, or snapshot to work around a pause.
+
+After the complete works scan, alias bookkeeping is compacted transactionally
+to chains needed by existing Books and the retained shortlist. This releases
+physical database space before author and edition staging. A wider shortlist or
+a capacity replay after compaction restores the pinned alias dumps first.
+No Book, Author, tag, Own/Want, or preference rows are removed by this operation.
+
 **Verify cloud importer** runs only generated fixtures against a disposable
 PostgreSQL service on GitHub. It does not receive the Neon connection secret.
 Passing this check validates cloud execution and importer regression tests;

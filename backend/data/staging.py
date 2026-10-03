@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 
-from sqlalchemy import delete, or_, select, text, update
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -82,6 +82,60 @@ def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict
                   "source_type": statement.excluded.source_type},
             where=(CatalogueSourceAlias.source_type != "redirect") if phase == "deletes" else None,
         ))
+
+
+def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_shortlist: bool = True) -> None:
+    """Keep complete alias chains needed by this shortlist and existing Books.
+
+    This table is importer bookkeeping, not catalogue/user data. A transactional
+    truncate/reinsert releases physical space, unlike deleting millions of rows
+    and leaving their dead tuples on disk. The exclusive importer lock protects
+    the operation. A wider shortlist must first re-stream pinned alias dumps.
+    """
+    before = session.scalar(select(func.count()).select_from(CatalogueSourceAlias)) or 0
+    session.execute(text("""
+        CREATE TEMP TABLE bookvane_alias_keep ON COMMIT DROP AS
+        WITH RECURSIVE
+        seeds(key) AS (
+            SELECT source_id FROM books WHERE source_id IS NOT NULL
+            UNION
+            SELECT source_id FROM catalogue_stage_works
+            WHERE run_id = :run_id AND :include_shortlist
+        ),
+        ancestors(old_source_id, canonical_source_id, source_type) AS (
+            SELECT a.old_source_id, a.canonical_source_id, a.source_type
+            FROM catalogue_source_aliases a JOIN seeds s ON s.key = a.canonical_source_id
+            WHERE a.source_type = 'redirect'
+            UNION
+            SELECT a.old_source_id, a.canonical_source_id, a.source_type
+            FROM catalogue_source_aliases a
+            JOIN ancestors p ON p.old_source_id = a.canonical_source_id
+            WHERE a.source_type = 'redirect'
+        ),
+        descendants(old_source_id, canonical_source_id, source_type) AS (
+            SELECT a.old_source_id, a.canonical_source_id, a.source_type
+            FROM catalogue_source_aliases a JOIN seeds s ON s.key = a.old_source_id
+            UNION
+            SELECT a.old_source_id, a.canonical_source_id, a.source_type
+            FROM catalogue_source_aliases a
+            JOIN descendants p ON p.canonical_source_id = a.old_source_id
+            WHERE p.source_type = 'redirect'
+        )
+        SELECT * FROM ancestors UNION SELECT * FROM descendants
+    """), {"run_id": run.id, "include_shortlist": include_shortlist})
+    retained = session.scalar(text("SELECT count(*) FROM bookvane_alias_keep"))
+    session.execute(text("TRUNCATE catalogue_source_aliases"))
+    session.execute(text("""
+        INSERT INTO catalogue_source_aliases (old_source_id, canonical_source_id, source_type)
+        SELECT old_source_id, canonical_source_id, source_type FROM bookvane_alias_keep
+    """))
+    # Explicit drop also allows two compactions within the same transaction.
+    session.execute(text("DROP TABLE bookvane_alias_keep"))
+    run.report = dict(run.report or {}) | {
+        "alias_scope": "shortlist" if include_shortlist else "catalogue",
+        "aliases_before_compaction": before,
+        "alias_retained_count": retained,
+    }
 
 
 def _write_works(session: Session, run: CatalogueImportRun, records: list[dict]) -> None:
