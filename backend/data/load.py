@@ -7,10 +7,13 @@ import logging
 import os
 import time
 import uuid
+from contextlib import contextmanager
 
 import requests
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from urllib3.exceptions import HTTPError as Urllib3HTTPError
 
 from data import clean
 from data.config import (
@@ -31,7 +34,51 @@ from data.staging import (
 from models import CatalogueImportRun
 
 log = logging.getLogger("bookvane.catalogue")
-TRANSIENT_ERRORS = (requests.RequestException, EOFError, OSError)
+TRANSIENT_ERRORS = (requests.RequestException, Urllib3HTTPError, EOFError, OSError)
+
+
+class ImportLockLost(RuntimeError):
+    """Stop writing until a fresh connection acquires the exclusive import lock."""
+
+
+class StreamTimeBudgetReached(RuntimeError):
+    pass
+
+
+@contextmanager
+def _import_lock(engine):
+    # A session lock needs a direct connection, without an idle transaction.
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+        if not connection.execute(text(
+            "SELECT pg_try_advisory_lock(hashtext('bookvane_catalogue_import'))"
+        )).scalar_one():
+            raise RuntimeError("Another catalogue import is already running")
+        last_check = time.monotonic()
+
+        def heartbeat(force=False):
+            nonlocal last_check
+            if force or time.monotonic() - last_check >= 30:
+                try:
+                    connection.execute(text("SELECT 1"))
+                except DBAPIError as exc:
+                    raise ImportLockLost("Import lock connection lost; reacquire before resuming") from exc
+                last_check = time.monotonic()
+
+        try:
+            yield heartbeat
+        finally:
+            try:
+                if not connection.invalidated:
+                    connection.execute(text(
+                        "SELECT pg_advisory_unlock(hashtext('bookvane_catalogue_import'))"
+                    ))
+                else:
+                    log.warning("Import lock session disconnected; session lock released by PostgreSQL")
+            except SQLAlchemyError:
+                # A disconnected PostgreSQL session releases its session locks.
+                # Do not replace the original download/database error with cleanup.
+                connection.invalidate()
+                log.warning("Import lock connection closed; explicit unlock unavailable")
 
 
 def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch: list[clean.DumpRow]) -> None:
@@ -66,7 +113,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
 
 
 def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: str,
-                  following: str, deadline: float | None = None) -> bool:
+                  following: str, deadline: float | None = None, heartbeat=None) -> bool:
     kind = "works" if phase == "hydrate" else phase
     expected = (config.source_manifest.get("files") or {}).get(kind)
     for attempt in range(1, 4):
@@ -77,13 +124,21 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
         batch: list[clean.DumpRow] = []
         batch_bytes = 0
         try:
-            stream_options = {"start_line": start, "user_agent": config.user_agent}
+            def check_progress(force=False):
+                if heartbeat:
+                    heartbeat(force=force)
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise StreamTimeBudgetReached()
+
+            stream_options = {"start_line": start, "user_agent": config.user_agent,
+                              "progress_callback": check_progress}
             if expected:
                 stream_options.update(expected_size=expected["size"], expected_md5=expected["md5"])
             for row in clean.stream_dump(url, **stream_options):
                 batch.append(row)
                 batch_bytes += row.byte_size
                 if len(batch) >= config.batch_size or batch_bytes >= 8_000_000:
+                    check_progress(force=True)
                     with factory.begin() as session:
                         _write_dump_batch(session, config, phase, batch)
                     batch.clear()
@@ -91,6 +146,7 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                     if deadline is not None and time.monotonic() >= deadline:
                         return False
             if batch:
+                check_progress(force=True)
                 with factory.begin() as session:
                     _write_dump_batch(session, config, phase, batch)
             with factory.begin() as session:
@@ -105,6 +161,8 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                     run.report = report
                 run.phase, run.checkpoint_line = following, 0
             return True
+        except StreamTimeBudgetReached:
+            return False
         except ValueError as exc:
             if expected and ("checksum mismatch" in str(exc) or "size mismatch" in str(exc)):
                 with factory.begin() as session:
@@ -161,73 +219,89 @@ def _continuation_status(factory: sessionmaker, config: ImportConfig, initial: t
 
 def run_import(config: ImportConfig, *, one_phase: bool = False,
                time_budget_seconds: int | None = None) -> str:
+    """Retry disconnected transactions from PostgreSQL's committed checkpoint."""
     config.validate()
     if time_budget_seconds is not None and time_budget_seconds < 1:
         raise ValueError("time_budget_seconds must be positive")
     deadline = time.monotonic() + time_budget_seconds if time_budget_seconds is not None else None
+    progress_state = {}
+    for attempt in range(3):
+        try:
+            return _run_import(config, one_phase=one_phase,
+                               deadline=deadline, progress_state=progress_state)
+        except (DBAPIError, ImportLockLost) as exc:
+            if isinstance(exc, DBAPIError) and not exc.connection_invalidated:
+                raise
+            if attempt == 2:
+                raise
+            delay = 2 ** (attempt + 1)
+            log.warning("Database connection interrupted; reacquiring import lock and "
+                        "resuming committed checkpoints in %ds", delay)
+            time.sleep(delay)
+    raise AssertionError("unreachable")
+
+
+def _run_import(config: ImportConfig, *, one_phase: bool = False,
+                deadline: float | None = None, progress_state: dict | None = None) -> str:
     engine = create_engine(config.database_url, pool_pre_ping=True)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     try:
-        with engine.connect() as lock_connection:
-            if not lock_connection.execute(text(
-                "SELECT pg_try_advisory_lock(hashtext('bookvane_catalogue_import'))"
-            )).scalar_one():
-                raise RuntimeError("Another catalogue import is already running")
-            try:
-                with factory.begin() as session:
-                    _get_run(session, config)
-                initial = _progress_marker(factory, config.run_id)
-                while True:
-                    with factory() as session:
-                        phase = session.get(CatalogueImportRun, config.run_id).phase
-                    if phase == "complete":
-                        return phase
-                    if phase == "paused_capacity":
-                        raise RuntimeError("Capacity pause requires a reviewed replay")
-                    if deadline is not None and time.monotonic() >= deadline:
-                        return _continuation_status(factory, config, initial)
-                    try:
-                        if phase in ("redirects", "deletes", "works", "authors", "editions", "hydrate"):
-                            urls = {
-                                "redirects": config.redirects_url, "deletes": config.deletes_url,
-                                "works": config.works_url, "authors": config.authors_url,
-                                "editions": config.editions_url, "hydrate": config.works_url,
-                            }
-                            next_phase = {
-                                "redirects": "deletes", "deletes": "works", "works": "authors",
-                                "authors": "editions", "editions": "select", "hydrate": "merge",
-                            }
-                            if not _stream_phase(factory, config, phase, urls[phase], next_phase[phase], deadline):
-                                return _continuation_status(factory, config, initial)
-                        elif phase == "select":
-                            with factory.begin() as session:
-                                _select_works(session, config)
-                        elif phase == "merge":
-                            with factory() as session:
-                                merge_cursor = session.get(CatalogueImportRun, config.run_id).merge_cursor
-                            if merge_cursor is None:
-                                _backfill_authors(factory, config)
-                            while True:
-                                if deadline is not None and time.monotonic() >= deadline:
-                                    return _continuation_status(factory, config, initial)
-                                with factory.begin() as session:
-                                    processed = _merge_batch(session, config)
-                                if not processed:
-                                    break
-                        elif phase == "cleanup":
-                            _cleanup(factory, config)
-                        else:
-                            raise RuntimeError(f"Unknown import phase {phase}")
-                    except CapacityPause as exc:
-                        _pause_capacity(factory, config, str(exc))
-                        raise
-                    if one_phase:
+        with _import_lock(engine) as heartbeat:
+            with factory.begin() as session:
+                _get_run(session, config)
+            initial = _progress_marker(factory, config.run_id)
+            if progress_state is not None:
+                initial = progress_state.setdefault("initial", initial)
+            while True:
+                heartbeat(force=True)
+                with factory() as session:
+                    phase = session.get(CatalogueImportRun, config.run_id).phase
+                if phase == "complete":
+                    return phase
+                if phase == "paused_capacity":
+                    raise RuntimeError("Capacity pause requires a reviewed replay")
+                if deadline is not None and time.monotonic() >= deadline:
+                    return _continuation_status(factory, config, initial)
+                try:
+                    if phase in ("redirects", "deletes", "works", "authors", "editions", "hydrate"):
+                        urls = {
+                            "redirects": config.redirects_url, "deletes": config.deletes_url,
+                            "works": config.works_url, "authors": config.authors_url,
+                            "editions": config.editions_url, "hydrate": config.works_url,
+                        }
+                        next_phase = {
+                            "redirects": "deletes", "deletes": "works", "works": "authors",
+                            "authors": "editions", "editions": "select", "hydrate": "merge",
+                        }
+                        if not _stream_phase(factory, config, phase, urls[phase], next_phase[phase],
+                                             deadline, heartbeat):
+                            return _continuation_status(factory, config, initial)
+                    elif phase == "select":
+                        with factory.begin() as session:
+                            _select_works(session, config)
+                    elif phase == "merge":
                         with factory() as session:
-                            return session.get(CatalogueImportRun, config.run_id).phase
-            finally:
-                lock_connection.execute(text(
-                    "SELECT pg_advisory_unlock(hashtext('bookvane_catalogue_import'))"
-                ))
+                            merge_cursor = session.get(CatalogueImportRun, config.run_id).merge_cursor
+                        if merge_cursor is None:
+                            _backfill_authors(factory, config)
+                        while True:
+                            heartbeat(force=True)
+                            if deadline is not None and time.monotonic() >= deadline:
+                                return _continuation_status(factory, config, initial)
+                            with factory.begin() as session:
+                                processed = _merge_batch(session, config)
+                            if not processed:
+                                break
+                    elif phase == "cleanup":
+                        _cleanup(factory, config)
+                    else:
+                        raise RuntimeError(f"Unknown import phase {phase}")
+                except CapacityPause as exc:
+                    _pause_capacity(factory, config, str(exc))
+                    raise
+                if one_phase:
+                    with factory() as session:
+                        return session.get(CatalogueImportRun, config.run_id).phase
     finally:
         engine.dispose()
 
@@ -288,6 +362,8 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
             snapshot_id=existing["snapshot_id"], source_manifest=existing["manifest"],
             **{f"{kind}_url": url for kind, url in existing["urls"].items()},
         )
+    if getattr(args, "resume_only", False):
+        raise ValueError("The requested import run does not exist; refusing to start a new import")
     legacy_urls = {kind: getattr(args, f"{kind}_url") for kind in
                    ("works", "authors", "editions", "redirects", "deletes")}
     if any(legacy_urls.values()) and not all(legacy_urls.values()):
@@ -318,6 +394,8 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", help="Existing run to resume, or optional identifier for a new run")
+    parser.add_argument("--resume-only", action="store_true",
+                        help="Require --run-id to identify an existing run; never create one")
     parser.add_argument("--snapshot", default="auto", help="'auto' or explicit YYYY-MM-DD")
     for kind in ("works", "authors", "editions", "redirects", "deletes"):
         parser.add_argument(f"--{kind}-url", help="Legacy test-only URL override")
@@ -332,6 +410,8 @@ def main() -> None:
     parser.add_argument("--one-phase", action="store_true")
     parser.add_argument("--restart-paused", action="store_true")
     args = parser.parse_args()
+    if args.resume_only and not args.run_id:
+        parser.error("--resume-only requires --run-id")
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     database_url = os.getenv("CATALOGUE_DATABASE_URL")
     if not database_url:

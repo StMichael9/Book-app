@@ -7,7 +7,9 @@ from dataclasses import replace
 
 import pytest
 import requests
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
+from sqlalchemy.exc import OperationalError
+from urllib3.exceptions import ProtocolError
 
 from data import clean
 
@@ -96,7 +98,7 @@ def fake_stream(monkeypatch, source=None, interrupt=None):
     calls = []
     interrupted = False
 
-    def stream(url, *, start_line=0, user_agent):
+    def stream(url, *, start_line=0, user_agent, progress_callback=None):
         nonlocal interrupted
         calls.append((url, start_line))
         for line, record in enumerate(source.get(url, []), start=1):
@@ -235,7 +237,7 @@ def test_malformed_dump_row_is_counted_and_skipped(import_env, monkeypatch):
     models, factory, importer, config = import_env
     source = records()
 
-    def stream(url, *, start_line=0, user_agent):
+    def stream(url, *, start_line=0, user_agent, progress_callback=None):
         for line, record in enumerate(source[url], start=1):
             if line <= start_line:
                 continue
@@ -340,7 +342,7 @@ def test_transient_network_failure_retries_with_bounded_backoff(import_env, monk
     attempts = 0
     delays = []
 
-    def stream(url, *, start_line=0, user_agent):
+    def stream(url, *, start_line=0, user_agent, progress_callback=None):
         nonlocal attempts
         if url == WORKS_URL:
             attempts += 1
@@ -603,3 +605,163 @@ def test_automatic_continuation_requires_committed_progress(import_env):
     with factory.begin() as session:
         session.get(models.CatalogueImportRun, original.run_id).checkpoint_line = 500
     assert importer._continuation_status(factory, original, marker) == "needs_continuation"
+
+
+def test_raw_download_disconnect_retries_saved_checkpoint(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    source = records()
+    calls = []
+    interrupted = False
+
+    def stream(url, *, start_line=0, **_kwargs):
+        nonlocal interrupted
+        calls.append((url, start_line))
+        for line, record in enumerate(source[url], start=1):
+            if line <= start_line:
+                continue
+            yield clean.DumpRow(line, record)
+            if url == WORKS_URL and line == 2 and not interrupted:
+                interrupted = True
+                raise ProtocolError("Connection broken: IncompleteRead")
+
+    monkeypatch.setattr(clean, "stream_dump", stream)
+    monkeypatch.setattr(importer.time, "sleep", lambda _delay: None)
+    assert importer.run_import(config()) == "complete"
+    assert (WORKS_URL, 2) in calls
+    with factory() as session:
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 2
+
+
+def test_database_disconnect_rolls_back_batch_and_reacquires_lock(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    calls = fake_stream(monkeypatch)
+    original = importer._write_works
+    interrupted = False
+
+    def drop_connection_after_write(session, run, rows):
+        nonlocal interrupted
+        original(session, run, rows)
+        if not interrupted:
+            interrupted = True
+            raise OperationalError("batch write", None, Exception("server closed connection"),
+                                   connection_invalidated=True)
+
+    monkeypatch.setattr(importer, "_write_works", drop_connection_after_write)
+    monkeypatch.setattr(importer.time, "sleep", lambda _delay: None)
+    assert importer.run_import(config()) == "complete"
+    assert calls.count((WORKS_URL, 0)) >= 3  # failed batch, retry, hydration
+    with factory() as session:
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 2
+        assert session.get(models.CatalogueImportRun, "sample").phase == "complete"
+
+
+def test_disconnected_lock_cleanup_preserves_original_error(import_env):
+    _models, factory, importer, _config = import_env
+    with pytest.raises(ProtocolError, match="original download failure"):
+        with importer._import_lock(factory.kw["bind"]):
+            with factory.begin() as session:
+                session.execute(text("""
+                    SELECT pg_terminate_backend(pid) FROM pg_locks
+                    WHERE locktype = 'advisory' AND granted
+                    AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+                """))
+            raise ProtocolError("original download failure")
+
+
+def test_import_lock_has_no_idle_transaction_and_detects_disconnect(import_env):
+    _models, factory, importer, _config = import_env
+    with importer._import_lock(factory.kw["bind"]) as heartbeat:
+        with factory.begin() as session:
+            state = session.execute(text("""
+                SELECT a.state FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid
+                WHERE l.locktype = 'advisory' AND l.granted
+                AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+            """)).scalar_one()
+            assert state == "idle"
+            session.execute(text("""
+                SELECT pg_terminate_backend(pid) FROM pg_locks
+                WHERE locktype = 'advisory' AND granted
+                AND database = (SELECT oid FROM pg_database WHERE datname = current_database())
+            """))
+        with pytest.raises(importer.ImportLockLost):
+            heartbeat(force=True)
+
+
+def test_resume_only_rejects_unknown_run_without_snapshot_lookup(import_env, monkeypatch):
+    _models, _factory, importer, config = import_env
+    monkeypatch.setattr(importer, "resolve_snapshot", lambda *_args, **_kwargs:
+                        pytest.fail("An unknown resume ID must not select a new snapshot"))
+    args = Namespace(mode="test", run_id="missing", resume_only=True)
+    with pytest.raises(ValueError, match="does not exist"):
+        importer._config_for_command(args, config().database_url, config().user_agent)
+
+
+def test_production_import_rejects_transaction_pooler(monkeypatch):
+    from data.config import validate_database_target
+    monkeypatch.setenv("CATALOGUE_IMPORT_PRODUCTION", "yes")
+    with pytest.raises(ValueError, match="direct Neon"):
+        validate_database_target("postgresql://user:unused@ep-example-pooler.us-east-2.aws.neon.tech/db",
+                                 "production")
+    validate_database_target("postgresql://user:unused@ep-example.us-east-2.aws.neon.tech/db", "production")
+
+
+def test_database_retry_is_bounded_and_preserves_one_deadline(import_env, monkeypatch):
+    _models, _factory, importer, config = import_env
+    deadlines = []
+    delays = []
+
+    def disconnected(_config, *, one_phase, deadline, progress_state):
+        deadlines.append(deadline)
+        raise OperationalError("connection check", None, Exception("connection lost"),
+                               connection_invalidated=True)
+
+    monkeypatch.setattr(importer, "_run_import", disconnected)
+    monkeypatch.setattr(importer.time, "sleep", delays.append)
+    with pytest.raises(OperationalError):
+        importer.run_import(config(), time_budget_seconds=60)
+    assert len(deadlines) == 3
+    assert len(set(deadlines)) == 1
+    assert delays == [2, 4]
+
+
+def test_permanent_database_error_is_not_retried(import_env, monkeypatch):
+    _models, _factory, importer, config = import_env
+    attempts = []
+
+    def permanent(_config, **_kwargs):
+        attempts.append(True)
+        raise OperationalError("invalid SQL", None, Exception("permission denied"))
+
+    monkeypatch.setattr(importer, "_run_import", permanent)
+    with pytest.raises(OperationalError):
+        importer.run_import(config())
+    assert len(attempts) == 1
+
+
+def test_time_budget_checkpoints_and_next_segment_completes(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    source = records()
+    clock = [0.0]
+    interrupted = False
+
+    def stream(url, *, start_line=0, progress_callback=None, **_kwargs):
+        nonlocal interrupted
+        for line, record in enumerate(source[url], start=1):
+            if line <= start_line:
+                continue
+            yield clean.DumpRow(line, record)
+            if url == WORKS_URL and line == 2 and not interrupted:
+                interrupted = True
+                clock[0] = 61.0
+                progress_callback()
+
+    monkeypatch.setattr(clean, "stream_dump", stream)
+    monkeypatch.setattr(importer.time, "monotonic", lambda: clock[0])
+    assert importer.run_import(config(), time_budget_seconds=60) == "needs_continuation"
+    with factory() as session:
+        run = session.get(models.CatalogueImportRun, "sample")
+        assert (run.phase, run.checkpoint_line) == ("works", 2)
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 0
+    assert importer.run_import(config()) == "complete"
+    with factory() as session:
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 2

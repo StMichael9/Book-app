@@ -164,3 +164,25 @@ def test_snapshot_discovery_skips_incomplete_items_and_pins_one_date(monkeypatch
     assert all("2026-08-31" in item["url"] for item in snapshot.files.values())
     with pytest.raises(ValueError, match="No complete"):
         sources.resolve_snapshot("2026-09-30", user_agent="Bookvane (contact@example.org)")
+
+
+def test_stream_heartbeats_during_skipped_prefix(monkeypatch):
+    line = "/type/work\t/works/OL1W\t1\t2026-01-01\t" + json.dumps({"key": "/works/OL1W"}) + "\n"
+    compressed = gzip.compress((line * 2048).encode())
+
+    class Response:
+        raw = io.BytesIO(compressed)
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            pass
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(clean.requests, "get", lambda *_args, **_kwargs: Response())
+    calls = []
+    rows = list(clean.stream_dump("https://openlibrary.org/data/ol_dump_works_2026-09-01.txt.gz",
+                                 start_line=2048, user_agent="test@example.org",
+                                 progress_callback=lambda: calls.append(True)))
+    assert rows == []
+    assert len(calls) == 2

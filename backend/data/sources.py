@@ -12,7 +12,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Callable, Iterator
 from urllib.parse import urlparse
 
 import requests
@@ -149,6 +149,7 @@ class _HashingReader:
 def stream_dump(
     url: str, *, start_line: int = 0, user_agent: str, timeout: int = 120,
     expected_size: int | None = None, expected_md5: str | None = None,
+    progress_callback: Callable[[], None] | None = None,
 ) -> Iterator[DumpRow]:
     """Decode a pinned TSV gzip stream and verify compressed bytes at EOF.
 
@@ -173,6 +174,9 @@ def stream_dump(
                     if not line:
                         break
                     number += 1
+                    # Also heartbeat/check the deadline while replaying a gzip prefix.
+                    if progress_callback and number % 1024 == 0:
+                        progress_callback()
                     if len(line) > 4_000_000 and not line.endswith("\n"):
                         while line and not line.endswith("\n"):
                             line = lines.readline(4_000_001)

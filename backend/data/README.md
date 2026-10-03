@@ -26,8 +26,10 @@ frontend, authentication, hosting, or user Own/Want relationships.
   production schema, take a backup, and obtain a separate production approval
   before applying migrations or running the import.
 - GitHub permits manual dispatch only for workflows present on the default
-  branch. This workflow remains on `v2-codex` and therefore cannot be used for
-  production until the branch/deployment decision is separately approved.
+  branch. A separate public `bookvane-catalogue-imports` runner repository can
+  host the workflow while checking out Book-app's `v2-codex` code. Its maintained
+  templates and operating instructions are in `.github/cloud-import-runner/`.
+  This does not require changing Book-app's `main` or `v2` branches.
 - A 400 MiB database-size guard pauses the run and releases staging. It is a
   safety threshold, not a promise that Neon Free fits 50K books.
 
@@ -97,6 +99,13 @@ network failures retry with capped exponential backoff. If a whole job makes
 no committed progress, it fails instead of self-dispatching forever. GitHub
 environment reviewer settings may still require approval for each continuation;
 the workflow does not bypass those protections.
+
+Raw urllib3 stream failures are included in download retries. Database disconnects
+roll back the interrupted transaction, create a fresh engine, reacquire the import
+lock, and resume saved checkpoints with bounded retries. The lock connection uses
+autocommit and heartbeats while streaming (including replayed prefixes); failed
+unlock cleanup cannot hide the original error. Use a direct PostgreSQL connection,
+not a transaction pooler. `--resume-only --run-id <id>` fails if that run is missing.
 
 After completion or a capacity pause, the `catalogue_import_runs.report` JSON
 records total/source-identified books, category allocation, coverage counts,

@@ -91,6 +91,8 @@ def validate_database_target(database_url: str, mode: str) -> None:
     elif mode == "production":
         if os.getenv("CATALOGUE_IMPORT_PRODUCTION") != "yes" or not (db_url.host or "").endswith(".neon.tech"):
             raise ValueError("Production import requires explicit opt-in and a Neon target")
+        if "-pooler" in db_url.host:
+            raise ValueError("Catalogue imports require a direct Neon connection, not a transaction pooler")
     else:
         raise ValueError("Unknown import mode")
 
