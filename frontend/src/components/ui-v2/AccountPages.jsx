@@ -159,7 +159,7 @@ export function RecoveryPage({ reset = false }) {
       else setError(errorText(requestError, "We couldn’t complete your request. Please try again."));
     } finally { setPending(false); }
   }
-  return <section className="bv-container"><div className="bv-narrow"><TextLink to="/login"><ArrowLeft aria-hidden="true" />Back to sign in</TextLink>
+  return <section className="bv-container"><div className="bv-narrow">{!done && <TextLink to="/login"><ArrowLeft aria-hidden="true" />Back to sign in</TextLink>}
     {expired ? <><PageHeading title="This link is no longer valid.">Request a new reset link to get back to your books. Your account is still there.</PageHeading><ActionLink to="/forgot-password">Send a new link</ActionLink></> : done ? <>
       {!reset && <div className="bv-medallion"><Mail aria-hidden="true" /></div>}<PageHeading title={reset ? "A fresh start." : "Check your inbox."}>{reset ? "Your password is updated. You can sign in again." : "If an account exists for that email address, we’ll send a link to reset your password."}</PageHeading>
       {!reset && <p className="bv-notice">Not there yet? Check your spam folder, or try another email address.</p>}<ActionLink to="/login">Back to sign in</ActionLink>{!reset && <Button variant="quiet" onClick={() => setDone(false)}>Try another email address</Button>}

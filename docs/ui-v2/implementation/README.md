@@ -1,6 +1,8 @@
 # Bookvane V2 — implemented reader UI
 
-The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery, signup and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
+The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
+
+The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme is now implemented. Light mode is unchanged; the logo review remains pending.
 
 ## Review the actual implementation
 
@@ -27,15 +29,15 @@ Once these new files are present in the intended V2 integration branch, change *
 
 Keep the existing `<App />`, `BrowserRouter`, `AuthProvider`, `UserBooksProvider` and `index.css` import. `BookvaneApp` imports its own scoped stylesheet. The isolated preview includes the original global CSS and provider order, so this combination was exercised in browser tests. The reserved `App.jsx` can remain in place; it is not imported by the new entry.
 
-This owner edit has **not** been made. The live/default app therefore still uses its original UI. No merge, push or deployment was performed.
+This reserved owner edit has **not been made by this UI work**. The branch has been pushed; the owner reported merging the initial refresh into **v2-codex**. Merging files alone does not activate this import. The owner's local checkout may differ from GitHub, and deployment has not been verified.
 
 ## Implemented behavior
 
 - Landing introduces discovery and the personal library, allows browsing before registration, uses actual covers/totals and links returning readers to their library.
 - Discovery offers title/author search, subject chips and a modal for combined subjects, Own/Want scope and hiding owned books. Repeated subjects retain the backend's AND behavior. URL state, pagination and browser history remain authoritative.
-- Book details show available metadata and description, deliberate unavailable-cover/description states, existing sharing, and a return link preserving discovery context.
+- Book details show useful publication/page metadata without visible ISBN, description, deliberate unavailable-cover/description states, existing sharing, and a return link preserving discovery context.
 - Own/Want actions use the existing mutually exclusive `want`/`owned` contract. Buttons wait for initial shelf hydration. Confirmations appear after successful API writes; failures preserve the known state and offer retry.
-- Anonymous saves carry the chosen book and shelf through account creation/sign-in, resume once after hydration, and retain discovery context. A failed continuation can be retried without signing in again.
+- Anonymous saves carry the chosen book and shelf through account creation/sign-in, resume once after hydration, and retain discovery context. A failed continuation has one message and retry beside the shelf controls. Manually choosing a shelf successfully also consumes the pending intent, without signing in again.
 - My Books shows honest shelf counts, accessible tabs, shared status updates, useful empty/loading/error states and the existing conditional Bookshop links with disclosure.
 - Preferences load authoritatively before becoming writable. Canonical subject choices resolve to API tag IDs; existing saved subjects are retained. The existing first `source_text` value is preserved when saving choices. Failed reads block writes; failed saves retain edits. Optional preferences do not interrupt the first save.
 - Login, registration, account controls and password recovery reuse the audited auth provider. Recovery keeps its neutral response, consumes fragment reset tokens in memory and removes them from the address bar. External return URLs are rejected.
@@ -43,18 +45,18 @@ This owner edit has **not** been made. The live/default app therefore still uses
 
 ## Design and libraries
 
-Existing React 19, React Router and Lucide remain the application libraries. Scoped CSS implements the ivory/forest/rust palette and responsive layout. Lora and Source Sans 3 are self-hosted as WOFF2 with their OFL license files. Existing Bookvane logo and real API covers are reused.
+Existing React 19, React Router and Lucide remain the application libraries. Scoped CSS implements the existing ivory/forest/rust light palette and warm charcoal/ivory/sage/rust dark palette, with responsive layout. Dark backgrounds and large panels are neutral; sage emphasizes actions and saved states. Native controls follow the dark color scheme. Lora and Source Sans 3 are self-hosted as WOFF2 with their OFL license files. Existing Bookvane logo and real API covers are reused.
 
 The planned Radix dialog dependency was replaced by native `<dialog>` to keep the shared dependency files untouched. It supplies modal semantics and background inertness; the wrapper adds focus cycling, Escape, scroll locking and trigger restoration. Motion is limited to 140ms control color transitions and a 180ms dialog fade with a 6px entrance. Reduced-motion disables both. No animation framework or feature/tracking additions were introduced.
 
 ## Verification
 
-- **20 new Chromium browser checks passed**, including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast.
+- **23 distinct current Chromium browser checks passed** (22 existing checks together, plus the new charcoal-theme check), including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast. The charcoal check verifies rendered muted/body text, filled and saved actions, hover, keyboard focus, form/filter boundaries, errors and switching back to unchanged light colors.
 - Routes were checked at **320, 390, 768 and 1440px** with deliberately long titles; no horizontal page overflow occurred.
-- **23 existing V2 regression checks passed** against the unchanged default application.
+- **23 existing V2 regression checks passed** against the unchanged default application during the initial implementation; those source files remain untouched.
 - Isolated redesign and original frontend production builds passed.
 - New UI source lint is clean. Full frontend lint exits successfully with 11 existing warnings in untouched source files.
-- Screenshots were inspected and regenerated after correcting legacy global heading colors in dark mode and the narrow newsletter form.
+- The gallery retains all 24 screenshots; its 12 dark-theme captures were refreshed for charcoal. After the cleanup, all 24 were regenerated; desktop/mobile landing, registration and detail captures were inspected. The initial refresh also corrected legacy global heading colors in dark mode.
 
 Browser tests intercept API requests and create no real accounts or library records. Live cookie/CORS behavior, email delivery and Safari/iOS device behavior were not independently verified here. This is a responsive web implementation, not a packaged native mobile app.
 

@@ -1,14 +1,13 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ArrowRight, BookOpen, Bookmark, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
-import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
 import { AccountPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
-import { safeReturnTo, validBookId } from "./data.js";
+import { safeReturnTo } from "./data.js";
 import "../../styles/ui-v2/bookvane.css";
 
 function Brand() {
@@ -22,10 +21,11 @@ function Header() {
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
   const library = location.pathname === "/my-books";
   const account = !discover && !library;
+  const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation"><Link className={discover ? "bv-active" : ""} to="/browse">Discover</Link><Link className={library ? "bv-active" : ""} to="/my-books">My Books</Link>{auth.isAuthenticated && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className="bv-header-actions"><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
-      {auth.isLoading ? <span className="bv-header-check" role="status">Checking account…</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to="/register">Join free</ActionLink></>}
+      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">Checking account…</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to="/register">Join free</ActionLink></>)}
     </div>
   </div></header><nav className="bv-mobile-nav" aria-label="Mobile navigation">
     {[["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={location.pathname === to ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
@@ -33,7 +33,7 @@ function Header() {
 }
 
 function Footer() {
-  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><p>A place for your next book. And the ones you already love.</p><span>Made for curious readers.</span></div></footer>;
+  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /></div></footer>;
 }
 
 function AccountPrompt() {
@@ -52,37 +52,6 @@ function AccountPrompt() {
       <ActionLink to={`/register?${query}`} onClick={() => reader.setGate(null)}>Create an account</ActionLink><p>Already here? <TextLink to={`/login?${query}`} onClick={() => reader.setGate(null)}>Sign in</TextLink></p>
       <Button variant="quiet" onClick={() => reader.setGate(null)}>Keep browsing</Button></>}
   </NativeDialog>;
-}
-
-function SaveContinuation() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const auth = useAuth();
-  const library = useUserBooks();
-  const reader = useReader();
-  const [retry, setRetry] = useState(0);
-  const [failed, setFailed] = useState(false);
-  const attempted = useRef("");
-  const continueSave = useEffectEvent((book, shelf) => reader.saveBook(book, shelf, true));
-  const bookId = validBookId(location.pathname.match(/^\/book\/(\d+)$/)?.[1]);
-  const status = new URLSearchParams(location.search).get("save");
-  useEffect(() => {
-    if (!bookId || !["want", "owned"].includes(status) || !auth.isAuthenticated || auth.isLoading || !reader.libraryReady || library.loading || library.error) return undefined;
-    const key = `${location.pathname}:${location.search}:${retry}`;
-    if (attempted.current === key) return undefined;
-    attempted.current = key;
-    let active = true;
-    setFailed(false);
-    continueSave({ id: bookId }, status).then((success) => {
-      if (!active) return;
-      if (success) {
-        const params = new URLSearchParams(location.search); params.delete("save");
-        navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
-      } else setFailed(true);
-    });
-    return () => { active = false; };
-  }, [bookId, status, auth.isAuthenticated, auth.isLoading, reader.libraryReady, library.loading, library.error, location.pathname, location.search, retry, navigate]);
-  return failed && bookId && ["want", "owned"].includes(status) ? <div className="bv-container"><div className="bv-notice bv-notice--error"><p role="alert">Your account is ready, but this book couldn’t be saved. Please try again.</p><Button variant="secondary" onClick={() => setRetry((value) => value + 1)}>Retry save</Button></div></div> : null;
 }
 
 function RouteEffects() {
@@ -117,7 +86,7 @@ function Shell() {
   const reader = useReader();
   return <div className="bv-root" data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
-    <main id="bv-main" tabIndex={-1}><div className="bv-container"><LibraryWarning /></div><SaveContinuation />
+    <main id="bv-main" tabIndex={-1}><div className="bv-container"><LibraryWarning /></div>
       <Routes>
         <Route path="/" element={<WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
