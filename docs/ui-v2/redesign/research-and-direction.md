@@ -1,0 +1,61 @@
+# Bookvane V2 · Research and design direction
+
+The redesign treats Bookvane as a place to discover books and keep a personal library. Its warmth comes from typography, paper-like surfaces, thoughtful language, and the books themselves. Its controls behave like familiar modern product controls. The intended first impression is an independent bookshop with a useful personal library, rather than a dashboard or an ornate antique interface.
+
+This research used published design-system guidance and WCAG 2.2, read through their public source repositories. These sources explain useful principles; they do not prove that this specific Bookvane design will retain more readers. The composition, colour palette, copy, and retention assumptions are proposals to test with readers.
+
+## Principles translated into Bookvane
+
+| Evidence | Bookvane decision | Why this fits the product |
+| --- | --- | --- |
+| [USWDS: start with user needs, earn trust, design for continuity](https://designsystem.digital.gov/design-principles/) · [source](https://github.com/uswds/uswds-site/blob/main/pages/design-principles/overview.md) | Let visitors browse before joining; preserve the chosen book through account creation; keep mobile and desktop journeys equivalent. | A reader arrives to find a book. Account creation should help them keep that discovery. |
+| [GOV.UK: descriptive buttons and a clear primary action](https://design-system.service.gov.uk/components/button/) · [source](https://github.com/alphagov/govuk-design-system/blob/main/src/components/button/index.md) | “Explore books” is the prominent landing action. Header account actions are secondary. Detail actions say what shelf they affect. | Removes uncertainty about where to begin and what saving means. The government system’s green-button results are not evidence that green alone improves Bookvane conversion. |
+| [USWDS: visible search, simple default, retain the query](https://designsystem.digital.gov/components/search/) · [source](https://github.com/uswds/uswds-site/blob/main/_components/search/guidance/usability.md) | Keep a real search field visible in discovery, with explicit Title/Author mode; retain the query after submission and errors. | Matches the two existing backend search fields without promising an unsupported combined search engine. |
+| [USWDS: cards support exploration; use purposeful images and simple styling](https://designsystem.digital.gov/components/card/) · [source](https://github.com/uswds/uswds-site/blob/main/_components/card/guidance/usability.md) | Cover, title, author, then shelf actions. Covers retain their proportions; titles wrap. No nested ornamental frames or fake popularity. | Books provide the visual pull. The surrounding UI makes comparison and saving easy. |
+| [USWDS: legible typography, left alignment, comfortable text measure](https://designsystem.digital.gov/components/typography/) · [source](https://github.com/uswds/uswds-site/blob/main/_components/typography/typography.md) | Lora for editorial headings, Source Sans 3 for controls/body. Most body text is 16–19px; descriptions use generous line height and a bounded reading column. | Keeps reading personality without sacrificing scanning or making every label decorative. Small metadata is deliberately subordinate. |
+| [GOV.UK: ask only necessary questions, preserve answers](https://design-system.service.gov.uk/patterns/question-pages/) · [source](https://github.com/alphagov/govuk-design-system/blob/main/src/patterns/question-pages/index.md) | Registration asks only for supported account fields. Preferences are optional and come after the reader can save a book. | Avoids putting an onboarding questionnaire between a discovery and its reward. Related short auth fields belong together here. |
+| [GOV.UK: actionable validation and service errors](https://design-system.service.gov.uk/patterns/validation/) · [source](https://github.com/alphagov/govuk-design-system/blob/main/src/patterns/validation/index.md) | Failure messages preserve context, give a retry action, and distinguish empty results from failure to load. Preference failures offer retry without a writable blank form. | A reader should not mistake a network failure for losing their library or saved preferences. |
+| [USWDS: finite, understandable pagination](https://designsystem.digital.gov/components/pagination/) · [source](https://github.com/uswds/uswds-site/blob/main/_components/pagination/guidance/usability.md) | Production should use the existing server pagination with current page, relevant adjacent pages and Previous/Next controls. The five-work sample truthfully shows one page and “End of results.” | Supports a 50,000-book catalogue without infinite requests or fabricated sample pages. |
+| [USWDS: focused account creation and clear password guidance](https://designsystem.digital.gov/templates/authentication-pages/) · [source](https://github.com/uswds/uswds-site/blob/main/_templates/page-templates/authentication/create-account/guidance/usability.md) | Familiar email/password forms, sign-in/register switch, show/hide password, recovery, and the pending book visible beside the form. | Keeps account work short and explains why the reader is doing it. |
+| [WCAG 2.2: text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html), [target size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html), [focus visibility around sticky UI](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html), [accessible authentication](https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html) | Check normal text against 4.5:1, large text against 3:1; use generally 44–48px action targets; fit a 320px viewport; provide focus treatment and space for persistent phone navigation; support password managers and paste. | Makes the product usable for more readers. WCAG AA’s minimum target is 24px with exceptions; 44–48px is our more generous product target, not the AA minimum. Standards source files were read from [w3c/wcag](https://github.com/w3c/wcag/tree/main/understanding). |
+
+## The visual system
+
+Warm ivory and white provide a quiet background. Dark ink carries reading content. Deep green identifies primary actions and selected shelves; restrained rust adds editorial character. Dark theme uses warm green-black surfaces with readable lighter action/text colours. Book imagery is never darkened or recoloured to match the interface.
+
+Headings create personality; navigation and forms stay plain. Layout groups related content closely, separates tasks with moderate space, and replaces repeated card borders with cover-led browsing. The existing Bookvane book/B mark remains. All new screens use Bookvane branding.
+
+The desktop welcome has one clear reading proposition, visible books, and an obvious browse action. Mobile adapts the composition and navigation rather than shrinking a desktop screenshot. Discovery uses a compact title, visible search, subject controls and a two-column book grid on phones. Details bring shelf choices together; the library keeps Want and Own easy to find.
+
+## Fit to the audited V2 backend
+
+- Reference point: audited V2 branch `v2-codex`, commit `39ca688`; local design work is isolated on `codex-ui`. The catalogue audit reported 50,000 books and 137,831 edition records. The landing total is based on that snapshot and should be read from current data or treated as maintained copy in production.
+- Discovery retains title search, author search, public subjects and server pagination. Multiple subjects mean **AND**. The UI explicitly says books must match every selected subject. No mood search, unsupported sorting, or claims of advanced recommendation intelligence.
+- Preference matches come first. All books remain discoverable. Preferences are optional; a failed initial load must not enable destructive saving. The new design avoids presenting an independently saved free-text note that the current API cannot persist on its own.
+- Own and Want are mutually exclusive. Choosing the other shelf moves the book; selecting the current shelf removes it. The real implementation must use the audited shared library provider, preserve pending saves, and prevent false unsaved states during initial-load errors.
+- Auth uses existing email/password support, 8–128-character registration/reset requirements, password recovery, and neutral recovery responses. No unsupported social login, biometric auth, or mandatory profile fields.
+- Edition data is stored internally; no public edition-selection interface is proposed. The design does not promise ratings, reviews, social proof, or statistics below the backend’s disclosure threshold.
+- Optional bibliographic fields should only appear when meaningful data exists. Missing covers get a deliberate title/author treatment; missing descriptions should get a short neutral fallback, not invented editorial facts. The sample descriptions here are prototype copy, not replacement catalogue data.
+- The existing share-image action retains its placement. The demo does not generate or send an image. Optional configured Bookshop links and email updates can stay secondary where already supported; this redesign adds no shopping/newsletter gate.
+
+## Before users see the implementation
+
+1. **Clear welcome and immediate books — P0.** The first viewport explains discovery and the personal library, then offers one prominent explore action. This addresses comprehension and perceived purpose. Implementation size: medium. Do before launch.
+2. **A reliable save-to-library journey — P0.** Preserve the book and intended shelf through auth; show loading/failure truthfully; keep shelf actions consistent across views. This protects trust and gives people something worth returning to. Implementation size: medium, mostly integrating the audited providers. Do before launch.
+3. **Phone discovery and navigation — P0/P1.** Visible search, comprehensible filters, usable cards and persistent navigation replace reliance on desktop spacing. This improves the actual device experience. Implementation size: medium. Do before launch.
+
+The new type, spacing, colour and card system is a P1 foundation applied across those changes, rather than a separate feature project. Subtle hover polish and optional decorative flourishes are P2 and should not delay launch. No new review, community, reading-progress, recommendation-engine or notification features are proposed.
+
+## What to preserve
+
+The reader-first purpose, warm editorial tone, Bookvane identity, cover-led exploration, simple Own/Want model, and optional subject preferences. Preserve the other chat’s auth, catalogue, shared-state and error-handling fixes. Replace the earlier proposal’s uniform illustrated jackets and overly spacious browsing with real cover references and useful density.
+
+## First-five-seconds hypothesis
+
+A new visitor should understand that Bookvane helps them find books and keep a personal library. “Discover books, save what catches your eye” states the task. Actual book imagery makes the category unmistakable. The green Explore books action provides a next step; “No account needed” makes the first commitment small. Consistent type, restrained surfaces and honest claims support credibility. This is a design hypothesis, not a measured first-impression result.
+
+## Short reader test before implementation is final
+
+Use 5–6 prospective readers across phones and desktop. Show the first screen for five seconds, hide it, then ask what it is, what they can do, and what they would click. Ask them to find a book by author, save it, create an account, locate it in My Books, move it to Own, and recover from one failed-load state. Observe unaided completion, confusion about shelves/filters, lost context, and whether they want to explore another book. Include at least one reader using keyboard navigation or larger text.
+
+The design is ready for this review and test. The deployed product is not visually changed by these files. Figma native import/prototype verification remains blocked by the account limit; live backend integration and real-device checks remain implementation work.
