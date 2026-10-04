@@ -2,13 +2,25 @@
 
 ## Scope and status
 
-This document records what the UI refresh changed, why those choices were made, what should be simplified, and the direction agreed with the product owner afterward.
+This document records what the UI refresh changed, why those choices were made, what was simplified after review, and the remaining direction agreed with the product owner.
 
 The implemented refresh is commit **d6748c0**, following the browser-design prototype in **c793e47**, on **codex-ui**. Its engineering reference was the audited V2 implementation at **39ca688**. The implementation was pushed to GitHub; the owner subsequently reported merging it into **v2-codex** and pulling it locally.
 
 For this review, I checked the current GitHub versions of **primitives.jsx**, **DiscoveryPages.jsx**, **BookvaneApp.jsx**, and **main.jsx** on **v2-codex**, alongside the local implementation. The UI findings below describe the inspected code. I cannot inspect the owner's VS Code working copy or determine whether it contains additional local changes.
 
-**This review changes documentation only.** The charcoal theme is agreed but not implemented. The simplifications below are recommendations, not completed removals. The logo has not been redesigned.
+**Current status:** the redundancy cleanup described below is implemented on **codex-ui**. The original review was documentation-only in **8bca00b**; this follow-up changes the UI after the owner authorized removals. All 22 current UI browser checks passed together, and the 24 review captures were regenerated. The charcoal theme is agreed but not implemented. The logo has not been redesigned.
+
+### Completed simplification pass
+
+- Removed visible ISBN metadata, repeated landing slogans and the introduction strip, detail/discovery promotional banners, the landing updates form, redundant browse/preferences links and instructional filler. ISBN data and existing Bookshop URL behavior remain intact.
+- Kept one main anonymous landing action, the useful library explanation, real covers, search/filter controls and contextual Own/Want prompts. Returning signed-in readers retain their library link.
+- Reduced the footer to the brand and made the filter heading simply **Filters**. Shortened hero cover spacing to suit the reduced copy on desktop and phones.
+- Suppressed repeated header account links on authentication forms. Successful password recovery has one return-to-sign-in action. Detail pages offer **View My Books** when a saved shelf state is known.
+- Hid page-navigation controls when results occupy one page; result ranges, multi-page browsing and out-of-range recovery remain.
+- My Books now owns its library-load error and retry. Save continuation now lives beside the detail shelf controls in **SaveContinuation.jsx**, with one failure message and retry. Choosing a shelf manually after a failed continuation consumes the pending intent after a successful save, retaining the discovery return context.
+- Added meaningful regression checks for one library failure/retry and manually changing the pending shelf after a failed post-login save. All 22 checks passed together. No API/provider/dependency or reserved entry files were changed.
+
+The table below retains the original rationale and recommendations as a historical record; its removals and clarity changes are now completed. Newsletter signup remains absent from this landing page; its existing backend capability was not removed.
 
 ## Product purpose and design principles
 
@@ -25,7 +37,7 @@ The research reference is [research-and-direction.md](../redesign/research-and-d
 **ISBN was added to the expanded book-detail page, not to the discovery or library cards.** In the inspected implementation:
 
 - **BookCard** renders the cover, title, author, Own/Want controls, and an optional configured Bookshop link.
-- **BookPage** conditionally renders Published, Pages and ISBN above the shelf actions.
+- **BookPage** initially conditionally rendered Published, Pages and ISBN above the shelf actions; the cleanup removes the visible ISBN.
 - The original **BookDetailPage.jsx** displayed publication year and page count; the refresh added visible ISBN metadata to the replacement detail page.
 
 I surfaced the existing API field **isbn13** for bibliographic context: an ISBN can help identify a published edition. That is a weak reason to place a long number in Bookvane's main reading hierarchy. Most visitors are deciding whether a book interests them, not matching a particular edition. The data being available does not automatically make it useful to display.
@@ -36,7 +48,7 @@ There is an additional mismatch: Own/Want is saved against the book ID, while an
 
 Size: small UI change. Priority: P1, before launch. No backend or card redesign is needed.
 
-## Redundant and overemphasized elements
+## Original redundancy review and rationale
 
 These are the highest-value simplifications found in the inspected refresh. Actual duplication is distinguished from a separate task that is simply too prominent. There is no evidence that any individual item has caused users to leave; the recommendations follow the task hierarchy and visible implementation.
 
@@ -78,7 +90,7 @@ The rationale was a reader-oriented identity with familiar controls. The origina
 
 I added a clear discovery proposition, one prominent Explore books action, reassurance that browsing does not require an account, and a library link for returning readers. The hero uses up to three books from the API, favoring items with cover URLs. Subject links use real supported genres. A five-book section makes exploration possible without going immediately to another page.
 
-Catalogue totals come from the API. Covers come from each book's **cover_image_url**. Missing data produces an honest fallback. The library explanation and existing newsletter capability were retained; the review above recommends simplifying their surrounding copy and prominence.
+Catalogue totals come from the API. Covers come from each book's **cover_image_url**. Missing data produces an honest fallback. The initial refresh retained the library explanation and an updates form. The cleanup keeps the library explanation and removes the form and repeated surrounding slogans.
 
 These books are drawn from the API response, not a manually curated recommendation collection. The UI adds no new recommendation engine, ratings or fabricated reader activity.
 
@@ -86,7 +98,7 @@ These books are drawn from the API response, not a manually curated recommendati
 
 Desktop navigation provides Discover, My Books and signed-in Preferences, alongside account and theme controls. Phones use a persistent Discover / My Books / You navigation bar with space reserved beneath page content. Signed-out readers can reach login and registration. Account startup has a visible checking state.
 
-The footer reuses the brand and reader-oriented copy. Its multiple slogans are now a simplification candidate. Responsive navigation was designed to keep the main tasks reachable, rather than shrinking the desktop header into a phone layout.
+The initial footer paired the brand with multiple slogans. The cleanup keeps only the brand. Responsive navigation was designed to keep the main tasks reachable, rather than shrinking the desktop header into a phone layout.
 
 ### Discovery, search and filters
 
@@ -100,7 +112,7 @@ The dialog uses a 15-subject shortlist; it is not a new full-taxonomy browser. B
 
 Cards show genuine cover imagery, wrapping titles, authors and both shelf actions. Covers preserve their proportions and use title/author artwork when images are absent or fail. Titles remain readable instead of being silently truncated.
 
-Details show available title, subtitle, authors, subjects, conditional metadata, description, Own/Want controls, the existing share-image action and library/discovery links. Missing descriptions are explicitly acknowledged instead of invented. The original share functionality was reused, not rebuilt into a social-sharing system. ISBN and the persistent return-to-discovery promotional block are parts of this layout; ISBN is recommended for removal, while a simple context-preserving return link should stay.
+Details show available title, subtitle, authors, subjects, conditional metadata, description, Own/Want controls, the existing share-image action and library/discovery links. Missing descriptions are explicitly acknowledged instead of invented. The original share functionality was reused, not rebuilt into a social-sharing system. The cleanup removes the initially added ISBN row and return-to-discovery promotional block. The simple context-preserving return link remains.
 
 ### Own/Want and saving through authentication
 
@@ -170,7 +182,7 @@ The logo's visual weight and color relationship also need review. The current da
 | --- | --- |
 | Research and browser design | **docs/ui-v2/redesign/research-and-direction.md**, **README.md**, **index.html**, **gallery.html**, assets and export tooling: research, visual direction and an interactive design reference. |
 | Figma preparation | **docs/ui-v2/redesign/figma-import/**: offline scene data and import helper. A Figma file was created, but the Starter MCP quota prevented populating it. The helper was not verified inside Figma; no finished native component library is claimed. |
-| New application shell | **frontend/src/components/ui-v2/BookvaneApp.jsx**: routes, navigation, prompts, save continuation and status announcements. |
+| New application shell | **frontend/src/components/ui-v2/BookvaneApp.jsx**: routes, navigation, prompts and status announcements. **SaveContinuation.jsx** handles the pending shelf save beside the detail controls. |
 | Page components | **DiscoveryPages.jsx**: landing, search/filters and details. **AccountPages.jsx**: auth, library, preferences, recovery and account. |
 | Shared UI/state | **primitives.jsx**, **ReaderContext.jsx**, **readerState.js**, **data.js**: controls, cards, dialogs, theme and save coordination, request handling and API adapters. |
 | Visual foundations | **frontend/src/styles/ui-v2/bookvane.css**, **ui-v2/assets/**: scoped styles, WOFF2 fonts and licenses. |
@@ -191,23 +203,22 @@ The user reserved **frontend/src/main.jsx**, **frontend/src/App.jsx** and **back
 
 The documented activation is an owner change in **frontend/src/main.jsx** from **./App.jsx** to **./components/ui-v2/BookvaneApp.jsx**, retaining the existing App alias, provider wrappers and global CSS import. Merging new files alone does not perform this switch. The preview uses a separate entry and does not demonstrate that the default entry has been activated or deployed.
 
-No new analytics, notifications, streaks, reading-progress tracking, reviews, recommendation engine or community features were added. Existing subject ordering, sharing, affiliate links and updates signup were reused or given new presentation.
+No new analytics, notifications, streaks, reading-progress tracking, reviews, recommendation engine or community features were added. Existing subject ordering, sharing and affiliate links were reused or given new presentation. The initial landing updates form was removed in the simplification pass; its API remains unchanged.
 
-## Verification completed for the implemented refresh
+## Verification completed
 
-- Twenty distinct new Chromium UI checks passed. Nineteen passed together; the final save-notice routing fix was then checked with the three affected save tests, including the twentieth distinct case.
+- All **22 current Chromium UI checks passed together** after the cleanup. The initial implementation had 20 distinct passing checks; this pass adds two failure/recovery regressions and asserts a single visible post-login save alert.
 - Twenty-three existing V2 regression checks passed against the unchanged default app. This verifies those original flows remained intact; it is separate from running them against the redesigned entry.
 - Responsive routes were checked at 320, 390, 768 and 1440px with long book titles; horizontal overflow was corrected and then passed.
 - Light/dark persistence, reduced motion, keyboard dialogs, missing covers, failed requests, preference preservation, safe returns, recovery links and authentication/save continuity were exercised.
 - Both the isolated UI and original frontend production builds passed. New UI lint was clean. Full frontend lint exited successfully with eleven existing warnings in untouched source.
-- Twenty-four implemented-screen captures cover six views, desktop/mobile and both themes. Screenshots were inspected after fixes for narrow newsletter sizing and legacy heading-color interference in dark mode.
+- Twenty-four implemented-screen captures cover six views, desktop/mobile and both themes. All 24 captures were regenerated after the cleanup, with desktop/mobile landing, registration and detail images inspected. The earlier refresh also corrected legacy heading-color interference in dark mode.
 
-Tests intercepted API operations and created no real accounts or shelf records. Live email delivery, real hosted cookie/CORS behavior, the owner's current local setup, Safari/iOS devices and a native mobile package were not independently verified. The refresh is a responsive web interface. These results are from the implementation work; no browser suite was rerun for this documentation-only review.
+Tests intercepted API operations and created no real accounts or shelf records. Live email delivery, real hosted cookie/CORS behavior, the owner's current local setup, Safari/iOS devices and a native mobile package were not independently verified. The refresh is a responsive web interface. The 22 UI checks and regenerated captures verify the current cleanup. The 23 default-entry regression results are from the initial implementation, whose default entry remains untouched.
 
 ## Recommended next pass
 
 1. Apply and verify the agreed charcoal dark theme across the whole surface system; leave light mode intact.
-2. Remove visible ISBN and simplify repeated marketing/account prompts and overlapping errors, preserving all save/recovery behavior.
-3. Revisit the logo against the settled themes, then test the core journey with prospective readers on desktop and phones.
+2. Revisit the logo against the settled themes, then test the core journey with prospective readers on desktop and phones.
 
 The remaining typography, real-cover cards, search context, simple shelves, optional preferences and reliable save flow form a useful foundation. Refinement should make that foundation quieter and more personal without expanding the feature set.

@@ -1,6 +1,8 @@
 # Bookvane V2 — implemented reader UI
 
-The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery, signup and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
+The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
+
+The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme and logo review remain pending; this pass preserves the current theme colors.
 
 ## Review the actual implementation
 
@@ -27,15 +29,15 @@ Once these new files are present in the intended V2 integration branch, change *
 
 Keep the existing `<App />`, `BrowserRouter`, `AuthProvider`, `UserBooksProvider` and `index.css` import. `BookvaneApp` imports its own scoped stylesheet. The isolated preview includes the original global CSS and provider order, so this combination was exercised in browser tests. The reserved `App.jsx` can remain in place; it is not imported by the new entry.
 
-This owner edit has **not** been made. The live/default app therefore still uses its original UI. No merge, push or deployment was performed.
+This reserved owner edit has **not been made by this UI work**. The branch has been pushed; the owner reported merging the initial refresh into **v2-codex**. Merging files alone does not activate this import. The owner's local checkout may differ from GitHub, and deployment has not been verified.
 
 ## Implemented behavior
 
 - Landing introduces discovery and the personal library, allows browsing before registration, uses actual covers/totals and links returning readers to their library.
 - Discovery offers title/author search, subject chips and a modal for combined subjects, Own/Want scope and hiding owned books. Repeated subjects retain the backend's AND behavior. URL state, pagination and browser history remain authoritative.
-- Book details show available metadata and description, deliberate unavailable-cover/description states, existing sharing, and a return link preserving discovery context.
+- Book details show useful publication/page metadata without visible ISBN, description, deliberate unavailable-cover/description states, existing sharing, and a return link preserving discovery context.
 - Own/Want actions use the existing mutually exclusive `want`/`owned` contract. Buttons wait for initial shelf hydration. Confirmations appear after successful API writes; failures preserve the known state and offer retry.
-- Anonymous saves carry the chosen book and shelf through account creation/sign-in, resume once after hydration, and retain discovery context. A failed continuation can be retried without signing in again.
+- Anonymous saves carry the chosen book and shelf through account creation/sign-in, resume once after hydration, and retain discovery context. A failed continuation has one message and retry beside the shelf controls. Manually choosing a shelf successfully also consumes the pending intent, without signing in again.
 - My Books shows honest shelf counts, accessible tabs, shared status updates, useful empty/loading/error states and the existing conditional Bookshop links with disclosure.
 - Preferences load authoritatively before becoming writable. Canonical subject choices resolve to API tag IDs; existing saved subjects are retained. The existing first `source_text` value is preserved when saving choices. Failed reads block writes; failed saves retain edits. Optional preferences do not interrupt the first save.
 - Login, registration, account controls and password recovery reuse the audited auth provider. Recovery keeps its neutral response, consumes fragment reset tokens in memory and removes them from the address bar. External return URLs are rejected.
@@ -49,12 +51,12 @@ The planned Radix dialog dependency was replaced by native `<dialog>` to keep th
 
 ## Verification
 
-- **20 new Chromium browser checks passed**, including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast.
+- **22 current Chromium browser checks passed together**, including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast.
 - Routes were checked at **320, 390, 768 and 1440px** with deliberately long titles; no horizontal page overflow occurred.
-- **23 existing V2 regression checks passed** against the unchanged default application.
+- **23 existing V2 regression checks passed** against the unchanged default application during the initial implementation; those source files remain untouched.
 - Isolated redesign and original frontend production builds passed.
 - New UI source lint is clean. Full frontend lint exits successfully with 11 existing warnings in untouched source files.
-- Screenshots were inspected and regenerated after correcting legacy global heading colors in dark mode and the narrow newsletter form.
+- All 24 screenshots were regenerated after the cleanup; desktop/mobile landing, registration and detail captures were inspected. The initial refresh also corrected legacy global heading colors in dark mode.
 
 Browser tests intercept API requests and create no real accounts or library records. Live cookie/CORS behavior, email delivery and Safari/iOS device behavior were not independently verified here. This is a responsive web implementation, not a packaged native mobile app.
 

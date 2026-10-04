@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, Search, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
@@ -42,7 +42,9 @@ export function BookCover({ book, priority = false }) {
   </div>;
 }
 
-export function ShelfActions({ book, compact = false }) {
+export function ShelfActions({ book, compact = false, hideError = false }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const auth = useAuth();
   const library = useUserBooks();
   const reader = useReader();
@@ -51,6 +53,14 @@ export function ShelfActions({ book, compact = false }) {
   const blocked = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error)));
   const known = !blocked;
   const helperId = useId();
+  async function saveToShelf(value) {
+    const success = await reader.saveBook(book, value);
+    const params = new URLSearchParams(location.search);
+    if (success && location.pathname === `/book/${book.id}` && ["want", "owned"].includes(params.get("save"))) {
+      params.delete("save");
+      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+    }
+  }
   return <div className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
     <div className="bv-shelf-actions" role="group" aria-label={`Shelf for ${book.title}`}>
       {["want", "owned"].map((value) => {
@@ -60,7 +70,7 @@ export function ShelfActions({ book, compact = false }) {
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
           disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
           aria-label={`${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Own" : "Want"}`}
-          onClick={() => reader.saveBook(book, value)}>
+          onClick={() => saveToShelf(value)}>
           <Icon aria-hidden="true" />
           {busy ? "Saving…" : value === "want" ? selected ? "Wanted" : compact ? "Want" : "Want this" : selected ? "Owned" : compact ? "Own" : "I own this"}
         </Button>;
@@ -70,7 +80,7 @@ export function ShelfActions({ book, compact = false }) {
       {busy ? "Updating your shelf…" : blocked ? "Checking your saved books before making changes." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
-    {reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
+    {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
   </div>;
 }
 
@@ -144,9 +154,10 @@ export function NativeDialog({ open, onClose, title, children, className = "" })
 }
 
 export function LibraryWarning() {
+  const location = useLocation();
   const auth = useAuth();
   const library = useUserBooks();
-  return auth.isAuthenticated && library.error ? <div className="bv-notice bv-notice--error">
+  return location.pathname !== "/my-books" && auth.isAuthenticated && library.error ? <div className="bv-notice bv-notice--error">
     <AlertCircle aria-hidden="true" /><p role="alert">Your saved books couldn’t load. Try again before changing a shelf.</p>
     <Button variant="secondary" onClick={library.retryLoad}>Try again</Button>
   </div> : null;
