@@ -71,6 +71,59 @@ const test = base.extend({
 async function signIn(page) { await page.getByLabel("Email address", { exact: true }).fill("reader@example.com"); await page.getByLabel("Password", { exact: true }).fill("valid-password"); await page.getByRole("button", { name: "Sign in", exact: true }).click(); }
 const mutations = (app) => app.requests.filter((request) => request.path.endsWith("/status"));
 
+test("charcoal dark surfaces keep sage actions, form boundaries and focus readable", async ({ page, app }) => {
+  app.authenticated = true;
+  app.saved = [{ id: 1, book_id: 1, status: "want", book: books[0] }];
+  await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
+  async function checkContrast(selector, property = "color", minimum = 4.5) {
+    const pairs = await page.locator(selector).evaluateAll((elements, property) => {
+      const canvas = document.createElement("canvas"), context = canvas.getContext("2d");
+      const luminance = (color) => {
+        context.clearRect(0, 0, 1, 1); context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+        const rgb = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map((v) => v / 255).map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      };
+      return elements.filter((el) => el.getClientRects().length && !el.disabled).map((el) => {
+        let surface = property === "outlineColor" ? el.parentElement : el;
+        while (surface && getComputedStyle(surface).backgroundColor === "rgba(0, 0, 0, 0)") surface = surface.parentElement;
+        const foreground = luminance(getComputedStyle(el)[property]), background = luminance(getComputedStyle(surface).backgroundColor);
+        return { label: el.textContent || el.id, ratio: (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05) };
+      });
+    }, property);
+    expect(pairs.length, selector).toBeGreaterThan(0);
+    for (const pair of pairs) expect(pair.ratio, `${property}: ${pair.label}`).toBeGreaterThanOrEqual(minimum);
+  }
+  await page.goto("/"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(30, 29, 27)");
+  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(235, 232, 225)");
+  await expect(page.locator(".bv-library-banner")).toHaveCSS("background-color", "rgb(38, 37, 35)");
+  await checkContrast(".bv-lead, .bv-help, .bv-genre-card, .bv-genre-card > span:last-child, .bv-button, .bv-text-link, .bv-library-banner p");
+  const explore = page.getByRole("link", { name: "Explore books", exact: true });
+  await expect(explore).toHaveCSS("background-color", "rgb(143, 168, 155)");
+  await expect(explore).toHaveCSS("color", "rgb(30, 29, 27)");
+  await explore.hover(); await checkContrast(".bv-hero-actions .bv-button");
+  await page.keyboard.press("Tab"); await explore.focus();
+  await expect(explore).toHaveCSS("outline-color", "rgb(217, 130, 108)");
+  await checkContrast(".bv-hero-actions .bv-button", "outlineColor", 3);
+  await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCSS("background-color", "rgb(38, 37, 35)");
+  await checkContrast(".bv-dialog p, .bv-dialog .bv-button, .bv-check-tile, .bv-dialog input:not([type=checkbox])");
+  await checkContrast(".bv-check-tile, .bv-dialog input:not([type=checkbox])", "borderTopColor", 3);
+  await page.keyboard.press("Escape");
+  app.authenticated = false;
+  await page.goto("/login"); await expect(page.getByLabel("Email address", { exact: true })).toBeVisible();
+  await checkContrast(".bv-field input, .bv-field small, .bv-auth-card .bv-button, .bv-auth-switch");
+  await checkContrast(".bv-field input", "borderTopColor", 3);
+  app.authenticated = true;
+  await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toBeEnabled();
+  app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Own" }).click();
+  await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
+  await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click();
+  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
+  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(32, 46, 40)");
+});
+
 test("anonymous save survives registration and resumes exactly once", async ({ page, app }) => {
   await page.goto("/browse"); await page.getByRole("button", { name: "Add The Time Machine to Want", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible(); await expect(page.getByRole("dialog")).toContainText("The Time Machine");

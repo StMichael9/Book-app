@@ -8,7 +8,7 @@ The implemented refresh is commit **d6748c0**, following the browser-design prot
 
 For this review, I checked the current GitHub versions of **primitives.jsx**, **DiscoveryPages.jsx**, **BookvaneApp.jsx**, and **main.jsx** on **v2-codex**, alongside the local implementation. The UI findings below describe the inspected code. I cannot inspect the owner's VS Code working copy or determine whether it contains additional local changes.
 
-**Current status:** the redundancy cleanup described below is implemented on **codex-ui**. The original review was documentation-only in **8bca00b**; this follow-up changes the UI after the owner authorized removals. All 22 current UI browser checks passed together, and the 24 review captures were regenerated. The charcoal theme is agreed but not implemented. The logo has not been redesigned.
+**Current status:** the redundancy cleanup described below is implemented on **codex-ui**. The original review was documentation-only in **8bca00b**; this follow-up changes the UI after the owner authorized removals. The cleanup passed all 22 UI browser checks together and regenerated the 24 review captures. The charcoal pass retains those 22 passing checks and adds a passing contrast/theme check, for 23 distinct passing checks; the gallery now shows the charcoal dark captures. The agreed charcoal theme is now implemented, following the cleanup in **ccb180e**. Light mode remains unchanged. The logo has not been redesigned.
 
 ### Completed simplification pass
 
@@ -152,7 +152,7 @@ I added reusable honest empty/error states, stable loading skeletons, inline sav
 
 The UI includes labels, visible focus, a skip link, route-heading focus, active shelf states, keyboard shelf tabs and generally 44–48px action targets. Dialogs use native modal semantics plus focus cycling, Escape, trigger restoration and scroll locking. Mobile focus handling accounts for persistent navigation. Phone navigation hides while text fields are focused; selecting a checkbox does not trigger that behavior.
 
-These are implemented accessibility provisions, not a complete accessibility certification. Contrast checks covered selected primary dark-theme text, not every possible color pairing in every state.
+These are implemented accessibility provisions, not a complete accessibility certification. Contrast checks cover primary and muted text, enabled primary/saved actions, hover, form/filter boundaries, errors and focus in representative dark views, not every possible color pairing in every state.
 
 ### Motion
 
@@ -160,11 +160,11 @@ Controls use 140ms color transitions. Dialogs use a 180ms fade with a 6px entran
 
 The motion acknowledges interaction and opening a dialog without competing with reading.
 
-## Agreed palette and logo follow-up
+## Implemented charcoal palette and logo follow-up
 
 **Light mode stays as implemented.** The Gemini reference is useful for visual direction, but does not replace the current light-mode hex values automatically.
 
-| Dark-theme role | Agreed direction |
+| Dark-theme role | Implemented direction |
 | --- | --- |
 | Page | Warm charcoal **#1E1D1B** |
 | Panels | Slightly lighter charcoal **#262523** |
@@ -172,7 +172,11 @@ The motion acknowledges interaction and opening a dialog without competing with 
 | Actions | Muted sage **#8FA89B** |
 | Restrained accents | Softer rust **#D9826C** |
 
-Charcoal should dominate the large surfaces. Sage belongs in purposeful actions, links and selected states. Filled sage buttons need dark text. Secondary text, form boundaries, focus rings, errors, hover/disabled colors, modal backdrops and selected-shelf surfaces still need to be resolved and checked together. Changing five tokens alone is not a fully verified theme.
+Charcoal now dominates the page, panels, cover surrounds and landing library banner. Sage belongs in purposeful actions, links and selected states; filled sage buttons use dark charcoal text. Light-mode styles remain unchanged.
+
+Supporting dark colors are **#B6B1A9** for secondary text, **#8C867D** for control boundaries, **#4B4741** for decorative separators, **#2E2C29** for neutral hover/wash surfaces, **#2B2926** for cover surrounds, **#30332F** for subtly sage selected surfaces and **#F0A39E** for errors. Modal backdrops are neutral **#10100ECC**. Native controls use **color-scheme: dark**. Existing disabled opacity and control transitions remain.
+
+The ivory/page pairing has approximately **13.8:1** contrast; sage/dark button text has **6.6:1**. Decorative separators are deliberately quieter than interactive boundaries. Browser checks cover rendered text, muted copy, saved/primary buttons, hover, input and filter-tile boundaries, error text and keyboard focus. This is targeted contrast verification, not a complete accessibility certification.
 
 The logo's visual weight and color relationship also need review. The current dark-mode implementation puts the existing mark on a pale square; it is not a dedicated dark-mode logo. The recommendation is to explore refining the recognizable book/B mark and its theme treatment after the palette settles. No replacement logo has been approved or generated as part of this review.
 
@@ -207,18 +211,18 @@ No new analytics, notifications, streaks, reading-progress tracking, reviews, re
 
 ## Verification completed
 
-- All **22 current Chromium UI checks passed together** after the cleanup. The initial implementation had 20 distinct passing checks; this pass adds two failure/recovery regressions and asserts a single visible post-login save alert.
+- **23 distinct current Chromium UI checks passed** for the charcoal update: all 22 existing checks passed together, then the added charcoal contrast check passed after correcting its login fixture to be signed out. No application fix was needed for that fixture error. The earlier cleanup added two failure/recovery regressions and asserts a single visible post-login save alert.
 - Twenty-three existing V2 regression checks passed against the unchanged default app. This verifies those original flows remained intact; it is separate from running them against the redesigned entry.
 - Responsive routes were checked at 320, 390, 768 and 1440px with long book titles; horizontal overflow was corrected and then passed.
 - Light/dark persistence, reduced motion, keyboard dialogs, missing covers, failed requests, preference preservation, safe returns, recovery links and authentication/save continuity were exercised.
 - Both the isolated UI and original frontend production builds passed. New UI lint was clean. Full frontend lint exited successfully with eleven existing warnings in untouched source.
-- Twenty-four implemented-screen captures cover six views, desktop/mobile and both themes. All 24 captures were regenerated after the cleanup, with desktop/mobile landing, registration and detail images inspected. The earlier refresh also corrected legacy heading-color interference in dark mode.
+- Twenty-four implemented-screen captures cover six views, desktop/mobile and both themes. All 24 captures were regenerated after the cleanup. The 12 dark captures were refreshed for charcoal, with desktop landing and mobile preferences inspected; light captures are retained from the unchanged light interface. The earlier refresh also corrected legacy heading-color interference in dark mode.
 
-Tests intercepted API operations and created no real accounts or shelf records. Live email delivery, real hosted cookie/CORS behavior, the owner's current local setup, Safari/iOS devices and a native mobile package were not independently verified. The refresh is a responsive web interface. The 22 UI checks and regenerated captures verify the current cleanup. The 23 default-entry regression results are from the initial implementation, whose default entry remains untouched.
+Tests intercepted API operations and created no real accounts or shelf records. Live email delivery, real hosted cookie/CORS behavior, the owner's current local setup, Safari/iOS devices and a native mobile package were not independently verified. The refresh is a responsive web interface. The 23 distinct UI checks and updated dark captures verify the current theme and cleanup. The 23 default-entry regression results are from the initial implementation, whose default entry remains untouched.
 
 ## Recommended next pass
 
-1. Apply and verify the agreed charcoal dark theme across the whole surface system; leave light mode intact.
-2. Revisit the logo against the settled themes, then test the core journey with prospective readers on desktop and phones.
+1. Revisit the logo against the settled themes; the current mark has not been redesigned.
+2. Test the core journey with prospective readers on desktop and phones.
 
 The remaining typography, real-cover cards, search context, simple shelves, optional preferences and reliable save flow form a useful foundation. Refinement should make that foundation quieter and more personal without expanding the feature set.

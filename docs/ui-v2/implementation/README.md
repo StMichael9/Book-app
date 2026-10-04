@@ -2,7 +2,7 @@
 
 The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
 
-The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme and logo review remain pending; this pass preserves the current theme colors.
+The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme is now implemented. Light mode is unchanged; the logo review remains pending.
 
 ## Review the actual implementation
 
@@ -45,18 +45,18 @@ This reserved owner edit has **not been made by this UI work**. The branch has b
 
 ## Design and libraries
 
-Existing React 19, React Router and Lucide remain the application libraries. Scoped CSS implements the ivory/forest/rust palette and responsive layout. Lora and Source Sans 3 are self-hosted as WOFF2 with their OFL license files. Existing Bookvane logo and real API covers are reused.
+Existing React 19, React Router and Lucide remain the application libraries. Scoped CSS implements the existing ivory/forest/rust light palette and warm charcoal/ivory/sage/rust dark palette, with responsive layout. Dark backgrounds and large panels are neutral; sage emphasizes actions and saved states. Native controls follow the dark color scheme. Lora and Source Sans 3 are self-hosted as WOFF2 with their OFL license files. Existing Bookvane logo and real API covers are reused.
 
 The planned Radix dialog dependency was replaced by native `<dialog>` to keep the shared dependency files untouched. It supplies modal semantics and background inertness; the wrapper adds focus cycling, Escape, scroll locking and trigger restoration. Motion is limited to 140ms control color transitions and a 180ms dialog fade with a 6px entrance. Reduced-motion disables both. No animation framework or feature/tracking additions were introduced.
 
 ## Verification
 
-- **22 current Chromium browser checks passed together**, including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast.
+- **23 distinct current Chromium browser checks passed** (22 existing checks together, plus the new charcoal-theme check), including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast. The charcoal check verifies rendered muted/body text, filled and saved actions, hover, keyboard focus, form/filter boundaries, errors and switching back to unchanged light colors.
 - Routes were checked at **320, 390, 768 and 1440px** with deliberately long titles; no horizontal page overflow occurred.
 - **23 existing V2 regression checks passed** against the unchanged default application during the initial implementation; those source files remain untouched.
 - Isolated redesign and original frontend production builds passed.
 - New UI source lint is clean. Full frontend lint exits successfully with 11 existing warnings in untouched source files.
-- All 24 screenshots were regenerated after the cleanup; desktop/mobile landing, registration and detail captures were inspected. The initial refresh also corrected legacy global heading colors in dark mode.
+- The gallery retains all 24 screenshots; its 12 dark-theme captures were refreshed for charcoal. After the cleanup, all 24 were regenerated; desktop/mobile landing, registration and detail captures were inspected. The initial refresh also corrected legacy global heading colors in dark mode.
 
 Browser tests intercept API requests and create no real accounts or library records. Live cookie/CORS behavior, email delivery and Safari/iOS device behavior were not independently verified here. This is a responsive web implementation, not a packaged native mobile app.
 
