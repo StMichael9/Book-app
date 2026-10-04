@@ -1,0 +1,53 @@
+{
+  "palettes": {
+    "light": {
+      "paper": "#faf8f2",
+      "panel": "#ffffff",
+      "wash": "#f0eee5",
+      "ink": "#202e28",
+      "muted": "#59675e",
+      "line": "#d8ddd3",
+      "green": "#28513f",
+      "on-green": "#fffdf5",
+      "soft-green": "#e7ede3",
+      "rust": "#9c432d",
+      "hero": "#e8ebe0",
+      "control": "#7e8c80"
+    },
+    "dark": {
+      "paper": "#19211d",
+      "panel": "#222c25",
+      "wash": "#29322b",
+      "ink": "#f2f0e6",
+      "muted": "#bac6b9",
+      "line": "#465449",
+      "green": "#b3d0ad",
+      "on-green": "#1a2d21",
+      "soft-green": "#303f31",
+      "rust": "#f0ae91",
+      "hero": "#2d392d",
+      "control": "#829887"
+    }
+  },
+  "typography": {
+    "display": "Lora",
+    "interface": "Source Sans 3",
+    "bodyDesktop": 17,
+    "bodyMobile": 16,
+    "bodyLineHeight": 1.5
+  },
+  "spacing": [
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    80
+  ],
+  "actionTargetMinimum": 44
+}

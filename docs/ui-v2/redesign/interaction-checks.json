@@ -1,0 +1,21 @@
+{
+  "results": [
+    {
+      "width": 320,
+      "checks": "save/account/context, mutually exclusive shelves, removal, author search, AND filters, preferences failure protection, recovery, all-screen reflow/assets"
+    },
+    {
+      "width": 390,
+      "checks": "save/account/context, mutually exclusive shelves, removal, author search, AND filters, preferences failure protection, recovery, all-screen reflow/assets"
+    },
+    {
+      "width": 768,
+      "checks": "save/account/context, mutually exclusive shelves, removal, author search, AND filters, preferences failure protection, recovery, all-screen reflow/assets"
+    },
+    {
+      "width": 1440,
+      "checks": "save/account/context, mutually exclusive shelves, removal, author search, AND filters, preferences failure protection, recovery, all-screen reflow/assets"
+    }
+  ],
+  "errors": []
+}

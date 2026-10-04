@@ -1,0 +1,6 @@
+screens/*
+!screens/*-viewport.png
+figma-import/scenes.json
+bookvane-full-redesign.zip
+assets/publisher-cover-*.png
+render-publisher-covers.cjs
