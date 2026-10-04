@@ -1,14 +1,15 @@
 import hashlib
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from urllib.parse import urlparse, parse_qs
 from datetime import datetime, timedelta, timezone
 
 import jwt
 import pytest
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text, event
 from sqlalchemy.orm import Session
 
 AUTH_PATH = "/auth"
@@ -140,6 +141,8 @@ def test_login_with_correct_credentials_sets_both_http_only_cookies(
     assert any("access_token=" in value and "HttpOnly" in value for value in cookie_headers)
     assert any("refresh_token=" in value and "HttpOnly" in value for value in cookie_headers)
     assert all("SameSite=lax" in value for value in cookie_headers)
+    assert any("access_token=" in value and "Max-Age=900" in value for value in cookie_headers)
+    assert any("refresh_token=" in value and "Max-Age=604800" in value for value in cookie_headers)
 
 
 def test_production_cookie_flags_and_write_origin(client: TestClient, monkeypatch):
@@ -521,3 +524,233 @@ def test_concurrent_status_creation_does_not_duplicate_or_error(
         select(models.UserBook).where(models.UserBook.book_id == book_id)
     ).scalars().all()
     assert len(user_book_rows) == 1
+
+
+@pytest.fixture
+def independent_auth_request(client, app_modules):
+    """Real HTTP requests with separate, bounded PostgreSQL transactions."""
+    database = app_modules["database"]
+    app = app_modules["main"].app
+    previous = dict(app.dependency_overrides)
+
+    def get_test_db(request: Request):
+        with database.SessionLocal() as session:
+            session.connection().info["auth_test_action"] = request.url.path
+            session.execute(text("SET LOCAL lock_timeout = '5s'"))
+            session.execute(text("SET LOCAL statement_timeout = '10s'"))
+            yield session
+
+    app.dependency_overrides[database.get_db] = get_test_db
+
+    def submit(path, *, payload=None, cookies=None):
+        with TestClient(app) as other:
+            if cookies:
+                other.cookies.update(cookies)
+            return other.post(f"{AUTH_PATH}/{path}", json=payload)
+
+    try:
+        yield submit
+    finally:
+        app.dependency_overrides.clear()
+        app.dependency_overrides.update(previous)
+
+
+def _seed_reset_tokens(db_session, models, email, count=1):
+    user = db_session.execute(select(models.User).where(models.User.email == email)).scalar_one()
+    tokens = ["race-reset-" + uuid.uuid4().hex for _ in range(count)]
+    for token in tokens:
+        db_session.add(models.PasswordResetToken(
+            user_id=user.id, token_hash=_refresh_hash(token),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        ))
+    db_session.commit()
+    return tokens
+
+
+def test_reset_during_password_verification_rejects_stale_login(
+    client, db_session, app_modules, independent_auth_request, monkeypatch
+):
+    from auth import auth as routes
+
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    token = _seed_reset_tokens(db_session, app_modules["models"], credentials["email"])[0]
+    verified, release = Event(), Event()
+    original_verify = routes.password_hash.verify
+
+    def delayed_verify(password, hashed):
+        result = original_verify(password, hashed)
+        if password == credentials["password"] and result:
+            verified.set()
+            assert release.wait(10), "Reset did not finish while login was paused"
+        return result
+
+    monkeypatch.setattr(routes.password_hash, "verify", delayed_verify)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        login_future = executor.submit(independent_auth_request, "login", payload=credentials)
+        try:
+            assert verified.wait(10)
+            reset = independent_auth_request("reset-password", payload={
+                "token": token, "password": "replacement password",
+            })
+            assert reset.status_code == 200
+        finally:
+            release.set()
+        stale = login_future.result(timeout=10)
+    assert stale.status_code == 401
+    assert not stale.headers.get_list("set-cookie")
+    assert independent_auth_request("login", payload={
+        **credentials, "password": "replacement password",
+    }).status_code == 200
+
+
+def test_refresh_overlapping_reset_has_no_deadlock_and_replacement_is_revoked(
+    client, db_session, app_modules, independent_auth_request
+):
+    credentials, login_response = _register_and_login(client)
+    old_access = login_response.cookies.get("access_token")
+    old_refresh = login_response.cookies.get("refresh_token")
+    token = _seed_reset_tokens(db_session, app_modules["models"], credentials["email"])[0]
+    engine = app_modules["database"].engine
+    claimed, reset_waiting, release = Event(), Event(), Event()
+
+    def after_query(connection, cursor, statement, parameters, context, executemany):
+        if (connection.info.get("auth_test_action") == "/auth/refresh"
+                and statement.lstrip().startswith("UPDATE refresh_tokens")):
+            claimed.set()
+            assert release.wait(10), "Reset did not reach its user lock"
+
+    def before_query(connection, cursor, statement, parameters, context, executemany):
+        if (connection.info.get("auth_test_action") == "/auth/reset-password"
+                and "FROM users" in statement and "FOR UPDATE" in statement):
+            reset_waiting.set()
+
+    event.listen(engine, "after_cursor_execute", after_query)
+    event.listen(engine, "before_cursor_execute", before_query)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            refresh_future = executor.submit(independent_auth_request, "refresh", cookies={
+                "refresh_token": old_refresh,
+            })
+            try:
+                assert claimed.wait(10)
+                reset_future = executor.submit(independent_auth_request, "reset-password", payload={
+                    "token": token, "password": "replacement password",
+                })
+                assert reset_waiting.wait(10)
+            finally:
+                release.set()
+            refreshed = refresh_future.result(timeout=10)
+            reset = reset_future.result(timeout=10)
+        assert refreshed.status_code == reset.status_code == 200
+    finally:
+        release.set()
+        event.remove(engine, "after_cursor_execute", after_query)
+        event.remove(engine, "before_cursor_execute", before_query)
+
+    for access in (old_access, refreshed.cookies.get("access_token")):
+        assert client.get(PROTECTED_PATH, cookies={"access_token": access}).status_code == 401
+    assert independent_auth_request("refresh", cookies={
+        "refresh_token": refreshed.cookies.get("refresh_token"),
+    }).status_code == 401
+
+
+def test_reset_before_waiting_refresh_rechecks_revocation(
+    client, db_session, app_modules, independent_auth_request
+):
+    credentials, login_response = _register_and_login(client)
+    token = _seed_reset_tokens(db_session, app_modules["models"], credentials["email"])[0]
+    engine = app_modules["database"].engine
+    locked, refresh_waiting, release = Event(), Event(), Event()
+
+    def after_query(connection, cursor, statement, parameters, context, executemany):
+        if (connection.info.get("auth_test_action") == "/auth/reset-password"
+                and "FROM users" in statement and "FOR UPDATE" in statement):
+            locked.set()
+            assert release.wait(10), "Refresh did not reach its user lock"
+
+    def before_query(connection, cursor, statement, parameters, context, executemany):
+        if (connection.info.get("auth_test_action") == "/auth/refresh"
+                and "FROM users" in statement and "FOR UPDATE" in statement):
+            refresh_waiting.set()
+
+    event.listen(engine, "after_cursor_execute", after_query)
+    event.listen(engine, "before_cursor_execute", before_query)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            reset_future = executor.submit(independent_auth_request, "reset-password", payload={
+                "token": token, "password": "replacement password",
+            })
+            try:
+                assert locked.wait(10)
+                refresh_future = executor.submit(independent_auth_request, "refresh", cookies={
+                    "refresh_token": login_response.cookies.get("refresh_token"),
+                })
+                assert refresh_waiting.wait(10)
+            finally:
+                release.set()
+            assert reset_future.result(timeout=10).status_code == 200
+            assert refresh_future.result(timeout=10).status_code == 401
+    finally:
+        release.set()
+        event.remove(engine, "after_cursor_execute", after_query)
+        event.remove(engine, "before_cursor_execute", before_query)
+
+
+def test_simultaneous_different_reset_links_do_not_deadlock(
+    client, db_session, app_modules, independent_auth_request
+):
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    tokens = _seed_reset_tokens(db_session, app_modules["models"], credentials["email"], count=2)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(executor.map(lambda token: independent_auth_request(
+            "reset-password", payload={"token": token, "password": "replacement password"},
+        ), tokens))
+    assert sorted(response.status_code for response in responses) == [200, 400]
+    db_session.expire_all()
+    user = db_session.execute(select(app_modules["models"].User).where(
+        app_modules["models"].User.email == credentials["email"],
+    )).scalar_one()
+    assert user.token_version == 1
+
+
+def test_concurrent_refresh_only_issues_one_replacement(
+    client, db_session, app_modules, independent_auth_request
+):
+    _, login_response = _register_and_login(client)
+    token = login_response.cookies.get("refresh_token")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(executor.map(lambda _: independent_auth_request(
+            "refresh", cookies={"refresh_token": token},
+        ), range(2)))
+    assert sorted(response.status_code for response in responses) == [200, 401]
+    db_session.expire_all()
+    active = db_session.execute(select(app_modules["models"].RefreshToken).where(
+        app_modules["models"].RefreshToken.revoked.is_(False),
+    )).scalars().all()
+    assert len(active) == 1
+
+
+def test_concurrent_forgot_password_sends_one_link_per_cooldown(
+    client, db_session, app_modules, independent_auth_request, monkeypatch
+):
+    from auth import auth as routes
+    from database import settings
+
+    credentials = _credentials()
+    assert _register(client, credentials).status_code == 201
+    sent = []
+    monkeypatch.setattr(settings, "resend_api_key", "test-key")
+    monkeypatch.setattr(settings, "password_reset_from", "Bookvane <reset@shelfbound.dev>")
+    monkeypatch.setattr(settings, "frontend_base_url", "https://shelfbound.dev")
+    monkeypatch.setattr(routes, "send_password_reset_email", lambda email, url: sent.append(url))
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(executor.map(lambda _: independent_auth_request(
+            "forgot-password", payload={"email": credentials["email"]},
+        ), range(2)))
+    assert [response.status_code for response in responses] == [202, 202]
+    assert responses[0].json() == responses[1].json() == routes.GENERIC_RESET_MESSAGE
+    assert len(sent) == 1
+    tokens = db_session.execute(select(app_modules["models"].PasswordResetToken)).scalars().all()
+    assert len(tokens) == 1

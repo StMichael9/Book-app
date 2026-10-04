@@ -137,6 +137,19 @@ def login(
             detail="Invalid email or password",
         )
 
+    # Password verification is deliberately outside the lock. Reset may finish
+    # during that work, so reload under the user lock before issuing a session.
+    verified_password = user.hashed_password
+    verified_version = user.token_version
+    user = db.execute(
+        select(User).where(User.id == user.id).with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if (user is None or user.hashed_password != verified_password
+            or user.token_version != verified_version):
+        db.rollback()
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
     payload = {
         "sub": str(user.id),
         "ver": user.token_version,
@@ -231,19 +244,36 @@ def refresh(
             detail="Invalid refresh token",
         )
 
+    # All session issuance/reset operations lock the user before mutating a
+    # token. Reload both rows: a reset or another refresh may have committed
+    # since the initial token lookup, including in this Session's identity map.
+    user = db.execute(
+        select(User).where(User.id == stored_token.user_id).with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if user is None:
+        db.rollback()
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    stored_token = db.execute(
+        statement.with_for_update().execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if stored_token is None:
+        db.rollback()
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
     if stored_token.revoked:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token has been revoked",
         )
 
     if stored_token.expires_at <= datetime.now(timezone.utc):
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token has expired",
         )
-
-    user = stored_token.user
 
     # Consume the presented token atomically: simultaneous refreshes must not
     # both mint a valid replacement.
@@ -402,7 +432,7 @@ def forgot_password(
         raise HTTPException(status_code=503, detail="Password recovery is not configured")
 
     user = db.execute(
-        select(User).where(func.lower(User.email) == data.email.lower())
+        select(User).where(func.lower(User.email) == data.email.lower()).with_for_update()
     ).scalars().first()
     if not user:
         return GENERIC_RESET_MESSAGE
@@ -444,12 +474,26 @@ def reset_password(
     if not 32 <= len(data.token) <= 256:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
-    now = datetime.now(timezone.utc)
     token_hash = hashlib.sha256(data.token.encode()).hexdigest()
+    user_id = db.execute(
+        select(PasswordResetToken.user_id).where(PasswordResetToken.token_hash == token_hash)
+    ).scalar_one_or_none()
+    user = db.execute(
+        select(User).where(User.id == user_id).with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none() if user_id is not None else None
+    if user is None:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    # Lock user first, then consume/reset token rows. This also serializes two
+    # different reset links for one user without token/user lock inversion.
+    now = datetime.now(timezone.utc)
     consumed = db.execute(
         update(PasswordResetToken)
         .where(
             PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.user_id == user.id,
             PasswordResetToken.used_at.is_(None),
             PasswordResetToken.expires_at > now,
         )
@@ -460,7 +504,6 @@ def reset_password(
         db.rollback()
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
-    user = db.execute(select(User).where(User.id == consumed).with_for_update()).scalar_one()
     user.hashed_password = password_hash.hash(data.password)
     user.token_version += 1
     db.execute(update(RefreshToken).where(RefreshToken.user_id == user.id).values(revoked=True))
