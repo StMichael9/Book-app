@@ -13,7 +13,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
+        value: "3.12.15"
       - key: DATABASE_URL
         sync: false
       - key: SECRET_KEY
