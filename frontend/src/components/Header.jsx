@@ -350,6 +350,17 @@ export default function Header({
                   </NavLink>
                 </section>
               )}
+              {!isLoading && !isAuthenticated && (
+                <section className="mobile-drawer__section" aria-labelledby="drawer-account">
+                  <h2 id="drawer-account">Your account</h2>
+                  <NavLink to="/login" className="mobile-drawer__link" onClick={closeMenu}>
+                    Sign in
+                  </NavLink>
+                  <NavLink to="/register" className="mobile-drawer__link" onClick={closeMenu}>
+                    Join Bookvane
+                  </NavLink>
+                </section>
+              )}
             </nav>
           </aside>
         </div>

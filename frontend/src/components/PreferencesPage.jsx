@@ -15,15 +15,21 @@ export default function PreferencesPage({
   const [sourceText, setSourceText] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoaded(false);
+    setError("");
     getPreferences()
       .then((preferences) => {
         if (!active) return;
-        const items = Array.isArray(preferences) ? preferences : [];
+        if (!Array.isArray(preferences)) throw new Error("Unable to load preferences.");
+        const items = preferences;
         setTags(
           items.map((item) => ({
             id: item.tag_id,
@@ -32,6 +38,7 @@ export default function PreferencesPage({
           })),
         );
         setSourceText(items[0]?.source_text || "");
+        setLoaded(true);
       })
       .catch((loadError) => {
         if (active) setError(loadError.message || "Unable to load preferences.");
@@ -43,7 +50,7 @@ export default function PreferencesPage({
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAttempt]);
 
   const addTag = (tag) => {
     setTags((current) =>
@@ -54,6 +61,7 @@ export default function PreferencesPage({
 
   const handleSave = async (event) => {
     event.preventDefault();
+    if (!loaded || loading || saving) return;
     setSaving(true);
     setError("");
     try {
@@ -71,6 +79,25 @@ export default function PreferencesPage({
   };
 
   if (loading) return <div className="loading-state">Loading preferences...</div>;
+  if (!loaded) {
+    return (
+      <section className="preference-panel">
+        <p className="error-message" role="alert">{error}</p>
+        <p>Your saved preferences have not been changed.</p>
+        <button type="button" className="primary-button" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+          Try again
+        </button>
+        {(onboarding || panel) && (
+          <button type="button" className="reset-button" onClick={() => {
+            onClose?.();
+            if (!panel) navigate("/browse");
+          }}>
+            {panel ? "Cancel" : "Skip for now"}
+          </button>
+        )}
+      </section>
+    );
+  }
 
   return (
     <section className="preference-panel">

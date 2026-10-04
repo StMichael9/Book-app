@@ -7,7 +7,7 @@ const discoveryLinks = [
   { label: "Mystery", tag: "mystery" },
   { label: "History", tag: "history" },
   { label: "Romance", tag: "romance" },
-  { label: "Science fiction", tag: "science fiction" },
+  { label: "Science fiction", tag: "science_fiction" },
 ];
 
 const steps = [

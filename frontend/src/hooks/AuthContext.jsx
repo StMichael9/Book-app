@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   loginUser,
@@ -12,25 +12,34 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const sessionVersion = useRef(0);
+  const startupRefresh = useRef(null);
 
   useEffect(() => {
-    const handleSessionExpired = () => setIsAuthenticated(false);
+    const handleSessionExpired = () => {
+      sessionVersion.current += 1;
+      setIsAuthenticated(false);
+      setIsLoading(false);
+    };
     window.addEventListener("bookvane:session-expired", handleSessionExpired);
     return () => window.removeEventListener("bookvane:session-expired", handleSessionExpired);
   }, []);
 
   useEffect(() => {
     let active = true;
+    const version = sessionVersion.current;
+    const isCurrent = () => active && version === sessionVersion.current;
 
-    refreshSession()
+    startupRefresh.current = refreshSession();
+    startupRefresh.current
       .then(() => {
-        if (active) setIsAuthenticated(true);
+        if (isCurrent()) setIsAuthenticated(true);
       })
       .catch(() => {
-        if (active) setIsAuthenticated(false);
+        if (isCurrent()) setIsAuthenticated(false);
       })
       .finally(() => {
-        if (active) setIsLoading(false);
+        if (isCurrent()) setIsLoading(false);
       });
 
     return () => {
@@ -43,15 +52,32 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isLoading,
       async login(credentials) {
-        await loginUser(credentials);
-        setIsAuthenticated(true);
+        // A startup refresh belongs to the previous session state. Its late
+        // response must not override an explicit login or registration.
+        const version = ++sessionVersion.current;
+        try {
+          // Finish the older cookie-writing response before issuing new
+          // cookies. Ignoring its React callback alone cannot protect cookies.
+          await startupRefresh.current?.catch(() => {});
+          await loginUser(credentials);
+          if (version === sessionVersion.current) setIsAuthenticated(true);
+        } finally {
+          if (version === sessionVersion.current) setIsLoading(false);
+        }
       },
       async register(credentials) {
-        await registerUser(credentials);
-        await loginUser(credentials);
-        setIsAuthenticated(true);
+        const version = ++sessionVersion.current;
+        try {
+          await startupRefresh.current?.catch(() => {});
+          await registerUser(credentials);
+          await loginUser(credentials);
+          if (version === sessionVersion.current) setIsAuthenticated(true);
+        } finally {
+          if (version === sessionVersion.current) setIsLoading(false);
+        }
       },
       async logout() {
+        sessionVersion.current += 1;
         await logoutUser();
         setIsAuthenticated(false);
         // A full navigation prevents a ProtectedRoute redirect from racing
