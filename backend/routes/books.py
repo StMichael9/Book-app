@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload, Session
 
 from database import get_db
@@ -9,8 +9,7 @@ from services import search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
 
-from fastapi_pagination import Page
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination import Page, Params
 
 router = APIRouter()
 
@@ -26,6 +25,7 @@ def get_books(
     tag: list[str] = Query(None),
     exclude_owned: bool = False,
     shelf_status: UserBookStatus | None = None,
+    params: Params = Depends(),
 ):
     service = search.SearchService(db)
     query = service.search_books(
@@ -36,7 +36,24 @@ def get_books(
         exclude_owned=exclude_owned,
         shelf_status=shelf_status,
     )
-    return paginate(db, query)
+    # Page IDs first. Selecting full Book rows before OFFSET evaluates the
+    # correlated Own/Want counters for skipped rows on deep catalogue pages.
+    id_query = query.with_only_columns(Book.id)
+    total = db.execute(
+        select(func.count()).select_from(id_query.order_by(None).subquery())
+    ).scalar_one()
+    ids = db.execute(
+        id_query.limit(params.size).offset((params.page - 1) * params.size)
+    ).scalars().all()
+    if not ids:
+        return Page.create(items=[], total=total, params=params)
+    books = db.execute(
+        select(Book)
+        .where(Book.id.in_(ids))
+        .options(selectinload(Book.authors), selectinload(Book.tags))
+    ).scalars().all()
+    by_id = {book.id: book for book in books}
+    return Page.create(items=[by_id[book_id] for book_id in ids], total=total, params=params)
 
 
 @router.get("/books/{book_id}", response_model=BookSchema)

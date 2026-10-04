@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { getMyBooks, removeBookStatus, setBookStatus } from "../api/userBooks.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -8,13 +8,18 @@ const UserBooksContext = createContext(null);
 export function UserBooksProvider({ children }) {
   const { isAuthenticated } = useAuth();
   const [booksById, setBooksById] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const sessionGeneration = useRef(0);
 
   useEffect(() => {
     let active = true;
+    setError("");
 
     if (!isAuthenticated) {
       setBooksById({});
+      setLoading(false);
       return undefined;
     }
 
@@ -22,17 +27,18 @@ export function UserBooksProvider({ children }) {
     getMyBooks()
       .then((items) => {
         if (!active) return;
+        if (!Array.isArray(items)) throw new Error("Unable to load your saved books.");
         setBooksById(
           Object.fromEntries(
-            (Array.isArray(items) ? items : []).map((item) => [
+            items.map((item) => [
               item.book_id,
               { ...item, book: item.book },
             ]),
           ),
         );
       })
-      .catch(() => {
-        if (active) setBooksById({});
+      .catch((loadError) => {
+        if (active) setError(loadError.message || "Unable to load your saved books.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -40,20 +46,30 @@ export function UserBooksProvider({ children }) {
 
     return () => {
       active = false;
+      sessionGeneration.current += 1;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadAttempt]);
 
   const value = useMemo(
     () => ({
       booksById,
       loading,
+      error,
+      retryLoad() {
+        setLoadAttempt((attempt) => attempt + 1);
+      },
       async updateStatus(bookId, status) {
+        const generation = sessionGeneration.current;
         const next = await setBookStatus(bookId, status);
-        setBooksById((current) => ({ ...current, [bookId]: next }));
+        if (generation === sessionGeneration.current) {
+          setBooksById((current) => ({ ...current, [bookId]: next }));
+        }
         return next;
       },
       async clearStatus(bookId) {
+        const generation = sessionGeneration.current;
         await removeBookStatus(bookId);
+        if (generation !== sessionGeneration.current) return;
         setBooksById((current) => {
           const next = { ...current };
           delete next[bookId];
@@ -61,7 +77,7 @@ export function UserBooksProvider({ children }) {
         });
       },
     }),
-    [booksById, loading],
+    [booksById, loading, error],
   );
 
   return (
