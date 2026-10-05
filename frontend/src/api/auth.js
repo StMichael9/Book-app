@@ -1,6 +1,6 @@
-import { apiRequest } from "./client.js";
+import { apiRequest, refreshSession, withSessionChange } from "./client.js";
 
-let initialRefreshPromise = null;
+export { refreshSession };
 
 export function registerUser(credentials) {
   return apiRequest("/auth/register", {
@@ -11,30 +11,18 @@ export function registerUser(credentials) {
 }
 
 export function loginUser(credentials) {
-  return apiRequest("/auth/login", {
+  return withSessionChange(() => apiRequest("/auth/login", {
     method: "POST",
     body: JSON.stringify(credentials),
     skipRefresh: true,
-  });
-}
-
-export function refreshSession() {
-  if (!initialRefreshPromise) {
-    initialRefreshPromise = apiRequest("/auth/refresh", {
-      method: "POST",
-      skipRefresh: true,
-    }).finally(() => {
-      initialRefreshPromise = null;
-    });
-  }
-  return initialRefreshPromise;
+  }));
 }
 
 export function logoutUser() {
-  return apiRequest("/auth/logout", {
+  return withSessionChange(() => apiRequest("/auth/logout", {
     method: "POST",
     skipRefresh: true,
-  });
+  }));
 }
 
 export function requestPasswordReset(email) {
@@ -46,9 +34,13 @@ export function requestPasswordReset(email) {
 }
 
 export function resetPassword(token, password) {
-  return apiRequest("/auth/reset-password", {
-    method: "POST",
-    body: JSON.stringify({ token, password }),
-    skipRefresh: true,
+  return withSessionChange(async () => {
+    const result = await apiRequest("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+      skipRefresh: true,
+    });
+    window.dispatchEvent(new Event("bookvane:session-expired"));
+    return result;
   });
 }

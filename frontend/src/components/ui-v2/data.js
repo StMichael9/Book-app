@@ -74,11 +74,12 @@ export function catalogueResponse(payload) {
 let subjectOptionsPromise;
 export function loadSubjectOptions() {
   if (!subjectOptionsPromise) {
-    subjectOptionsPromise = Promise.all(SUBJECTS.map(async ([slug]) => {
-      const results = await apiRequest(`/autocomplete/tags?q=${encodeURIComponent(slug)}`);
-      if (!Array.isArray(results)) throw new Error("Unable to load subjects.");
-      return results.find((tag) => tag.name === slug);
-    })).then((tags) => tags.filter(Boolean)).catch((error) => {
+    const query = new URLSearchParams();
+    SUBJECTS.forEach(([slug]) => query.append("name", slug));
+    subjectOptionsPromise = apiRequest(`/autocomplete/tags/batch?${query}`).then((tags) => {
+      if (!Array.isArray(tags)) throw new Error("Unable to load subjects.");
+      return SUBJECTS.map(([slug]) => tags.find(tag => tag.name === slug)).filter(Boolean);
+    }).catch((error) => {
       subjectOptionsPromise = null;
       throw error;
     });

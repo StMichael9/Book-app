@@ -2,7 +2,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Session, selectinload
 from fastapi import HTTPException, status
 
-from models import UserPreference, Tag
+from models import User, UserPreference, Tag
 
 
 class UserPreferenceService:
@@ -23,6 +23,9 @@ class UserPreferenceService:
                     detail=f"Unknown tag_id(s): {sorted(missing)}"
                 )
 
+        # A full replacement must serialize even when the user has no saved
+        # rows yet; locking preference rows cannot protect an empty set.
+        self.db.execute(select(User.id).where(User.id == user_id).with_for_update()).scalar_one()
         self.db.execute(delete(UserPreference).where(UserPreference.user_id == user_id))
 
         new_prefs = [

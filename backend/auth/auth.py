@@ -18,7 +18,7 @@ from fastapi import (
     status,
 )
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from sqlalchemy import select, update, func
 from sqlalchemy.exc import IntegrityError
@@ -52,12 +52,18 @@ if COOKIE_SAMESITE == "none" and not COOKIE_SECURE:
     raise RuntimeError("SameSite=None cookies require IS_DEV=false and HTTPS")
 
 
+def clear_auth_cookies(response: Response) -> None:
+    for name in ("access_token", "refresh_token"):
+        response.delete_cookie(name, domain=COOKIE_DOMAIN, secure=COOKIE_SECURE,
+            httponly=True, samesite=COOKIE_SAMESITE)
+
+
 # -------------------------
 # REGISTER
 # -------------------------
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(max_length=100)
     password: str
 
 
@@ -112,7 +118,7 @@ def register(
 # -------------------------
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(max_length=100)
     password: str
 
 
@@ -373,19 +379,7 @@ def logout(
             stored_token.revoked = True
             db.commit()
 
-    response.delete_cookie(
-        key="access_token",
-        domain=COOKIE_DOMAIN,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-    )
-
-    response.delete_cookie(
-        key="refresh_token",
-        domain=COOKIE_DOMAIN,
-        secure=COOKIE_SECURE,
-        samesite=COOKIE_SAMESITE,
-    )
+    clear_auth_cookies(response)
 
     return {
         "message": "Logout successful"
@@ -393,7 +387,7 @@ def logout(
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(max_length=100)
 
 
 class ResetPasswordRequest(BaseModel):
@@ -468,6 +462,7 @@ def forgot_password(
 def reset_password(
     request: Request,
     data: ResetPasswordRequest,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     validate_password(data.password)
@@ -513,4 +508,5 @@ def reset_password(
         .values(used_at=now)
     )
     db.commit()
+    clear_auth_cookies(response)
     return {"message": "Password updated. Please sign in again."}

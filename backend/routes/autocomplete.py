@@ -32,3 +32,13 @@ def autocomplete_tags(
 ):
     service = AutocompleteService(db)
     return service.suggest_tags(q)
+
+
+@router.get("/tags/batch", response_model=list[TagSchema])
+@limiter.limit("60/minute")
+def resolve_tags(
+    request: Request,
+    name: list[str] = Query(..., min_length=1, max_length=30),
+    db: Session = Depends(get_db),
+):
+    return AutocompleteService(db).resolve_tags(name)

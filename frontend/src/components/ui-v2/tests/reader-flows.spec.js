@@ -61,6 +61,7 @@ const test = base.extend({
         return reply(200, { items: items.slice((p - 1) * size, p * size), total: items.length, page: p, size });
       }
       if (/^\/books\/\d+$/.test(path)) return state.catalogue.find((book) => book.id === Number(path.split("/")[2])) ? reply(200, state.catalogue.find((book) => book.id === Number(path.split("/")[2]))) : reply(404, {});
+      if (path === "/autocomplete/tags/batch") return reply(200, subjects.filter(item => url.searchParams.getAll("name").includes(item.name)));
       if (path === "/autocomplete/tags") return reply(200, subjects.filter((item) => item.name.includes(url.searchParams.get("q"))));
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });

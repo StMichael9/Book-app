@@ -115,6 +115,12 @@ def test_register_new_email_succeeds(client: TestClient):
     assert response.json() == {"message": "User created successfully"}
 
 
+def test_registration_email_exceeding_schema_limit_returns_422(client):
+    # Valid email syntax, but too long for the existing users.email VARCHAR(100).
+    response = _register(client, _credentials(f"{'a' * 50}@{'b' * 50}.com"))
+    assert response.status_code == 422
+
+
 def test_register_duplicate_email_fails_with_conflict(client: TestClient):
     credentials = _credentials()
     assert _register(client, credentials).status_code == 201
@@ -152,6 +158,7 @@ def test_production_cookie_flags_and_write_origin(client: TestClient, monkeypatc
     credentials = _credentials()
     assert _register(client, credentials).status_code == 201
     monkeypatch.setattr(settings, "is_dev", False)
+    monkeypatch.setenv("CORS_ORIGINS", "https://bookvane.example")
     monkeypatch.setattr(auth_routes, "COOKIE_SECURE", True)
     monkeypatch.setattr(auth_routes, "COOKIE_SAMESITE", "none")
 
@@ -159,7 +166,7 @@ def test_production_cookie_flags_and_write_origin(client: TestClient, monkeypatc
     assert blocked.status_code == 403
     allowed = client.post(
         f"{AUTH_PATH}/login", json=credentials,
-        headers={"Origin": "http://localhost:5173"},
+        headers={"Origin": "https://bookvane.example"},
     )
     assert allowed.status_code == 200
     cookie_headers = _set_cookie_headers(allowed)
@@ -414,6 +421,9 @@ def test_password_reset_is_single_use_and_invalidates_sessions(
 
     reset = client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "new safe password"})
     assert reset.status_code == 200
+    assert all("Max-Age=0" in value and "HttpOnly" in value for value in _set_cookie_headers(reset))
+    assert "access_token" not in client.cookies
+    assert "refresh_token" not in client.cookies
     assert client.post(f"{AUTH_PATH}/reset-password", json={"token": token, "password": "another password"}).status_code == 400
     assert client.get(PROTECTED_PATH, cookies={"access_token": access_token}).status_code == 401
     assert client.post(f"{AUTH_PATH}/refresh", cookies={"refresh_token": refresh_token}).status_code == 401
@@ -546,7 +556,7 @@ def independent_auth_request(client, app_modules):
         with TestClient(app) as other:
             if cookies:
                 other.cookies.update(cookies)
-            return other.post(f"{AUTH_PATH}/{path}", json=payload)
+            return other.post(path if path.startswith("/") else f"{AUTH_PATH}/{path}", json=payload)
 
     try:
         yield submit
@@ -565,6 +575,57 @@ def _seed_reset_tokens(db_session, models, email, count=1):
         ))
     db_session.commit()
     return tokens
+
+
+def test_concurrent_preference_replacements_do_not_merge_two_submissions(
+    client, db_session, app_modules, independent_auth_request,
+):
+    """Two initial saves must leave one complete submission, not their union."""
+    credentials, login_response = _register_and_login(client)
+    models = app_modules["models"]
+    tag_ids = list(db_session.execute(select(models.Tag.id).limit(2)).scalars())
+    user = db_session.execute(select(models.User).where(models.User.email == credentials["email"])).scalar_one()
+    assert not db_session.execute(select(models.UserPreference).where(models.UserPreference.user_id == user.id)).first()
+    db_session.commit()
+    first_deleted, second_started, release = Event(), Event(), Event()
+
+    def pause_first_delete(connection, _cursor, statement, _parameters, _context, _executemany):
+        if (connection.info.get("auth_test_action") == "/me/preferences"
+                and statement.lstrip().startswith("DELETE FROM user_preferences")):
+            if not first_deleted.is_set():
+                first_deleted.set()
+                assert release.wait(10), "Timed out releasing first preference save"
+
+    engine = app_modules["database"].engine
+    event.listen(engine, "after_cursor_execute", pause_first_delete)
+    cookies = {"access_token": login_response.cookies.get("access_token")}
+
+    def second_save():
+        second_started.set()
+        return independent_auth_request("/me/preferences", payload={"tag_ids": [tag_ids[1]], "source_text": "second"}, cookies=cookies)
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first = executor.submit(independent_auth_request, "/me/preferences", payload={"tag_ids": [tag_ids[0]], "source_text": "first"}, cookies=cookies)
+            try:
+                assert first_deleted.wait(10)
+                second = executor.submit(second_save)
+                assert second_started.wait(10)
+                # Old code completes the second delete/insert while the first
+                # is paused. Fixed code blocks on the owning User row.
+                try:
+                    second.result(timeout=0.3)
+                except TimeoutError:
+                    pass
+            finally:
+                release.set()
+            assert first.result(timeout=10).status_code == 200
+            assert second.result(timeout=10).status_code == 200
+    finally:
+        event.remove(engine, "after_cursor_execute", pause_first_delete)
+        release.set()
+    rows = db_session.execute(select(models.UserPreference).where(models.UserPreference.user_id == user.id)).scalars().all()
+    assert [(row.tag_id, row.source_text) for row in rows] == [(tag_ids[1], "second")]
 
 
 def test_reset_during_password_verification_rejects_stale_login(

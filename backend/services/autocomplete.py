@@ -25,3 +25,8 @@ class AutocompleteService:
             .limit(limit)
         )
         return self.db.execute(query).scalars().all()
+
+    def resolve_tags(self, names: list[str]):
+        return self.db.execute(
+            select(Tag).where(Tag.name.in_(names), Tag.visible_in_v2.is_(True)).order_by(Tag.name)
+        ).scalars().all()

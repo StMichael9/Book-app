@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse
@@ -27,8 +28,19 @@ from rate_limit import limiter
 app = FastAPI()
 
 def _parse_cors_origins() -> list[str]:
-    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173" if settings.is_dev else "")
+    origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    if not settings.is_dev:
+        if not origins:
+            raise ValueError("Production CORS_ORIGINS must explicitly list HTTPS frontend origins")
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (parsed.scheme != "https" or not parsed.hostname or "*" in origin
+                    or parsed.username is not None or parsed.password is not None
+                    or parsed.path or parsed.query or parsed.fragment
+                    or any(character.isspace() for character in origin)):
+                raise ValueError("Production CORS_ORIGINS must contain exact HTTPS origins, not wildcards or URLs with paths")
+    return origins
 
 
 app.add_middleware(

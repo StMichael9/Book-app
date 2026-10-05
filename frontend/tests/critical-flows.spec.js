@@ -9,7 +9,7 @@ const books = [
 ];
 
 const test = base.extend({
-  app: async ({ page }, runFixture) => {
+  app: async ({ page, baseURL }, runFixture) => {
     const state = {
       authenticated: true,
       saved: [{ id: 1, book_id: 1, status: "want", book: books[0] }],
@@ -29,7 +29,7 @@ const test = base.extend({
     await page.route("**/*", async (route) => {
       const request = route.request();
       const url = new URL(request.url());
-      if (url.origin !== "http://127.0.0.1:5187") {
+      if (url.origin !== new URL(baseURL).origin) {
         state.errors.push(`Unexpected external request: ${url.origin}`);
         return route.abort();
       }
@@ -116,6 +116,7 @@ const test = base.extend({
       }
       if (path.startsWith("/autocomplete/")) {
         const values = path.endsWith("/authors") ? books.flatMap((book) => book.authors) : books.flatMap((book) => book.tags);
+        if (path === "/autocomplete/tags/batch") return reply(200, [...new Map(values.map(item => [item.id, item])).values()].filter(item => url.searchParams.getAll("name").includes(item.name)));
         return reply(200, [...new Map(values.map((item) => [item.id, item])).values()].filter((item) => item.name.includes(url.searchParams.get("q"))));
       }
       state.errors.push(`Unhandled API request: ${method} ${path}`);
@@ -129,12 +130,12 @@ const test = base.extend({
 test("failed preference load cannot overwrite saved preferences; retry restores them", async ({ page, app }) => {
   app.preferencesFailures = 1;
   await page.goto("/preferences");
-  await expect(page.getByRole("alert")).toHaveText("Preferences temporarily unavailable");
+  await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
   expect(app.requests.filter((request) => request.path === "/me/preferences" && request.method === "POST")).toHaveLength(0);
   expect(app.preferences[0].source_text).toBe("Keep this note");
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByLabel("Tell us more (optional)")).toHaveValue("Keep this note");
+  await expect(page.getByLabel("Fantasy", { exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences[0].tag_id).toBe(1);
@@ -143,27 +144,28 @@ test("failed preference load cannot overwrite saved preferences; retry restores 
 test("malformed preferences are not treated as an empty saved preference list", async ({ page, app }) => {
   app.malformedPreferences = true;
   await page.goto("/preferences");
-  await expect(page.getByRole("alert")).toHaveText("Unable to load preferences.");
+  await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
 });
 
 test("failed preference save preserves edits and can be retried", async ({ page, app }) => {
   await page.goto("/preferences");
-  await page.getByLabel("Tell us more (optional)").fill("Updated note");
+  await page.getByLabel("Mystery", { exact: true }).check();
   app.mutationFails = true;
   await page.getByRole("button", { name: "Save preferences" }).click();
-  await expect(page.getByText("Save unavailable", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("Tell us more (optional)")).toHaveValue("Updated note");
+  await expect(page.getByRole("alert")).toContainText("Your choices are still here");
+  await expect(page.getByLabel("Mystery", { exact: true })).toBeChecked();
   expect(app.preferences[0].source_text).toBe("Keep this note");
   app.mutationFails = false;
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page).toHaveURL(/\/browse$/);
-  expect(app.preferences[0].source_text).toBe("Updated note");
+  expect(app.preferences[0].source_text).toBe("Keep this note");
+  expect(app.preferences.map(item => item.tag_id)).toContain(3);
 });
 
 test("explicitly clearing loaded preferences still works", async ({ page, app }) => {
   await page.goto("/preferences");
-  await page.getByRole("button", { name: "fantasy ×" }).click();
+  await page.getByLabel("Fantasy", { exact: true }).uncheck();
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences).toEqual([]);
@@ -171,39 +173,38 @@ test("explicitly clearing loaded preferences still works", async ({ page, app })
 
 test("Want to Own to removed updates both shelves immediately and persists on reload", async ({ page, app }) => {
   await page.goto("/my-books");
-  const owned = page.locator(".library-shelf").nth(0);
-  const want = page.locator(".library-shelf").nth(1);
-  await expect(want.locator(".book-card-redesign")).toHaveCount(1);
-  await want.getByRole("button", { name: "Own", exact: true }).click();
-  await expect(want.locator(".book-card-redesign")).toHaveCount(0);
-  await expect(owned.locator(".book-card-redesign")).toHaveCount(1);
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Add Test-only Fantasy to Own" }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Own/ }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   await page.reload();
-  await expect(owned.locator(".book-card-redesign")).toHaveCount(1);
-  await owned.getByRole("button", { name: /Owned$/ }).click();
-  await expect(owned.locator(".book-card-redesign")).toHaveCount(0);
-  await expect(want.locator(".book-card-redesign")).toHaveCount(0);
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Remove Test-only Fantasy from Own" }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Want/ }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
   await page.reload();
-  await expect(page.locator(".book-card-redesign")).toHaveCount(0);
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
   expect(app.saved).toEqual([]);
 });
 
 test("a failed status write does not move or remove the saved book", async ({ page, app }) => {
   await page.goto("/my-books");
-  const want = page.locator(".library-shelf").nth(1);
-  await expect(want.locator(".book-card-redesign")).toHaveCount(1);
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   app.mutationFails = true;
-  await want.getByRole("button", { name: "Own", exact: true }).click();
-  await expect(page.getByText("Save unavailable", { exact: true })).toBeVisible();
-  await expect(want.locator(".book-card-redesign")).toHaveCount(1);
+  await page.getByRole("button", { name: "Add Test-only Fantasy to Own" }).click();
+  await expect(page.getByRole("alert")).toContainText("couldn’t be saved");
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   expect(app.saved[0].status).toBe("want");
 });
 
 test("failed shelf load offers retry instead of claiming the library is empty", async ({ page, app }) => {
   app.shelfFailures = 1;
   await page.goto("/my-books");
-  await expect(page.getByText("We couldn’t open this shelf right now.")).toHaveCount(2);
+  await expect(page.getByRole("heading", { name: "Your library couldn’t load." })).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).first().click();
-  await expect(page.locator(".library-shelf").nth(1).locator(".book-card-redesign")).toHaveCount(1);
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   expect(app.requests.filter((request) => request.path === "/me/books")).toHaveLength(2);
 });
 
@@ -211,58 +212,62 @@ test("status buttons wait for saved statuses and prevent overwriting an unknown 
   let release;
   app.holdShelves = new Promise((resolve) => { release = resolve; });
   await page.goto("/book/1");
-  await expect(page.getByRole("button", { name: "Own", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Add Test-only Fantasy to Own" })).toBeDisabled();
   release();
-  await expect(page.getByRole("button", { name: "Want to read", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want" })).toBeEnabled();
 });
 
 test("changing status in details is reflected when navigating to My Books", async ({ page, app }) => {
   await page.goto("/book/1");
-  await page.getByRole("button", { name: "Own", exact: true }).click();
-  await page.getByRole("link", { name: "My books", exact: true }).click();
-  await expect(page.locator(".library-shelf").nth(0).locator(".book-card-redesign")).toHaveCount(1);
-  await expect(page.locator(".library-shelf").nth(1).locator(".book-card-redesign")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add Test-only Fantasy to Own" }).click();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Own" })).toBeEnabled();
+  await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
+  await page.getByRole("tab", { name: /^Own/ }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   expect(app.requests.filter((request) => request.path === "/me/books")).toHaveLength(1);
 });
 
 test("category search, tag removal, reset and browser back follow current controls", async ({ page, app }) => {
   await page.goto("/browse?tag=fantasy");
-  await expect(page.locator(".book-card-redesign")).toHaveCount(1);
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
   await page.getByRole("button", { name: /Filters/ }).click();
-  await page.getByRole("button", { name: "fantasy ×" }).click();
-  await page.getByLabel("Search books", { exact: true }).fill("Mystery");
+  await page.getByRole("dialog").getByLabel("Fantasy", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByLabel("Search book titles", { exact: true }).fill("Mystery");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page).toHaveURL(/book=Mystery/);
-  await expect(page.locator(".book-card-redesign h3")).toHaveText(["Test-only Mystery"]);
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Mystery"]);
   const request = app.requests.filter((item) => item.path === "/books").at(-1);
   expect(request.query.get("book")).toBe("Mystery");
   expect(request.query.getAll("tag")).toEqual([]);
-  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await page.getByRole("button", { name: "Clear search & filters", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
-  await expect(page.getByRole("heading", { name: "Find your next read", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Find your next chapter.", exact: true })).toBeVisible();
   await page.goBack();
-  await expect(page.getByLabel("Search books", { exact: true })).toHaveValue("Mystery");
-  await expect(page.locator(".book-card-redesign h3")).toHaveText(["Test-only Mystery"]);
+  await expect(page.getByLabel("Search book titles", { exact: true })).toHaveValue("Mystery");
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Mystery"]);
 });
 
-test("author search updates a category URL and autocomplete selection", async ({ page, app }) => {
+test("direct author search updates a category URL", async ({ page, app }) => {
   await page.goto("/browse?tag=fantasy");
   await page.getByRole("button", { name: /Filters/ }).click();
-  await page.getByRole("button", { name: "fantasy ×" }).click();
-  await page.getByLabel("Author", { exact: true }).fill("Another");
-  await page.getByRole("button", { name: "Another Author", exact: true }).click();
+  await page.getByRole("dialog").getByLabel("Fantasy", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByLabel("Search by", { exact: true }).selectOption("author");
+  await page.getByLabel("Search authors", { exact: true }).fill("Another Author");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.locator(".book-card-redesign h3")).toHaveText(["Test-only Science Fiction"]);
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Science Fiction"]);
   expect(app.requests.filter((item) => item.path === "/books").at(-1).query.get("author")).toBe("Another Author");
 });
 
 test("science-fiction landing links and discovery requests use the actual catalogue tag", async ({ page, app }) => {
   await page.goto("/");
-  await page.getByRole("link", { name: "Science fiction" }).click();
+  await page.getByRole("link", { name: /^Science fiction/ }).click();
   await expect(page).toHaveURL(/tag=science_fiction/);
-  await expect(page.locator(".book-card-redesign h3")).toHaveText(["Test-only Science Fiction"]);
-  await page.getByRole("link", { name: "Discover books" }).click();
-  await expect(page.locator(".browse-shelf").first().locator(".book-card-redesign")).toHaveCount(2);
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Science Fiction"]);
+  await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "Discover", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(3);
   expect(app.requests.some((request) => request.query.get("tag") === "science fiction")).toBe(false);
 });
 
@@ -270,28 +275,27 @@ test("signed-out phone visitors can reach sign in and registration from navigati
   app.authenticated = false;
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open navigation menu" }).click();
-  const drawer = page.locator("#mobile-navigation");
-  await expect(drawer.getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
-  await expect(drawer.getByRole("link", { name: "Join Bookvane", exact: true })).toBeVisible();
-  await drawer.getByRole("link", { name: "Join Bookvane", exact: true }).click();
+  await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  await page.getByRole("main").getByRole("link", { name: "Create account", exact: true }).click();
   await expect(page).toHaveURL(/\/register$/);
-  await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await drawer.getByRole("link", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
 });
 
 test("registration, onboarding, logout and protected routes remain connected", async ({ page, app }) => {
   app.authenticated = false;
   await page.goto("/register");
-  await page.getByLabel("Email", { exact: true }).fill("browser-test@example.invalid");
+  await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page).toHaveURL(/\/onboarding$/);
-  await page.getByRole("button", { name: "Skip for now" }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  await page.goto("/onboarding");
+  await expect(page).toHaveURL(/\/preferences$/);
+  await page.getByRole("link", { name: "Back to discovery", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
-  await page.getByRole("button", { name: "Open account menu" }).click();
-  await page.getByRole("menuitem", { name: "Log out" }).click();
+  await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/my-books");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
@@ -301,7 +305,7 @@ test("failed login displays an error and remains signed out", async ({ page, app
   app.authenticated = false;
   app.loginFails = true;
   await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill("browser-test@example.invalid");
+  await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("Invalid email or password");
@@ -310,14 +314,14 @@ test("failed login displays an error and remains signed out", async ({ page, app
 
 test("expired access retries once after refresh and permanent expiry returns to login", async ({ page, app }) => {
   await page.goto("/book/1");
-  await expect(page.getByRole("button", { name: "Want to read", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want" })).toBeEnabled();
   app.expireNext = true;
-  await page.getByRole("button", { name: "Own", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Owned", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Add Test-only Fantasy to Own" }).click();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Own" })).toBeEnabled();
   expect(app.requests.filter((request) => request.path === "/auth/refresh")).toHaveLength(2);
   app.expireNext = true;
   app.refreshFails = true;
-  await page.getByRole("button", { name: "Owned", exact: true }).click();
+  await page.getByRole("button", { name: "Remove Test-only Fantasy from Own" }).click();
   await page.goto("/my-books");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
 });
@@ -325,24 +329,22 @@ test("expired access retries once after refresh and permanent expiry returns to 
 test("password recovery screens handle generic response, invalid link and single use", async ({ page, app }) => {
   app.authenticated = false;
   await page.goto("/forgot-password");
-  await page.getByLabel("Email", { exact: true }).fill("browser-test@example.invalid");
+  await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByRole("button", { name: "Send reset link" }).click();
-  await expect(page.getByRole("status")).toContainText("If that account exists");
+  await expect(page.getByText(/If an account exists/)).toBeVisible();
   await page.goto("/reset-password#token=invalid");
   await page.getByLabel("New password").fill("Test-password-123");
-  await page.getByRole("button", { name: "Update password" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Invalid or expired reset link");
+  await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "This link is no longer valid." })).toBeVisible();
   await page.goto("/reset-password#token=browser-test-token");
-  await page.reload();
   await page.getByLabel("New password").fill("Test-password-123");
-  await page.getByRole("button", { name: "Update password" }).click();
-  await expect(page.getByRole("status")).toContainText("Password updated");
+  await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  await expect(page.getByText("Your password is updated. You can sign in again.")).toBeVisible();
   await expect(page).toHaveURL(/\/reset-password$/);
   await page.goto("/reset-password#token=browser-test-token");
-  await page.reload();
   await page.getByLabel("New password").fill("Test-password-123");
-  await page.getByRole("button", { name: "Update password" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Invalid or expired reset link");
+  await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "This link is no longer valid." })).toBeVisible();
 });
 
 test("a late startup refresh failure cannot undo a successful login", async ({ page, app }) => {
@@ -351,16 +353,16 @@ test("a late startup refresh failure cannot undo a successful login", async ({ p
   app.holdRefresh = new Promise((resolve) => { release = resolve; });
   await page.goto("/login");
   await expect.poll(() => app.requests.some((request) => request.path === "/auth/refresh")).toBe(true);
-  await page.getByLabel("Email", { exact: true }).fill("browser-test@example.invalid");
+  await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Working…", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Signing in…", exact: true })).toBeVisible();
   expect(app.requests.filter((request) => request.path === "/auth/login")).toHaveLength(0);
   const response = page.waitForResponse((result) => result.url().endsWith("/auth/refresh"));
   release();
   await response;
-  await expect(page).toHaveURL(/\/browse$/);
-  await expect(page.getByRole("link", { name: "My books", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/my-books$/);
+  await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
 });
 
 test("a delayed existing-session refresh cannot overwrite cookies from a newer login", async ({ page, context, app }) => {
@@ -369,24 +371,24 @@ test("a delayed existing-session refresh cannot overwrite cookies from a newer l
   app.holdRefresh = new Promise((resolve) => { release = resolve; });
   await page.goto("/login");
   await expect.poll(() => app.requests.some((request) => request.path === "/auth/refresh")).toBe(true);
-  await page.getByLabel("Email", { exact: true }).fill("different-browser-test@example.invalid");
+  await page.getByLabel("Email address", { exact: true }).fill("different-browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Working…", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Signing in…", exact: true })).toBeVisible();
   expect(app.requests.filter((request) => request.path === "/auth/login")).toHaveLength(0);
   const response = page.waitForResponse((result) => result.url().endsWith("/auth/refresh"));
   release();
   await response;
-  await expect(page).toHaveURL(/\/browse$/);
+  await expect(page).toHaveURL(/\/my-books$/);
   await expect.poll(async () => (await context.cookies()).find((cookie) => cookie.name === "access_token")?.value).toBe("test-new-session");
 });
 
 test("search and missing-book failures show errors instead of crashing", async ({ page, app }) => {
   app.searchFails = true;
   await page.goto("/browse?view=all");
-  await expect(page.getByText("Search temporarily unavailable", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The books couldn’t load." })).toBeVisible();
   await page.goto("/book/999");
-  await expect(page.getByText("Book not found", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This book couldn’t be found." })).toBeVisible();
 });
 
 test("pagination renders different records and a new search returns to page one", async ({ page, app }) => {
@@ -394,22 +396,22 @@ test("pagination renders different records and a new search returns to page one"
     ...books[0], id: 100 + index, title: `Pagination-only record ${index + 1}`,
   }));
   await page.goto("/browse?view=all");
-  await expect(page.locator(".book-card-redesign")).toHaveCount(20);
-  const firstPage = await page.locator(".book-card-redesign h3").allTextContents();
+  await expect(page.locator(".bv-book-card")).toHaveCount(20);
+  const firstPage = await page.locator(".bv-book-card h3").allTextContents();
   await page.getByRole("button", { name: /^Next/ }).click();
-  await expect(page.locator(".book-card-redesign h3").first()).toHaveText("Pagination-only record 21");
-  const secondPage = await page.locator(".book-card-redesign h3").allTextContents();
+  await expect(page.locator(".bv-book-card h3").first()).toHaveText("Pagination-only record 21");
+  const secondPage = await page.locator(".bv-book-card h3").allTextContents();
   expect(firstPage.some((title) => secondPage.includes(title))).toBe(false);
-  await page.getByLabel("Search books", { exact: true }).fill("record 4");
+  await page.getByLabel("Search book titles", { exact: true }).fill("record 4");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.locator(".book-card-redesign")).toHaveCount(4);
+  await expect(page.locator(".bv-book-card")).toHaveCount(4);
   expect(app.requests.filter((request) => request.path === "/books").at(-1).query.get("page")).toBe("1");
 });
 
 test("ordinary authenticated discovery has bounded request counts and one shared library read", async ({ page, app }) => {
   await page.goto("/browse");
-  await expect(page.getByRole("link", { name: "My books", exact: true })).toBeVisible();
-  await expect(page.locator(".browse-shelf__skeleton")).toHaveCount(0);
+  await expect(page.locator(".bv-book-card")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want" })).toBeEnabled();
   expect(app.requests.filter((request) => request.path === "/books").length).toBeLessThanOrEqual(10);
   expect(app.requests.filter((request) => request.path === "/me/books")).toHaveLength(1);
   expect(app.requests.filter((request) => request.path === "/auth/refresh")).toHaveLength(1);
@@ -418,9 +420,9 @@ test("ordinary authenticated discovery has bounded request counts and one shared
 test("shelf read failure blocks detail-page writes until retry succeeds", async ({ page, app }) => {
   app.shelfFailures = 1;
   await page.goto("/book/1");
-  await expect(page.getByRole("alert")).toContainText("Couldn’t load your saved books");
-  await expect(page.getByRole("button", { name: "Own", exact: true })).toBeDisabled();
+  await expect(page.getByRole("alert")).toContainText("Your saved books couldn’t load");
+  await expect(page.getByRole("button", { name: "Add Test-only Fantasy to Own" })).toBeDisabled();
   expect(app.requests.some((request) => request.path.endsWith("/status"))).toBe(false);
   await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Want to read", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want" })).toBeEnabled();
 });

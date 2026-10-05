@@ -9,23 +9,31 @@ export const API_BASE_URL =
   DEFAULT_API_BASE_URL;
 
 let refreshPromise = null;
+let sessionChanges = 0;
 
-async function refreshSession() {
+export function refreshSession() {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    refreshPromise = apiRequest("/auth/refresh", {
       method: "POST",
-      credentials: "include",
+      skipRefresh: true,
     }).finally(() => {
       refreshPromise = null;
     });
   }
 
-  const response = await refreshPromise;
-  if (!response.ok) {
-    window.dispatchEvent(new Event("bookvane:session-expired"));
-    return false;
+  return refreshPromise;
+}
+
+// Set the guard before waiting, so an unrelated 401 cannot start another
+// rotation between the completed refresh and login/logout's cookie response.
+export async function withSessionChange(change) {
+  sessionChanges += 1;
+  try {
+    await refreshPromise?.catch(() => {});
+    return await change();
+  } finally {
+    sessionChanges -= 1;
   }
-  return true;
 }
 
 export async function apiRequest(path, options = {}) {
@@ -41,10 +49,11 @@ export async function apiRequest(path, options = {}) {
     ...requestOptions,
   });
 
-  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh") {
+  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0) {
     let refreshed = false;
     try {
-      refreshed = await refreshSession();
+      await refreshSession();
+      refreshed = true;
     } catch {
       window.dispatchEvent(new Event("bookvane:session-expired"));
     }

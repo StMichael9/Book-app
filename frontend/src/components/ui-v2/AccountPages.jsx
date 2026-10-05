@@ -144,7 +144,7 @@ export function RecoveryPage({ reset = false }) {
   const [expired, setExpired] = useState(reset && !token);
   const [error, setError] = useState("");
   const incomingToken = reset ? new URLSearchParams(location.hash.slice(1)).get("token") : null;
-  if (incomingToken && incomingToken !== token) {
+  if (incomingToken && (incomingToken !== token || done || expired)) {
     setToken(incomingToken); setDone(false); setExpired(false); setError("");
   }
   useEffect(() => { if (reset && location.hash) navigate({ pathname: location.pathname, search: location.search }, { replace: true }); }, [reset, location.hash, location.pathname, location.search, navigate]);
