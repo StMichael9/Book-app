@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ArrowRight, BookOpen, Bookmark, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -25,7 +25,7 @@ function Header() {
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation"><Link className={discover ? "bv-active" : ""} to="/browse">Discover</Link><Link className={library ? "bv-active" : ""} to="/my-books">My Books</Link>{auth.isAuthenticated && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className="bv-header-actions"><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
-      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">Checking account…</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to="/register">Join free</ActionLink></>)}
+      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to="/register">Join free</ActionLink></>)}
     </div>
   </div></header><nav className="bv-mobile-nav" aria-label="Mobile navigation">
     {[["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={location.pathname === to ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
@@ -34,6 +34,26 @@ function Header() {
 
 function Footer() {
   return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /></div></footer>;
+}
+
+function SessionStatus() {
+  const auth = useAuth();
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!auth.isLoading || auth.sessionError) return undefined;
+    const timer = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(timer);
+  }, [auth.isLoading, auth.sessionError]);
+  if (auth.sessionError) return <section className="bv-container bv-section" role="alert">
+    <h2>We couldn’t check your account.</h2><p className="bv-muted">{auth.sessionError}</p>
+    <Button onClick={auth.retrySession}>Try account check again</Button>
+  </section>;
+  if (!slow || !auth.isLoading) return null;
+  return <section className="bv-container bv-section" role="status">
+    <p>The server is taking longer than usual.</p>
+    <p className="bv-muted">It may be waking up. Keep this page open; you don’t need to switch pages or sign in again.</p>
+  </section>;
 }
 
 function AccountPrompt() {
@@ -86,7 +106,7 @@ function Shell() {
   const reader = useReader();
   return <div className="bv-root" data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
-    <main id="bv-main" tabIndex={-1}><div className="bv-container"><LibraryWarning /></div>
+    <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>
       <Routes>
         <Route path="/" element={<WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />

@@ -13,10 +13,19 @@ let sessionChanges = 0;
 
 export function refreshSession() {
   if (!refreshPromise) {
+    // Allow Render's free-service wake-up, but never hold the account check
+    // forever. Keep one in-flight rotation so retry/login cannot race cookies.
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 90_000);
     refreshPromise = apiRequest("/auth/refresh", {
       method: "POST",
       skipRefresh: true,
+      signal: controller.signal,
+    }).catch(error => {
+      if (error.name === "AbortError") throw new Error("The account check timed out. Please try again.");
+      throw error;
     }).finally(() => {
+      clearTimeout(deadline);
       refreshPromise = null;
     });
   }
@@ -54,7 +63,10 @@ export async function apiRequest(path, options = {}) {
     try {
       await refreshSession();
       refreshed = true;
-    } catch {
+    } catch (error) {
+      // A network outage does not prove a session is invalid. Preserve the
+      // account state and let the failed operation show its existing retry UI.
+      if (error.status !== 401) throw error;
       window.dispatchEvent(new Event("bookvane:session-expired"));
     }
     if (refreshed) {

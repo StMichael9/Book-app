@@ -18,6 +18,8 @@ const test = base.extend({
       app.requests.push({ path, method, body });
       const reply = (status, json, headers) => route.fulfill({ status, json, headers });
       if (path === "/auth/refresh") {
+        if (app.refreshNetworkFails) return route.abort("failed");
+        if (app.refreshStatus) return reply(app.refreshStatus, { detail: "Service temporarily unavailable" });
         const allowed = app.authenticated && !app.refreshFails;
         if (app.holdRefresh) await app.holdRefresh;
         return reply(allowed ? 200 : 401, {}, app.cookies && allowed ? {
@@ -74,6 +76,94 @@ async function login(page) {
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
+
+test("slow startup explains the wait without parallel refreshes or a navigation workaround", async ({ page, app }) => {
+  let release; app.holdRefresh = new Promise(resolve => { release = resolve; });
+  await page.clock.install();
+  try {
+    await page.goto("/my-books");
+    await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(1);
+    await page.clock.fastForward(9000);
+    await expect(page.getByText("The server is taking longer than usual.", { exact: true })).toBeVisible();
+    expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
+    expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
+  } finally { release(); }
+  await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+  await expect(page.getByText("Checking your account…", { exact: true })).toHaveCount(0);
+});
+
+test("unreachable startup keeps private data gated and retries without navigation", async ({ page, app }) => {
+  app.refreshNetworkFails = true;
+  await page.goto("/my-books");
+  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
+  app.refreshNetworkFails = false;
+  await page.getByRole("button", { name: "Try account check again" }).click();
+  await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(2);
+});
+
+test("startup server errors offer retry; genuine expiry returns to sign in", async ({ page, app }) => {
+  app.refreshStatus = 503;
+  await page.goto("/preferences");
+  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+  expect(app.requests.filter(r => r.path === "/me/preferences")).toHaveLength(0);
+  app.refreshStatus = null; app.authenticated = false;
+  await page.getByRole("button", { name: "Try account check again" }).click();
+  await expect(page).toHaveURL(/\/login\?returnTo=/);
+  await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toHaveCount(0);
+});
+
+test("a stalled startup has a finite deadline and a safe retry", async ({ page, app }) => {
+  let release; app.holdRefresh = new Promise(resolve => { release = resolve; });
+  await page.clock.install();
+  try {
+    await page.goto("/my-books");
+    await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(1);
+    await page.clock.fastForward(91_000);
+    await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+    await expect(page.getByText("Checking your account…", { exact: true })).toHaveCount(0);
+    expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
+  } finally { release(); app.holdRefresh = null; }
+  await page.getByRole("button", { name: "Try account check again" }).click();
+  await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+  expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(2);
+});
+
+test("a refresh outage does not silently sign out or overwrite a saved shelf", async ({ page, app }) => {
+  app.saved = [{ id: 1, book_id: 1, book, status: "want" }];
+  await page.goto("/book/1");
+  const own = page.getByRole("button", { name: "Add Browser-only book to Own" });
+  await expect(own).toBeEnabled();
+  app.expireNext = true; app.refreshNetworkFails = true;
+  await own.click();
+  await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
+  await expect(own).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Browser-only book from Want" })).toBeVisible();
+  expect(app.saved[0].status).toBe("want");
+});
+
+test("a timed-out startup cannot replace cookies from a later explicit login", async ({ page, context, app }) => {
+  app.cookies = true;
+  let release; app.holdRefresh = new Promise(resolve => { release = resolve; });
+  await page.clock.install();
+  try {
+    await page.goto("/login");
+    await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(1);
+    await page.clock.fastForward(91_000);
+    await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+    await login(page);
+    await expect(page).toHaveURL(/\/my-books$/);
+    release(); app.holdRefresh = null;
+    await page.waitForTimeout(100);
+    await expect.poll(async () => (await context.cookies()).find(c => c.name === "access_token")?.value).toBe("new-session");
+    await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+  } finally { release(); app.holdRefresh = null; }
+});
 
 test("startup refresh failure cannot undo explicit login", async ({ page, app }) => {
   app.authenticated = false;
