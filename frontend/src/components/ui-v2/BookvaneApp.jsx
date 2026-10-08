@@ -90,6 +90,9 @@ function RouteEffects() {
   useEffect(() => {
     function keepFocusVisible(event) {
       if (!window.matchMedia("(max-width: 700px)").matches || !(event.target instanceof HTMLElement)) return;
+      // Touch browsers may focus main before activating a book link. Its
+      // bottom is the whole catalogue, so scrolling it moves the tap target.
+      if (event.target.matches("main")) return;
       const nav = document.querySelector(".bv-mobile-nav");
       if (!nav || !nav.getClientRects().length || nav.contains(event.target) || event.target.closest("dialog")) return;
       const target = event.target.getBoundingClientRect();

@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["tests/critical-flows.spec.js", "tests/auth-data.spec.js", "src/components/ui-v2/tests/reader-flows.spec.js"],
+  testMatch: ["tests/critical-flows.spec.js", "tests/auth-data.spec.js", "tests/mobile-navigation.spec.js", "src/components/ui-v2/tests/reader-flows.spec.js"],
   // Screenshot export remains available via the isolated UI config; normal
   // regression runs must not overwrite the checked-in design gallery.
   grepInvert: /visual review exports/,

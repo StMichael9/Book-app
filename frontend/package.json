@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "test": "playwright test",
+    "test:mobile": "playwright test --config playwright.mobile.config.js",
     "preview": "vite preview"
   },
   "dependencies": {
