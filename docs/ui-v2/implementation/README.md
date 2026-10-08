@@ -1,14 +1,22 @@
 # Bookvane V2 — implemented reader UI
 
-The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`, based on the audited V2 contracts at `39ca688`. It uses the existing auth, shared library, catalogue, preferences, recovery and share APIs. New source files are limited to the agreed UI directories; no existing application source, package, lockfile, backend or deployment configuration was edited.
+The approved redesign is implemented as `frontend/src/components/ui-v2/BookvaneApp.jsx` on `codex-ui`. The current launch-fix pass is based on `origin/v2-codex` at **67b6850**, where the owner has already activated this UI through the standard entry. It uses the existing auth, shared library, catalogue, preferences, recovery and share APIs. This pass changes UI components and the HTML startup shell; reserved entry files, shared API clients/providers, dependency files, backend and deployment settings remain unchanged relative to that base.
 
-The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme is now implemented. Light mode is unchanged; the logo review remains pending.
+The follow-up cleanup removes repeated prompts and promotional sections, visible ISBN metadata, duplicate errors/retries, redundant auth links and single-page pagination. See the [complete change record and rationale](ui-refresh-review.md). The agreed charcoal dark theme is now implemented. Light mode is unchanged; the logo review remains pending. The [October 8 launch-fix handoff](launch-fixes-2026-10-08.md) records the confirmed QA fixes, verification and release boundaries.
 
 ## Review the actual implementation
 
 [Desktop/mobile screenshot gallery](gallery.html) contains 24 captures of the implemented React screens: landing, discovery, book details, My Books, preferences and registration, at 390px and 1440px in both themes. These captures use five real-title reference fixtures with publisher cover art to exercise the UI consistently. The displayed count of five belongs to the test fixture. Production screens read actual catalogue totals and `cover_image_url` values from the API; reference titles, covers and descriptions are not imported into the application bundle.
 
-Run the isolated application with a locally running backend:
+Run the active application with a locally running backend:
+
+```sh
+cd frontend
+npm ci
+npm run dev -- --host localhost --port 5173 --strictPort
+```
+
+The separate UI preview remains available for isolated design review:
 
 ```sh
 cd frontend
@@ -18,18 +26,11 @@ npx vite --config src/components/ui-v2/vite.config.js --host localhost --port 51
 
 Open `http://localhost:5173`. This entry supports the usual application routes without editing `src/main.jsx` or `src/App.jsx`. The server port and origin should match the backend's existing CORS configuration. The existing client defaults to `http://localhost:8000` in development; set `VITE_API_BASE_URL` when using a different approved backend. A built preview uses the existing production API default unless you set that variable before building.
 
-## Activate in the main application — reserved file owner
+## Integration status
 
-Once these new files are present in the intended V2 integration branch, change **one import** in `frontend/src/main.jsx`:
+**67b6850 already loads BookvaneApp through `frontend/src/main.jsx`.** No activation edit is needed for this branch. Earlier instructions to change the App import described the initial refresh before the owner's activation; they are obsolete for the current V2 base. The old App source remains inactive in the standard entry.
 
-```diff
--import App from "./App.jsx";
-+import App from "./components/ui-v2/BookvaneApp.jsx";
-```
-
-Keep the existing `<App />`, `BrowserRouter`, `AuthProvider`, `UserBooksProvider` and `index.css` import. `BookvaneApp` imports its own scoped stylesheet. The isolated preview includes the original global CSS and provider order, so this combination was exercised in browser tests. The reserved `App.jsx` can remain in place; it is not imported by the new entry.
-
-This reserved owner edit has **not been made by this UI work**. The branch has been pushed; the owner reported merging the initial refresh into **v2-codex**. Merging files alone does not activate this import. The owner's local checkout may differ from GitHub, and deployment has not been verified.
+Review and merge the launch-fix commit from `codex-ui` into the intended V2 integration branch using the owner's normal PR flow. This UI work does not merge or deploy. QA reported Render's frontend at `dbd5ce9` with Auto-Deploy disabled; that hosted status was not independently rechecked in this pass. A branch push alone will not update that deployment. Hosted acceptance and physical iPhone checks remain pending.
 
 ## Implemented behavior
 
@@ -39,9 +40,10 @@ This reserved owner edit has **not been made by this UI work**. The branch has b
 - Own/Want actions use the existing mutually exclusive `want`/`owned` contract. Buttons wait for initial shelf hydration. Confirmations appear after successful API writes; failures preserve the known state and offer retry.
 - Anonymous saves carry the chosen book and shelf through account creation/sign-in, resume once after hydration, and retain discovery context. A failed continuation has one message and retry beside the shelf controls. Manually choosing a shelf successfully also consumes the pending intent, without signing in again.
 - My Books shows honest shelf counts, accessible tabs, shared status updates, useful empty/loading/error states and the existing conditional Bookshop links with disclosure.
-- Preferences load authoritatively before becoming writable. Canonical subject choices resolve to API tag IDs; existing saved subjects are retained. The existing first `source_text` value is preserved when saving choices. Failed reads block writes; failed saves retain edits. Optional preferences do not interrupt the first save.
-- Login, registration, account controls and password recovery reuse the audited auth provider. Recovery keeps its neutral response, consumes fragment reset tokens in memory and removes them from the address bar. External return URLs are rejected.
-- Mobile navigation, comfortable controls, keyboard focus, dialogs, light/dark themes and reduced-motion settings use the same components as desktop. App-facing branding is Bookvane throughout the new UI.
+- Shelf-dependent discovery filters refresh only after confirmed changes; failed writes retain the existing results and shelf state. Ordinary browsing avoids extra catalogue reads.
+- Preferences load authoritatively before becoming writable. Canonical subject choices resolve to API tag IDs; existing saved subjects are retained. The existing first `source_text` value is preserved when saving choices. Failed reads block writes; failed saves retain edits. A delayed completion no longer redirects readers who have moved to another page. Optional preferences do not interrupt the first save.
+- Login, registration, account controls and password recovery reuse the audited auth provider. Recovery keeps its neutral response, consumes fragment reset tokens in memory and removes them from the address bar. External return URLs are rejected. Invalid reset links now open a fresh request form. Recovery retains validated book/shelf/discovery context through sign-in; same-tab reset links can recover that context from optional session storage for up to 30 minutes. Tokens, passwords and email addresses are never stored with this context. Successful saves, explicit abandonment and logout clear it.
+- Mobile navigation, comfortable controls, keyboard focus, dialogs, light/dark themes and reduced-motion settings use the same components as desktop. App-facing branding is Bookvane throughout the new UI, including the pre-JavaScript fallback title. The startup shell and hydrated app use the same theme setting and page colors. Focus transfers from a replaced loading heading to the final book/error heading only if the reader has not moved focus.
 
 ## Design and libraries
 
@@ -51,29 +53,21 @@ The planned Radix dialog dependency was replaced by native `<dialog>` to keep th
 
 ## Verification
 
-- **23 distinct current Chromium browser checks passed** (22 existing checks together, plus the new charcoal-theme check), including save-after-auth, one-time resumption/retry, failed writes and reads, filters/history/pagination, preference preservation, recovery links, keyboard dialogs, cover fallbacks, safe return URLs, reduced motion, theme persistence and primary dark-theme text contrast. The charcoal check verifies rendered muted/body text, filled and saved actions, hover, keyboard focus, form/filter boundaries, errors and switching back to unchanged light colors.
-- Routes were checked at **320, 390, 768 and 1440px** with deliberately long titles; no horizontal page overflow occurred.
-- **23 existing V2 regression checks passed** against the unchanged default application during the initial implementation; those source files remain untouched.
-- Isolated redesign and original frontend production builds passed.
-- New UI source lint is clean. Full frontend lint exits successfully with 11 existing warnings in untouched source files.
-- The gallery retains all 24 screenshots; its 12 dark-theme captures were refreshed for charcoal. After the cleanup, all 24 were regenerated; desktop/mobile landing, registration and detail captures were inspected. The initial refresh also corrected legacy global heading colors in dark mode.
+See the [current launch-fix handoff](launch-fixes-2026-10-08.md) for final results and exact reproduction commands. The standard suite builds and exercises the active production entry, including the original auth/data-safety and mobile-navigation checks. The new focused configuration additionally runs the launch regressions at desktop and touch-enabled phone dimensions; it includes a WebKit project for QA machines with that browser installed.
 
-Browser tests intercept API requests and create no real accounts or library records. Live cookie/CORS behavior, email delivery and Safari/iOS device behavior were not independently verified here. This is a responsive web implementation, not a packaged native mobile app.
+The earlier refresh passed 23 distinct Chromium UI checks and 23 legacy default-entry regression checks. Those are historical results; the default entry now loads BookvaneApp. The checked-in gallery retains 24 captures across six views, desktop/mobile and both themes, with charcoal dark surfaces. This behavior-focused pass does not regenerate the gallery or change the approved layout/palette.
 
-Reproduce UI verification using the existing locked dependencies:
+Browser tests intercept API requests and create no real accounts or library records. Live cookie/CORS behavior, email delivery, Safari/iOS devices and hosted acceptance are not verified by mocked Chromium checks. This is a responsive web implementation, not a packaged native mobile app.
+
+For a real API build, set the intended backend URL or omit the variable to use the existing production default:
 
 ```sh
 cd frontend
-VITE_API_BASE_URL=http://127.0.0.1:5189/test-api npx vite build --config src/components/ui-v2/vite.config.js
-PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium npx playwright test --config src/components/ui-v2/playwright.config.js
-PLAYWRIGHT_EXECUTABLE_PATH=/usr/bin/chromium npx playwright test --config src/components/ui-v2/regression.config.js
-npx oxlint src/components/ui-v2
-npm run lint
+npm run build
+npm run preview -- --host localhost --port 5173 --strictPort
 ```
 
-Omit `PLAYWRIGHT_EXECUTABLE_PATH` when using an installed Playwright browser. The regression wrapper only adapts the original test configuration to the system browser; it does not change the existing tests. Generated build and test outputs stay in ignored directories inside `ui-v2`.
-
-For a real API build, replace the test API variable with the intended backend URL, or omit it to use the existing production default:
+The isolated preview is also available:
 
 ```sh
 npx vite build --config src/components/ui-v2/vite.config.js

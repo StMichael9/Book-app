@@ -86,6 +86,24 @@ function RouteEffects() {
     first.current = false;
     const titles = { "/": "Discover your next book", "/browse": "Discover", "/my-books": "My Books", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
     document.title = `${titles[location.pathname] || "Book details"} · Bookvane`;
+    const main = document.getElementById("bv-main");
+    let heading = main?.querySelector("h1");
+    if (!heading || document.activeElement !== heading) return undefined;
+    let retainFocus = true;
+    const trackFocus = (event) => {
+      if (event.target !== heading && event.target !== document.body) retainFocus = false;
+    };
+    const observer = new MutationObserver(() => {
+      if (heading.isConnected) return;
+      const next = main.querySelector("h1, .bv-empty h2");
+      // Transfer loading-heading focus only while the reader has not moved it.
+      if (retainFocus && document.activeElement === document.body && next) {
+        heading = next; heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true });
+      }
+    });
+    document.addEventListener("focusin", trackFocus);
+    observer.observe(main, { childList: true, subtree: true });
+    return () => { observer.disconnect(); document.removeEventListener("focusin", trackFocus); };
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
@@ -113,7 +131,7 @@ function Shell() {
       <Routes>
         <Route path="/" element={<WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
-        <Route path="/forgot-password" element={<RecoveryPage />} /><Route path="/reset-password" element={<RecoveryPage reset />} />
+        <Route path="/forgot-password" element={<RecoveryPage key="request" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/account" element={<AccountPage />} />

@@ -3,6 +3,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { errorText } from "./data.js";
 import { ReaderContext } from "./readerState.js";
+import { clearRecoveryIntent } from "./recoveryIntent.js";
 
 function initialTheme() {
   try {
@@ -23,6 +24,7 @@ export function ReaderProvider({ children }) {
   const [saveErrors, setSaveErrors] = useState({});
   const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, ready: false });
   const [preferencesVersion, setPreferencesVersion] = useState(0);
+  const [shelvesVersion, setShelvesVersion] = useState(0);
   const session = useRef(0);
   const authenticated = useRef(auth.isAuthenticated);
   // Reset session-scoped UI before rendering a different authentication state.
@@ -30,11 +32,16 @@ export function ReaderProvider({ children }) {
     setReadiness({ authenticated: auth.isAuthenticated, ready: false });
     setSaveErrors({});
     setGate(null);
+    setShelvesVersion((value) => value + 1);
   }
   const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.ready;
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
+    document.documentElement.dataset.theme = theme;
+    const background = theme === "dark" ? "#1e1d1b" : "#faf8f2";
+    document.documentElement.style.backgroundColor = background;
+    document.documentElement.style.setProperty("--bg", background);
     try { localStorage.setItem("bookvane-theme", theme); } catch { /* Optional persistence. */ }
   }, [theme]);
 
@@ -64,16 +71,22 @@ export function ReaderProvider({ children }) {
     setSaveErrors((current) => ({ ...current, [book.id]: "" }));
     try {
       const currentStatus = library.booksById[book.id]?.status;
+      let changed = false;
       if (ensure && currentStatus === status) {
         announce(`Already on your ${status === "owned" ? "Own" : "Want"} shelf.`);
       } else if (!ensure && currentStatus === status) {
         await library.clearStatus(book.id);
+        changed = true;
         if (generation === session.current && authenticated.current) announce("Removed from your library.");
       } else {
         await library.updateStatus(book.id, status);
+        changed = true;
         if (generation === session.current && authenticated.current) announce(`Added to your ${status === "owned" ? "Own" : "Want"} shelf.`);
       }
-      return generation === session.current && authenticated.current;
+      const current = generation === session.current && authenticated.current;
+      if (current) clearRecoveryIntent(book.id);
+      if (changed && current) setShelvesVersion((value) => value + 1);
+      return current;
     } catch (error) {
       if (generation === session.current) {
         setSaveErrors((current) => ({ ...current, [book.id]: errorText(error, "This book couldn’t be saved. Please try again.") }));
@@ -87,7 +100,7 @@ export function ReaderProvider({ children }) {
 
   return <ReaderContext.Provider value={{
     theme, setTheme, gate, setGate, message, announce, saveBook, busyIds, saveErrors,
-    libraryReady, preferencesVersion,
+    libraryReady, preferencesVersion, shelvesVersion,
     preferencesSaved: () => setPreferencesVersion((value) => value + 1),
   }}>{children}</ReaderContext.Provider>;
 }

@@ -6,9 +6,9 @@ This document records what the UI refresh changed, why those choices were made, 
 
 The implemented refresh is commit **d6748c0**, following the browser-design prototype in **c793e47**, on **codex-ui**. Its engineering reference was the audited V2 implementation at **39ca688**. The implementation was pushed to GitHub; the owner subsequently reported merging it into **v2-codex** and pulling it locally.
 
-For this review, I checked the current GitHub versions of **primitives.jsx**, **DiscoveryPages.jsx**, **BookvaneApp.jsx**, and **main.jsx** on **v2-codex**, alongside the local implementation. The UI findings below describe the inspected code. I cannot inspect the owner's VS Code working copy or determine whether it contains additional local changes.
+The original review checked the then-current GitHub versions of **primitives.jsx**, **DiscoveryPages.jsx**, **BookvaneApp.jsx**, and **main.jsx** on **v2-codex**, alongside the local implementation. Those integration observations are historical. The current October 8 launch-fix pass uses **67b6850**, where the standard entry already loads BookvaneApp. I cannot inspect the owner's VS Code working copy or determine whether it contains additional local changes.
 
-**Current status:** the redundancy cleanup described below is implemented on **codex-ui**. The original review was documentation-only in **8bca00b**; this follow-up changes the UI after the owner authorized removals. The cleanup passed all 22 UI browser checks together and regenerated the 24 review captures. The charcoal pass retains those 22 passing checks and adds a passing contrast/theme check, for 23 distinct passing checks; the gallery now shows the charcoal dark captures. The agreed charcoal theme is now implemented, following the cleanup in **ccb180e**. Light mode remains unchanged. The logo has not been redesigned.
+**Current status:** simplification and charcoal dark mode are implemented. Light mode remains unchanged; the logo has not been redesigned. The October 8 pass fixes confirmed recovery navigation/continuation, stale shelf-filter results, delayed preference navigation, loading-heading focus, fallback branding and startup theme mismatch. It preserves the first-tap Safari guard already present in **67b6850**. See the [launch-fix handoff](launch-fixes-2026-10-08.md) for current verification, limitations and release instructions.
 
 ### Completed simplification pass
 
@@ -188,10 +188,10 @@ The logo's visual weight and color relationship also need review. The current da
 | Figma preparation | **docs/ui-v2/redesign/figma-import/**: offline scene data and import helper. A Figma file was created, but the Starter MCP quota prevented populating it. The helper was not verified inside Figma; no finished native component library is claimed. |
 | New application shell | **frontend/src/components/ui-v2/BookvaneApp.jsx**: routes, navigation, prompts and status announcements. **SaveContinuation.jsx** handles the pending shelf save beside the detail controls. |
 | Page components | **DiscoveryPages.jsx**: landing, search/filters and details. **AccountPages.jsx**: auth, library, preferences, recovery and account. |
-| Shared UI/state | **primitives.jsx**, **ReaderContext.jsx**, **readerState.js**, **data.js**: controls, cards, dialogs, theme and save coordination, request handling and API adapters. |
+| Shared UI/state | **primitives.jsx**, **ReaderContext.jsx**, **readerState.js**, **data.js**, **recoveryIntent.js**: controls, cards, dialogs, theme and save coordination, request handling, API adapters and validated temporary recovery context. |
 | Visual foundations | **frontend/src/styles/ui-v2/bookvane.css**, **ui-v2/assets/**: scoped styles, WOFF2 fonts and licenses. |
 | Independent preview | **ui-v2/preview.html**, **preview.jsx**, **vite.config.js**: run the new UI without editing reserved entry files. It includes the existing global CSS and provider order. |
-| Verification | **ui-v2/tests/reader-flows.spec.js**, **playwright.config.js**, **regression.config.js**, **.gitignore**: UI browser checks, existing-regression adaptation and ignored generated outputs. |
+| Verification | **ui-v2/tests/reader-flows.spec.js**, **playwright.config.js**, **regression.config.js**, **launch-fixes.config.js**, **.gitignore**: UI browser checks, existing-regression adaptation, standard-entry desktop/mobile/WebKit launch tests and ignored generated outputs. |
 | Review captures and handoff | [gallery.html](gallery.html), **screenshots/** and [README.md](README.md): 24 actual React captures and integration/run instructions. |
 | This review | **ui-refresh-review.md**: complete change record, redundancy rationale and agreed follow-up direction. |
 
@@ -203,22 +203,19 @@ Production reads actual API covers and data. The review screenshots use five rea
 
 The UI work used existing React, React Router, Lucide and API/provider code. Native dialog replaced the initially proposed Radix dependency to keep shared manifests untouched. No backend, database schema, API client, provider, package manifest, lockfile or deployment configuration was edited by the refresh.
 
-The user reserved **frontend/src/main.jsx**, **frontend/src/App.jsx** and **backend/main.py**. The refresh therefore shipped as separate components. At this review's GitHub check, **v2-codex/main.jsx** still imported the original App. A local owner edit may differ from that remote file.
+The user reserved **frontend/src/main.jsx**, **frontend/src/App.jsx** and **backend/main.py**. The refresh therefore shipped as separate components. The earlier activation concern applied to the remote **2176d16** integration state. It is resolved in the current base **67b6850**: the owner has already switched the standard App import to **./components/ui-v2/BookvaneApp.jsx**, retaining the providers and global CSS.
 
-The documented activation is an owner change in **frontend/src/main.jsx** from **./App.jsx** to **./components/ui-v2/BookvaneApp.jsx**, retaining the existing App alias, provider wrappers and global CSS import. Merging new files alone does not perform this switch. The preview uses a separate entry and does not demonstrate that the default entry has been activated or deployed.
+This launch pass leaves the reserved files and shared API/provider code unchanged relative to that base. Its only shared UI shell edit is **frontend/index.html**: Bookvane fallback title, **bookvane-theme** startup setting, OS fallback and matching page background/color scheme. The separate preview receives the same bootstrap. No merge, deployment or database writes occur as part of this UI pass.
 
 No new analytics, notifications, streaks, reading-progress tracking, reviews, recommendation engine or community features were added. Existing subject ordering, sharing and affiliate links were reused or given new presentation. The initial landing updates form was removed in the simplification pass; its API remains unchanged.
 
 ## Verification completed
 
-- **23 distinct current Chromium UI checks passed** for the charcoal update: all 22 existing checks passed together, then the added charcoal contrast check passed after correcting its login fixture to be signed out. No application fix was needed for that fixture error. The earlier cleanup added two failure/recovery regressions and asserts a single visible post-login save alert.
-- Twenty-three existing V2 regression checks passed against the unchanged default app. This verifies those original flows remained intact; it is separate from running them against the redesigned entry.
-- Responsive routes were checked at 320, 390, 768 and 1440px with long book titles; horizontal overflow was corrected and then passed.
-- Light/dark persistence, reduced motion, keyboard dialogs, missing covers, failed requests, preference preservation, safe returns, recovery links and authentication/save continuity were exercised.
-- Both the isolated UI and original frontend production builds passed. New UI lint was clean. Full frontend lint exited successfully with eleven existing warnings in untouched source.
-- Twenty-four implemented-screen captures cover six views, desktop/mobile and both themes. All 24 captures were regenerated after the cleanup. The 12 dark captures were refreshed for charcoal, with desktop landing and mobile preferences inspected; light captures are retained from the unchanged light interface. The earlier refresh also corrected legacy heading-color interference in dark mode.
+The [October 8 launch-fix handoff](launch-fixes-2026-10-08.md) contains the current production-entry and desktop/mobile results. The original 23 distinct charcoal UI checks and 23 legacy default-entry checks are retained as historical verification, rather than evidence of the current deployed site. The current standard suite also covers inherited auth/cookie ordering, startup retry, reset-token handling, preference integrity and first-tap navigation checks.
 
-Tests intercepted API operations and created no real accounts or shelf records. Live email delivery, real hosted cookie/CORS behavior, the owner's current local setup, Safari/iOS devices and a native mobile package were not independently verified. The refresh is a responsive web interface. The 23 distinct UI checks and updated dark captures verify the current theme and cleanup. The 23 default-entry regression results are from the initial implementation, whose default entry remains untouched.
+Responsive routes have checks at 320, 390, 768 and 1440px with long titles. The 24 review captures remain unchanged by this behavior-focused pass. Optional recovery storage holds only validated book ID, shelf, local return path and expiry for 30 minutes in the same tab; it never holds tokens, passwords or email. Failed writes keep pending intent for retry, and successful saves clear it even when made manually.
+
+Tests intercept API operations and create no real accounts or shelf records. Live email delivery, hosted cookies/CORS, the owner's local setup, physical Safari/iOS devices and a native mobile package remain outside this verification. WebKit installation was attempted but blocked by the execution environment's network policy; matching tests remain available for independent QA.
 
 ## Recommended next pass
 

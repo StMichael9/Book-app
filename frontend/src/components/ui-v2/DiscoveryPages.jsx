@@ -88,7 +88,9 @@ export function BrowsePage() {
   const setDraft = (value) => setSearchDraft((current) => ({ ...current, value }));
   const [filterOpen, setFilterOpen] = useState(false);
   const scope = auth.isAuthenticated ? "authenticated" : "public";
-  const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
+  const preferenceScope = auth.isAuthenticated ? `${scope}:preferences:${reader.preferencesVersion}` : scope;
+  const shelfScope = exclude || shelf ? `${preferenceScope}:shelves:${reader.shelvesVersion}` : preferenceScope;
+  const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: shelfScope })), `browse:${shelfScope}:${queryKey}`, !auth.isLoading);
   const items = request.data?.items || [];
   const total = request.data?.total || 0;
   const size = Number(request.data?.size) || 20;
