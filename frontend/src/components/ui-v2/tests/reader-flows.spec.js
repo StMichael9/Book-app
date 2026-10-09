@@ -37,6 +37,7 @@ const test = base.extend({
       if (path === "/me/books") { if (state.holdShelves) await state.holdShelves; if (state.shelfFailures-- > 0) return reply(503, { detail: "Unavailable" }); return reply(200, state.saved); }
       if (path === "/me/preferences") {
         if (method === "GET") { if (state.preferenceFailures-- > 0) return reply(503, {}); return reply(200, state.malformedPreferences ? { invalid: true } : state.preferences); }
+        if (state.holdPreferences) await state.holdPreferences;
         if (state.mutationFails) return reply(503, {});
         state.preferences = body.tag_ids.map((id) => ({ tag_id: id, tag: subjects.find((item) => item.id === id), source_text: body.source_text }));
         return reply(200, state.preferences);
@@ -60,7 +61,10 @@ const test = base.extend({
         const size = Number(url.searchParams.get("size") || 20), p = Number(url.searchParams.get("page") || 1);
         return reply(200, { items: items.slice((p - 1) * size, p * size), total: items.length, page: p, size });
       }
-      if (/^\/books\/\d+$/.test(path)) return state.catalogue.find((book) => book.id === Number(path.split("/")[2])) ? reply(200, state.catalogue.find((book) => book.id === Number(path.split("/")[2]))) : reply(404, {});
+      if (/^\/books\/\d+$/.test(path)) {
+        if (state.holdDetails) await state.holdDetails;
+        return !state.detailFails && state.catalogue.find((book) => book.id === Number(path.split("/")[2])) ? reply(200, state.catalogue.find((book) => book.id === Number(path.split("/")[2]))) : reply(404, {});
+      }
       if (path === "/autocomplete/tags/batch") return reply(200, subjects.filter(item => url.searchParams.getAll("name").includes(item.name)));
       if (path === "/autocomplete/tags") return reply(200, subjects.filter((item) => item.name.includes(url.searchParams.get("q"))));
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
@@ -119,7 +123,11 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   app.authenticated = true;
   await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toBeEnabled();
   app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Own" }).click();
-  await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
+  await expect(page.getByRole("alert")).toBeVisible();
+  // Measure settled colors after library hydration's primary-to-saved transition.
+  await expect(page.locator(".bv-button--saved")).toHaveCSS("color", "rgb(143, 168, 155)");
+  await expect(page.locator(".bv-button--saved")).toHaveCSS("background-color", "rgb(48, 51, 47)");
+  await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
   await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click();
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
   await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(32, 46, 40)");
@@ -325,4 +333,173 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?tag=romance");
   expect(app.saved[0].status).toBe("owned");
   expect(mutations(app)).toHaveLength(2);
+});
+
+for (const path of ["/reset-password", "/reset-password#token=expired"]) test(`launch: invalid recovery at ${path} can request a fresh link`, async ({ page, app }) => {
+  await page.goto(path);
+  if (path.includes("token")) {
+    await page.getByLabel("New password").fill("new-password");
+    await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  }
+  await page.getByRole("link", { name: "Send a new link", exact: true }).click();
+  await expect(page).toHaveURL(/\/forgot-password$/);
+  await page.getByLabel("Email address", { exact: true }).fill("reader@example.com");
+  await page.getByRole("button", { name: "Send reset link", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Check your inbox.", exact: true })).toBeVisible();
+  expect(app.requests.filter((r) => r.path === "/auth/forgot-password")).toHaveLength(1);
+});
+
+for (const filter of ["shelf_status=want", "exclude_owned=true", "shelf_status=owned"]) test(`launch: ${filter} refreshes after a successful shelf change`, async ({ page, app }) => {
+  app.authenticated = true;
+  const owned = filter === "shelf_status=owned";
+  app.saved = [{ id: 1, book_id: 1, book: books[0], status: owned ? "owned" : "want" }];
+  await page.goto(`/browse?${filter}`);
+  await expect(page.locator(".bv-book-card h3").filter({ hasText: "Pride and Prejudice" })).toHaveCount(1);
+  await page.getByRole("button", { name: `Add Pride and Prejudice to ${owned ? "Want" : "Own"}`, exact: true }).click();
+  await expect(page.locator(".bv-book-card h3").filter({ hasText: "Pride and Prejudice" })).toHaveCount(0);
+  if (filter.startsWith("shelf_status")) await expect(page.getByRole("heading", { name: "No books found.", exact: true })).toBeVisible();
+  else await expect(page.locator(".bv-book-card")).toHaveCount(4);
+  expect(app.saved[0].status).toBe(owned ? "want" : "owned");
+  expect(app.requests.filter((r) => r.path === "/books")).toHaveLength(2);
+  expect(mutations(app)).toHaveLength(1);
+});
+
+test("launch: a failed shelf write retains filtered results and needs no refresh", async ({ page, app }) => {
+  app.authenticated = true; app.mutationFails = true;
+  app.saved = [{ id: 1, book_id: 1, book: books[0], status: "want" }];
+  await page.goto("/browse?shelf_status=want");
+  await page.getByRole("button", { name: "Add Pride and Prejudice to Own", exact: true }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Pride and Prejudice"]);
+  expect(app.saved[0].status).toBe("want");
+  expect(app.requests.filter((r) => r.path === "/books")).toHaveLength(1);
+});
+
+for (const shelf of ["Want", "Own"]) test(`launch: recovery retains pending ${shelf} and discovery context`, async ({ page, app }) => {
+  await page.goto("/browse?tag=romance");
+  await page.getByRole("button", { name: `Add Pride and Prejudice to ${shelf}`, exact: true }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "Forgot password?", exact: true }).click();
+  await page.getByLabel("Email address", { exact: true }).fill("reader@example.com");
+  await page.getByRole("button", { name: "Send reset link", exact: true }).click();
+  await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  await expect(page.locator(".bv-pending-book")).toContainText("Pride and Prejudice");
+  await signIn(page);
+  await expect(page).toHaveURL(/\/book\/1\?from=/);
+  await expect(page).not.toHaveURL(/save=/);
+  expect(mutations(app)).toHaveLength(1);
+  expect(app.saved[0].status).toBe(shelf === "Own" ? "owned" : "want");
+  await expect(page.getByRole("link", { name: "Back to discovery", exact: true })).toHaveAttribute("href", "/browse?tag=romance");
+  expect(await page.evaluate(() => sessionStorage.getItem("bookvane-recovery-intent"))).toBeNull();
+});
+
+test("launch: a fragment-only reset in the same tab retains the pending save", async ({ page, app }) => {
+  await page.goto("/browse?tag=romance");
+  await page.getByRole("button", { name: "Add Pride and Prejudice to Want", exact: true }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click();
+  await page.getByRole("link", { name: "Forgot password?", exact: true }).click();
+  const stored = JSON.parse(await page.evaluate(() => sessionStorage.getItem("bookvane-recovery-intent")));
+  expect(stored.query).toContain("bookId=1");
+  await page.goto("/reset-password#token=valid-token");
+  await page.getByLabel("New password").fill("new-password");
+  await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  await page.getByRole("link", { name: "Back to sign in", exact: true }).click(); await signIn(page);
+  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want", exact: true })).toBeEnabled();
+  expect(mutations(app)).toHaveLength(1);
+  expect(await page.evaluate(() => sessionStorage.getItem("bookvane-recovery-intent"))).toBeNull();
+});
+
+test("launch: a direct shelf choice clears older recovery context only after success", async ({ page, app }) => {
+  app.authenticated = true; app.mutationFails = true;
+  await page.goto("/book/1");
+  await page.evaluate(() => sessionStorage.setItem("bookvane-recovery-intent", JSON.stringify({
+    query: new URLSearchParams({ bookId: "1", save: "want", returnTo: "/book/1" }).toString(),
+    expiresAt: Date.now() + 60_000,
+  })));
+  const own = page.getByRole("button", { name: "Add Pride and Prejudice to Own", exact: true });
+  await expect(own).toBeEnabled(); await own.click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("bookvane-recovery-intent"))).not.toBeNull();
+  app.mutationFails = false; await own.click();
+  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Own", exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => sessionStorage.getItem("bookvane-recovery-intent"))).toBeNull();
+  await page.goto("/forgot-password");
+  await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.saved[0].status).toBe("owned"); expect(mutations(app)).toHaveLength(2);
+});
+
+for (const intent of ["expired", "external"]) test(`launch: ${intent} stored recovery context cannot resume a save`, async ({ page, app }) => {
+  await page.addInitScript((kind) => sessionStorage.setItem("bookvane-recovery-intent", JSON.stringify({
+    query: new URLSearchParams({ bookId: "1", save: "want", returnTo: kind === "external" ? "https://example.com/book/1" : "/book/1" }).toString(),
+    expiresAt: kind === "expired" ? Date.now() - 1000 : Date.now() + 60_000,
+  })), intent);
+  await page.goto("/reset-password#token=valid-token");
+  await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/); await signIn(page);
+  await expect(page).toHaveURL(/\/my-books$/); expect(mutations(app)).toHaveLength(0);
+});
+
+for (const failed of [false, true]) test(`launch: delayed preference ${failed ? "failure" : "success"} respects later navigation`, async ({ page, app }) => {
+  app.authenticated = true; app.mutationFails = failed;
+  let release; app.holdPreferences = new Promise((resolve) => { release = resolve; });
+  await page.goto("/preferences"); await page.getByLabel("Romance", { exact: true }).check();
+  await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+  await expect.poll(() => app.requests.filter((r) => r.path === "/me/preferences" && r.method === "POST").length).toBe(1);
+  await page.getByRole("navigation", { name: page.viewportSize().width <= 700 ? "Mobile navigation" : "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  const response = page.waitForResponse((r) => r.url().endsWith("/me/preferences") && r.request().method() === "POST");
+  release(); await response;
+  // Observe a subsequent render as well as the response; neither may redirect.
+  await page.getByRole("tab", { name: /Own/ }).click(); await expect(page).toHaveURL(/\/my-books\?status=owned$/);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(app.preferences.map((p) => p.tag_id)).toEqual(failed ? [2] : [2, 4]);
+  expect(app.preferences[0].source_text).toBe("Preserve this note");
+});
+
+for (const outcome of ["ready", "error", "reader-moved-focus"]) test(`launch: delayed book heading ${outcome} preserves keyboard focus`, async ({ page, app }) => {
+  let release; app.holdDetails = new Promise((resolve) => { release = resolve; });
+  app.detailFails = outcome === "error";
+  await page.goto("/browse");
+  await page.getByRole("link", { name: "View Pride and Prejudice", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+  const home = page.locator(".bv-header").getByRole("link", { name: "Bookvane home", exact: true });
+  if (outcome === "reader-moved-focus") await home.focus();
+  release();
+  const heading = page.getByRole("heading", { name: outcome === "error" ? "This book couldn’t be found." : "Pride and Prejudice", exact: true });
+  await expect(heading).toBeVisible();
+  if (outcome === "reader-moved-focus") await expect(home).toBeFocused();
+  else { await expect(heading).toBeFocused(); await expect(heading).toHaveAttribute("tabindex", "-1"); }
+});
+
+for (const scenario of [
+  { name: "saved dark", current: "dark", theme: "dark", system: "light" },
+  { name: "current light over legacy dark", current: "light", legacy: "dark", theme: "light", system: "dark" },
+  { name: "system dark without storage", theme: "dark", system: "dark" },
+  { name: "blocked storage", theme: "dark", system: "dark", blocked: true },
+]) test(`launch: startup branding and ${scenario.name} match before hydration`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: scenario.system });
+  await page.addInitScript((data) => {
+    if (data.current) localStorage.setItem("bookvane-theme", data.current);
+    if (data.legacy) localStorage.setItem("shelfbound-theme", data.legacy);
+    if (data.blocked) Storage.prototype.getItem = () => { throw new Error("Storage unavailable"); };
+  }, scenario);
+  let release; const pending = new Promise((resolve) => { release = resolve; });
+  await page.route("**/assets/*.js", async (route) => { await pending; await route.continue(); });
+  try {
+    await page.goto("/", { waitUntil: "commit" }); await page.locator("#root").waitFor({ state: "attached" });
+    const background = scenario.theme === "dark" ? "rgb(30, 29, 27)" : "rgb(250, 248, 242)";
+    await expect(page).toHaveTitle("Bookvane");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", scenario.theme);
+    await expect(page.locator("html")).toHaveCSS("background-color", background);
+    await expect(page.locator("body")).toHaveCSS("background-color", background);
+    await expect(page.locator("#root")).toHaveCSS("background-color", background);
+    release();
+    await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", scenario.theme);
+    await expect(page.locator(".bv-root")).toHaveCSS("background-color", background);
+    await expect(page.locator("body")).not.toContainText(/Shelfbound/i);
+    await expect(page).toHaveTitle(/Bookvane$/);
+    expect(app.errors).toEqual([]);
+  } finally { release(); }
 });
