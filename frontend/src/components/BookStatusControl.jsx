@@ -5,7 +5,7 @@ import { useUserBooks } from "../hooks/UserBooksContext.jsx";
 
 export default function BookStatusControl({ bookId, compact = false }) {
   const { isAuthenticated } = useAuth();
-  const { booksById, updateStatus, clearStatus } = useUserBooks();
+  const { booksById, loading, error: loadError, retryLoad, updateStatus, clearStatus } = useUserBooks();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const currentStatus = booksById[bookId]?.status || "";
@@ -15,6 +15,7 @@ export default function BookStatusControl({ bookId, compact = false }) {
       window.location.assign(`/login?returnTo=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
+    if (pending || loading || loadError) return;
 
     setPending(true);
     setError("");
@@ -38,7 +39,7 @@ export default function BookStatusControl({ bookId, compact = false }) {
           type="button"
           className={currentStatus === "owned" ? "status-button active" : "status-button"}
           onClick={() => changeStatus("owned")}
-          disabled={pending}
+          disabled={pending || (isAuthenticated && (loading || Boolean(loadError)))}
         >
           {currentStatus === "owned" ? "Owned" : "Own"}
         </button>
@@ -46,12 +47,17 @@ export default function BookStatusControl({ bookId, compact = false }) {
           type="button"
           className={currentStatus === "want" ? "status-button active" : "status-button"}
           onClick={() => changeStatus("want")}
-          disabled={pending}
+          disabled={pending || (isAuthenticated && (loading || Boolean(loadError)))}
         >
           {currentStatus === "want" ? "Want to read" : "Want"}
         </button>
       </div>
       {error && <span className="status-error">{error}</span>}
+      {isAuthenticated && loadError && (
+        <span className="status-error" role="alert">
+          Couldn’t load your saved books. <button type="button" onClick={retryLoad}>Try again</button>
+        </span>
+      )}
     </div>
   );
 }

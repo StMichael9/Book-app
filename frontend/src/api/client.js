@@ -9,21 +9,40 @@ export const API_BASE_URL =
   DEFAULT_API_BASE_URL;
 
 let refreshPromise = null;
+let sessionChanges = 0;
 
-async function refreshSession() {
+export function refreshSession() {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    // Allow Render's free-service wake-up, but never hold the account check
+    // forever. Keep one in-flight rotation so retry/login cannot race cookies.
+    const controller = new AbortController();
+    const deadline = setTimeout(() => controller.abort(), 90_000);
+    refreshPromise = apiRequest("/auth/refresh", {
       method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      skipRefresh: true,
+      signal: controller.signal,
+    }).catch(error => {
+      if (error.name === "AbortError") throw new Error("The account check timed out. Please try again.");
+      throw error;
     }).finally(() => {
+      clearTimeout(deadline);
       refreshPromise = null;
     });
   }
 
-  const response = await refreshPromise;
-  if (!response.ok) return false;
-  return true;
+  return refreshPromise;
+}
+
+// Set the guard before waiting, so an unrelated 401 cannot start another
+// rotation between the completed refresh and login/logout's cookie response.
+export async function withSessionChange(change) {
+  sessionChanges += 1;
+  try {
+    await refreshPromise?.catch(() => {});
+    return await change();
+  } finally {
+    sessionChanges -= 1;
+  }
 }
 
 export async function apiRequest(path, options = {}) {
@@ -33,14 +52,23 @@ export async function apiRequest(path, options = {}) {
   const response = await fetch(url, {
     credentials: "include",
     headers: {
-      "Content-Type": "application/json",
+      ...(requestOptions.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(requestOptions.headers || {}),
     },
     ...requestOptions,
   });
 
-  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh") {
-    const refreshed = await refreshSession();
+  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0) {
+    let refreshed = false;
+    try {
+      await refreshSession();
+      refreshed = true;
+    } catch (error) {
+      // A network outage does not prove a session is invalid. Preserve the
+      // account state and let the failed operation show its existing retry UI.
+      if (error.status !== 401) throw error;
+      window.dispatchEvent(new Event("bookvane:session-expired"));
+    }
     if (refreshed) {
       return apiRequest(path, { ...requestOptions, skipRefresh: true });
     }

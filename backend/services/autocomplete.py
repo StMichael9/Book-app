@@ -11,7 +11,8 @@ class AutocompleteService:
         query = (
             select(Author)
             .where(Author.name.ilike(f"%{q}%"))
-            .order_by(Author.name)
+            .distinct(Author.name)
+            .order_by(Author.name, Author.id)
             .limit(limit)
         )
         return self.db.execute(query).scalars().all()
@@ -19,8 +20,13 @@ class AutocompleteService:
     def suggest_tags(self, q: str, limit: int = 10):
         query = (
             select(Tag)
-            .where(Tag.name.ilike(f"%{q}%"))
+            .where(Tag.name.ilike(f"%{q}%"), Tag.visible_in_v2.is_(True))
             .order_by(Tag.name)
             .limit(limit)
         )
         return self.db.execute(query).scalars().all()
+
+    def resolve_tags(self, names: list[str]):
+        return self.db.execute(
+            select(Tag).where(Tag.name.in_(names), Tag.visible_in_v2.is_(True)).order_by(Tag.name)
+        ).scalars().all()

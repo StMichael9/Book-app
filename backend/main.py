@@ -1,15 +1,18 @@
 import os
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database import get_db
+from database import get_db, settings
 
 from routes import books
 from routes import autocomplete
 from routes import user_books
 from routes import user_preferences
+from routes import email_signups
 
 from auth.auth import router as auth_router
 
@@ -25,8 +28,19 @@ from rate_limit import limiter
 app = FastAPI()
 
 def _parse_cors_origins() -> list[str]:
-    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173")
-    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173" if settings.is_dev else "")
+    origins = [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    if not settings.is_dev:
+        if not origins:
+            raise ValueError("Production CORS_ORIGINS must explicitly list HTTPS frontend origins")
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (parsed.scheme != "https" or not parsed.hostname or "*" in origin
+                    or parsed.username is not None or parsed.password is not None
+                    or parsed.path or parsed.query or parsed.fragment
+                    or any(character.isspace() for character in origin)):
+                raise ValueError("Production CORS_ORIGINS must contain exact HTTPS origins, not wildcards or URLs with paths")
+    return origins
 
 
 app.add_middleware(
@@ -37,6 +51,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def enforce_write_origin(request: Request, call_next):
+    # Cross-site production cookies need SameSite=None. CORS alone does not
+    # prevent a third-party form from sending a credentialed write request.
+    if not settings.is_dev and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        if request.headers.get("origin") not in _parse_cors_origins():
+            return JSONResponse(status_code=403, content={"detail": "Untrusted request origin"})
+    return await call_next(request)
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -45,6 +69,7 @@ app.include_router(autocomplete.router)
 app.include_router(auth_router)
 app.include_router(user_books.router)
 app.include_router(user_preferences.router)
+app.include_router(email_signups.router)
 
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)

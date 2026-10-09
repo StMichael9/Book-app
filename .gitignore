@@ -1,5 +1,8 @@
 .env
+.env.test
 venv/
+.pytest_tmp/
+.test-postgres/
 __pycache__/
 *.pyc
 data/json_data/

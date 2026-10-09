@@ -3,40 +3,22 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from sqlalchemy.engine import make_url
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENV_TEST_FILE = PROJECT_ROOT / ".env.test"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-def _read_env_value(file_path: Path, key: str) -> str | None:
-    if not file_path.exists():
-        return None
-
-    for raw_line in file_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        name, value = line.split("=", 1)
-        if name.strip() == key:
-            return value.strip().strip('"').strip("'")
-    return None
-
-
 def _resolve_test_database_url() -> str | None:
-    direct_env = os.getenv("DATABASE_URL_TEST") or os.getenv("TEST_DATABASE_URL")
-    if direct_env:
-        return direct_env
-
-    return _read_env_value(ENV_TEST_FILE, "DATABASE_URL")
+    return os.getenv("TEST_DATABASE_URL")
 
 
 @pytest.fixture(scope="session")
@@ -44,14 +26,27 @@ def test_database_url() -> str:
     database_url = _resolve_test_database_url()
     if not database_url:
         pytest.skip(
-            "Set DATABASE_URL_TEST, TEST_DATABASE_URL, or backend/.env.test before running the test suite."
+            "Set TEST_DATABASE_URL to a disposable, separately credentialed database before running tests."
         )
+    if os.getenv("BOOKVANE_TEST_DB_ISOLATED") != "yes":
+        pytest.fail("Set BOOKVANE_TEST_DB_ISOLATED=yes only after verifying the disposable test database.")
+    test_url = make_url(database_url)
+    if not test_url.database or "test" not in test_url.database.lower():
+        pytest.fail("The test database name must contain 'test'.")
+    production_url = os.getenv("DATABASE_URL")
+    if production_url:
+        live_url = make_url(production_url)
+        if (test_url.host, test_url.port, test_url.database) == (
+            live_url.host, live_url.port, live_url.database
+        ):
+            pytest.fail("TEST_DATABASE_URL resolves to the configured application database.")
     return database_url
 
 
 @pytest.fixture(scope="session")
 def app_modules(test_database_url: str):
     os.environ["DATABASE_URL"] = test_database_url
+    os.environ["IS_DEV"] = "true"
 
     import database
     import main
@@ -69,6 +64,8 @@ def db_session(app_modules) -> Session:
     database = app_modules["database"]
     models = app_modules["models"]
 
+    with database.engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
     database.Base.metadata.create_all(bind=database.engine)
 
     session = database.SessionLocal()

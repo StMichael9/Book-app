@@ -3,7 +3,7 @@ export const BROWSE_SHELVES = [
     id: "strange-worlds",
     title: "Strange worlds",
     description: "Fantasy and science fiction for unfamiliar places.",
-    requestTags: ["fantasy", "science fiction"],
+    requestTags: ["fantasy", "science_fiction"],
     viewAllHref: "/browse?view=all",
     viewAllLabel: "Browse all",
   },

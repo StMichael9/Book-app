@@ -1,89 +1,43 @@
-# Find Your Next Book, Your Way
+# Bookvane V2
 
-A composable, tag-based book discovery app. Search by author and genre at the same time, stacked as tags, with results narrowing live — no more choosing author *or* genre *or* title like Goodreads and library catalogs force you to.
+Bookvane is a React/Vite book-discovery app backed by FastAPI and PostgreSQL. The frontend is currently hosted on Vercel, the API on Render, and the database on Neon. This repository does not include a live data import or paid service.
 
-## Status
+## Current features
 
-🚧 V1 in progress. Core tag search first; AI-assisted discovery page deferred until built in-house (see [Roadmap](#roadmap)).
+- Title, author, and subject search; autocomplete; curated discovery shelves; preference-aware results.
+- Account registration, login, rotating refresh cookies, logout, and password recovery.
+- Private Own/Want shelves and reading preferences.
+- Explicit, separate opt-in for occasional product updates; a registered email is **not** an opt-in.
+- Client-generated, single-book share image. An optional Bookshop link appears on a Want card only if a valid ISBN-13 and `VITE_BOOKSHOP_AFFILIATE_ID` are both present.
 
-## Tech Stack
+## Local setup
 
-- **Backend:** FastAPI (Python)
-- **Database:** Postgres, hosted on [Neon](https://neon.tech)
-- **Frontend:** React
-- **Hosting:** Vercel (frontend) + Render (backend)
-- **Data source:** Curated dataset from Google Books API / Open Library API (no live-API calls at demo/runtime — avoids rate limits and uptime risk)
+Use Python 3.11+ and Node.js 20+. Copy `backend/.env.example` to `backend/.env`, fill local values, and use a PostgreSQL database you control. From `backend`, install `requirements.txt`, run `python -m alembic upgrade head`, then start `uvicorn main:app --reload`. From `frontend`, run `npm ci` and `npm run dev`. The development frontend defaults to `http://localhost:8000` for the API; set `VITE_API_BASE_URL` if using another port. Use **localhost for both frontend and API** in development so cookies have the same site.
 
-No authentication in V1 — no user accounts or saved data yet, so there's nothing to protect.
+The reset-link URL is sent through Resend. Verify `shelfbound.dev` as a sender before configuring `PASSWORD_RESET_FROM`; no secret or verified sender is bundled here. Reset links expire after 30 minutes, are stored only as hashes, and can be used once. A successful reset invalidates existing access and refresh tokens.
 
-## Features (V1 Scope)
+## Production configuration and release order
 
-- [ ] Curated book/author/genre dataset loaded into Postgres
-- [ ] Composable tag search: type → live suggestions → click to tag → results narrow instantly
-- [ ] Stack multiple tags in any order (author + genre together)
-- [ ] Browse-first option: see unfiltered results, add tags whenever
+1. Rotate the Neon test credential previously committed in `backend/.env.test` if it is still active. The file is no longer tracked on this branch, but removing it does **not** erase Git history. Do not reuse that credential. Configure a separate disposable database and user for tests.
+2. Back up the database and apply `python -m alembic upgrade head` before deploying V2 code. The older UUID-to-integer catalogue migration now fails safely if a populated UUID catalogue is present; that case needs an explicit data migration, not an automatic drop.
+3. Set `DATABASE_URL`, a random 32-byte-or-longer `SECRET_KEY`, `IS_DEV=false`, `CORS_ORIGINS` (the exact deployed HTTPS frontend origin, without a trailing slash or path), `FRONTEND_BASE_URL`, `RESEND_API_KEY`, and `PASSWORD_RESET_FROM` on Render. Production startup now rejects missing, wildcard, HTTP or path-bearing CORS origins. Multiple exact origins can be comma-separated. The blueprint leaves secrets and live origins for you to supply. Use `COOKIE_DOMAIN` only if deliberately sharing cookies across API subdomains; leave it unset for a Render host. Production cookies default to `Secure; HttpOnly; SameSite=None`. If frontend and API move under the same site, `COOKIE_SAMESITE=lax` can be set explicitly.
+4. Set `VITE_API_BASE_URL` to the deployed API URL for the frontend build. Keep `VITE_BOOKSHOP_AFFILIATE_ID` unset until you have a real affiliate ID, a valid ISBN import, and a compliant hosting decision. This is a public build variable, not a secret.
+5. Check registration, login persistence, refresh, logout, reset email, preferences, Own/Want, discovery, and sharing in a deployed browser. Cross-site cookies can be blocked by browser privacy settings even with `SameSite=None`; a same-site frontend/API domain is the durable fix, and it is not configured by this branch.
 
-## Getting Started
+Vercel Hobby's non-commercial rule is still a user-owned gate for affiliate-enabled public use. No hosting migration, new domain purchase, affiliate enrollment, or catalogue import is included here. Render free cold starts and Neon's free storage cap remain limits to measure against real usage.
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- A free [Neon](https://neon.tech) Postgres database
+## Safe tests and scale checks
 
-### Setup
-```bash
-# clone the repo
-git clone <your-repo-url>
-cd <repo-name>
+Backend tests are deliberately skipped unless `TEST_DATABASE_URL` points to a separately credentialed disposable PostgreSQL database whose name contains `test`, and `BOOKVANE_TEST_DB_ISOLATED=yes` is set. The fixture deletes and rebuilds test data. Never set these variables for a production or shared database. Run `python -m pytest tests -q` from `backend`; run `npm run build` and `npm run lint` from `frontend`.
 
-# backend
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+`npm test` builds the standard frontend entry and runs the activated UI, critical-flow and auth/data regressions with intercepted API traffic. It does not contact Neon or send emails. Set `PLAYWRIGHT_CHANNEL=msedge` to use installed Edge instead of downloading Chromium. The visual-export test is excluded from this normal run so tests do not overwrite the design gallery.
 
-# frontend
-cd ../frontend
-npm install
-```
+`npm run test:mobile` runs the Discover touch-navigation and keyboard regressions in both WebKit and Chromium at a phone viewport. Install WebKit once with `npx playwright install webkit`; the Chromium project also honors `PLAYWRIGHT_CHANNEL` and `PLAYWRIGHT_EXECUTABLE_PATH`. The cases cover single-tap cover/title navigation, first/lower cards, real/missing covers, delayed details, the skip link and controls above the fixed mobile navigation. These same six cases run in the normal `npm test` browser. APIs are intercepted locally; WebKit phone simulation does not replace a hosted check on an actual iPhone/Safari.
 
-### Environment Variables
-Create a `.env` file in `backend/` with:
-```
-DATABASE_URL=<your-neon-connection-string>
-```
+The separate real-API browser check uses `backend/tests/browser_server.py` and `frontend/playwright.integration.config.js`. It is deliberately **not** part of normal application startup or deployment. It requires a fresh migrated database named with `browser_test`, owned by the non-superuser `bookvane_test` at `127.0.0.1:55432`, plus `BOOKVANE_TEST_DB_ISOLATED=yes`. It refuses another target or a database containing books. Apply Alembic from the backend directory to that disposable database first. Configure `IS_DEV=false`, a test-only `SECRET_KEY`, `CORS_ORIGINS=https://127.0.0.1:5192`, `FRONTEND_BASE_URL=https://127.0.0.1:5192`, and `BOOKVANE_TEST_CERT`/`BOOKVANE_TEST_KEY` pointing to a local test TLS certificate/key. Build the frontend with `VITE_API_BASE_URL=https://127.0.0.1:8009`, then run `python tests/browser_server.py` from backend and `npx playwright test --config playwright.integration.config.js` from frontend. The harness captures email in memory, seeds only local fixtures and exercises real PostgreSQL, token rotation and Secure/HttpOnly cookies. Use a fresh database when restarting the harness; do not point it at the populated catalogue. Its self-signed-certificate exception is local-only and proves neither hosted TLS nor unrelated-domain/Safari cookie behavior.
 
-### Running locally
-```bash
-# backend (from backend/)
-uvicorn main:app --reload
+Deploy the matching frontend/backend pair: preferences now resolves its bounded set of exact tag names through one `/autocomplete/tags/batch` call rather than 15 individual requests. Existing autocomplete routes, visible tag IDs, preference notes and rate limits are unchanged. This change requires no migration.
 
-# frontend (from frontend/)
-npm run dev
-```
+The search migration adds GIN trigram indexes for title and author substring searches. A local disposable benchmark with 100,000 short-description books, 1,000 authors, and 100 tags used about 41 MB and returned a deep 50-book page in about 50–60 ms after the page-ID optimization (first request and preference ordering were slower). This is **not** a Neon capacity guarantee: real descriptions, indexes, user data, storage overhead, cold starts, and network latency differ. Measure storage and representative queries after your own import before claiming 100K capacity.
 
-## Project Structure
-```
-.
-├── backend/          # FastAPI app, Postgres models, routes
-├── frontend/          # React app
-├── data/               # scripts for pulling/loading curated dataset
-├── docs/
-│   └── schema.md       # database schema reference
-└── README.md
-```
-
-## Database Schema
-
-See [`docs/schema.md`](./docs/schema.md) for full table definitions and relationships (`books`, `authors`, `tags`, and their join tables).
-
-## Roadmap
-
-- **V1:** Tag search only, no AI, no auth
-- **Later:** "Not Sure What to Read?" AI-assisted page — built in-house once NLP coursework supports it, not as a wrapped LLM API call
-- **Later:** Own tag-based recommendation model (content-based / collaborative filtering)
-- **Later:** User accounts, if saved books/personalization is added
-
-## License
-
-TBD
+An observed local discovery load issued five book GETs (plus two development-mode session checks); removing an unnecessary JSON header eliminated five CORS preflights. Do not raise rate limits based solely on the reported 429—check production browser Network and Render logs first.

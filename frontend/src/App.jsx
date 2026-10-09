@@ -19,6 +19,7 @@ import ResultsList from "./components/ResultsList.jsx";
 import SearchBar from "./components/SearchBar/SearchBar.jsx";
 import BookDetailPage from "./components/BookDetailPage.jsx";
 import MyBooksPage from "./components/MyBooksPage.jsx";
+import PasswordRecoveryPage from "./components/PasswordRecoveryPage.jsx";
 import { useAuth } from "./hooks/AuthContext.jsx";
 import { BROWSE_SHELVES } from "./data/browseShelves.js";
 import { X } from "lucide-react";
@@ -126,6 +127,8 @@ function App() {
           <Route path="/book/:bookId" element={<BookDetailPage />} />
           <Route path="/login" element={<AuthForm mode="login" />} />
           <Route path="/register" element={<AuthForm mode="register" />} />
+          <Route path="/forgot-password" element={<PasswordRecoveryPage />} />
+          <Route path="/reset-password" element={<PasswordRecoveryPage reset />} />
           <Route
             path="/onboarding"
             element={
@@ -197,8 +200,12 @@ function App() {
 
 function HomePage() {
   const { isAuthenticated } = useAuth();
-  const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState({ book: "", author: "", tags: [] });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => ({
+    book: searchParams.get("book")?.trim() ?? "",
+    author: searchParams.get("author")?.trim() ?? "",
+    tags: searchParams.getAll("tag").map((tag) => tag.trim()).filter(Boolean),
+  }), [searchParams]);
   const [discoveryFilters, setDiscoveryFilters] = useState({
     excludeOwned: false,
     shelfStatus: "",
@@ -222,15 +229,6 @@ function HomePage() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    const paramTags = searchParams
-      .getAll("tag")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-    const paramBook = searchParams.get("book")?.trim() ?? "";
-    const paramAuthor = searchParams.get("author")?.trim() ?? "";
-
-    setFilters({ book: paramBook, author: paramAuthor, tags: paramTags });
-    setDiscoveryFilters({ excludeOwned: false, shelfStatus: "" });
     setPage(1);
   }, [searchParams]);
 
@@ -245,7 +243,14 @@ function HomePage() {
       ),
     };
 
-    setFilters(normalized);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("book");
+    nextParams.delete("author");
+    nextParams.delete("tag");
+    if (normalized.book) nextParams.set("book", normalized.book);
+    if (normalized.author) nextParams.set("author", normalized.author);
+    normalized.tags.forEach((tag) => nextParams.append("tag", tag));
+    setSearchParams(nextParams);
     setPage(1);
   };
 
@@ -254,20 +259,6 @@ function HomePage() {
     setPage(1);
   };
 
-  const urlFilters = useMemo(
-    () => ({
-      book: searchParams.get("book")?.trim() ?? "",
-      author: searchParams.get("author")?.trim() ?? "",
-      tags: searchParams
-        .getAll("tag")
-        .map((tag) => tag.trim())
-        .filter(Boolean),
-    }),
-    [searchParams],
-  );
-  const hasUrlFilters = Boolean(
-    urlFilters.book || urlFilters.author || urlFilters.tags.length > 0,
-  );
   const hasActiveFilters = Boolean(
     filters.book ||
     filters.author ||
@@ -276,11 +267,8 @@ function HomePage() {
     discoveryFilters.shelfStatus,
   );
   const isDiscoveryMode =
-    !hasUrlFilters && !hasActiveFilters && searchParams.get("view") !== "all";
-  const requestFilters = useMemo(
-    () => (hasUrlFilters ? urlFilters : filters),
-    [filters, hasUrlFilters, urlFilters],
-  );
+    !hasActiveFilters && searchParams.get("view") !== "all";
+  const requestFilters = filters;
   const requestTagsKey = requestFilters.tags.join("\u0000");
 
   useEffect(() => {

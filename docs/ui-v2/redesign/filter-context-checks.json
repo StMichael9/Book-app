@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "checks": [
+    "Search mode updates accessible label and placeholder",
+    "Unsubmitted search survives opening filters",
+    "Hide-owned selection survives reopening filters",
+    "All books removes hidden ownership filter"
+  ]
+}
