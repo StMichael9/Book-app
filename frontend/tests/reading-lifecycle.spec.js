@@ -26,16 +26,21 @@ const test = base.extend({
       if (url.origin !== new URL(baseURL).origin) { state.errors.push("Unexpected external request"); return route.abort(); }
       if (!url.pathname.startsWith("/test-api/")) return route.continue();
       const path = url.pathname.slice("/test-api".length), method = request.method();
-      const body = ["PATCH", "PUT", "POST"].includes(method) ? request.postDataJSON() : null;
+      const body = ["PATCH", "PUT", "POST", "DELETE"].includes(method) ? request.postDataJSON() : null;
       state.requests.push({ path, method, body });
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/auth/refresh") return reply(state.authenticated ? 200 : 401, {});
       if (path === "/me/reading-capabilities") {
         if (state.oldBackend) return reply(404, {});
         return reply(200, { enabled: !state.disabled, writable: !state.readOnly, contract_version: 1,
-          features: { reading_actions: true, private_context: Boolean(state.privateContext) } });
+          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls) } });
       }
       if (path === "/me/books") return reply(200, []);
+      if (path === "/me/reading-export") {
+        if (state.holdExport) await state.holdExport;
+        if (state.exportFails) return reply(503, { detail: "Temporary failure" });
+        return route.fulfill({ status: 200, contentType: "application/x-ndjson", body: state.exportTruncated ? '{"type":"metadata"}\n' : '{"type":"metadata","format_version":1}\n{"type":"complete","format_version":1,"counts":{"entry":2,"reading":1,"preference":0}}\n' });
+      }
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => {
         const entry = state.entries.get(id);
@@ -53,10 +58,27 @@ const test = base.extend({
       if (workspace) {
         if (state.holdWorkspace) await state.holdWorkspace;
         const id = Number(workspace[1]);
+        if (!state.entries.has(id)) return reply(404, { detail: "Library entry not found" });
         return reply(200, { entry: state.entries.get(id), current_attempt: id === 101 ? state.attempt : null, editions: [] });
       }
-      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: path.includes("/101/") ? [state.attempt] : [], next_cursor: null });
+      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: path.includes("/101/") && state.attempt ? [state.attempt] : [], next_cursor: null });
       const patch = path.match(/^\/me\/library\/(\d+)$/);
+      if ((patch || path === `/me/reading-attempts/${attemptId}`) && method === "DELETE") {
+        if (state.removalMissingRoute) return reply(404, { detail: "Not found" });
+        if (state.removeFails) return reply(503, { detail: "Temporary failure" });
+        if (state.holdRemoval) await state.holdRemoval;
+        const id = patch ? Number(patch[1]) : 101;
+        const entry = state.entries.get(id);
+        if (!entry) return reply(404, { detail: "Library entry not found" });
+        if (body.expected_version !== entry.version) return reply(409, { detail: "Your library changed. Reload before trying again." });
+        if (patch) {
+          state.entries.delete(id);
+          if (state.loseRemovalResponse) { state.loseRemovalResponse = false; return route.abort("failed"); }
+          return route.fulfill({ status: 204 });
+        }
+        state.attempt = null; entry.version += 1; entry.reading_state = null;
+        return reply(200, entry);
+      }
       if (patch && method === "PATCH") {
         if (state.flagFails) return reply(503, { detail: "Temporary failure" });
         const current = state.entries.get(Number(patch[1]));
@@ -83,6 +105,108 @@ const test = base.extend({
     await provide(state);
     expect(state.errors).toEqual([]);
   },
+});
+
+test("M3 confirmed removal distinguishes a reading from the whole book; failure and Cancel preserve data", async ({ page, app }) => {
+  app.dataControls = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Reading fixture 101");
+  await expect(dialog).toContainText("Start date unknown");
+  await expect(dialog).toContainText("other readings will stay");
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  expect(app.requests.filter(request => request.method === "DELETE")).toHaveLength(0);
+  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  app.removeFails = true;
+  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("couldn’t confirm the removal");
+  expect(app.attempt).not.toBeNull();
+  app.removeFails = false;
+  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole("heading", { name: "A new beginning", exact: true })).toBeVisible();
+  expect(app.entries.get(101).is_owned).toBe(true);
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  await expect(dialog).toContainText("every reading, note and reaction");
+  await dialog.getByRole("button", { name: "Keep it", exact: true }).click();
+  expect(app.entries.has(101)).toBe(true);
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.entries.has(101)).toBe(false);
+  const requests = app.requests.filter(request => request.method === "DELETE");
+  expect(requests.at(-1).body).toEqual({ expected_version: 3, confirmed: true });
+});
+
+test("M3 stale confirmation refuses deletion and keeps the captured version", async ({ page, app }) => {
+  app.dataControls = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  app.entries.get(101).version = 3;
+  await page.getByRole("dialog").getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("Your library changed");
+  expect(app.entries.has(101)).toBe(true);
+  await page.getByRole("dialog").getByRole("button", { name: "Forget book and history", exact: true }).click();
+  expect(app.requests.filter(request => request.method === "DELETE").map(request => request.body.expected_version)).toEqual([2, 2]);
+});
+
+test("M3 forget retry checks actual absence rather than trusting any DELETE 404", async ({ page, app }) => {
+  app.dataControls = true; app.removalMissingRoute = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  expect(app.entries.has(101)).toBe(true);
+  await expect(page).toHaveURL(/\/my-books\/101$/);
+  app.removalMissingRoute = false; app.loseRemovalResponse = true;
+  await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(dialog.getByRole("alert")).toContainText("couldn’t confirm");
+  await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.entries.has(101)).toBe(false);
+});
+
+test("M3 Download my data rejects failures and truncated exports, then starts a complete private download in read-only mode", async ({ page, app }) => {
+  app.dataControls = true; app.readOnly = true; app.exportFails = true;
+  await page.goto("/account");
+  await page.getByRole("link", { name: "Manage my data", exact: true }).click();
+  const button = page.getByRole("button", { name: "Download my data", exact: true });
+  let count = 0;
+  page.on("download", () => { count += 1; });
+  await button.click();
+  await expect(page.getByRole("alert")).toContainText("download couldn’t complete");
+  app.exportFails = false; app.exportTruncated = true;
+  await button.click();
+  await expect(page.getByRole("alert")).toContainText("interrupted");
+  expect(count).toBe(0);
+  app.exportTruncated = false;
+  const completed = page.waitForEvent("download");
+  await button.click();
+  expect((await completed).suggestedFilename()).toBe("bookvane-reading-data.jsonl");
+  await expect(page.getByRole("status").filter({ hasText: "Download started" })).toBeVisible();
+  expect(count).toBe(1);
+});
+
+test("M3 late download never leaves a departed account", async ({ page, app }) => {
+  app.dataControls = true;
+  let release;
+  app.holdExport = new Promise(resolve => { release = resolve; });
+  let count = 0;
+  page.on("download", () => { count += 1; });
+  await page.goto("/my-data");
+  await page.getByRole("button", { name: "Download my data", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Preparing download…", exact: true })).toBeDisabled();
+  app.authenticated = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+  await expect(page).toHaveURL(/\/login/);
+  release();
+  await expect.poll(() => app.requests.filter(request => request.path === "/me/reading-export").length).toBe(1);
+  await page.waitForTimeout(100);
+  expect(count).toBe(0);
 });
 
 for (const flag of ["Own", "Want"]) {

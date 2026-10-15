@@ -1,6 +1,6 @@
 # M3 — private context and trustworthy data control
 
-October 15, 2026. **In progress, not a completed milestone.** Michael approved integrating M2 and beginning M3. M2 PR #13 merged into `v3` at `25da21d755bb41cae4ed93e738b94efe73d4b661`; this feature branch, `codex/v3-m3-private-context`, starts at that exact commit. Main/V2 remain unchanged. No production deployment, migration, import, paid service or M4 work.
+October 15, 2026. **Full M3 implementation undergoing final verification and independent QA; not yet integrated.** Michael approved completing M3 and integrating only after the test lead's GO. M2 PR #13 merged into `v3` at `25da21d755bb41cae4ed93e738b94efe73d4b661`; this feature branch, `codex/v3-m3-private-context`, starts at that exact commit. Main/V2 remain unchanged. No production deployment, migration, import, paid service or M4 work.
 
 ## First implementation slice
 
@@ -24,11 +24,35 @@ Fresh implementation-only targets: `bookvane_v3_m3_context_test`, `bookvane_v3_m
 
 The390px workspace capture was visually inspected against the existing V2 design. App test listeners exited, and the exact local cluster started for this work was stopped cleanly after identity verification. Synthetic fixtures were retained; no production/user database was changed. Patch check passed.
 
-## Remaining within M3
+## Completed implementation after the first slice
 
-1. Version-checked explicit deletion of one reading record and confirmed forget of an entire private library entry/history; do not turn flag changes into deletion.
-2. Owner-only bounded/streamed data export, download feedback and accurate inclusion/privacy wording, without retaining server archives.
-3. Update privacy/deletion/recovery procedures, test user-deletion cascades and removal/export authorization/concurrency/retry behavior.
-4. Final integrated M3 journeys, independent QA, accessibility/phone review and milestone completion report.
+- **Data/schema:** no schema change. Existing entry/attempt identities, constraints and cascades implement confirmed removal. One reading can be deleted without removing flags, save reason, preferences or other readings. Forget removes only that owner's entry and its history; the shared catalogue and other readers remain.
+- **Backend:** strict confirmation/version DTO; owner-scoped DELETE routes; serialized parent lock and stale409. Requerying an attempt after acquiring the parent lock now handles a concurrent deletion with404 rather than refreshing a vanished object. Old creation replays cannot resurrect deleted records with stale versions.
+- **Export service:** dedicated `services/reading_export.py` streams owner-only JSONL with a repeatable-read, read-only snapshot; fixed-count queries and100-row cursor batches; timeouts and connection cleanup. Final completion marker prevents offering a truncated browser download as success. No server archive, object storage, queue or paid service. Browser memory grows with its download, not backend library size.
+- **Frontend:** confirmed one-reading versus whole-entry scopes, named book/date/state, easy cancellation, duplicate-submit protection, stale-version refusal and lost-response reconciliation. Records remain visible on an uncertain result. Account data page downloads validated complete files, including when a richer library is read-only. Shared command hook preserves existing account/route guards; provider invalidation prevents pre-removal lookups from republishing flags. All controls are capability gated; old/off backends retain V2.
+- **Privacy/operations:** public factual privacy copy and account-data explanation, operator-assisted verified account deletion and restore/deletion reconciliation procedure. Self-service account deletion and automatic JSONL restore are not claimed. A public-release support contact and actual production backup retention still need confirmation before broad public enablement; neither creates a new service or authorizes live operations.
+- **Structure:** extracted the already-existing command hook for reuse across context/data controls, and isolated streaming export from lifecycle mutations. No new general framework/dependency, auth redesign, catalogue change or UI redesign. UI lead guidance informed confirmation scope, neutral failures and truthful “Download started” wording.
+
+### Executed final verification so far
+
+- Initial focused frontend extension:17 passed/two failed (1.1min). Both new expectations exposed feedback mismatch: server503 is intentionally sanitized by the existing error helper, and local interrupted-export errors used the generic reading fallback. Corrected feature-specific neutral failure text and expectations; never count that run as passing.
+- Reading regressions:56 passed,132.74s, one existing warning, including15 new data-control cases beyond the first slice's41. Earlier intermediate53 passed21.90s before the final three security/replay/timeout cases were added. Counts overlap, not109 unique cases.
+- Existing auth/application:69 passed29.58s,14 existing warnings. No auth/cookie service changes.
+- Fresh local browser fixture upgrade reached existing head `ef41a83d9012`; Alembic check reports no new operations. Compile and lint passed; lint retains12 existing warnings.
+- Full frontend: **118 passed**,5.5min, including19 focused lifecycle/context/data-control cases. Build passed as part of setup. This rerun resolved both earlier new-test failures; it includes existing V2, auth, mobile and library/session regressions.
+- Final context/data-control backend reruns: **26 passed**,16.01s, including actual refresh/reset-token cascade rows and rejection of an old access cookie after account deletion; then **26 passed**,14.19s, after replacing the export attempt-field denylist with an explicit format1 allowlist. These overlap the reading suite, not extra distinct cases.
+- Real integration: **five journeys passed**,2.0min, using Edge → actual FastAPI → fresh local PostgreSQL. M3 now includes real complete download/footer/content checks, Cancel, a deliberately committed deletion with a lost response followed by safe reconciliation, preserved other reading/save reason, confirmed whole-entry forget and retained shared Book. Existing M1/M2 journeys also passed; actual registration limits remained enabled.
+- The390px removal screenshot was visually checked against existing V2 styling. It is a full-page capture with the native modal positioned within the scrolled viewport; no horizontal overflow was measured. This is not physical-phone or hosted-cookie certification.
+- Final targeted browser rerun: **20 passed**,57.7s, with a successful production build, after adding one regression: a DELETE404 must also be followed by a confirmed absent entry before a forget retry navigates away. A missing DELETE route while the entry still exists remains an error. This includes the19 targeted cases in the earlier full118; the last addition was run in this focused20, not claimed as a full119-case execution. Independent M3 QA has not yet issued GO.
+
+All M3 implementation acceptance boundaries now have executed evidence: optional/no-journal lifecycle remains usable; failed and stale drafts persist; reread memories remain distinct; private text stays literal and owner-only; scoped removal preserves shared books/preferences; complete export is owner-only and session guarded. The independent test lead's decision, not this implementation assertion, remains the integration gate.
+
+Fresh targets for this completion: `bookvane_v3_m3_controls_test` and `bookvane_v3_m3_controls_browser_test`, existing loopback cluster55433 and non-superuser `bookvane_v3_test`. Target identity, zero starting public tables and nonsuperuser verified before testing. Database creation initially failed under that role because it correctly has no CREATEDB; used only the existing local administrator to create new empty owned fixtures, not to run application tests. Existing fixture databases retained, not cleared/reused. No production/Neon connection, email delivery or catalogue download.
+
+## Remaining verification gates
+
+1. Finish and record final integrated browser/regression results and inspect mobile confirmation/download presentation.
+2. Publish a frozen feature SHA and obtain independent test-lead GO; resolve any findings before integration.
+3. Update PR14 evidence, respect repository checks, merge normally into `v3` only after GO, and record completion. No M4 or production rollout.
 
 The UI lead supplied interaction guidance: keep context optional and separate from lifecycle success, preserve original draft versions, make removal scope explicit, retain records on failed deletes, and provide truthful export/paused-state feedback. React and full-flow verification guidance inform session-safe forms and actual browser/API/database checks; database guidance keeps testing isolated and the existing infrastructure unchanged. These are implementation references, not new hosting decisions.

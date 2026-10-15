@@ -1,16 +1,32 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi.responses import StreamingResponse
+from starlette.background import BackgroundTask
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database import engine, get_db
 from models import User
 from rate_limit import limiter
-from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, PrivateEntryCreate, ReadingResult, ReadingWorkspace
+from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, PrivateEntryCreate, ReadingRemoval, ReadingResult, ReadingWorkspace
 from routes.library import reading_user, writing_user
 from services.reading import ReadingService
 
 router = APIRouter(prefix="/me")
+
+
+@router.get("/reading-export")
+@limiter.limit("3/minute")
+def reading_export(request: Request, current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    from services.reading_export import stream_reading_export
+    user_id = current_user.id
+    # Authentication only read data. Release its connection before opening the
+    # bounded export snapshot so each download needs just one connection.
+    db.rollback()
+    stream = stream_reading_export(engine, user_id)
+    return StreamingResponse(stream, media_type="application/x-ndjson", background=BackgroundTask(stream.close),
+        headers={"Content-Disposition": 'attachment; filename="bookvane-reading-data.jsonl"',
+                 "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/home")
@@ -59,3 +75,18 @@ def reading_detail(request: Request, attempt_id: UUID,
 def change_attempt(request: Request, attempt_id: UUID, data: AttemptUpdate,
                    current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
     return ReadingService(db).update_attempt(current_user.id, attempt_id, data)
+
+
+@router.delete("/reading-attempts/{attempt_id}", response_model=EntryDetail)
+@limiter.limit("60/minute")
+def remove_attempt(request: Request, attempt_id: UUID, data: ReadingRemoval,
+                   current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
+    return ReadingService(db).remove_attempt(current_user.id, attempt_id, data)
+
+
+@router.delete("/library/{entry_id}", status_code=204)
+@limiter.limit("30/minute")
+def forget_entry(request: Request, entry_id: int, data: ReadingRemoval,
+                 current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
+    ReadingService(db).forget_entry(current_user.id, entry_id, data)
+    return Response(status_code=204)

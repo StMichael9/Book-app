@@ -28,7 +28,7 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
     writable = reading_enabled(current_user.id)
     return {"enabled": writable or library_needs_v3(db, current_user.id), "writable": writable, "contract_version": 1,
             "milestone": "M3", "features": {"library": True, "reading_actions": True,
-            "private_context": True, "reading_export": False, "privacy_controls": False, "library_import": False}}
+            "private_context": True, "reading_export": True, "privacy_controls": True, "library_import": False}}
 
 
 @router.get("/library", response_model=LibraryPage)

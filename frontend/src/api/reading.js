@@ -17,3 +17,10 @@ export const getReadingAttempt = (id) => apiRequest(`/me/reading-attempts/${id}`
 export const createPrivateEntry = (data) => apiRequest("/me/library/private", { method: "POST", body: JSON.stringify(data) });
 export const findPrivateMatches = (title) => apiRequest(`/me/library/private-matches?${new URLSearchParams({ title })}`);
 export const updateLibraryEntry = (id, data) => apiRequest(`/me/library/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const deleteReadingAttempt = (id, version) => apiRequest(`/me/reading-attempts/${id}`, {
+  method: "DELETE", body: JSON.stringify({ expected_version: version, confirmed: true }),
+});
+export const forgetLibraryEntry = (id, version) => apiRequest(`/me/library/${id}`, {
+  method: "DELETE", body: JSON.stringify({ expected_version: version, confirmed: true }),
+});
+export const getReadingExport = () => apiRequest("/me/reading-export", { responseType: "response" });

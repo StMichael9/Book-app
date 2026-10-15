@@ -53,6 +53,19 @@ class LibraryLookup(BaseModel):
         return self
 
 
+class ReadingRemoval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(strict=True, ge=1)
+    confirmed: StrictBool
+
+    @field_validator("confirmed")
+    @classmethod
+    def require_confirmation(cls, value):
+        if not value:
+            raise ValueError("Confirm this removal explicitly")
+        return value
+
+
 class LibraryBook(BaseModel):
     id: int
     title: str

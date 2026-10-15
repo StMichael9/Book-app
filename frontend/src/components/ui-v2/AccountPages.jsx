@@ -180,6 +180,7 @@ export function RecoveryPage({ reset = false }) {
 export function AccountPage() {
   const auth = useAuth();
   const reader = useReader();
+  const library = useUserBooks();
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState("");
   async function logout() {
@@ -188,7 +189,8 @@ export function AccountPage() {
   }
   return <section className="bv-container"><div className="bv-account"><PageHeading eyebrow="Your corner of Bookvane" title={auth.isAuthenticated ? "Make yourself at home." : "A library to call your own."}>{auth.isAuthenticated ? "Your books, your subjects, your way of browsing." : "Save the books that interest you and keep the ones you own together. Join when you’re ready."}</PageHeading>
     {auth.isLoading ? auth.sessionError ? null : <p role="status">Checking your account…</p> : auth.isAuthenticated ? <><div className="bv-account-row"><div><strong>My Books</strong><span>Your Own and Want shelves</span></div><TextLink to="/my-books">View books <ArrowRight aria-hidden="true" /></TextLink></div>
-      <div className="bv-account-row"><div><strong>Discovery subjects</strong><span>What catches your eye</span></div><TextLink to="/preferences">Choose subjects</TextLink></div></> : <div className="bv-form-actions"><ActionLink to="/register">Create account</ActionLink><TextLink to="/login">Sign in</TextLink></div>}
+      <div className="bv-account-row"><div><strong>Discovery subjects</strong><span>What catches your eye</span></div><TextLink to="/preferences">Choose subjects</TextLink></div>
+      {(library.readingExport || library.privacyControls) && <div className="bv-account-row"><div><strong>Your reading data</strong><span>Private download and removal controls</span></div><TextLink to="/my-data">Manage my data</TextLink></div>}</> : <div className="bv-form-actions"><ActionLink to="/register">Create account</ActionLink><TextLink to="/login">Sign in</TextLink></div>}
     <div className="bv-account-row"><div><strong>Appearance</strong><span>{reader.theme === "dark" ? "Dark" : "Light"} theme</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></div>
     {auth.isAuthenticated && <div className="bv-account-row"><div><strong>Account</strong><span>Come back to your books anytime.</span></div><Button variant="quiet" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></div>}
     {error && <p className="bv-field-error" role="alert">{error}</p>}

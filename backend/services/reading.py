@@ -32,7 +32,8 @@ class ReadingService(LibraryService):
 
     def _attempt(self, user_id, attempt_id):
         attempt = self.db.scalar(select(ReadingAttempt).join(UserBook).where(
-            ReadingAttempt.id == attempt_id, UserBook.user_id == user_id))
+            ReadingAttempt.id == attempt_id, UserBook.user_id == user_id)
+            .execution_options(populate_existing=True))
         if attempt is None:
             raise HTTPException(404, detail="Reading record not found")
         return attempt
@@ -126,7 +127,9 @@ class ReadingService(LibraryService):
     def update_attempt(self, user_id, attempt_id, data):
         attempt = self._attempt(user_id, attempt_id)
         entry = self._entry(user_id, attempt.user_book_id)
-        self.db.refresh(attempt)
+        # A deletion can finish while we wait for the parent lock. Requery
+        # with ownership rather than refreshing a now-deleted ORM instance.
+        attempt = self._attempt(user_id, attempt_id)
         self._version(user_id, entry, data.expected_version)
         changes = data.model_dump(exclude_unset=True, exclude={"expected_version"})
         target = changes.get("state", attempt.state)
@@ -150,6 +153,24 @@ class ReadingService(LibraryService):
             self._touch(entry)
         self.db.commit()
         return self._result(user_id, entry.id, attempt.id)
+
+    def remove_attempt(self, user_id, attempt_id, data):
+        attempt = self._attempt(user_id, attempt_id)
+        entry = self._entry(user_id, attempt.user_book_id)
+        attempt = self._attempt(user_id, attempt_id)
+        self._version(user_id, entry, data.expected_version)
+        self.db.delete(attempt)
+        self._touch(entry)
+        self.db.commit()
+        return self.detail(user_id, entry.id)
+
+    def forget_entry(self, user_id, entry_id, data):
+        entry = self._entry(user_id, entry_id)
+        self._version(user_id, entry, data.expected_version)
+        # Database cascades remove this entry's attempts only. Catalogue rows,
+        # preferences, and other readers' shelves are deliberately untouched.
+        self.db.delete(entry)
+        self.db.commit()
 
     def create_private(self, user_id, data):
         values = data.model_dump(mode="json", exclude={"request_id"})
