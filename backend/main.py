@@ -1,4 +1,5 @@
 import os
+import logging
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Depends, Request
@@ -13,6 +14,7 @@ from routes import autocomplete
 from routes import user_books
 from routes import user_preferences
 from routes import email_signups
+from routes import library
 
 from auth.auth import router as auth_router
 
@@ -26,6 +28,22 @@ from slowapi.errors import RateLimitExceeded
 from rate_limit import limiter
 
 app = FastAPI()
+
+
+class PrivateQueryLogFilter(logging.Filter):
+    """Keep private library search text out of Uvicorn access logs."""
+
+    def filter(self, record):
+        if isinstance(record.args, tuple) and len(record.args) == 5:
+            client, method, target, protocol, status = record.args
+            if isinstance(target, str) and target.split("?", 1)[0].startswith("/me/"):
+                record.args = (client, method, target.split("?", 1)[0], protocol, status)
+        return True
+
+
+access_logger = logging.getLogger("uvicorn.access")
+if not any(isinstance(item, PrivateQueryLogFilter) for item in access_logger.filters):
+    access_logger.addFilter(PrivateQueryLogFilter())
 
 def _parse_cors_origins() -> list[str]:
     configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173" if settings.is_dev else "")
@@ -47,7 +65,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_parse_cors_origins(),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "DELETE", "PUT", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -59,7 +77,10 @@ async def enforce_write_origin(request: Request, call_next):
     if not settings.is_dev and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         if request.headers.get("origin") not in _parse_cors_origins():
             return JSONResponse(status_code=403, content={"detail": "Untrusted request origin"})
-    return await call_next(request)
+    response = await call_next(request)
+    if request.url.path.startswith("/me/"):
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -70,6 +91,7 @@ app.include_router(auth_router)
 app.include_router(user_books.router)
 app.include_router(user_preferences.router)
 app.include_router(email_signups.router)
+app.include_router(library.router)
 
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)

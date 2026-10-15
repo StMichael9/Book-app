@@ -14,11 +14,13 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionError, setSessionError] = useState(null);
   const sessionVersion = useRef(0);
+  const [sessionGeneration, setSessionGeneration] = useState(0);
   const startupRefresh = useRef(null);
 
   useEffect(() => {
     const handleSessionExpired = () => {
       sessionVersion.current += 1;
+      setSessionGeneration(sessionVersion.current);
       setIsAuthenticated(false);
       setIsLoading(false);
       setSessionError(null);
@@ -29,6 +31,7 @@ export function AuthProvider({ children }) {
 
   const checkSession = useCallback(() => {
     const version = ++sessionVersion.current;
+    setSessionGeneration(version);
     const isCurrent = () => version === sessionVersion.current;
     setIsLoading(true);
     setSessionError(null);
@@ -64,11 +67,13 @@ export function AuthProvider({ children }) {
       isAuthenticated,
       isLoading,
       sessionError,
+      sessionGeneration,
       retrySession: checkSession,
       async login(credentials) {
         // A startup refresh belongs to the previous session state. Its late
         // response must not override an explicit login or registration.
         const version = ++sessionVersion.current;
+        setSessionGeneration(version);
         setSessionError(null);
         try {
           // Finish the older cookie-writing response before issuing new
@@ -82,6 +87,7 @@ export function AuthProvider({ children }) {
       },
       async register(credentials) {
         const version = ++sessionVersion.current;
+        setSessionGeneration(version);
         setSessionError(null);
         try {
           await startupRefresh.current?.catch(() => {});
@@ -94,6 +100,7 @@ export function AuthProvider({ children }) {
       },
       async logout() {
         sessionVersion.current += 1;
+        setSessionGeneration(sessionVersion.current);
         await logoutUser();
         setIsAuthenticated(false);
         // A full navigation prevents a ProtectedRoute redirect from racing
@@ -101,7 +108,7 @@ export function AuthProvider({ children }) {
         window.location.replace("/");
       },
     }),
-    [isAuthenticated, isLoading, sessionError, checkSession],
+    [isAuthenticated, isLoading, sessionError, sessionGeneration, checkSession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

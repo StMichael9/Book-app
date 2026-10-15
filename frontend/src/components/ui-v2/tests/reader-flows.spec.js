@@ -27,6 +27,7 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       state.requests.push({ path, method, body, query: url.searchParams });
       const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: false, contract_version: 1 });
       if (path === "/auth/refresh") { if (state.holdRefresh) await state.holdRefresh; return state.authenticated ? reply(200, {}) : reply(401, { detail: "Session expired" }); }
       if (path === "/auth/register") return reply(201, {});
       if (path === "/auth/login") { if (state.loginFails) return reply(401, { detail: "Invalid email or password" }); state.authenticated = true; return reply(200, {}); }

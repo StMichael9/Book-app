@@ -9,6 +9,7 @@ import { requestPasswordReset, resetPassword } from "../../api/auth.js";
 import { useReader } from "./readerState.js";
 import { errorText, loadSubjectOptions, safeReturnTo, subjectLabel, useRequest, validBookId } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "./primitives.jsx";
+import LibraryPage from "../reading/LibraryPage.jsx";
 
 export function RequireAccount({ children }) {
   const auth = useAuth();
@@ -77,6 +78,12 @@ export function AuthPage({ register = false }) {
 }
 
 export function MyBooksPage() {
+  const library = useUserBooks();
+  if (library.mode === "v3") return <LibraryPage />;
+  return <LegacyMyBooksPage />;
+}
+
+function LegacyMyBooksPage() {
   const library = useUserBooks();
   const reader = useReader();
   const [params, setParams] = useSearchParams();

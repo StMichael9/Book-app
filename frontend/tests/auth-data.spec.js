@@ -17,6 +17,7 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       app.requests.push({ path, method, body });
       const reply = (status, json, headers) => route.fulfill({ status, json, headers });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: false, contract_version: 1 });
       if (path === "/auth/refresh") {
         if (app.refreshNetworkFails) return route.abort("failed");
         if (app.refreshStatus) return reply(app.refreshStatus, { detail: "Service temporarily unavailable" });

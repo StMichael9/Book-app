@@ -83,7 +83,8 @@ export async function apiRequest(path, options = {}) {
       detail = "";
     }
 
-    const error = new Error(detail || `Request failed (${response.status})`);
+    const message = typeof detail === "string" ? detail : detail?.message;
+    const error = new Error(message || `Request failed (${response.status})`);
     error.status = response.status;
     error.detail = detail;
     throw error;

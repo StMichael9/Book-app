@@ -40,7 +40,7 @@ class SearchService:
                     select(UserBook.id)
                     .where(UserBook.book_id == Book.id)
                     .where(UserBook.user_id == current_user.id)
-                    .where(UserBook.status == UserBookStatus.owned)
+                    .where(UserBook.is_owned.is_(True))
                 )
                 query = query.where(~owned_match)
 
@@ -49,7 +49,7 @@ class SearchService:
                     select(UserBook.id)
                     .where(UserBook.book_id == Book.id)
                     .where(UserBook.user_id == current_user.id)
-                    .where(UserBook.status == shelf_status)
+                    .where((UserBook.is_owned if shelf_status == UserBookStatus.owned else UserBook.is_wanted).is_(True))
                 )
                 query = query.where(status_match)
 

@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     resend_api_key: str | None = Field(default=None, alias="RESEND_API_KEY")
     password_reset_from: str | None = Field(default=None, alias="PASSWORD_RESET_FROM")
     frontend_base_url: str | None = Field(default=None, alias="FRONTEND_BASE_URL")
+    reading_v3_enabled: bool = Field(default=False, alias="READING_V3_ENABLED")
+    reading_v3_user_ids: str = Field(default="", alias="READING_V3_USER_IDS")
+
+    @field_validator("reading_v3_user_ids")
+    @classmethod
+    def check_reading_allowlist(cls, value: str) -> str:
+        from uuid import UUID
+        return ",".join(str(UUID(item.strip())) for item in value.split(",") if item.strip())
 
     @field_validator("database_url")
     @classmethod

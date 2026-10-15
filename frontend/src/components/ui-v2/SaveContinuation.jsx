@@ -21,7 +21,7 @@ export default function SaveContinuation() {
   const status = new URLSearchParams(location.search).get("save");
   useEffect(() => {
     if (!bookId || !["want", "owned"].includes(status) || !auth.isAuthenticated || auth.isLoading || !reader.libraryReady || library.loading || library.error) return undefined;
-    const key = `${location.pathname}:${location.search}:${retry}`;
+    const key = `${auth.sessionGeneration}:${location.pathname}:${location.search}:${retry}`;
     if (attempted.current === key) return undefined;
     attempted.current = key;
     let active = true;
@@ -34,6 +34,6 @@ export default function SaveContinuation() {
       } else setFailed(true);
     });
     return () => { active = false; };
-  }, [bookId, status, auth.isAuthenticated, auth.isLoading, reader.libraryReady, library.loading, library.error, location.pathname, location.search, retry, navigate]);
+  }, [bookId, status, auth.isAuthenticated, auth.isLoading, auth.sessionGeneration, reader.libraryReady, library.loading, library.error, location.pathname, location.search, retry, navigate]);
   return failed && bookId && ["want", "owned"].includes(status) ? <div className="bv-notice bv-notice--error bv-save-retry"><p role="alert">You’re signed in, but this book couldn’t be saved. Please try again.</p><Button variant="secondary" onClick={() => setRetry((value) => value + 1)}>Retry save</Button></div> : null;
 }

@@ -1,6 +1,8 @@
 # Bookvane V2
 
-Bookvane is a React/Vite book-discovery app backed by FastAPI and PostgreSQL. The frontend is currently hosted on Vercel, the API on Render, and the database on Neon. This repository does not include a live data import or paid service.
+V3 development is isolated on `codex/v3-reading-home`. See [the V3 decision record](docs/v3/decision-record.md) and [M0/M1 implementation report](docs/v3/m0-m1-report.md). V3 is disabled by default; deployment and public enablement require separate approval.
+
+Bookvane is a React/Vite book-discovery app backed by FastAPI and PostgreSQL. The frontend and API are hosted on Render, and the database on Neon. V3 development adds no hosted service or payment infrastructure.
 
 ## Current features
 
@@ -19,12 +21,12 @@ The reset-link URL is sent through Resend. Verify `shelfbound.dev` as a sender b
 ## Production configuration and release order
 
 1. Rotate the Neon test credential previously committed in `backend/.env.test` if it is still active. The file is no longer tracked on this branch, but removing it does **not** erase Git history. Do not reuse that credential. Configure a separate disposable database and user for tests.
-2. Back up the database and apply `python -m alembic upgrade head` before deploying V2 code. The older UUID-to-integer catalogue migration now fails safely if a populated UUID catalogue is present; that case needs an explicit data migration, not an automatic drop.
+2. The existing V2 schema head is `d9b6e1f2a3c4`. This V3 branch adds `ef41a83d9012`: apply it only to isolated development/test databases for now. Production migration/deployment requires separate approval and a fresh recovery point; follow the V3 report's release safeguards. The historical UUID-to-integer migration rejects populated UUID catalogues rather than deleting them.
 3. Set `DATABASE_URL`, a random 32-byte-or-longer `SECRET_KEY`, `IS_DEV=false`, `CORS_ORIGINS` (the exact deployed HTTPS frontend origin, without a trailing slash or path), `FRONTEND_BASE_URL`, `RESEND_API_KEY`, and `PASSWORD_RESET_FROM` on Render. Production startup now rejects missing, wildcard, HTTP or path-bearing CORS origins. Multiple exact origins can be comma-separated. The blueprint leaves secrets and live origins for you to supply. Use `COOKIE_DOMAIN` only if deliberately sharing cookies across API subdomains; leave it unset for a Render host. Production cookies default to `Secure; HttpOnly; SameSite=None`. If frontend and API move under the same site, `COOKIE_SAMESITE=lax` can be set explicitly.
 4. Set `VITE_API_BASE_URL` to the deployed API URL for the frontend build. Keep `VITE_BOOKSHOP_AFFILIATE_ID` unset until you have a real affiliate ID, a valid ISBN import, and a compliant hosting decision. This is a public build variable, not a secret.
 5. Check registration, login persistence, refresh, logout, reset email, preferences, Own/Want, discovery, and sharing in a deployed browser. Cross-site cookies can be blocked by browser privacy settings even with `SameSite=None`; a same-site frontend/API domain is the durable fix, and it is not configured by this branch.
 
-Vercel Hobby's non-commercial rule is still a user-owned gate for affiliate-enabled public use. No hosting migration, new domain purchase, affiliate enrollment, or catalogue import is included here. Render free cold starts and Neon's free storage cap remain limits to measure against real usage.
+Render free cold starts and Neon's shared free allowances remain limits to measure against real usage. M1 adds no hosting service, domain purchase, affiliate enrollment or catalogue import.
 
 ## Safe tests and scale checks
 
