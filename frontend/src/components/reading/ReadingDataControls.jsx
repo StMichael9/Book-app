@@ -8,7 +8,8 @@ import { Button, NativeDialog, PageHeading, TextLink } from "../ui-v2/primitives
 export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
   const command = useReadingCommand("We couldn’t confirm the removal. Please try again or reload to check."), library = useUserBooks(), go = useNavigate();
   const title = entry.book?.title || entry.private_title;
-  const record = attempt ? `${attempt.state} · ${attempt.started_on || "Start date unknown"}${attempt.ended_on ? ` → ${attempt.ended_on}` : ""}` : null;
+  const state = attempt && ({ reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" })[attempt.state];
+  const record = attempt ? `${state} · ${attempt.started_on || "Start date unknown"}${attempt.ended_on ? ` → ${attempt.ended_on}` : ""}` : null;
   async function remove(assertCurrent) {
     if (!attempt) {
       try { await forgetLibraryEntry(entry.id, entry.version); }

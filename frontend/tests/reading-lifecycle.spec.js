@@ -61,7 +61,10 @@ const test = base.extend({
         if (!state.entries.has(id)) return reply(404, { detail: "Library entry not found" });
         return reply(200, { entry: state.entries.get(id), current_attempt: id === 101 ? state.attempt : null, editions: [] });
       }
-      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: path.includes("/101/") && state.attempt ? [state.attempt] : [], next_cursor: null });
+      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: path.includes("/101/") && state.attempt ? [state.attempt, ...(state.historicalAttempt ? [state.historicalAttempt] : [])] : [], next_cursor: null });
+      if (state.historicalAttempt && path === `/me/reading-attempts/${state.historicalAttempt.id}` && method === "GET") {
+        return reply(200, { entry: state.entries.get(101), attempt: state.historicalAttempt });
+      }
       const patch = path.match(/^\/me\/library\/(\d+)$/);
       if ((patch || path === `/me/reading-attempts/${attemptId}`) && method === "DELETE") {
         if (state.removalMissingRoute) return reply(404, { detail: "Not found" });
@@ -384,10 +387,55 @@ test("M3 read-only history can show private memory without allowing saves", asyn
   app.privateContext = true; app.readOnly = true; app.attempt.note = "Preserved private memory";
   await page.goto("/my-books/101");
   await expect(page.getByText("Preserved private memory", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Note and reaction", exact: true }).click();
+  await page.locator(".bv-reading-history").getByRole("button", { name: "View reading memory", exact: true }).click();
   await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveValue("Preserved private memory");
   await expect(page.getByRole("button", { name: "Save reading memory", exact: true })).toBeDisabled();
   expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
+});
+
+test("M3 historical memory and correction identify the selected record and receive keyboard focus once", async ({ page, app }) => {
+  app.privateContext = true;
+  app.historicalAttempt = { ...app.attempt, id: "22222222-2222-4222-8222-222222222222", state: "finished",
+    started_on: "2025-01-02", ended_on: "2025-02-03", note: "Earlier reading memory" };
+  await page.goto("/my-books/101");
+  const older = page.locator(".bv-reading-history li").last();
+  const memory = older.getByRole("button", { name: "Note and reaction", exact: true });
+  await memory.focus(); await memory.press("Enter");
+  const identity = page.locator(".bv-reading-draft").getByRole("heading", { name: "Selected reading", exact: true });
+  await expect(identity).toBeFocused();
+  await expect(page.locator(".bv-reading-draft")).toContainText("Finished · 2025-01-02 → 2025-02-03");
+  await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+  const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
+  await expect(field).toHaveValue("Earlier reading memory");
+  await field.fill("Unsaved earlier memory");
+  const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
+  await want.click();
+  await expect(want).toHaveAttribute("aria-pressed", "true");
+  await expect(field).toHaveValue("Unsaved earlier memory");
+  await expect(identity).not.toBeFocused();
+  await page.getByRole("button", { name: "Close editor and reload", exact: true }).click();
+  await older.getByRole("button", { name: "Correct this reading", exact: true }).click();
+  await expect(identity).toBeFocused();
+  await expect(page.locator(".bv-reading-draft")).toContainText("Finished · 2025-01-02 → 2025-02-03");
+  await expect(page.getByLabel("Started on (optional)", { exact: true })).toHaveValue("2025-01-02");
+});
+
+test("M3 empty read-only memory advertises viewing rather than adding context", async ({ page, app }) => {
+  app.privateContext = true; app.readOnly = true;
+  await page.goto("/my-books/101");
+  await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "View reading memory", exact: true }).first().click();
+  await expect(page.getByText("No note or reaction is saved for this reading. Changes are temporarily paused.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save reading memory", exact: true })).toBeDisabled();
+  expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
+});
+
+test("M3 stopped reading deletion uses the familiar state label", async ({ page, app }) => {
+  app.dataControls = true; app.attempt.state = "dnf"; app.entries.get(101).reading_state = "dnf";
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Stopped · Start date unknown");
+  await expect(page.getByRole("dialog")).not.toContainText("dnf");
 });
 
 test("M3 late context response cannot reopen a departed account's draft", async ({ page, app }) => {
