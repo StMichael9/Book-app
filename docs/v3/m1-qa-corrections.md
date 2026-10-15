@@ -23,4 +23,6 @@ An initial restricted-process browser attempt could not reach its child loopback
 
 These frontend checks do not recertify hosted cookies, actual backend authorization, or production database behavior. The backend/migration code is unchanged; the prior M1 backend/recovery evidence remains historical evidence, not a fresh run for this patch. All 26 new regression cases are synthetic browser fixtures, not catalogue records.
 
-Independent QA owns retest and milestone sign-off. Fix implementation alone does not override the independent QA NO-GO. M2 and production remain unauthorized.
+Independent QA subsequently reproduced both original acceptance scenarios against `faa7a9e` in Edge desktop and WebKit iPhone simulation: **4 checks passed**, zero page errors. QA closed both findings for that local commit. This was client-only with in-memory API responses, not a real-cookie/database/physical-iPhone certification.
+
+The independent decision is **M1 CONDITIONAL GO**, pending approval and execution of the broader independent database/migration/integration pass. The independent report and evidence are saved outside the checkout in `deliverables/Bookvane_V3_M1_Independent_QA_2026-10-14.md` and `deliverables/qa-v3-m1-2026-10-14/correction-retest.json` under the BookVane workspace. M2, pushing and production remain unauthorized.
