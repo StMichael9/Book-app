@@ -15,6 +15,7 @@ from routes import user_books
 from routes import user_preferences
 from routes import email_signups
 from routes import library
+from routes import reading
 
 from auth.auth import router as auth_router
 
@@ -92,6 +93,7 @@ app.include_router(user_books.router)
 app.include_router(user_preferences.router)
 app.include_router(email_signups.router)
 app.include_router(library.router)
+app.include_router(reading.router)
 
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)

@@ -28,7 +28,7 @@ function PasswordField({ label = "Password", creating = false }) {
 }
 
 function accountIntent(params) {
-  const returnTo = safeReturnTo(params.get("returnTo"));
+  const returnTo = safeReturnTo(params.get("returnTo"), "/home");
   const id = validBookId(params.get("bookId"));
   const status = params.get("save");
   const intent = id && ["want", "owned"].includes(status) && new URL(returnTo, window.location.origin).pathname === `/book/${id}` ? { id, status } : null;

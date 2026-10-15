@@ -10,6 +10,7 @@ export const API_BASE_URL =
 
 let refreshPromise = null;
 let sessionChanges = 0;
+let sessionEpoch = 0;
 
 export function refreshSession() {
   if (!refreshPromise) {
@@ -36,6 +37,7 @@ export function refreshSession() {
 // Set the guard before waiting, so an unrelated 401 cannot start another
 // rotation between the completed refresh and login/logout's cookie response.
 export async function withSessionChange(change) {
+  sessionEpoch += 1;
   sessionChanges += 1;
   try {
     await refreshPromise?.catch(() => {});
@@ -46,6 +48,7 @@ export async function withSessionChange(change) {
 }
 
 export async function apiRequest(path, options = {}) {
+  const epoch = sessionEpoch;
   const { skipRefresh = false, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
@@ -58,7 +61,7 @@ export async function apiRequest(path, options = {}) {
     ...requestOptions,
   });
 
-  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0) {
+  if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0 && epoch === sessionEpoch) {
     let refreshed = false;
     try {
       await refreshSession();
@@ -67,9 +70,9 @@ export async function apiRequest(path, options = {}) {
       // A network outage does not prove a session is invalid. Preserve the
       // account state and let the failed operation show its existing retry UI.
       if (error.status !== 401) throw error;
-      window.dispatchEvent(new Event("bookvane:session-expired"));
+      if (epoch === sessionEpoch && sessionChanges === 0) window.dispatchEvent(new Event("bookvane:session-expired"));
     }
-    if (refreshed) {
+    if (refreshed && epoch === sessionEpoch && sessionChanges === 0) {
       return apiRequest(path, { ...requestOptions, skipRefresh: true });
     }
   }

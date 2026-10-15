@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ArrowRight, BookOpen, Bookmark, Moon, Search, Sun, User } from "lucide-react";
+import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
@@ -8,27 +8,32 @@ import { AccountPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, Requ
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
+import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
+import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import "../../styles/ui-v2/bookvane.css";
 
 function Brand() {
-  return <Link className="bv-brand" to="/" aria-label="Bookvane home"><img src="/bookvane-logo.png" alt="" width="35" height="35" /><span>Bookvane</span></Link>;
+  const { readingActions } = useUserBooks();
+  return <Link className="bv-brand" to={readingActions ? "/home" : "/"} aria-label="Bookvane home"><img src="/bookvane-logo.png" alt="" width="35" height="35" /><span>Bookvane</span></Link>;
 }
 
 function Header() {
   const auth = useAuth();
   const reader = useReader();
+  const { readingActions } = useUserBooks();
   const location = useLocation();
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
-  const library = location.pathname === "/my-books";
-  const account = !discover && !library;
+  const library = location.pathname.startsWith("/my-books");
+  const home = location.pathname === "/home";
+  const account = !discover && !library && !home;
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
-    <nav className="bv-desktop-nav" aria-label="Main navigation"><Link className={discover ? "bv-active" : ""} to="/browse">Discover</Link><Link className={library ? "bv-active" : ""} to="/my-books">My Books</Link>{auth.isAuthenticated && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
+    <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} to="/home">Home</Link>}<Link className={discover ? "bv-active" : ""} to="/browse">Discover</Link><Link className={library ? "bv-active" : ""} to="/my-books">My Books</Link>{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className="bv-header-actions"><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
       {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to="/register">Join free</ActionLink></>)}
     </div>
-  </div></header><nav className="bv-mobile-nav" aria-label="Mobile navigation">
-    {[["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={location.pathname === to ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+  </div></header><nav className={`bv-mobile-nav${readingActions ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
+    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={location.pathname === to ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
   </nav></>;
 }
 
@@ -84,8 +89,8 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Discover your next book", "/browse": "Discover", "/my-books": "My Books", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
-    document.title = `${titles[location.pathname] || "Book details"} · Bookvane`;
+    const titles = { "/": "Discover your next book", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
+    document.title = `${titles[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
@@ -107,14 +112,20 @@ function RouteEffects() {
 
 function Shell() {
   const reader = useReader();
+  const location = useLocation();
+  const { readingActions } = useUserBooks();
   return <div className="bv-root" data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>
       <Routes>
-        <Route path="/" element={<WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
+        <Route path="/" element={readingActions ? <Navigate to="/home" replace /> : <WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage />} /><Route path="/reset-password" element={<RecoveryPage reset />} />
         <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
+        <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/:entryId" element={<RequireAccount><ReadingGate><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>Try discovery or return to your library.</EmptyState></section>} />
