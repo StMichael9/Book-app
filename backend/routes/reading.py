@@ -1,4 +1,5 @@
 from uuid import UUID
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
@@ -8,11 +9,19 @@ from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import User
 from rate_limit import limiter
-from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, PrivateEntryCreate, ReadingRemoval, ReadingResult, ReadingWorkspace
+from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, NextReadQuery, NextReadResult, PrivateEntryCreate, ReadingRemoval, ReadingResult, ReadingWorkspace
 from routes.library import reading_user, writing_user
 from services.reading import ReadingService
+from services.next_read import NextReadService
 
 router = APIRouter(prefix="/me")
+
+
+@router.get("/next-read", response_model=NextReadResult)
+@limiter.limit("60/minute")
+def next_read(request: Request, query: Annotated[NextReadQuery, Query()],
+              current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    return NextReadService(db).choices(current_user.id, query)
 
 
 @router.get("/reading-export")

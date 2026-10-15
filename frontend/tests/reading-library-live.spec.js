@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
 
+async function registerReadingAccount(page, email, returnTo) {
+  await page.goto(`/register?returnTo=${encodeURIComponent(returnTo)}`);
+  await page.getByLabel("Email address", { exact: true }).fill(email);
+  await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
+  const registered = page.waitForResponse(response => new URL(response.url()).pathname === "/auth/register" && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  if ((await registered).status() === 429) {
+    await expect(page.getByRole("alert")).toContainText("Too many requests");
+    await page.waitForTimeout(61_000);
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+  }
+}
+
 // Real browser → FastAPI → isolated PostgreSQL. No API mocks or external services.
 test("M1 real registration, independent flags, persistence and two-account isolation", async ({ page, browser, baseURL }) => {
   const errors = [];
@@ -185,18 +198,7 @@ test("M2 guest start intent survives registration without duplicating history on
 
 test("M3 real private context persists, stays separate across rereads and is owner-only", async ({ page, browser }) => {
   test.setTimeout(180_000);
-  await page.goto("/register?returnTo=/my-books/start/1");
-  await page.getByLabel("Email address", { exact: true }).fill("m3-context@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
-  const registered = page.waitForResponse(response => new URL(response.url()).pathname === "/auth/register" && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
-  if ((await registered).status() === 429) {
-    // Earlier journeys create five accounts from this runner IP. Honor the
-    // real auth window instead of disabling/resetting production safeguards.
-    await expect(page.getByRole("alert")).toContainText("Too many requests");
-    await page.waitForTimeout(61_000);
-    await page.getByRole("button", { name: "Create account", exact: true }).click();
-  }
+  await registerReadingAccount(page, "m3-context@example.com", "/my-books/start/1");
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("A trusted recommendation");
@@ -287,4 +289,67 @@ test("M3 real private context persists, stays separate across rereads and is own
   expect((await (await page.request.get(`${api}/me/library`)).json()).total).toBe(0);
   expect((await page.request.get(`${api}/me/reading-attempts/${current.id}`)).status()).toBe(404);
   expect((await page.request.get(`${api}/books/1`)).status()).toBe(200);
+});
+
+test("M4 real finish keeps success through suggestion failure, starts private Want safely and explores catalogue explicitly", async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const api = "http://127.0.0.1:8005";
+  await registerReadingAccount(page, "m4-reader@example.com", "/my-books/private");
+  await page.getByLabel("Title", { exact: true }).fill("M4 first private reading");
+  await page.getByRole("button", { name: "Add private book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "M4 first private reading", exact: true })).toBeVisible();
+  const firstEntry = (await (await page.request.get(`${api}/me/library`)).json()).items[0];
+  const queued = await page.request.post(`${api}/me/library/private`, { data: {
+    request_id: crypto.randomUUID(), title: "M4 queued private reading", is_owned: true, is_wanted: true } });
+  expect(queued.status()).toBe(200);
+  const queuedEntry = await queued.json();
+  await page.getByRole("button", { name: "Start reading", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+  await page.route("**/me/next-read*", route => route.fulfill({ status: 503, json: {} }), { times: 1 });
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeVisible();
+  const choices = page.getByRole("region", { name: "Choose your next read" });
+  await expect(choices.getByRole("alert")).toContainText("any saved finish are unchanged");
+  expect((await (await page.request.get(`${api}/me/library/${firstEntry.id}/reading`)).json()).current_attempt.state).toBe("finished");
+  await choices.getByRole("button", { name: "Try choices again", exact: true }).click();
+  await expect(choices.getByRole("article")).toHaveCount(1);
+  await expect(choices.getByRole("heading", { name: "M4 queued private reading", exact: true })).toBeVisible();
+  await choices.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+  await page.goto("/home");
+  await expect(choices.getByRole("article")).toHaveCount(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "../backend/.v3-test-runtime/m4-home-phone.png", fullPage: true });
+  let creations = 0;
+  await page.route("**/me/reading-attempts/*", async route => {
+    if (route.request().method() !== "PUT") return route.continue();
+    creations += 1;
+    expect(route.request().postDataJSON().started_via).toBe("next_read");
+    await route.fetch(); return route.abort("failed");
+  }, { times: 1 });
+  const start = choices.getByRole("button", { name: "Start reading M4 queued private reading", exact: true });
+  await start.click();
+  await expect(choices.getByRole("alert")).toBeVisible();
+  await start.click();
+  await expect(page).toHaveURL(new RegExp(`/my-books/${queuedEntry.id}$`));
+  expect(creations).toBe(1);
+  const workspace = await (await page.request.get(`${api}/me/library/${queuedEntry.id}/reading`)).json();
+  expect(workspace.entry.is_owned).toBe(true); expect(workspace.entry.is_wanted).toBe(false);
+  expect((await (await page.request.get(`${api}/me/library/${queuedEntry.id}/attempts`)).json()).items).toHaveLength(1);
+  const exported = (await (await page.request.get(`${api}/me/reading-export`)).text()).trim().split("\n").map(line => JSON.parse(line));
+  expect(exported.find(line => line.type === "reading" && line.data.user_book_id === queuedEntry.id).data.started_via).toBe("next_read");
+  await page.goto("/home");
+  await expect(choices.getByText("No Want books match these choices.", { exact: false })).toBeVisible();
+  await choices.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(choices.getByRole("heading", { name: "Local library integration book", exact: true })).toBeVisible();
+  await choices.getByRole("button", { name: "Start reading Local library integration book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+  const all = await (await page.request.get(`${api}/me/library`)).json();
+  const catalogue = all.items.find(item => item.book_id === 1);
+  expect(catalogue.is_owned).toBe(false); expect(catalogue.is_wanted).toBe(false);
+  expect((await (await page.request.get(`${api}/me/home`)).json()).reading_count).toBe(2);
+  expect(errors).toEqual([]);
 });

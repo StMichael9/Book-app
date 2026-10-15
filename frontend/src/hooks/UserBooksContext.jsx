@@ -24,6 +24,7 @@ export function UserBooksProvider({ children }) {
   const [privateContext, setPrivateContext] = useState(false);
   const [privacyControls, setPrivacyControls] = useState(false);
   const [readingExport, setReadingExport] = useState(false);
+  const [nextRead, setNextRead] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -60,6 +61,7 @@ export function UserBooksProvider({ children }) {
     setReadingActions(false);
     setPrivateContext(false);
     setPrivacyControls(false); setReadingExport(false);
+    setNextRead(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -79,6 +81,7 @@ export function UserBooksProvider({ children }) {
         setPrivateContext(capabilities.features?.private_context === true);
         setPrivacyControls(capabilities.features?.privacy_controls === true);
         setReadingExport(capabilities.features?.reading_export === true);
+        setNextRead(capabilities.features?.next_read === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -178,6 +181,7 @@ export function UserBooksProvider({ children }) {
     privateContext: loadedSession === sessionKey && privateContext,
     privacyControls: loadedSession === sessionKey && privacyControls,
     readingExport: loadedSession === sessionKey && readingExport,
+    nextRead: loadedSession === sessionKey && nextRead,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
     readingRemoved(bookId) {
       // Invalidate in-flight lookups before marking this book known-absent.
@@ -209,7 +213,7 @@ export function UserBooksProvider({ children }) {
       if (token !== generation.current) return;
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

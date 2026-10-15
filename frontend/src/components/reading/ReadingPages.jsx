@@ -7,6 +7,7 @@ import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, PageHeading, 
 import { useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
+import NextReadSection from "./NextReadSection.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -35,6 +36,7 @@ export function ReadingHomePage() {
       </article>)}</div> : <EmptyState title="Your next beginning is yours." action={<ActionLink to="/my-books">Choose from My Books</ActionLink>}>Start any saved book, or discover something new. You don’t need to track pages or write notes.</EmptyState>}
       <div className="bv-form-actions"><TextLink to="/my-books?status=reading">See all current reads ({request.data.reading_count})</TextLink>{request.data.paused_count > 0 && <TextLink to="/my-books?status=paused">Paused books ({request.data.paused_count})</TextLink>}<TextLink to="/my-books?status=want">Your Want books</TextLink></div>
     </>}
+    {library.nextRead && <NextReadSection key={auth.sessionGeneration} />}
   </section>;
 }
 
@@ -117,6 +119,12 @@ function ReadingHistory({ entry, onCorrect, onMemory, onRemove, editing }) {
   </section>;
 }
 
+function FinishChoices({ title, onSkip }) {
+  const heading = useRef(null);
+  useEffect(() => { heading.current?.focus(); }, []);
+  return <section className="bv-section"><h2 ref={heading} tabIndex={-1}>Reading saved.</h2><p>You finished {title}. No note, rating or progress entry is required.</p><NextReadSection onSkip={onSkip} /></section>;
+}
+
 export function ReadingWorkspacePage() {
   const { entryId } = useParams();
   const auth = useAuth(), library = useUserBooks();
@@ -125,8 +133,13 @@ export function ReadingWorkspacePage() {
   const intent = useRef(null);
   const [editing, setEditing] = useState(null);
   const [removal, setRemoval] = useState(null);
+  const [finishNotice, setFinishNotice] = useState(null);
+  const statusHeading = useRef(null);
   const [editionId, setEditionId] = useState("");
-  function accept(result) { library.readingChanged(result.entry); setEditing(null); intent.current = null; }
+  function accept(result) {
+    library.readingChanged(result.entry); setEditing(null); intent.current = null;
+    if (result.attempt && result.attempt.state !== "finished") setFinishNotice(null);
+  }
   function create(entry, state = "reading") {
     const key = `${entry.id}:${state}`;
     if (intent.current?.key !== key) intent.current = { key, id: crypto.randomUUID() };
@@ -147,11 +160,14 @@ export function ReadingWorkspacePage() {
     {entry.book && <TextLink to={`/book/${entry.book_id}`}>About this book</TextLink>}
     {library.readOnly && <p role="status" className="bv-notice">Your reading is available to read. Changes are temporarily paused.</p>}
     <div className="bv-form-actions" role="group" aria-label="Your book flags">{[["is_owned", "Own"], ["is_wanted", "Want"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{label}</Button>)}</div>
-    <div className="bv-reading-status"><h2>{attempt ? stateLabel[attempt.state] : "A new beginning"}</h2>{attempt && <p>{progressLabel(attempt)}</p>}</div>
+    <div className="bv-reading-status"><h2 ref={statusHeading} tabIndex={-1}>{attempt ? stateLabel[attempt.state] : "A new beginning"}</h2>{attempt && <p>{progressLabel(attempt)}</p>}</div>
     {(!attempt || terminal) && request.data.editions.length > 0 && <details className="bv-field"><summary>Choose an edition (optional)</summary><label htmlFor="reading-edition">Your copy for the new reading</label><select id="reading-edition" value={editionId} disabled={library.readOnly} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">Catalogue preferred edition</option>{request.data.editions.map(edition => <option key={edition.id} value={edition.id}>{edition.physical_format || "Edition"}{edition.page_count ? ` · ${edition.page_count} pages` : ""} · {(edition.languages || []).join(", ") || "Language not listed"}</option>)}</select><p className="bv-help">Saved progress keeps this copy’s page total even if catalogue metadata changes.</p></details>}
     <div className="bv-form-actions">
       {(!attempt || terminal) && <Button disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry)}>{terminal ? "Start reading again" : "Start reading"}</Button>}
-      {attempt && <>{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : attempt.state === "paused" ? [["reading", "Resume reading"]] : []), ...(!terminal ? [["finished", "Finish book"], ["dnf", "Stop reading"]] : [["reading", "Reopen this reading"]])].map(([state, label]) => <Button key={label} variant="secondary" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), accept)}>{label}</Button>)}</>}
+      {attempt && <>{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : attempt.state === "paused" ? [["reading", "Resume reading"]] : []), ...(!terminal ? [["finished", "Finish book"], ["dnf", "Stop reading"]] : [["reading", "Reopen this reading"]])].map(([state, label]) => <Button key={label} variant="secondary" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
+        accept(result);
+        if (state === "finished" && library.nextRead) setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration });
+      })}>{label}</Button>)}</>}
       {(!attempt || terminal) && <><Button variant="secondary" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry, "finished")}>Record a past finish</Button><Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry, "dnf")}>Record a past stop</Button></>}
       {attempt && <Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => openEditor(attempt)}>Edit progress or dates</Button>}
     </div>
@@ -165,6 +181,8 @@ export function ReadingWorkspacePage() {
     </section>}
     {terminal && <p className="bv-help">This reading is saved. Start again for a new read, or reopen to correct this same record. Choosing your next book is always up to you.</p>}
     </>}
+    {library.nextRead && finishNotice?.generation === auth.sessionGeneration && (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) &&
+      <FinishChoices key={finishNotice.id} title={finishNotice.title} onSkip={() => { setFinishNotice(null); (statusHeading.current || document.getElementById("bv-main"))?.focus(); }} />}
     {/* Keep the same editor mounted while flags refresh the workspace. Its
         original version stays with the draft; a later save can conflict safely. */}
     {editing && <div className="bv-reading-draft">{editing.kind === "progress" ? <ProgressForm key={`${selected.id}:${entryId}`} attempt={selected} version={editing.version} readOnly={library.readOnly || command.pending} onSaved={accept} /> : <ContextForm key={`${editing.kind}:${selected?.id || editing.entry.id}:${entryId}`} draft={editing} readOnly={library.readOnly || command.pending} onSaved={accept} />}
