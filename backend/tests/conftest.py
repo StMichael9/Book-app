@@ -70,6 +70,9 @@ def db_session(app_modules) -> Session:
 
     session = database.SessionLocal()
 
+    # Catalogue deletion is now restricted while any reader entry refers to it.
+    # These rows belong only to the explicitly isolated test database.
+    session.execute(delete(models.UserBook))
     session.execute(delete(models.Book))
     session.execute(delete(models.Author))
     session.execute(delete(models.Tag))

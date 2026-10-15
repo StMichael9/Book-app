@@ -49,9 +49,16 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const library = useUserBooks();
   const reader = useReader();
   const status = library.booksById[book.id]?.status;
+  const entry = library.booksById[book.id];
+  const lookupError = library.lookupErrors[book.id];
+  const { mode, loadVisibleBooks } = library;
+  useEffect(() => {
+    if (auth.isAuthenticated && mode === "v3") loadVisibleBooks([book.id]).catch(() => {});
+  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id]);
   const busy = reader.busyIds.includes(book.id);
-  const blocked = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error)));
-  const known = !blocked;
+  const unknown = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error) || (library.mode === "v3" && !entry?.known)));
+  const blocked = unknown || library.readOnly;
+  const known = !unknown;
   const helperId = useId();
   async function saveToShelf(value) {
     const success = await reader.saveBook(book, value);
@@ -64,7 +71,7 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   return <div className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
     <div className="bv-shelf-actions" role="group" aria-label={`Shelf for ${book.title}`}>
       {["want", "owned"].map((value) => {
-        const selected = known && status === value;
+        const selected = known && (library.mode === "v3" ? entry?.[value === "owned" ? "is_owned" : "is_wanted"] : status === value);
         const Icon = selected ? Check : value === "want" ? Bookmark : BookOpen;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
@@ -77,9 +84,11 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
       })}
     </div>
     <span id={helperId} className={compact ? "bv-sr-only" : "bv-help"}>
-      {busy ? "Updating your shelf…" : blocked ? "Checking your saved books before making changes." : status ?
+      {busy ? "Updating your shelf…" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
+        "Own and Want are separate. Changing one keeps the other unchanged." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
+    {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
     {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
   </div>;
 }

@@ -37,6 +37,7 @@ export function errorText(error, fallback) {
   if (error?.status === 429) return "Too many requests just now. Please try again shortly.";
   if (error?.status >= 500 || error instanceof TypeError) return fallback;
   if (typeof error?.detail === "string") return error.detail;
+  if (typeof error?.detail?.message === "string") return error.detail.message;
   return fallback;
 }
 

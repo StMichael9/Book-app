@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, selectinload
 
 from models import UserBook, UserBookStatus, Book
+from services.library import legacy_write_guard
 
 
 class UserBookService:
@@ -12,14 +13,16 @@ class UserBookService:
         self.db = db
 
     def set_status(self, user_id, book_id: int, status: UserBookStatus) -> UserBook:
+        legacy_write_guard(self.db, user_id, book_id)
         book = self.db.get(Book, book_id)
         if not book:
             return None  # route turns this into a 404
 
-        statement = insert(UserBook).values(user_id=user_id, book_id=book_id, status=status)
+        flags = {"is_owned": status == UserBookStatus.owned, "is_wanted": status == UserBookStatus.want}
+        statement = insert(UserBook).values(user_id=user_id, book_id=book_id, status=status, **flags)
         statement = statement.on_conflict_do_update(
             constraint="uq_user_book",
-            set_={"status": status, "updated_at": datetime.now(timezone.utc)},
+            set_={"status": status, **flags, "version": UserBook.version + 1, "updated_at": datetime.now(timezone.utc)},
         ).returning(UserBook.id)
         entry_id = self.db.execute(statement).scalar_one()
         self.db.commit()
@@ -28,7 +31,7 @@ class UserBookService:
     def get_user_books(self, user_id, status: UserBookStatus | None = None):
         query = (
             select(UserBook)
-            .where(UserBook.user_id == user_id)
+            .where(UserBook.user_id == user_id, UserBook.book_id.is_not(None), UserBook.status.is_not(None))
             .options(selectinload(UserBook.book).selectinload(Book.authors), selectinload(UserBook.book).selectinload(Book.tags))
         )
         if status:
@@ -36,6 +39,7 @@ class UserBookService:
         return self.db.execute(query).scalars().all()
 
     def delete_status(self, user_id, book_id: int) -> bool:
+        legacy_write_guard(self.db, user_id, book_id)
         existing = self.db.execute(
             select(UserBook).where(
                 UserBook.user_id == user_id,

@@ -21,17 +21,17 @@ export function ReaderProvider({ children }) {
   const [busyIds, setBusyIds] = useState([]);
   const busy = useRef(new Set());
   const [saveErrors, setSaveErrors] = useState({});
-  const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, ready: false });
+  const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
   const [preferencesVersion, setPreferencesVersion] = useState(0);
   const session = useRef(0);
   const authenticated = useRef(auth.isAuthenticated);
   // Reset session-scoped UI before rendering a different authentication state.
-  if (readiness.authenticated !== auth.isAuthenticated) {
-    setReadiness({ authenticated: auth.isAuthenticated, ready: false });
+  if (readiness.authenticated !== auth.isAuthenticated || readiness.generation !== auth.sessionGeneration) {
+    setReadiness({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
     setSaveErrors({});
     setGate(null);
   }
-  const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.ready;
+  const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.generation === auth.sessionGeneration && readiness.ready;
 
   useEffect(() => {
     document.documentElement.style.colorScheme = theme;
@@ -42,10 +42,14 @@ export function ReaderProvider({ children }) {
   // Its previous anonymous loading=false value must never enable a write.
   useEffect(() => {
     session.current += 1;
+    busy.current.clear();
     authenticated.current = auth.isAuthenticated;
-    const timer = auth.isAuthenticated ? setTimeout(() => setReadiness({ authenticated: true, ready: true }), 0) : null;
+    const timer = setTimeout(() => {
+      setBusyIds([]);
+      if (auth.isAuthenticated) setReadiness({ authenticated: true, generation: auth.sessionGeneration, ready: true });
+    }, 0);
     return () => { if (timer !== null) clearTimeout(timer); };
-  }, [auth.isAuthenticated]);
+  }, [auth.isAuthenticated, auth.sessionGeneration]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -63,12 +67,13 @@ export function ReaderProvider({ children }) {
     setBusyIds([...busy.current]);
     setSaveErrors((current) => ({ ...current, [book.id]: "" }));
     try {
-      const currentStatus = library.booksById[book.id]?.status;
-      if (ensure && currentStatus === status) {
+      const state = library.booksById[book.id];
+      const selected = library.mode === "v3" ? state?.[status === "owned" ? "is_owned" : "is_wanted"] : state?.status === status;
+      if (ensure && selected) {
         announce(`Already on your ${status === "owned" ? "Own" : "Want"} shelf.`);
-      } else if (!ensure && currentStatus === status) {
-        await library.clearStatus(book.id);
-        if (generation === session.current && authenticated.current) announce("Removed from your library.");
+      } else if (!ensure && selected) {
+        await library.clearStatus(book.id, status);
+        if (generation === session.current && authenticated.current) announce(library.mode === "v3" ? `Removed from ${status === "owned" ? "Own" : "Want"}. Your other saved information is unchanged.` : "Removed from your library.");
       } else {
         await library.updateStatus(book.id, status);
         if (generation === session.current && authenticated.current) announce(`Added to your ${status === "owned" ? "Own" : "Want"} shelf.`);
@@ -80,8 +85,7 @@ export function ReaderProvider({ children }) {
       }
       return false;
     } finally {
-      busy.current.delete(book.id);
-      setBusyIds([...busy.current]);
+      if (generation === session.current) { busy.current.delete(book.id); setBusyIds([...busy.current]); }
     }
   }
 
