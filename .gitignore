@@ -3,6 +3,7 @@
 venv/
 .pytest_tmp/
 .test-postgres/
+.v3-test-runtime/
 __pycache__/
 *.pyc
 data/json_data/
