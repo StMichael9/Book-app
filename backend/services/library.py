@@ -177,7 +177,7 @@ class LibraryService:
         return self.detail(user_id, entry.id)
 
     def _change_flags(self, user_id, entry, data, allow_noop=False):
-        changes = {name: getattr(data, name) for name in ("is_owned", "is_wanted") if name in data.model_fields_set}
+        changes = {name: getattr(data, name) for name in ("is_owned", "is_wanted", "save_note") if name in data.model_fields_set}
         changed = any(getattr(entry, name) != value for name, value in changes.items())
         if allow_noop and not changed and data.expected_version is None:
             return

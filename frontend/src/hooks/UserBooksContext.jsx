@@ -21,6 +21,9 @@ export function UserBooksProvider({ children }) {
   const [mode, setMode] = useState("loading");
   const [readOnly, setReadOnly] = useState(false);
   const [readingActions, setReadingActions] = useState(false);
+  const [privateContext, setPrivateContext] = useState(false);
+  const [privacyControls, setPrivacyControls] = useState(false);
+  const [readingExport, setReadingExport] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -55,6 +58,8 @@ export function UserBooksProvider({ children }) {
     cache.current.clear(); setBooksById({}); setLookupErrors({}); setError(""); setMode("loading");
     setReadOnly(false);
     setReadingActions(false);
+    setPrivateContext(false);
+    setPrivacyControls(false); setReadingExport(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -71,6 +76,9 @@ export function UserBooksProvider({ children }) {
         if (capabilities.contract_version !== 1) throw new Error("Refresh this page to use the current library.");
         setReadOnly(capabilities.writable === false);
         setReadingActions(capabilities.features?.reading_actions === true);
+        setPrivateContext(capabilities.features?.private_context === true);
+        setPrivacyControls(capabilities.features?.privacy_controls === true);
+        setReadingExport(capabilities.features?.reading_export === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -167,7 +175,24 @@ export function UserBooksProvider({ children }) {
     error: loadedSession === sessionKey ? error : "",
     mode: loadedSession === sessionKey ? mode : "loading",
     readingActions: loadedSession === sessionKey && readingActions,
+    privateContext: loadedSession === sessionKey && privateContext,
+    privacyControls: loadedSession === sessionKey && privacyControls,
+    readingExport: loadedSession === sessionKey && readingExport,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
+    readingRemoved(bookId) {
+      // Invalidate in-flight lookups before marking this book known-absent.
+      // A slower pre-deletion lookup must not resurrect its saved flags.
+      generation.current += 1;
+      for (const controller of requests.current) controller.abort();
+      for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Library changed; check this book again."));
+      queued.current.clear();
+      pipeline.current = null;
+      if (bookId) {
+        cache.current.delete(bookId);
+        rememberEntries([{ book_id: bookId, entry_id: null, is_owned: false, is_wanted: false, version: null }]);
+      }
+      setRevision(number => number + 1);
+    },
     revision, readOnly, lookupErrors: loadedSession === sessionKey ? lookupErrors : {}, loadVisibleBooks, rememberEntries,
     retryLoad() { setLoadAttempt(attempt => attempt + 1); },
     async updateStatus(bookId, status) {
@@ -184,7 +209,7 @@ export function UserBooksProvider({ children }) {
       if (token !== generation.current) return;
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

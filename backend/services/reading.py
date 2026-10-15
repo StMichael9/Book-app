@@ -10,8 +10,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from models import Book, Edition, ReadingAttempt, UserBook
-from reading_schemas import AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
-from services.library import LibraryService, _summary_options, entry_dto, projection
+from reading_schemas import AttemptDetail, AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
+from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
 
 
 def fingerprint(values):
@@ -32,7 +32,8 @@ class ReadingService(LibraryService):
 
     def _attempt(self, user_id, attempt_id):
         attempt = self.db.scalar(select(ReadingAttempt).join(UserBook).where(
-            ReadingAttempt.id == attempt_id, UserBook.user_id == user_id))
+            ReadingAttempt.id == attempt_id, UserBook.user_id == user_id)
+            .execution_options(populate_existing=True))
         if attempt is None:
             raise HTTPException(404, detail="Reading record not found")
         return attempt
@@ -65,7 +66,20 @@ class ReadingService(LibraryService):
 
     def _result(self, user_id, entry_id, attempt_id):
         return ReadingResult(entry=self.detail(user_id, entry_id),
-            attempt=AttemptView.model_validate(self._attempt(user_id, attempt_id)))
+            attempt=AttemptDetail.model_validate(self._attempt(user_id, attempt_id)))
+
+    def attempt_detail(self, user_id, attempt_id):
+        # Capture context and its parent version in one SELECT snapshot. A
+        # second version read could incorrectly bless an older note as current.
+        row = self.db.execute(select(UserBook, ReadingAttempt, _reading_state())
+            .join(ReadingAttempt, ReadingAttempt.user_book_id == UserBook.id)
+            .where(UserBook.user_id == user_id, ReadingAttempt.id == attempt_id)
+            .options(_summary_options()).execution_options(populate_existing=True)).one_or_none()
+        if row is None:
+            raise HTTPException(404, detail="Reading record not found")
+        entry, attempt, state = row
+        return ReadingResult(entry=entry_dto(entry, state, detail=True),
+            attempt=AttemptDetail.model_validate(attempt))
 
     def create_attempt(self, user_id, attempt_id, data):
         entry = self._entry(user_id, data.entry_id)
@@ -113,7 +127,9 @@ class ReadingService(LibraryService):
     def update_attempt(self, user_id, attempt_id, data):
         attempt = self._attempt(user_id, attempt_id)
         entry = self._entry(user_id, attempt.user_book_id)
-        self.db.refresh(attempt)
+        # A deletion can finish while we wait for the parent lock. Requery
+        # with ownership rather than refreshing a now-deleted ORM instance.
+        attempt = self._attempt(user_id, attempt_id)
         self._version(user_id, entry, data.expected_version)
         changes = data.model_dump(exclude_unset=True, exclude={"expected_version"})
         target = changes.get("state", attempt.state)
@@ -137,6 +153,24 @@ class ReadingService(LibraryService):
             self._touch(entry)
         self.db.commit()
         return self._result(user_id, entry.id, attempt.id)
+
+    def remove_attempt(self, user_id, attempt_id, data):
+        attempt = self._attempt(user_id, attempt_id)
+        entry = self._entry(user_id, attempt.user_book_id)
+        attempt = self._attempt(user_id, attempt_id)
+        self._version(user_id, entry, data.expected_version)
+        self.db.delete(attempt)
+        self._touch(entry)
+        self.db.commit()
+        return self.detail(user_id, entry.id)
+
+    def forget_entry(self, user_id, entry_id, data):
+        entry = self._entry(user_id, entry_id)
+        self._version(user_id, entry, data.expected_version)
+        # Database cascades remove this entry's attempts only. Catalogue rows,
+        # preferences, and other readers' shelves are deliberately untouched.
+        self.db.delete(entry)
+        self.db.commit()
 
     def create_private(self, user_id, data):
         values = data.model_dump(mode="json", exclude={"request_id"})
@@ -171,7 +205,7 @@ class ReadingService(LibraryService):
         editions = [] if entry.book_id is None else self.db.execute(select(Edition.id, Edition.source_id,
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
-        return ReadingWorkspace(entry=entry, current_attempt=AttemptView.model_validate(attempt) if attempt else None,
+        return ReadingWorkspace(entry=entry, current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
             editions=[dict(row) for row in editions])
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):

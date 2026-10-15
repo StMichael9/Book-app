@@ -3,7 +3,7 @@ from datetime import date, datetime
 from uuid import UUID
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 LibraryFacet = Literal["all", "owned", "want", "reading", "paused", "finished", "dnf"]
 
@@ -22,8 +22,25 @@ class FlagUpdate(BaseModel):
         return self
 
 
-class EntryUpdate(FlagUpdate):
-    expected_version: int = Field(ge=1)
+class EntryUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(strict=True, ge=1)
+    is_owned: StrictBool | None = None
+    is_wanted: StrictBool | None = None
+    save_note: str | None = Field(default=None, max_length=500)
+
+    @field_validator("save_note")
+    @classmethod
+    def empty_note(cls, value):
+        return value if value and value.strip() else None
+
+    @model_validator(mode="after")
+    def explicit_changes(self):
+        if not (self.model_fields_set - {"expected_version"}):
+            raise ValueError("Supply a library change")
+        if any(getattr(self, key) is None for key in self.model_fields_set & {"is_owned", "is_wanted"}):
+            raise ValueError("Own and Want must be explicit booleans")
+        return self
 
 
 class LibraryLookup(BaseModel):
@@ -34,6 +51,19 @@ class LibraryLookup(BaseModel):
     def valid_ids(self):
         self.book_ids = list(dict.fromkeys(self.book_ids))
         return self
+
+
+class ReadingRemoval(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(strict=True, ge=1)
+    confirmed: StrictBool
+
+    @field_validator("confirmed")
+    @classmethod
+    def require_confirmation(cls, value):
+        if not value:
+            raise ValueError("Confirm this removal explicitly")
+        return value
 
 
 class LibraryBook(BaseModel):
@@ -99,6 +129,13 @@ class AttemptCreate(AttemptValues):
 
 class AttemptUpdate(AttemptValues):
     expected_version: int = Field(strict=True, ge=1)
+    note: str | None = Field(default=None, max_length=2000)
+    reaction: Literal["loved", "liked", "not_for_me"] | None = None
+
+    @field_validator("note")
+    @classmethod
+    def empty_note(cls, value):
+        return value if value and value.strip() else None
 
     @model_validator(mode="after")
     def has_changes(self):
@@ -125,14 +162,19 @@ class AttemptView(BaseModel):
     updated_at: datetime
 
 
+class AttemptDetail(AttemptView):
+    note: str | None
+    reaction: str | None
+
+
 class ReadingResult(BaseModel):
     entry: EntryDetail
-    attempt: AttemptView
+    attempt: AttemptDetail
 
 
 class ReadingWorkspace(BaseModel):
     entry: EntryDetail
-    current_attempt: AttemptView | None
+    current_attempt: AttemptDetail | None
     editions: list[dict]
 
 

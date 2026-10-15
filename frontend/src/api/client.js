@@ -49,7 +49,7 @@ export async function withSessionChange(change) {
 
 export async function apiRequest(path, options = {}) {
   const epoch = sessionEpoch;
-  const { skipRefresh = false, ...requestOptions } = options;
+  const { skipRefresh = false, responseType, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
   const response = await fetch(url, {
@@ -73,7 +73,7 @@ export async function apiRequest(path, options = {}) {
       if (epoch === sessionEpoch && sessionChanges === 0) window.dispatchEvent(new Event("bookvane:session-expired"));
     }
     if (refreshed && epoch === sessionEpoch && sessionChanges === 0) {
-      return apiRequest(path, { ...requestOptions, skipRefresh: true });
+      return apiRequest(path, { ...requestOptions, responseType, skipRefresh: true });
     }
   }
 
@@ -93,6 +93,7 @@ export async function apiRequest(path, options = {}) {
     throw error;
   }
 
+  if (responseType === "response") return response;
   const text = await response.text();
   return text ? JSON.parse(text) : null;
 }

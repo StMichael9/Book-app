@@ -10,6 +10,7 @@ import { ActionLink, BookCover, Button, EmptyState, LibraryWarning, NativeDialog
 import { safeReturnTo } from "./data.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
+import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
 import "../../styles/ui-v2/bookvane.css";
 
 function Brand() {
@@ -38,7 +39,7 @@ function Header() {
 }
 
 function Footer() {
-  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /></div></footer>;
+  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><TextLink to="/privacy">Privacy</TextLink></div></footer>;
 }
 
 function SessionStatus() {
@@ -90,7 +91,7 @@ function RouteEffects() {
     }
     first.current = false;
     const titles = { "/": "Discover your next book", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
-    document.title = `${titles[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
+    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
@@ -123,6 +124,8 @@ function Shell() {
         <Route path="/forgot-password" element={<RecoveryPage />} /><Route path="/reset-password" element={<RecoveryPage reset />} />
         <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
         <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />
+        <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
+        <Route path="/privacy" element={<ReadingPrivacyPage />} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/:entryId" element={<RequireAccount><ReadingGate><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
