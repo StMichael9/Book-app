@@ -13,7 +13,9 @@ import { useParams } from "react-router-dom";
 
 export function WelcomePage() {
   const auth = useAuth();
-  const scope = auth.isAuthenticated ? "authenticated" : "public";
+  // Personalized catalogue ordering and in-flight requests belong to one
+  // session, not to every account that happens to be signed in in this SPA.
+  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
   const books = useRequest(async () => catalogueResponse(await getBooks({ size: 10, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
   const items = books.data?.items || [];
   const heroBooks = [...items.filter((book) => book.cover_image_url), ...items.filter((book) => !book.cover_image_url)].slice(0, 3);
@@ -87,7 +89,7 @@ export function BrowsePage() {
   const setMode = (value) => setSearchDraft((current) => ({ ...current, mode: value }));
   const setDraft = (value) => setSearchDraft((current) => ({ ...current, value }));
   const [filterOpen, setFilterOpen] = useState(false);
-  const scope = auth.isAuthenticated ? "authenticated" : "public";
+  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
   const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
   const items = request.data?.items || [];
   const total = request.data?.total || 0;

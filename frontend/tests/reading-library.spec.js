@@ -18,16 +18,31 @@ const test = base.extend({
       if (!url.pathname.startsWith("/test-api/")) return route.continue();
       const path = url.pathname.slice("/test-api".length), method = request.method();
       const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
-      state.requests.push({ path, method, body, query: url.searchParams });
+      state.requests.push({ path, method, body, query: url.searchParams, account: state.account });
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/auth/refresh") return reply(state.authenticated ? 200 : 401, {});
       if (path === "/auth/logout") { state.authenticated = false; return reply(200, {}); }
-      if (path === "/auth/login") { state.authenticated = true; return reply(200, {}); }
+      if (path === "/auth/login") { state.authenticated = true; state.account = "B"; return reply(200, {}); }
       if (path === "/me/reading-capabilities") {
         if (state.capabilityFails) return reply(503, {});
-        return reply(200, { enabled: true, writable: !state.readOnly, contract_version: 1 });
+        return reply(200, { enabled: !state.legacy, writable: !state.readOnly, contract_version: 1 });
       }
-      if (path === "/books") return reply(200, { items: books, total: 30, page: 1, size: 30 });
+      if (path === "/me/books") return reply(200, []);
+      if (path === "/books") {
+        if (!state.accountFixtures) return reply(200, { items: books, total: 30, page: 1, size: 30 });
+        const account = state.authenticated ? state.account : null;
+        const filtered = url.searchParams.has("shelf_status") || url.searchParams.has("exclude_owned");
+        const held = account === "A" && state.holdCatalogue;
+        const status = held ? (state.lateCatalogueStatus || 200) : 200;
+        if (held) {
+          state.heldStarted = true;
+          await held;
+        }
+        const items = account === "A" ? [books[0]] : account === "B" ? (filtered ? [] : [books[1]]) : [];
+        await reply(status, status === 200 ? { items, total: items.length, page: 1, size: 20 } : { detail: "Old request failed" });
+        if (held) state.heldCompleted = true;
+        return;
+      }
       if (/^\/books\/\d+$/.test(path)) return reply(200, books[Number(path.split("/")[2]) - 1]);
       if (path === "/me/library/lookup") {
         if (state.holdLookup) await state.holdLookup;
@@ -164,4 +179,140 @@ test("disabling writes preserves the richer library in read-only mode", async ({
   await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Own", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(app.requests.some(request => request.path.endsWith("/status") || request.method === "PUT")).toBe(false);
+});
+
+async function expireAndSignInAsB(page, app, returnTo) {
+  app.authenticated = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+  await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  // Keep this entirely within the SPA: a full navigation would clear the
+  // module-level request map and conceal the account-switching defect.
+  if (returnTo) await page.evaluate(path => {
+    window.history.replaceState(null, "", `/login?returnTo=${encodeURIComponent(path)}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, returnTo);
+  await page.getByLabel("Email address", { exact: true }).fill("b@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+}
+
+for (const legacy of [true, false]) {
+  for (const filter of ["shelf_status=want", "shelf_status=owned", "exclude_owned=true"]) {
+    for (const lateStatus of [200, 503, 401]) {
+      test(`session isolation: ${legacy ? "V2" : "V3"}, ${filter}, late ${lateStatus}`, async ({ page, app }) => {
+        Object.assign(app, { legacy, accountFixtures: true, account: "A", lateCatalogueStatus: lateStatus });
+        let release;
+        app.holdCatalogue = new Promise(resolve => { release = resolve; });
+        try {
+          await page.goto(`/browse?${filter}`);
+          await expect.poll(() => app.heldStarted).toBe(true);
+          await expireAndSignInAsB(page, app, `/browse?${filter}`);
+          // B must finish its OWN request before A is allowed to complete.
+          await expect.poll(() => app.requests.filter(r => r.path === "/books" && r.account === "B" && r.query.toString().includes(filter)).length).toBe(1);
+          await expect(page.getByRole("heading", { name: "No books found.", exact: true })).toBeVisible();
+          release();
+          await expect.poll(() => app.heldCompleted).toBe(true);
+          // Settle React callbacks from both a late success and a late failure.
+          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          await expect(page.getByRole("heading", { name: "No books found.", exact: true })).toBeVisible();
+          await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+          await expect(page.locator(".bv-book-card")).toHaveCount(0);
+          expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(lateStatus === 401 ? 2 : 1);
+          // No duplicate B query; the 401 case retries the departed A request
+          // with B's valid cookies, but must not publish its obsolete result.
+          expect(app.requests.filter(r => r.path === "/books" && r.account === "B" && r.query.toString().includes(filter))).toHaveLength(lateStatus === 401 ? 2 : 1);
+        } finally { release(); }
+      });
+    }
+  }
+
+  test(`Welcome isolates pending personalized results across ${legacy ? "V2" : "V3"} sessions`, async ({ page, app }) => {
+    Object.assign(app, { legacy, accountFixtures: true, account: "A" });
+    let release;
+    app.holdCatalogue = new Promise(resolve => { release = resolve; });
+    try {
+      await page.goto("/");
+      await expect.poll(() => app.heldStarted).toBe(true);
+      await expireAndSignInAsB(page, app, "/");
+      await expect.poll(() => app.requests.filter(r => r.path === "/books" && r.account === "B").length).toBe(1);
+      await expect(page.locator(".bv-book-card")).toHaveCount(1);
+      release();
+      await expect.poll(() => app.heldCompleted).toBe(true);
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(page.locator(".bv-book-card")).toContainText("Library fixture 02");
+      await expect(page.locator(".bv-book-card")).not.toContainText("Library fixture 01");
+    } finally { release(); }
+  });
+}
+
+for (const theme of ["light", "dark"]) {
+  test(`empty later library page retains recovery after mutation (${theme})`, async ({ page, app }) => {
+    app.entries = new Map(books.slice(0, 26).map(book => [book.id, row(book.id)]));
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/my-books?status=want");
+    await expect(page.locator(".bv-book-card")).toHaveCount(25);
+    await page.getByRole("button", { name: "Next page", exact: true }).click();
+    await expect(page.locator(".bv-book-card")).toHaveCount(1);
+    await page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
+    // Capture from the top so off-viewport fixed elements are not included at
+    // the prior scroll offset by a full-document browser screenshot.
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.screenshot({ path: `../backend/.v3-test-runtime/m1-empty-page-${theme}.png`, fullPage: true });
+    expect([...app.entries.values()].filter(entry => entry.is_wanted)).toHaveLength(25);
+    await page.getByRole("button", { name: "Previous page", exact: true }).click();
+    await expect(page.locator(".bv-book-card")).toHaveCount(25);
+    await page.goForward();
+    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Return to first page", exact: true }).click();
+    await expect(page.locator(".bv-book-card")).toHaveCount(25);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
+  test(`direct empty cursor recovers in read-only mode (${theme})`, async ({ page, app }) => {
+    app.readOnly = true;
+    app.entries = new Map(books.slice(0, 25).map(book => [book.id, row(book.id)]));
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/my-books?status=want&cursor=25");
+    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Return to first page", exact: true }).click();
+    await expect(page.locator(".bv-book-card")).toHaveCount(25);
+    await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toBeDisabled();
+    expect(app.requests.filter(r => r.method === "PUT" || r.method === "PATCH")).toHaveLength(0);
+  });
+}
+
+test("an empty first-page facet does not claim the entire library is empty", async ({ page, app }) => {
+  app.entries.set(1, row(1, true, false));
+  await page.goto("/my-books?status=want");
+  await expect(page.getByRole("heading", { name: "No saved books match this view.", exact: true })).toBeVisible();
+  await page.getByRole("group", { name: "Filter your library" }).getByRole("button", { name: /^All/ }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
+});
+
+test("a concurrent change on page three preserves history and first-page recovery", async ({ page, app }) => {
+  app.entries = new Map(Array.from({ length: 51 }, (_, index) => {
+    const id = index + 1;
+    return [id, { ...row(id), book: { ...books[0], id, title: `Library fixture ${id}` } }];
+  }));
+  await page.goto("/my-books?status=want");
+  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(page).toHaveURL(/cursor=25/);
+  await page.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(1);
+  // Another browser changes this view while the reader returns to page two.
+  await page.goBack();
+  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  app.entries.set(1, { ...app.entries.get(1), is_wanted: false, version: 2 });
+  await page.goForward();
+  await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Previous page", exact: true }).click();
+  await expect(page).toHaveURL(/cursor=25/);
+  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  await page.getByRole("button", { name: "Return to first page", exact: true }).click();
+  await expect(page).not.toHaveURL(/cursor=/);
+  await expect(page.locator(".bv-book-card")).toHaveCount(25);
 });

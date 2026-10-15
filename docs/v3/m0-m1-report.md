@@ -4,6 +4,8 @@
 
 ## Result
 
+Follow-up: independent QA identified an account-switching discovery defect and an empty-page recovery defect after this implementation handoff. Corrections and current retest status are recorded in [m1-qa-corrections.md](m1-qa-corrections.md). The original test evidence below is preserved, but independent M1 acceptance remains pending QA retest; this report is not authorization for M2.
+
 M0 and M1 are complete and ready for human QA review. The reading-library foundation passed the executed checks below. V3 is disabled by default. Production migrations, public enablement, M2 reading actions and later features have not been performed.
 
 Starting commit: `100ab702faf8baa17289f93caa36c1bd41c4c34a`, fetched from main. Its files matched completed V2 commit `67b6850bb8f59e97a1a4f595a880de5eae0ed179`. Existing main and v2-codex branches are preserved. The approved architecture/import proposals are archived in this directory, with the fixed implementation choices in [decision-record.md](decision-record.md).
