@@ -17,8 +17,12 @@ The UI lead reviewed the proposed interaction and requested retained drafts with
 - Lint passed with the same 12 existing warnings and no errors. Production build passed as browser-test setup.
 - **Complete frontend regression suite: 109 passed, 4.0 min**, including the ten correction checks. This covers the final route-key correction and these fixes alongside the existing V2/M1/auth/session-isolation cases. The targeted ten overlap this full run; do not add them as separate unique tests. Earlier implementation backend/live-integration results remain attributed to their original candidate and are not represented as re-executed for this frontend-only correction.
 
-## Remaining gates
+## Independent closure and remaining boundaries
 
-Independent QA must retest the corrected client behavior before its three findings are marked closed. The original conditional GO is not rewritten into an unconditional decision by the implementing developer.
+Independent QA retested application commit `3f1104db8f9beec23d767eacbfeb0cc9fb00923d`: **10 checks passed**, six Edge/four WebKit, zero page errors. It independently closed **V3-M2-001, V3-M2-002 and V3-M2-003**. The UI lead also reported no blocking source/design finding in those corrections. This is their disposition, not an implementing-developer substitution for independent review.
 
-Independent targeted M2 database verification is awaiting founder approval for two fresh disposable local databases. No production/Neon, email, real import, physical phone or hosted-cookie certification is included. Main/V2 stay unchanged; no merge, deployment or M3 begins here. Historical startup branding/theme findings remain separately tracked, not silently fixed or closed by this patch.
+After Michael's explicit M2-specific approval, independent QA executed **17 lifecycle tests (6.23 s)** and **four real browser/API/PostgreSQL journeys (39.3 s)** on two fresh disposable local databases, all passing with zero failures/errors/skips. Final decision: **GO for M2 milestone integration review**. QA verified targets/roles/freshness, migrated only fresh fixtures, stopped its services and released the shared-build hold. No existing implementation/M1 QA target was reused or cleared.
+
+Saved final independent report: `deliverables/Bookvane_V3_M2_Independent_QA_2026-10-15.md`; evidence manifest/logs/JUnit under `deliverables/qa-v3-m2-2026-10-15/verification-r1/` in the parent workspace. Documentation updates after the tested commit change no application code.
+
+No production/Neon, email, real import, physical phone or hosted-cookie certification is included. Main/V2 stay unchanged; no merge, deployment or M3 begins here. Historical startup branding/theme findings remain separately tracked, not silently fixed or closed by this patch. The milestone is ready for integration review, not a full-V3 public release.
