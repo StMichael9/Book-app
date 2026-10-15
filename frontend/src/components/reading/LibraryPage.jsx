@@ -6,7 +6,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getLibraryPage } from "../../api/reading.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useRequest } from "../ui-v2/data.js";
-import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, PageHeading } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
 
 function LibrarySearch({ query, onSearch }) {
   const [draft, setDraft] = useState(query);
@@ -47,13 +47,14 @@ export default function LibraryPage() {
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
     <div className="bv-library-facets" role="group" aria-label="Filter your library">{facets.map(([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>)}</div>
     <p className="bv-help">Own and Want are independent. A book can belong to both.</p>
+    {library.readingActions && <div className="bv-form-actions"><TextLink to="/home">Your reading home</TextLink><TextLink to="/my-books/private">Add a missing book</TextLink></div>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
     {request.loading ? <BookSkeletons /> : request.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<><Button onClick={request.retry}>Try again</Button>{cursor && <Button variant="quiet" onClick={() => navigate(facet, q)}>Return to first page</Button>}</>}>Your saved books haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <>
       <p className="bv-library-caption bv-muted" role="status">{request.data.total} {request.data.total === 1 ? "book" : "books"}{q ? ` matching “${q}”` : " in this view"}. Newest saved first.</p>
       <div className="bv-book-grid">{request.data.items.map((entry, index) => entry.book ?
-        <BookCard key={entry.id} book={entry.book} priority={index < 5} buyUrl={facet === "want" ? bookshopAffiliateUrl(entry.book) : null} /> :
-        <article className="bv-book-card" key={entry.id}><BookCover book={{ title: entry.private_title, authors: entry.private_author ? [{ name: entry.private_author }] : [] }} /><h3>{entry.private_title}</h3><p className="bv-author">{entry.private_author || "Author not listed"}</p><p className="bv-help">Private library entry</p></article>
+        <div key={entry.id}><BookCard book={entry.book} priority={index < 5} buyUrl={facet === "want" ? bookshopAffiliateUrl(entry.book) : null} />{library.readingActions && <TextLink to={`/my-books/${entry.id}`}>Open your reading</TextLink>}</div> :
+        <article className="bv-book-card" key={entry.id}><BookCover book={{ title: entry.private_title, authors: entry.private_author ? [{ name: entry.private_author }] : [] }} /><h3>{entry.private_title}</h3><p className="bv-author">{entry.private_author || "Author not listed"}</p><p className="bv-help">Private library entry</p>{library.readingActions && <TextLink to={`/my-books/${entry.id}`}>Open your reading</TextLink>}</article>
       )}</div>
       {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
       </> : <EmptyState icon={BookOpen} title={cursor ? "No books on this page." : q || facet !== "all" ? "No saved books match this view." : "Give your books a home."} action={!cursor && <ActionLink to="/browse">Discover books</ActionLink>}>

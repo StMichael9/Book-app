@@ -59,6 +59,7 @@ const test = base.extend({
       }
       if (path === "/books/1/status") {
         if (app.holdSave) await app.holdSave;
+        if (app.lateWrite401) return reply(401, { detail: "Previous session expired" });
         app.saved = method === "DELETE" ? [] : [{ id: 1, book_id: 1, book, status: body.status }];
         return method === "DELETE" ? route.fulfill({ status: 204 }) : reply(200, app.saved[0]);
       }
@@ -241,4 +242,29 @@ test("ordinary discovery has one shared library read and one startup refresh", a
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(1);
   expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
   expect(app.requests.filter(r => r.path === "/books")).toHaveLength(1);
+});
+
+test("a departed account's late write 401 cannot replay under a new account", async ({ page, app }) => {
+  app.saved = [{ id: 1, book_id: 1, book, status: "want" }];
+  await page.goto("/book/1");
+  await expect(page.getByRole("button", { name: "Add Browser-only book to Own" })).toBeEnabled();
+  let release;
+  app.holdSave = new Promise(resolve => { release = resolve; });
+  app.lateWrite401 = true;
+  try {
+    await page.getByRole("button", { name: "Add Browser-only book to Own" }).click();
+    await expect.poll(() => app.requests.filter(r => r.path === "/books/1/status").length).toBe(1);
+    app.authenticated = false;
+    await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    app.saved = [];
+    await login(page);
+    await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+    release();
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 100)));
+    expect(app.requests.filter(r => r.path === "/books/1/status")).toHaveLength(1);
+    expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
+    expect(app.saved).toEqual([]);
+    await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  } finally { release(); }
 });

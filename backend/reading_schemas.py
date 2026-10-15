@@ -1,5 +1,6 @@
 """Private reading-library contract 1. Public BookSchema remains unchanged."""
-from datetime import datetime
+from datetime import date, datetime
+from uuid import UUID
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
@@ -67,3 +68,74 @@ class LibraryPage(BaseModel):
 
 class EntryDetail(LibraryEntry):
     save_note: str | None
+
+
+class PrivateEntryCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    request_id: UUID
+    title: str = Field(min_length=1, max_length=500)
+    author: str | None = Field(default=None, max_length=500)
+    is_owned: StrictBool = False
+    is_wanted: StrictBool = False
+
+
+class AttemptValues(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    state: Literal["reading", "paused", "finished", "dnf"] | None = None
+    started_on: date | None = None
+    ended_on: date | None = None
+    progress_unit: Literal["pages", "percent"] | None = None
+    progress_value: int | None = Field(default=None, strict=True, ge=0)
+    total_pages: int | None = Field(default=None, strict=True, ge=1)
+
+
+class AttemptCreate(AttemptValues):
+    entry_id: int = Field(strict=True, ge=1)
+    expected_version: int = Field(strict=True, ge=1)
+    state: Literal["reading", "finished", "dnf"] = "reading"
+    edition_id: int | None = Field(default=None, strict=True, ge=1)
+    started_via: Literal["library", "discovery", "next_read"] | None = None
+
+
+class AttemptUpdate(AttemptValues):
+    expected_version: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def has_changes(self):
+        if not (self.model_fields_set - {"expected_version"}):
+            raise ValueError("Supply a reading change")
+        if "state" in self.model_fields_set and self.state is None:
+            raise ValueError("Reading state cannot be empty")
+        return self
+
+
+class AttemptView(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    state: str
+    started_on: date | None
+    ended_on: date | None
+    progress_unit: str | None
+    progress_value: int | None
+    total_pages: int | None
+    edition_id: int | None
+    edition_source_id: str | None
+    edition_format: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReadingResult(BaseModel):
+    entry: EntryDetail
+    attempt: AttemptView
+
+
+class ReadingWorkspace(BaseModel):
+    entry: EntryDetail
+    current_attempt: AttemptView | None
+    editions: list[dict]
+
+
+class AttemptPage(BaseModel):
+    items: list[AttemptView]
+    next_cursor: UUID | None

@@ -4,7 +4,7 @@
 
 ## Result
 
-Follow-up: independent QA identified an account-switching discovery defect and an empty-page recovery defect after this implementation handoff. Both were corrected and independently retested on local `faa7a9e`; both findings are closed. Corrections, evidence and remaining independent verification boundaries are recorded in [m1-qa-corrections.md](m1-qa-corrections.md). The original test evidence below is preserved. Current independent decision is M1 CONDITIONAL GO pending the broader authorized database/migration/integration pass; this report is not authorization for M2.
+Follow-up: independent QA identified an account-switching discovery defect and an empty-page recovery defect after this implementation handoff. Both were corrected and independently retested on `faa7a9e`; both findings are closed. The broader independent pass also completed: 136 backend cases, separate migration/restore, real browser/API/database and three compatibility checks passed. Current independent decision is M1 GO. PR #12 integrated the tested M1 code into `v3`. Michael separately authorized M2 conditional on this GO; see [development-workflow.md](development-workflow.md). This is not a production release authorization.
 
 M0 and M1 are complete and ready for human QA review. The reading-library foundation passed the executed checks below. V3 is disabled by default. Production migrations, public enablement, M2 reading actions and later features have not been performed.
 

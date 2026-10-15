@@ -7,6 +7,7 @@ from models import User
 from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
 from services.library import LibraryService, library_needs_v3, reading_enabled, require_reading
+from services.reading import ReadingService
 
 router = APIRouter(prefix="/me")
 
@@ -26,7 +27,7 @@ def writing_user(current_user: User = Depends(get_current_user)):
 def capabilities(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     writable = reading_enabled(current_user.id)
     return {"enabled": writable or library_needs_v3(db, current_user.id), "writable": writable, "contract_version": 1,
-            "milestone": "M1", "features": {"library": True, "reading_actions": False, "library_import": False}}
+            "milestone": "M2", "features": {"library": True, "reading_actions": True, "library_import": False}}
 
 
 @router.get("/library", response_model=LibraryPage)
@@ -49,6 +50,13 @@ def lookup(request: Request, data: LibraryLookup, current_user: User = Depends(r
 def ensure_entry(request: Request, book_id: int, data: FlagUpdate,
                  current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
     return LibraryService(db).ensure(current_user.id, book_id, data)
+
+
+@router.get("/library/private-matches")
+@limiter.limit("60/minute")
+def private_matches(request: Request, title: str = Query(min_length=1, max_length=500),
+                    current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    return {"items": ReadingService(db).private_matches(current_user.id, title)}
 
 
 @router.get("/library/{entry_id}", response_model=EntryDetail)

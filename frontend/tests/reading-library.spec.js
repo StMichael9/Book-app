@@ -217,10 +217,10 @@ for (const legacy of [true, false]) {
           await expect(page.getByRole("heading", { name: "No books found.", exact: true })).toBeVisible();
           await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
           await expect(page.locator(".bv-book-card")).toHaveCount(0);
-          expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(lateStatus === 401 ? 2 : 1);
-          // No duplicate B query; the 401 case retries the departed A request
-          // with B's valid cookies, but must not publish its obsolete result.
-          expect(app.requests.filter(r => r.path === "/books" && r.account === "B" && r.query.toString().includes(filter))).toHaveLength(lateStatus === 401 ? 2 : 1);
+          // A departed session's 401 must not rotate B's cookies or replay its
+          // operation using B's identity, even for an otherwise safe read.
+          expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
+          expect(app.requests.filter(r => r.path === "/books" && r.account === "B" && r.query.toString().includes(filter))).toHaveLength(1);
         } finally { release(); }
       });
     }
