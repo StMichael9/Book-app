@@ -60,3 +60,13 @@ React quality guidance informed session-safe effects and reuse of the establishe
 ## Review boundary
 
 Implementation tests are not independent M2 QA or production certification. M2 goes through its own PR into `v3` after review; no direct integration-branch implementation commits. M3 context/deletion/export, M4 Finish → Choose Next, mandatory M5 Goodreads/StoryGraph/Bookvane importing and M6 public release checks remain separate. Home intentionally has only the M2 current-reading section; it does not pretend that Next Read/importing are finished.
+
+## Independent review and correction follow-up
+
+Independent QA reviewed `1a10fd1` and issued **conditional GO**, with no confirmed P0/P1 defect, two P2 client findings and one P3 explanation issue. Its source/client checks are not an independent rerun of the implementation database suites. The saved independent report is `deliverables/Bookvane_V3_M2_Independent_QA_2026-10-15.md` in the parent workspace. Draft PR #13 targets `v3`; it is not merged.
+
+The M2 follow-up corrects all three findings in place, following the UI lead's draft-safety recommendation: Own/Want refreshes do not unmount the editor or change its captured version; a stale save retains the draft and requires explicit reload/review. Library cards render the existing active/latest state for catalogue and private entries. Read-only creation explains paused changes, and unavailable creation is not advertised from Home/library. No backend/schema/auth change or new infrastructure is involved. See `m2-qa-corrections.md` for exact regression evidence and remaining review boundaries.
+
+Correction verification actually executed: **10 targeted browser checks passed (36.7 s)**, then **109 full frontend regression checks passed (4.0 min)**, including those ten, with the final corrected source. Build/lint passed with the same 12 existing warnings. These in-memory-API tests supersede the earlier 99-case frontend run for final client coverage; they do not recertify real cookies/database integration. Independent closure of the three findings is still pending.
+
+Independent QA proposed a targeted 17-case lifecycle plus four-case real-browser pass on two fresh local QA databases. That additional persistent-fixture effort requires Michael's approval under the QA charter; the prior M1-specific approval is not silently reused. No independent M2 database result is claimed until executed. M3, merge and production deployment remain outside this correction handoff.
