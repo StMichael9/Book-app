@@ -10,8 +10,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
 from models import Book, Edition, ReadingAttempt, UserBook
-from reading_schemas import AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
-from services.library import LibraryService, _summary_options, entry_dto, projection
+from reading_schemas import AttemptDetail, AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
+from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
 
 
 def fingerprint(values):
@@ -65,7 +65,20 @@ class ReadingService(LibraryService):
 
     def _result(self, user_id, entry_id, attempt_id):
         return ReadingResult(entry=self.detail(user_id, entry_id),
-            attempt=AttemptView.model_validate(self._attempt(user_id, attempt_id)))
+            attempt=AttemptDetail.model_validate(self._attempt(user_id, attempt_id)))
+
+    def attempt_detail(self, user_id, attempt_id):
+        # Capture context and its parent version in one SELECT snapshot. A
+        # second version read could incorrectly bless an older note as current.
+        row = self.db.execute(select(UserBook, ReadingAttempt, _reading_state())
+            .join(ReadingAttempt, ReadingAttempt.user_book_id == UserBook.id)
+            .where(UserBook.user_id == user_id, ReadingAttempt.id == attempt_id)
+            .options(_summary_options()).execution_options(populate_existing=True)).one_or_none()
+        if row is None:
+            raise HTTPException(404, detail="Reading record not found")
+        entry, attempt, state = row
+        return ReadingResult(entry=entry_dto(entry, state, detail=True),
+            attempt=AttemptDetail.model_validate(attempt))
 
     def create_attempt(self, user_id, attempt_id, data):
         entry = self._entry(user_id, data.entry_id)
@@ -171,7 +184,7 @@ class ReadingService(LibraryService):
         editions = [] if entry.book_id is None else self.db.execute(select(Edition.id, Edition.source_id,
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
-        return ReadingWorkspace(entry=entry, current_attempt=AttemptView.model_validate(attempt) if attempt else None,
+        return ReadingWorkspace(entry=entry, current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
             editions=[dict(row) for row in editions])
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):

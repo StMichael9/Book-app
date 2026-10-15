@@ -13,6 +13,7 @@ export const getReadingWorkspace = (id) => apiRequest(`/me/library/${id}/reading
 export const getReadingHistory = (id, cursor = "") => apiRequest(`/me/library/${id}/attempts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
 export const createReadingAttempt = (id, data) => apiRequest(`/me/reading-attempts/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const updateReadingAttempt = (id, data) => apiRequest(`/me/reading-attempts/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const getReadingAttempt = (id) => apiRequest(`/me/reading-attempts/${id}`);
 export const createPrivateEntry = (data) => apiRequest("/me/library/private", { method: "POST", body: JSON.stringify(data) });
 export const findPrivateMatches = (title) => apiRequest(`/me/library/private-matches?${new URLSearchParams({ title })}`);
 export const updateLibraryEntry = (id, data) => apiRequest(`/me/library/${id}`, { method: "PATCH", body: JSON.stringify(data) });

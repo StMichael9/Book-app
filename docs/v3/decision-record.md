@@ -1,6 +1,6 @@
 # V3 decision record and M0 contract
 
-Original implementation authorization covered M0/M1. Independent M1 QA subsequently issued GO after 136 backend checks, separate migration/restore and real integration verification. Michael then conditionally authorized M2 after that GO and requested feature branches targeting a shared `v3` branch. M1 was integrated through PR #12 at `5942faf15643475e1bd40577e49e2794d5d1c5ee`; M2 is implemented on `codex/v3-m2-reading-lifecycle`. Stop for M2 review before M3; no production rollout is authorized.
+Original implementation authorization covered M0/M1. Independent M1 QA subsequently issued GO after 136 backend checks, separate migration/restore and real integration verification. Michael then authorized M2 after that GO and requested feature branches targeting shared `v3`. M1 integrated through PR #12 at `5942faf15643475e1bd40577e49e2794d5d1c5ee`. After independent M2 GO, Michael explicitly authorized its integration and beginning M3. PR #13 merged into `v3` at `25da21d755bb41cae4ed93e738b94efe73d4b661`; M3 starts there on `codex/v3-m3-private-context`. No M4 or production rollout is authorized.
 
 ## Baseline and branch
 

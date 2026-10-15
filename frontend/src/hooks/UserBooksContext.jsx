@@ -21,6 +21,7 @@ export function UserBooksProvider({ children }) {
   const [mode, setMode] = useState("loading");
   const [readOnly, setReadOnly] = useState(false);
   const [readingActions, setReadingActions] = useState(false);
+  const [privateContext, setPrivateContext] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -55,6 +56,7 @@ export function UserBooksProvider({ children }) {
     cache.current.clear(); setBooksById({}); setLookupErrors({}); setError(""); setMode("loading");
     setReadOnly(false);
     setReadingActions(false);
+    setPrivateContext(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -71,6 +73,7 @@ export function UserBooksProvider({ children }) {
         if (capabilities.contract_version !== 1) throw new Error("Refresh this page to use the current library.");
         setReadOnly(capabilities.writable === false);
         setReadingActions(capabilities.features?.reading_actions === true);
+        setPrivateContext(capabilities.features?.private_context === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -167,6 +170,7 @@ export function UserBooksProvider({ children }) {
     error: loadedSession === sessionKey ? error : "",
     mode: loadedSession === sessionKey ? mode : "loading",
     readingActions: loadedSession === sessionKey && readingActions,
+    privateContext: loadedSession === sessionKey && privateContext,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
     revision, readOnly, lookupErrors: loadedSession === sessionKey ? lookupErrors : {}, loadVisibleBooks, rememberEntries,
     retryLoad() { setLoadAttempt(attempt => attempt + 1); },
@@ -184,7 +188,7 @@ export function UserBooksProvider({ children }) {
       if (token !== generation.current) return;
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

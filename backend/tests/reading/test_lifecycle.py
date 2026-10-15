@@ -71,7 +71,9 @@ def test_creation_replay_after_transitions_and_intent_conflict(client, owner, se
     replay = client.put(f"/me/reading-attempts/{identity}", json=body)
     assert replay.status_code == 200 and replay.json()["attempt"]["state"] == "finished"
     assert client.put(f"/me/reading-attempts/{identity}", json={**body, "state": "dnf"}).status_code == 409
-    assert client.get(f"/me/library/{saved['id']}/attempts").json()["items"] == [replay.json()["attempt"]]
+    # History stays a summary; M3 context is deliberately detail-only.
+    summary = {key: value for key, value in replay.json()["attempt"].items() if key not in {"note", "reaction"}}
+    assert client.get(f"/me/library/{saved['id']}/attempts").json()["items"] == [summary]
 
 
 def test_active_conflicts_versions_and_reopen_cannot_close_other_reading(client, owner, seeded_books):

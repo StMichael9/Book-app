@@ -47,6 +47,13 @@ def create_attempt(request: Request, attempt_id: UUID, data: AttemptCreate,
     return ReadingService(db).create_attempt(current_user.id, attempt_id, data)
 
 
+@router.get("/reading-attempts/{attempt_id}", response_model=ReadingResult)
+@limiter.limit("60/minute")
+def reading_detail(request: Request, attempt_id: UUID,
+                   current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    return ReadingService(db).attempt_detail(current_user.id, attempt_id)
+
+
 @router.patch("/reading-attempts/{attempt_id}", response_model=ReadingResult)
 @limiter.limit("60/minute")
 def change_attempt(request: Request, attempt_id: UUID, data: AttemptUpdate,

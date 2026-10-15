@@ -1,0 +1,34 @@
+# M3 — private context and trustworthy data control
+
+October 15, 2026. **In progress, not a completed milestone.** Michael approved integrating M2 and beginning M3. M2 PR #13 merged into `v3` at `25da21d755bb41cae4ed93e738b94efe73d4b661`; this feature branch, `codex/v3-m3-private-context`, starts at that exact commit. Main/V2 remain unchanged. No production deployment, migration, import, paid service or M4 work.
+
+## First implementation slice
+
+- **Data/schema:** reuses existing `UserBook.save_note` and `ReadingAttempt.note/reaction` and their M1 constraints. No new migration, table, service or dependency. Existing IDs, Own/Want and preferences remain intact.
+- **Backend:** version-checked optional entry save reason (500 characters); per-attempt note (2,000) and loved/liked/not_for_me reaction. Clearing uses null/blank; unspecified fields are preserved. Effective changes advance the entry version, no-ops do not. Existing parent-row locking and stale-409 handling protect concurrent edits. Context stays separate across rereads and survives reopen/finish.
+- **API/privacy:** `GET /me/reading-attempts/{uuid}` supplies owner-only context and parent version from the same SELECT snapshot; another owner receives404. Detail/write DTOs include context; Home, library/lookup and paged history remain note-free summaries. Plain text is stored as entered, not rendered as HTML. Existing auth/origin/rate-limit/private-no-store controls are retained.
+- **Compatibility:** note/reaction fields were added to update DTOs, not creation defaults. This preserves stored pre-M3 creation fingerprints and replay behavior. The original M2 replay test now compares the unchanged history summary rather than expecting private detail fields in that summary; new tests verify retry after subsequent note edits.
+- **Frontend:** the existing workspace has optional, separate save-reason and reading-memory editors; reactions have an explicit unselected option. Finishing still succeeds without context. Current and historical memories can be viewed privately; older attempts fetch detail only on demand. Read-only libraries retain context viewing without saves. Drafts reuse the M2 stable editor/session guard and original version; errors/refetch/flag changes do not discard them, while route/account changes clear the departed scope. No notes are placed in local storage, provider summaries, public sharing or analytics.
+- **Capability boundary:** `private_context` is advertised only by this implementation and respected by the frontend. `reading_export` and `privacy_controls` remain false until their remaining work is implemented. Reporting milestoneM3 is not a declaration that the full milestone is complete.
+
+## Executed verification
+
+- Reading suites excluding the separate unchanged migration/restore file: **41 passed**, 14.42s, one existing TestClient warning. Includes M1/M2 regressions and11 new context cases: limits/atomicity, no-op/clear, owner isolation, summary privacy, Unicode/plain text, independent rereads/reopen, old creation retry, concurrent writes and read-only recovery.
+- Existing auth/application suites: **69 passed**, 17.10s,14 existing warnings. No authentication service or cookie behavior was changed.
+- Targeted Edge frontend context/lifecycle suite: **15 passed**, 27.5s; includes10 existing M2 client checks andfive new context cases covering failed saves, literal HTML-like text, clearing, save reason independence, stale drafts, read-only history and departed-account response suppression.
+- Complete frontend suite: **114 passed**, 3.1min, including the15 targeted cases. These overlap, not129 unique checks. Production build passed as browser setup; lint passed with12 existing warnings and no errors. Backend compilation and Alembic check passed, with no new schema operations.
+- First live five-journey run: **four passed, one failed** in32.4s. The new journey attempted the sixth registration from one runner IP inside the existing five/minute auth window and correctly received429. This was test orchestration, not a relaxed application safeguard. The M3 test now verifies that message and honors a61-second cooldown only if429 occurs; auth settings and backend test server are unchanged. A new fresh fixture target is used for the rerun, rather than clearing the populated one. This failed attempt is recorded separately from the successful corrected run below. No independent M3 QA is claimed.
+- Corrected live run: **all five real Edge/FastAPI/PostgreSQL journeys passed**, 1.5min. Includes the four existing M1/M2 journeys and the new M3 registration/start/save reason/failed-memory-save retry/reload/finish/reread/historical-note-correction/other-account rejection path. HTML-like note text remained literal, no script ran, and summary endpoints omitted the memory. A390px M3 workspace capture was checked for overflow. These are implementation results, not independent M3 QA or hosted-cookie/physical-phone certification.
+
+Fresh implementation-only targets: `bookvane_v3_m3_context_test`, `bookvane_v3_m3_context_browser_test`, and the rerun's `bookvane_v3_m3_context_r2_browser_test`, non-superuser `bookvane_v3_test` at loopback `127.0.0.1:55433`. Existing implementation/M1/M2 QA databases are not reused/cleared. Tests contain synthetic local accounts/catalogue records only; no production/Neon or Resend connection is used. Existing migration chain applied only to fresh fixtures at head `ef41a83d9012`.
+
+The390px workspace capture was visually inspected against the existing V2 design. App test listeners exited, and the exact local cluster started for this work was stopped cleanly after identity verification. Synthetic fixtures were retained; no production/user database was changed. Patch check passed.
+
+## Remaining within M3
+
+1. Version-checked explicit deletion of one reading record and confirmed forget of an entire private library entry/history; do not turn flag changes into deletion.
+2. Owner-only bounded/streamed data export, download feedback and accurate inclusion/privacy wording, without retaining server archives.
+3. Update privacy/deletion/recovery procedures, test user-deletion cascades and removal/export authorization/concurrency/retry behavior.
+4. Final integrated M3 journeys, independent QA, accessibility/phone review and milestone completion report.
+
+The UI lead supplied interaction guidance: keep context optional and separate from lifecycle success, preserve original draft versions, make removal scope explicit, retain records on failed deletes, and provide truthful export/paused-state feedback. React and full-flow verification guidance inform session-safe forms and actual browser/API/database checks; database guidance keeps testing isolated and the existing infrastructure unchanged. These are implementation references, not new hosting decisions.

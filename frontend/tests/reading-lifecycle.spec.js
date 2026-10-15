@@ -33,7 +33,7 @@ const test = base.extend({
       if (path === "/me/reading-capabilities") {
         if (state.oldBackend) return reply(404, {});
         return reply(200, { enabled: !state.disabled, writable: !state.readOnly, contract_version: 1,
-          features: { reading_actions: true } });
+          features: { reading_actions: true, private_context: Boolean(state.privateContext) } });
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
@@ -65,12 +65,17 @@ const test = base.extend({
         return reply(200, current);
       }
       if (path === `/me/reading-attempts/${attemptId}` && method === "PATCH") {
+        if (state.contextFails) return reply(503, { detail: "Temporary failure" });
         const current = state.entries.get(101);
         if (body.expected_version !== current.version) return reply(409, { detail: "Your library changed. Reload before trying again." });
         const { expected_version: _version, ...changes } = body;
         Object.assign(state.attempt, changes);
         current.version += 1;
         return reply(200, { entry: current, attempt: state.attempt });
+      }
+      if (path === `/me/reading-attempts/${attemptId}` && method === "GET") {
+        if (state.holdMemory) await state.holdMemory;
+        return reply(200, { entry: state.entries.get(101), attempt: state.attempt });
       }
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
@@ -188,4 +193,91 @@ test("drafts clear on route or account departure, not on workspace refresh", asy
   await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveCount(0);
   expect(app.attempt.progress_value).toBe(40);
+});
+
+test("M3 private memory retains failed drafts, renders plain text and can be cleared", async ({ page, app }) => {
+  app.privateContext = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+  const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
+  const note = '<img src=x onerror="window.noteExecuted=true">\nMy private memory 読書';
+  await expect(field).toHaveAttribute("maxlength", "2000");
+  await field.fill(note);
+  await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("liked");
+  app.contextFails = true;
+  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Your draft is still here");
+  await expect(field).toHaveValue(note);
+  app.contextFails = false;
+  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await expect(page.locator(".bv-private-text")).toHaveText(note);
+  await expect(page.getByText("Liked it", { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.noteExecuted)).toBeUndefined();
+  await expect(page.locator(".bv-private-text img")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".bv-private-text")).toHaveText(note);
+  await page.getByRole("button", { name: "View or edit reading memory", exact: true }).click();
+  await field.fill("");
+  await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("");
+  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toBeVisible();
+  expect(app.attempt.note).toBeNull(); expect(app.attempt.reaction).toBeNull();
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("My private memory");
+});
+
+test("M3 save reason is independent from reading memory and flags", async ({ page, app }) => {
+  app.privateContext = true;
+  app.attempt.note = "A separate reading memory";
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
+  const field = page.getByLabel("Save reason (optional)", { exact: true });
+  await expect(field).toHaveAttribute("maxlength", "500");
+  await field.fill("A friend's recommendation");
+  await page.getByRole("button", { name: "Save reason", exact: true }).click();
+  await expect(page.getByText("A friend's recommendation", { exact: true })).toBeVisible();
+  expect(app.attempt.note).toBe("A separate reading memory");
+  expect(app.entries.get(101).is_owned).toBe(true);
+  expect(app.entries.get(101).is_wanted).toBe(false);
+});
+
+test("M3 stale memory draft survives flag updates without rebasing", async ({ page, app }) => {
+  app.privateContext = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+  const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
+  await field.fill("Unsaved reader context");
+  await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(field).toHaveValue("Unsaved reader context");
+  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Your draft is still here");
+  await expect(field).toHaveValue("Unsaved reader context");
+  expect(app.requests.filter(request => request.method === "PATCH" && request.path.includes("reading-attempts")).at(-1).body.expected_version).toBe(2);
+  expect(app.attempt.note).toBeUndefined();
+});
+
+test("M3 read-only history can show private memory without allowing saves", async ({ page, app }) => {
+  app.privateContext = true; app.readOnly = true; app.attempt.note = "Preserved private memory";
+  await page.goto("/my-books/101");
+  await expect(page.getByText("Preserved private memory", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Note and reaction", exact: true }).click();
+  await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveValue("Preserved private memory");
+  await expect(page.getByRole("button", { name: "Save reading memory", exact: true })).toBeDisabled();
+  expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
+});
+
+test("M3 late context response cannot reopen a departed account's draft", async ({ page, app }) => {
+  app.privateContext = true;
+  let release;
+  app.holdMemory = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+    await expect.poll(() => app.requests.filter(request => request.method === "GET" && request.path.includes("reading-attempts")).length).toBe(1);
+    app.authenticated = false;
+    await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+    await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
+    release();
+    await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveCount(0);
+  } finally { release(); }
 });
