@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import delete, event, func, insert, select
+from sqlalchemy import delete, event, func, insert, select, text
 from sqlalchemy.exc import IntegrityError
 
 
@@ -213,6 +213,7 @@ def test_10k_library_is_bounded_and_searchable(reader, app_modules, db_session):
     db_session.execute(insert(models.ReadingAttempt), [{"id": uuid.uuid4(), "user_book_id": entry_id,
         "state": "reading", "creation_fingerprint": "b" * 64} for entry_id in entry_ids[:2000]])
     db_session.commit()
+    db_session.execute(text("SET LOCAL statement_timeout = '15s'"))
     statements = []
     sql_timings = []
     captured_queries = []
@@ -251,6 +252,28 @@ def test_10k_library_is_bounded_and_searchable(reader, app_modules, db_session):
             for number, (statement, parameters) in enumerate(captured_queries):
                 plan = connection.exec_driver_sql("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + statement, parameters).scalar_one()[0]
                 print(f"M1 query {number}: cost={plan['Plan']['Total Cost']} execution_ms={plan['Execution Time']} jit={plan.get('JIT', {}).get('Timing', {})}")
+
+
+def test_library_search_membership_preserves_literal_author_private_and_owner_matches(client, reader, app_modules, db_session):
+    models = app_modules["models"]
+    name = "Shared 同名 %_\\"
+    first = models.Book(title="Source one", authors=[models.Author(name=name, source_id="/authors/OLM4SEARCH1A")])
+    second = models.Book(title="Source two", authors=[models.Author(name=name, source_id="/authors/OLM4SEARCH2A")])
+    other = models.User(email=f"search-other-{uuid.uuid4().hex}@example.com", hashed_password="fixture")
+    db_session.add_all([first, second, other]); db_session.flush()
+    entries = [models.UserBook(user_id=reader.id, book_id=first.id, is_owned=True, is_wanted=True),
+        models.UserBook(user_id=reader.id, book_id=second.id, is_wanted=True),
+        models.UserBook(user_id=reader.id, private_title="Private title", private_author=name, is_wanted=True)]
+    db_session.add_all(entries + [models.UserBook(user_id=other.id, private_title="Hidden", private_author=name, is_wanted=True)])
+    db_session.commit()
+    for query, expected in [("shared 同名", entries), ("SOURCE ONE", entries[:1]),
+            ("%_\\", entries), ("private title", entries[2:]), ("no matching record", [])]:
+        response = client.get("/me/library", params={"q": query, "facet": "want"})
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["total"] == result["counts"]["all"] == len(expected)
+        assert {entry["id"] for entry in result["items"]} == {entry.id for entry in expected}
+        assert result["counts"]["finished"] == result["counts"]["reading"] == 0
 
 
 def test_private_no_store_and_production_preflight(client, reader, app_modules, monkeypatch):

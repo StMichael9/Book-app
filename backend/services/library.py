@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from database import settings
-from models import Author, Book, ReadingAttempt, UserBook, UserBookStatus
+from models import Author, Book, ReadingAttempt, UserBook, UserBookStatus, book_authors
 from reading_schemas import EntryDetail, FlagUpdate, LibraryEntry, LibraryPage
 
 
@@ -100,9 +100,16 @@ class LibraryService:
         pattern = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         conditions = [UserBook.user_id == user_id]
         if q.strip():
+            # Uncorrelated ID sets avoid nested relationship EXISTS inside an
+            # OR: that shape can inflate planner/JIT cost on large libraries.
+            # Owner scoping remains on UserBook, including private records.
+            author_books = select(book_authors.c.book_id).join(Author,
+                Author.id == book_authors.c.author_id).where(Author.name.ilike(pattern, escape="\\"))
+            matching_books = select(Book.id).where(or_(Book.title.ilike(pattern, escape="\\"),
+                Book.id.in_(author_books)))
             conditions.append(or_(
                 UserBook.private_title.ilike(pattern, escape="\\"), UserBook.private_author.ilike(pattern, escape="\\"),
-                UserBook.book.has(or_(Book.title.ilike(pattern, escape="\\"), Book.authors.any(Author.name.ilike(pattern, escape="\\")))),
+                UserBook.book_id.in_(matching_books),
             ))
         facet_conditions = {"all": True, "owned": UserBook.is_owned.is_(True), "want": UserBook.is_wanted.is_(True)}
         facet_conditions.update({state: select(ReadingAttempt.id).where(
