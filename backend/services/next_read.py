@@ -46,10 +46,15 @@ class NextReadService:
             interest = self.db.scalar(select(Tag).where(Tag.id == query.interest_id, Tag.type.in_(INTEREST_TYPES)))
             if interest is None:
                 raise HTTPException(422, detail="Choose a supported discovery subject")
+        interest_order = [func.lower(Tag.name), Tag.id]
+        if interest is not None:
+            # Keep a covered selected subject inside the bounded options. Only
+            # absence from the full scoped aggregate proves zero coverage.
+            interest_order.insert(0, case((Tag.id == interest.id, 0), else_=1))
         interests = [dict(row) for row in self.db.execute(select(Tag.id, Tag.name, Tag.type,
             func.count().label("count")).join(book_tags, book_tags.c.tag_id == Tag.id)
             .join(scope, scope.c.book_id == book_tags.c.book_id).where(Tag.type.in_(INTEREST_TYPES))
-            .group_by(Tag.id).order_by(func.lower(Tag.name), Tag.id).limit(40)).mappings()]
+            .group_by(Tag.id).order_by(*interest_order).limit(40)).mappings()]
         for item in interests:
             item["type"] = item["type"].value
         if interest is not None and not any(item["id"] == interest.id for item in interests):

@@ -89,7 +89,7 @@ export default function NextReadSection({ onSkip }) {
   const result = request.data;
   return <section className="bv-section bv-next-read" aria-label="Choose your next read">
     <h2>What would you like to read next?</h2><p className="bv-help">A few choices, not a prediction. Start with your Want books; you can always skip this.</p>
-    {onSkip && <Button variant="quiet" onClick={onSkip}>Not now</Button>}
+    {onSkip && <Button variant="quiet" disabled={command.pending} onClick={onSkip}>Not now</Button>}
     <div className="bv-form-actions" role="group" aria-label="Choice source"><Button disabled={command.pending} variant={settings.source === "want" ? "saved" : "quiet"} aria-pressed={settings.source === "want"} onClick={() => switchSource("want")}>My Want books</Button><Button disabled={command.pending} variant={settings.source === "catalogue" ? "saved" : "quiet"} aria-pressed={settings.source === "catalogue"} onClick={() => switchSource("catalogue")}>Explore something new</Button></div>
     <p className="bv-help">{settings.source === "want" ? "From your Want list only. Active and paused readings are excluded." : "From the catalogue, not your Want queue. Previously finished or stopped books stay out unless you put them back on Want and switch to My Want books."}</p>
     {library.readOnly && <p role="status">You can view choices. Starting a reading is temporarily paused.</p>}

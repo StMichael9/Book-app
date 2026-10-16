@@ -213,6 +213,12 @@ def test_10k_library_is_bounded_and_searchable(reader, app_modules, db_session):
     db_session.execute(insert(models.ReadingAttempt), [{"id": uuid.uuid4(), "user_book_id": entry_id,
         "state": "reading", "creation_fingerprint": "b" * 64} for entry_id in entry_ids[:2000]])
     db_session.commit()
+    # This benchmark replaces tiny per-test fixtures with 10K entries/12K
+    # readings in one commit. Refresh only this disposable target's statistics
+    # so the measurement does not depend on autovacuum's scheduling window.
+    # M4 separately exercises freshly loaded and analyzed catalogue choices.
+    for table in ("books", "user_books", "reading_attempts", "authors", "book_authors"):
+        db_session.execute(text(f"ANALYZE {table}"))
     db_session.execute(text("SET LOCAL statement_timeout = '15s'"))
     statements = []
     sql_timings = []

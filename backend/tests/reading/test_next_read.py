@@ -110,6 +110,26 @@ def test_repeatable_rotation_exclusions_and_no_enduring_skip_profile(client, rea
     assert choose(client, **params) == first
 
 
+def test_selected_subject_outside_option_cap_keeps_true_scoped_count(client, reader, db_session, app_modules):
+    models = app_modules["models"]
+    tags = [models.Tag(name=f"M4 capped subject {index:02}", type=models.TagType.genre) for index in range(41)]
+    book = models.Book(title="Selected outside cap", tags=tags, page_count=200)
+    db_session.add(book); db_session.commit()
+    queue(client, book, is_owned=True)
+    assert tags[-1].id not in {option["id"] for option in choose(client)["interests"]}
+    for source in ("want", "catalogue"):
+        if source == "catalogue":
+            saved = client.post("/me/library/lookup", json={"book_ids": [book.id]}).json()["items"][0]
+            client.patch(f"/me/library/{saved['entry_id']}", json={"expected_version": saved["version"], "is_wanted": False})
+        result = choose(client, source=source, interest_id=tags[-1].id, owned_only=True, max_pages=200)
+        assert len(result["interests"]) == 40 and result["eligible_count"] == 1
+        assert next(option for option in result["interests"] if option["id"] == tags[-1].id)["count"] == 1
+        assert result["items"][0]["book"]["id"] == book.id
+        empty = choose(client, source=source, interest_id=tags[-1].id, max_pages=100)
+        assert empty["eligible_count"] == 0
+        assert next(option for option in empty["interests"] if option["id"] == tags[-1].id)["count"] == 0
+
+
 def test_same_name_authors_are_distinct_and_diversity_when_possible(client, reader, db_session, app_modules):
     models = app_modules["models"]
     same = models.Author(name="Same display name", source_id="/authors/OLM4A")

@@ -71,6 +71,7 @@ const test = base.extend({
         const saved = state.entries.get(body.entry_id);
         saved.version += 1; saved.is_wanted = false;
         const created = attempt(reading[1]); state.attempts.set(saved.id, created);
+        if (state.holdCommittedStart) await state.holdCommittedStart;
         if (state.loseStartResponse) { state.loseStartResponse = false; return route.abort("failed"); }
         return reply(200, { entry: saved, attempt: created });
       }
@@ -79,6 +80,26 @@ const test = base.extend({
     await provide(state);
     expect(state.errors).toEqual([]);
   },
+});
+
+test("M4 finish skip cannot hide a committed pending start and completion remains visible", async ({ page, app }) => {
+  await page.goto("/my-books/1");
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  const choices = page.getByRole("region", { name: "Choose your next read" });
+  const skip = choices.getByRole("button", { name: "Not now", exact: true });
+  await expect(skip).toBeEnabled();
+  let release;
+  app.holdCommittedStart = new Promise(done => { release = done; });
+  try {
+    await choices.getByRole("button", { name: "Start reading M4 fixture 2", exact: true }).click();
+    await expect.poll(() => app.attempts.get(2)?.state).toBe("reading");
+    await expect(skip).toBeDisabled();
+    await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeVisible();
+    release();
+    await expect(page).toHaveURL(/\/my-books\/2$/);
+    await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+    expect(app.requests.filter(item => item.method === "PUT" && item.path.includes("reading-attempts"))).toHaveLength(1);
+  } finally { release(); }
 });
 
 test("M4 Home is shelf-first, short and private; viewing and switching modes never writes", async ({ page, app }) => {
