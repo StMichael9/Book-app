@@ -76,7 +76,7 @@ def test_full_chain_populated_backfill_safe_downgrade_and_recovery(tmp_path):
     failure = migrate(url, "downgrade", "d9b6e1f2a3c4", succeeds=False)
     assert "downgrade would lose private data" in failure.stderr
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "ef41a83d9012"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f5c12a608de3"
         assert connection.scalar(text("SELECT count(*) FROM reading_attempts")) == 1
     # Recovery rehearsal contains synthetic fixtures only; no production dump.
     binary_dir = Path(os.getenv("PG_BIN_DIR", "C:/Program Files/PostgreSQL/16/bin"))
@@ -90,6 +90,6 @@ def test_full_chain_populated_backfill_safe_downgrade_and_recovery(tmp_path):
     assert snapshot(restore_engine) == snapshot(engine)
     with restore_engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM reading_attempts")) == 1
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "ef41a83d9012"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f5c12a608de3"
     engine.dispose()
     restore_engine.dispose()

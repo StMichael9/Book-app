@@ -216,6 +216,7 @@ class ReadingWorkspace(BaseModel):
     entry: EntryDetail
     current_attempt: AttemptDetail | None
     editions: list[dict]
+    imported_sources_count: int = 0
 
 
 class AttemptPage(BaseModel):

@@ -146,6 +146,7 @@ class UserBook(Base):
     __tablename__ = 'user_books'
     __table_args__ = (
         UniqueConstraint('user_id', 'book_id', name='uq_user_book'),
+        UniqueConstraint('id', 'user_id', name='uq_user_book_owner'),
         UniqueConstraint('user_id', 'create_request_id', name='uq_user_book_request'),
         CheckConstraint("version >= 1", name="ck_user_book_version"),
         CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
@@ -191,6 +192,7 @@ class UserBook(Base):
 class ReadingAttempt(Base):
     __tablename__ = "reading_attempts"
     __table_args__ = (
+        UniqueConstraint('id', 'user_book_id', name='uq_attempt_entry'),
         CheckConstraint("state IN ('reading','paused','finished','dnf')", name="ck_attempt_state"),
         CheckConstraint("origin IN ('native','import')", name="ck_attempt_origin"),
         CheckConstraint("started_via IS NULL OR started_via IN ('library','discovery','next_read')", name="ck_attempt_started_via"),
@@ -454,3 +456,6 @@ Index("ix_authors_name_trgm", Author.name, postgresql_using="gin", postgresql_op
 Index("ix_book_tags_tag_book", book_tags.c.tag_id, book_tags.c.book_id)
 Index("ix_user_books_user_status", UserBook.user_id, UserBook.status)
 Index("ix_user_books_user_id_page", UserBook.user_id, UserBook.id)
+
+# Register the separate private-import responsibility with the shared metadata.
+from library_import_models import ImportedLibraryRecord, ImportedReadLink, LibraryImportRow, LibraryImportRun  # noqa: E402,F401

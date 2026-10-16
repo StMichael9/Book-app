@@ -25,6 +25,7 @@ export function UserBooksProvider({ children }) {
   const [privacyControls, setPrivacyControls] = useState(false);
   const [readingExport, setReadingExport] = useState(false);
   const [nextRead, setNextRead] = useState(false);
+  const [libraryImport, setLibraryImport] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -51,6 +52,14 @@ export function UserBooksProvider({ children }) {
     setBooksById(Object.fromEntries(cache.current));
   }, []);
 
+  const invalidateLookups = useCallback(() => {
+    generation.current += 1;
+    for (const controller of requests.current) controller.abort();
+    for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Library changed; check this book again."));
+    queued.current.clear();
+    pipeline.current = null;
+  }, []);
+
   useEffect(() => {
     const token = ++generation.current;
     const controllers = requests.current;
@@ -62,6 +71,7 @@ export function UserBooksProvider({ children }) {
     setPrivateContext(false);
     setPrivacyControls(false); setReadingExport(false);
     setNextRead(false);
+    setLibraryImport(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -82,6 +92,7 @@ export function UserBooksProvider({ children }) {
         setPrivacyControls(capabilities.features?.privacy_controls === true);
         setReadingExport(capabilities.features?.reading_export === true);
         setNextRead(capabilities.features?.next_read === true);
+        setLibraryImport(capabilities.features?.library_import === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -182,15 +193,17 @@ export function UserBooksProvider({ children }) {
     privacyControls: loadedSession === sessionKey && privacyControls,
     readingExport: loadedSession === sessionKey && readingExport,
     nextRead: loadedSession === sessionKey && nextRead,
+    libraryImport: loadedSession === sessionKey && libraryImport,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
+    importChanged() {
+      invalidateLookups();
+      cache.current.clear(); setBooksById({}); setLookupErrors({});
+      setRevision(number => number + 1);
+    },
     readingRemoved(bookId) {
       // Invalidate in-flight lookups before marking this book known-absent.
       // A slower pre-deletion lookup must not resurrect its saved flags.
-      generation.current += 1;
-      for (const controller of requests.current) controller.abort();
-      for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Library changed; check this book again."));
-      queued.current.clear();
-      pipeline.current = null;
+      invalidateLookups();
       if (bookId) {
         cache.current.delete(bookId);
         rememberEntries([{ book_id: bookId, entry_id: null, is_owned: false, is_wanted: false, version: null }]);
@@ -213,7 +226,7 @@ export function UserBooksProvider({ children }) {
       if (token !== generation.current) return;
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, libraryImport, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag, invalidateLookups]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

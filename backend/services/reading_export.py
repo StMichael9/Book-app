@@ -9,7 +9,7 @@ from time import monotonic
 
 from sqlalchemy import func, select, text
 
-from models import Author, Book, ReadingAttempt, Tag, UserBook, UserPreference, book_authors
+from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, Tag, UserBook, UserPreference, book_authors
 
 
 def _line(record):
@@ -42,6 +42,13 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
         ("preference", select(preference.c.id, preference.c.tag_id, preference.c.source_text,
             preference.c.created_at, Tag.name, Tag.type).join(Tag)
             .where(preference.c.user_id == user_id).order_by(preference.c.id)),
+        ("imported_source", select(ImportedLibraryRecord.id, ImportedLibraryRecord.user_book_id,
+            ImportedLibraryRecord.source, ImportedLibraryRecord.scope, ImportedLibraryRecord.context,
+            ImportedLibraryRecord.removed, ImportedLibraryRecord.created_at, ImportedLibraryRecord.updated_at)
+            .where(ImportedLibraryRecord.user_id == user_id).order_by(ImportedLibraryRecord.id)),
+        ("imported_read_link", select(ImportedReadLink.id, ImportedReadLink.record_id,
+            ImportedReadLink.user_book_id, ImportedReadLink.attempt_id, ImportedReadLink.removed)
+            .where(ImportedReadLink.user_id == user_id).order_by(ImportedReadLink.id)),
     )
     counts = {}
     with engine.connect().execution_options(isolation_level="REPEATABLE READ") as connection:
@@ -64,5 +71,8 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
                             values["type"] = values["type"].value
                         yield _line({"type": kind, "data": values})
                         count += 1
-                counts[kind] = count
+                # Optional record kinds extend format 1 without changing the
+                # original zero-source library export/count contract.
+                if count or kind in ("entry", "reading", "preference"):
+                    counts[kind] = count
             yield _line({"type": "complete", "format_version": 1, "counts": counts})
