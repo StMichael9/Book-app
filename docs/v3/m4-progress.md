@@ -1,6 +1,19 @@
 # M4 — Finish → Choose Next
 
-October 15, 2026. **Implementation and verification in progress; no independent GO yet.** Michael authorized M4 after accepted M3 PR14 merged into `v3` at `2f0c5b94df57311d423c9a6ed05c0795ef04184e`. Feature `codex/v3-m4-next-read` begins at that same commit. Main/V2 and production remain untouched. No M5, real catalogue import, paid AI/service or hosting change.
+October 15, 2026. **M4 implementation and independent QA complete; final GO received.** Michael authorized M4 after accepted M3 PR14 merged into `v3` at `2f0c5b94df57311d423c9a6ed05c0795ef04184e`. Feature `codex/v3-m4-next-read` begins at that same commit. Main/V2 and production remain untouched. No M5, real catalogue import, paid AI/service or hosting change. Historical progress/failure/pending entries below are retained; this final disposition supersedes them.
+
+## Final independent disposition and integration
+
+The test lead gave **M4 GO on exact `0930e11f1c71fce07c3fd02dda032e5a9b34e7ab`**, closing V3-M4-001 and002 with actual corrected-code evidence:
+
+-20 backend checks passed95.49s (19 M4 plus the revised10K benchmark), one existing warning;13 focused M4 client cases passed50.4s. Zero failures/errors/skips.
+-Five independent rollback-only SQL acceptance assertions passed, including the original41-subject reproduction, capped actual count and correct source/owned/length exclusions.
+-Six independent pending/idle/error skip acceptance cases passed30.5s: three Edge and three WebKit touch390px, zero page errors. A response held after simulated commit cannot be hidden via disabled skip; release completes navigation with one start. Idle/failed-start skip still works and returns keyboard focus to Finished. This race probe is a browser simulation, not claimed as a new real-database journey.
+-Independent corrected-candidate10K/12K first0.165/next0.088/search0.149s, six SELECTs/25rows; rich50K cold10.367/warm8.318/analyzed3.027s. Local variability and prior timeout uncertainty remain explicit; no production latency/concurrency guarantee.
+
+The correction QA used one new guarded `bookvane_qa_m4_20261015_r2_test`, retained earlier targets, made no source changes, stopped its exact local services/cluster, verified no test listeners and explicitly released the shared hold. Report and manifest: workspace `deliverables/Bookvane_V3_M4_Independent_QA_2026-10-15.md` and `deliverables/qa-v3-m4-2026-10-15/correction-r1/final-results.json`. Original75/backend/six-live results remain attributed to082c44f; correction20/13 overlap earlier cases and are not added as distinct totals. A subsequent documentation-only completion commit does not change the tested application/tests.
+
+Integrate through PR15 with a normal merge into `v3`, respecting repository rules and the exact feature head. No direct implementation commit to `v3`/`main`, force-push, branch deletion, production migration/deployment or M5. Chat QA is evidence, not a fabricated GitHub review/CI status. M5 mandatory library importing and M6 whole-product/hosted pilot gates still remain; M4 GO is not public V3 release approval. React/database/full-flow verification guidance informed existing-component reuse, isolated PostgreSQL tests and actual browser/API journeys, without changing hosting or architecture.
 
 ## Implemented scope and layers
 
@@ -33,7 +46,7 @@ The UI lead reviewed the intended interaction read-only: keep finish success ind
 
 Fresh local implementation fixtures: `bookvane_v3_m4_next_read_test` and `bookvane_v3_m4_next_read_browser_test`, role `bookvane_v3_test`, loopback55433. Role/target/empty-table guards verified; existing fixtures not reused/cleared. Browser database upgraded through the unchanged migration chain to `ef41a83d9012`; Alembic reports no new operations. Synthetic book records exist only in disposable local tests, not the application or Neon. No real export/import, email delivery or hosted settings change.
 
-## Remaining gates
+## Initial integration gate (historical)
 
 Implementation gates executed: relevant backend, full client/build, live journeys, lint/patch and phone inspection. Published draft PR15 targeting `v3`. Freeze the corrected feature SHA, stop implementation-owned test listeners/cluster, and transfer the shared hold for the test lead's independent M4 disposition before any integration. No production certification, M5 start or public V3 release is implied.
 
