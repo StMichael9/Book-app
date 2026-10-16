@@ -1,11 +1,51 @@
 """Private reading-library contract 1. Public BookSchema remains unchanged."""
 from datetime import date, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 LibraryFacet = Literal["all", "owned", "want", "reading", "paused", "finished", "dnf"]
+
+
+class NextReadQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source: Literal["want", "catalogue"] = "want"
+    owned_only: bool = False
+    interest_id: int | None = Field(default=None, ge=1, le=2147483647)
+    max_pages: int | None = Field(default=None, ge=1, le=100000)
+    session_id: UUID = Field(default_factory=uuid4)
+    rotation: int = Field(default=0, ge=0, le=10000)
+    exclude: list[Annotated[str, Field(pattern=r"^(book|entry):[1-9][0-9]{0,9}$")]] = Field(default_factory=list, max_length=30)
+
+
+class NextReadReason(BaseModel):
+    code: Literal["want", "catalogue", "owned", "interest", "preferences", "pages"]
+    value: str | int | None = None
+
+
+class NextReadChoice(BaseModel):
+    key: str
+    entry_id: int | None
+    version: int | None
+    book: "LibraryBook | None"
+    private_title: str | None
+    private_author: str | None
+    is_owned: bool
+    is_wanted: bool
+    revisit: bool
+    reasons: list[NextReadReason]
+
+
+class NextReadResult(BaseModel):
+    source: Literal["want", "catalogue"]
+    session_id: UUID
+    rotation: int
+    items: list[NextReadChoice]
+    eligible_count: int
+    remaining_count: int
+    interests: list[dict]
+    known_page_count: int
 
 
 class FlagUpdate(BaseModel):

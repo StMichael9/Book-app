@@ -9,6 +9,14 @@ export const ensureLibraryBook = (bookId, flags) => apiRequest(`/me/library/book
 });
 export const getLibraryPage = (params) => apiRequest(`/me/library?${new URLSearchParams(params)}`);
 export const getReadingHome = () => apiRequest("/me/home");
+export const getNextRead = (values) => {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (key === "exclude") for (const identity of value) params.append("exclude", identity);
+    else if (value !== "" && value != null) params.set(key, String(value));
+  }
+  return apiRequest(`/me/next-read?${params}`);
+};
 export const getReadingWorkspace = (id) => apiRequest(`/me/library/${id}/reading`);
 export const getReadingHistory = (id, cursor = "") => apiRequest(`/me/library/${id}/attempts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`);
 export const createReadingAttempt = (id, data) => apiRequest(`/me/reading-attempts/${id}`, { method: "PUT", body: JSON.stringify(data) });
