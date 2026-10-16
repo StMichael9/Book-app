@@ -6,10 +6,10 @@ October 15, 2026. **M4 implementation and independent QA complete; final GO rece
 
 The test lead gave **M4 GO on exact `0930e11f1c71fce07c3fd02dda032e5a9b34e7ab`**, closing V3-M4-001 and002 with actual corrected-code evidence:
 
--20 backend checks passed95.49s (19 M4 plus the revised10K benchmark), one existing warning;13 focused M4 client cases passed50.4s. Zero failures/errors/skips.
--Five independent rollback-only SQL acceptance assertions passed, including the original41-subject reproduction, capped actual count and correct source/owned/length exclusions.
--Six independent pending/idle/error skip acceptance cases passed30.5s: three Edge and three WebKit touch390px, zero page errors. A response held after simulated commit cannot be hidden via disabled skip; release completes navigation with one start. Idle/failed-start skip still works and returns keyboard focus to Finished. This race probe is a browser simulation, not claimed as a new real-database journey.
--Independent corrected-candidate10K/12K first0.165/next0.088/search0.149s, six SELECTs/25rows; rich50K cold10.367/warm8.318/analyzed3.027s. Local variability and prior timeout uncertainty remain explicit; no production latency/concurrency guarantee.
+- 20 backend checks passed in95.49s (19 M4 plus the revised10K benchmark), one existing warning;13 focused M4 client cases passed in50.4s. Zero failures/errors/skips.
+- Five independent rollback-only SQL acceptance assertions passed, including the original41-subject reproduction, capped actual count and correct source/owned/length exclusions.
+- Six independent pending/idle/error skip acceptance cases passed in30.5s: three Edge and three WebKit touch390px, zero page errors. A response held after simulated commit cannot be hidden via disabled skip; release completes navigation with one start. Idle/failed-start skip still works and returns keyboard focus to Finished. This race probe is a browser simulation, not claimed as a new real-database journey.
+- Independent corrected-candidate10K/12K first0.165/next0.088/search0.149s, six SELECTs/25rows; rich50K cold10.367/warm8.318/analyzed3.027s. Local variability and prior timeout uncertainty remain explicit; no production latency/concurrency guarantee.
 
 The correction QA used one new guarded `bookvane_qa_m4_20261015_r2_test`, retained earlier targets, made no source changes, stopped its exact local services/cluster, verified no test listeners and explicitly released the shared hold. Report and manifest: workspace `deliverables/Bookvane_V3_M4_Independent_QA_2026-10-15.md` and `deliverables/qa-v3-m4-2026-10-15/correction-r1/final-results.json`. Original75/backend/six-live results remain attributed to082c44f; correction20/13 overlap earlier cases and are not added as distinct totals. A subsequent documentation-only completion commit does not change the tested application/tests.
 
