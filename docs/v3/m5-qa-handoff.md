@@ -91,7 +91,8 @@ From `frontend`, `PLAYWRIGHT_CHANNEL=msedge`:
 
 Corrective candidate developer evidence: 217 broad backend passes; 143 full
 client passes followed by 10 focused M5 passes (overlapping counts); seven real
-browser/API/PostgreSQL passes on fresh corrected-code fixtures. Treat these as
+browser/API/PostgreSQL passes on fresh corrected-code fixtures; 46 separately
+passed administrative catalogue-import mock regressions. Treat these as
 developer evidence, not independent closure. The two new UI cases verify a
 resumed recheck's status and retained partial-cancellation totals.
 
