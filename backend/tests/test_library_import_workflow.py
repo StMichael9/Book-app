@@ -361,6 +361,7 @@ def test_http_preview_excludes_other_owner_and_unauthenticated_access(import_api
     app_modules["main"].app.dependency_overrides[get_current_user] = lambda: other
     response = client.get(f"/me/library-imports/{run['id']}/rows")
     assert response.status_code == 404 and "Owner-private" not in response.text
+    assert client.get(f"/me/library-imports/{run['id']}/report.csv").status_code == 404
     assert client.get("/me/library-imports").json()["items"] == []
     app_modules["main"].app.dependency_overrides.pop(get_current_user)
     assert client.get(f"/me/library-imports/{run['id']}").status_code == 401
@@ -421,3 +422,194 @@ def test_account_deletion_cascades_active_import_provenance_and_history(importin
     for table in (UserBook, ImportedLibraryRecord, ImportedReadLink, LibraryImportRun):
         assert workflow.db.scalar(select(func.count()).select_from(table).where(table.user_id == owner)) == 0
     assert workflow.db.scalar(select(func.count()).select_from(ReadingAttempt).where(ReadingAttempt.user_book_id.in_(entries))) == 0
+
+
+def test_identical_duplicate_group_collapses_before_atomic_history_limit(importing):
+    from models import UserBook, ReadingAttempt
+    user, workflow = importing
+    _, run = start(user, workflow, ["title", "status"])
+    batches = []
+    for ordinal in range(2):
+        result = workflow.upload(user.id, run["id"], ordinal, UploadImportBatch(rows=[["One repeated work", "finished"]] * 100))
+        batches.append({"ordinal": ordinal, "hash": result["batch_hash"], "length": 100})
+    workflow.finalize(user.id, run["id"], FinalizeImport(row_count=200, batch_count=2, manifest_hash=digest(batches)))
+    state = analyzed(user, workflow, run)
+    assert state["summary"]["dispositions"] == {"ready": 1, "duplicate": 199}
+    assert apply(user, workflow, run)["phase"] == "completed"
+    entry = workflow.db.scalar(select(UserBook).where(UserBook.user_id == user.id))
+    assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id)) == 1
+    assert workflow.db.scalar(select(func.count()).select_from(ReadingAttempt).where(ReadingAttempt.user_book_id == entry.id)) == 1
+
+
+def test_mixed_terminal_history_requires_explicit_context_only_decision(importing, seeded_books):
+    from models import UserBook, ReadingAttempt, ImportedLibraryRecord
+    user, workflow = importing
+    book = next(iter(seeded_books.values()))
+    book.source_id = "/works/OL90001W"
+    workflow.db.commit()
+    headers = ["version", "record_id", "attempt_id", "title", "author", "work_source_id", "status", "finished_on"]
+    cells = [["1", "stable-work", attempt, book.title, book.authors[0].name, book.source_id, state, ended]
+        for attempt, state, ended in (("first", "dnf", "2024-01-01"), ("second", "finished", "2025-01-01"))]
+    _, run = start(user, workflow, headers)
+    seal(user, workflow, run, cells)
+    ready = analyzed(user, workflow, run)
+    assert workflow.preview(user.id, run["id"])["items"][0]["error_code"] == "mixed_terminal_states_require_context_decision"
+    state = workflow.decide(user.id, run["id"], 1, ImportDecision(expected_revision=ready["revision"], action="preserve", history_policy="context_only"))
+    while state["phase"] == "grouping":
+        state = workflow.advance_analysis(user.id, run["id"])
+    assert apply(user, workflow, run)["phase"] == "completed"
+    entry = workflow.db.scalar(select(UserBook).where(UserBook.user_id == user.id))
+    assert workflow.db.scalar(select(func.count()).select_from(ReadingAttempt).where(ReadingAttempt.user_book_id == entry.id)) == 0
+    record = workflow.db.scalar(select(ImportedLibraryRecord).where(ImportedLibraryRecord.user_id == user.id))
+    assert record.context["history_policy"] == "context_only" and len(record.context["preserved_events"]) == 2
+    # Reordering the already accepted source set requires no repeated decision
+    # and must not manufacture a displayed random terminal state on replay.
+    _, repeat = start(user, workflow, headers)
+    seal(user, workflow, repeat, list(reversed(cells)))
+    repeated = analyzed(user, workflow, repeat)
+    assert repeated["summary"]["dispositions"] == {"ready": 2}
+    assert apply(user, workflow, repeat)["phase"] == "completed"
+    assert workflow.db.scalar(select(func.count()).select_from(ReadingAttempt).where(ReadingAttempt.user_book_id == entry.id)) == 0
+
+
+def test_stale_source_update_cannot_restore_context_deleted_after_preview(importing):
+    from models import ImportedLibraryRecord
+    from services.library_imports.provenance import clear_source
+    user, workflow = importing
+    headers = ["title", "review"]
+    _, first = start(user, workflow, headers)
+    seal(user, workflow, first, [["Source privacy fixture", "Original private review"]])
+    analyzed(user, workflow, first)
+    assert apply(user, workflow, first)["phase"] == "completed"
+    record = workflow.db.scalar(select(ImportedLibraryRecord).where(ImportedLibraryRecord.user_id == user.id))
+    _, update = start(user, workflow, headers)
+    seal(user, workflow, update, [["Source privacy fixture", "Incoming replacement review"]])
+    ready = analyzed(user, workflow, update)
+    state = workflow.decide(user.id, update["id"], 1, ImportDecision(expected_revision=ready["revision"], action="preserve", accept_source_update=True))
+    while state["phase"] == "grouping":
+        state = workflow.advance_analysis(user.id, update["id"])
+    clear_source(workflow.db, user.id, record.user_book_id, record.id)
+    result = apply(user, workflow, update)
+    assert result["phase"] == "preview_ready"
+    assert workflow.preview(user.id, update["id"])["items"][0]["error_code"] == "source_context_changed_since_preview"
+    workflow.db.refresh(record)
+    assert record.context == {}, "A stale confirmed update must not restore deleted private text"
+
+
+def test_http_result_csv_is_owner_only_complete_and_omits_private_source_text(import_api):
+    user, workflow, client = import_api
+    _, run = start(user, workflow, ["title", "review"])
+    seal(user, workflow, run, [["A private report fixture", "Never put this review in a row report"]])
+    analyzed(user, workflow, run)
+    assert apply(user, workflow, run)["phase"] == "completed"
+    response = client.get(f"/me/library-imports/{run['id']}/report.csv")
+    assert response.status_code == 200
+    assert len(response.content) == int(response.headers["content-length"])
+    assert response.text.startswith("row,result,issue,entry_id\r\n1,applied,,")
+    assert "Never put this review" not in response.text and "A private report fixture" not in response.text
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+def test_upload_resume_pins_encoding_and_rejects_changed_start_contract(importing):
+    user, workflow = importing
+    request = StartImport(id=uuid4(), headers=["title"], encoding="windows-1252")
+    run = workflow.start(user.id, request)
+    assert workflow.status(user.id, run["id"])["upload_config"]["encoding"] == "windows-1252"
+    assert workflow.start(user.id, request)["id"] == run["id"]
+    with pytest.raises(HTTPException) as changed:
+        workflow.start(user.id, request.model_copy(update={"encoding": "UTF-8"}))
+    assert changed.value.detail["code"] == "import_request_reused"
+    workflow.db.rollback()
+
+
+def test_separate_connection_run_lock_returns_controlled_retry(import_api, app_modules):
+    user, workflow, client = import_api
+    _, run = start(user, workflow, ["title"])
+    with app_modules["database"].engine.begin() as locked:
+        locked.execute(text("SELECT id FROM library_import_runs WHERE id=:id FOR UPDATE"), {"id": run["id"]})
+        response = client.put(f"/me/library-imports/{run['id']}/batches/0", json={"rows": [["A synthetic work"]]})
+        assert response.status_code == 503
+        assert response.json()["detail"]["code"] == "import_temporarily_unavailable_retry"
+    assert workflow.status(user.id, run["id"])["row_count"] == 0
+    assert client.put(f"/me/library-imports/{run['id']}/batches/0", json={"rows": [["A synthetic work"]]}).status_code == 200
+
+
+def test_expired_cleanup_commits_even_if_new_import_cannot_reserve_capacity(importing, monkeypatch):
+    from models import LibraryImportRun, LibraryImportRow
+    from services.library_imports.workflow import fail
+    user, workflow = importing
+    _, old = start(user, workflow, ["title"])
+    workflow.upload(user.id, old["id"], 0, UploadImportBatch(rows=[["Expired private text"]]))
+    workflow.db.execute(text("UPDATE library_import_runs SET expires_at=now()-interval '1 second' WHERE id=:id"), {"id": old["id"]})
+    workflow.db.commit()
+    monkeypatch.setattr(workflow, "_capacity", lambda **_: fail("import_capacity_pause", 507))
+    with pytest.raises(HTTPException) as capacity:
+        start(user, workflow, ["title"])
+    assert capacity.value.status_code == 507
+    workflow.db.rollback()
+    assert workflow.db.scalar(select(LibraryImportRun.phase).where(LibraryImportRun.id == old["id"])) == "expired"
+    assert workflow.db.scalar(select(LibraryImportRow.payload).where(LibraryImportRow.run_id == old["id"])) is None
+
+
+def test_cancel_after_partial_apply_preserves_committed_entries_and_stops_future_batches(importing):
+    from models import UserBook, LibraryImportRow
+    user, workflow = importing
+    _, run = start(user, workflow, ["title"])
+    manifest = []
+    for ordinal in range(2):
+        rows = [[f"Partial synthetic book {ordinal * 100 + index}"] for index in range(100)]
+        result = workflow.upload(user.id, run["id"], ordinal, UploadImportBatch(rows=rows))
+        manifest.append({"ordinal": ordinal, "hash": result["batch_hash"], "length": 100})
+    workflow.finalize(user.id, run["id"], FinalizeImport(row_count=200, batch_count=2, manifest_hash=digest(manifest)))
+    ready = analyzed(user, workflow, run)
+    workflow.confirm(user.id, run["id"], ConfirmImport(expected_revision=ready["revision"], manifest_hash=ready["manifest_hash"], approve_private=True, skip_unresolved=False))
+    assert workflow.advance_apply(user.id, run["id"])["phase"] == "applying"
+    committed = workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id))
+    assert committed == 100
+    assert workflow.cancel(user.id, run["id"])["phase"] == "cancelled"
+    with pytest.raises(HTTPException):
+        workflow.advance_apply(user.id, run["id"])
+    workflow.db.rollback()
+    assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id)) == committed
+    # JSONB None is JSON null with the model's existing serialization; both SQL
+    # NULL and JSON null mean the private payload has been erased.
+    assert workflow.db.scalar(select(func.count()).select_from(LibraryImportRow).where(
+        LibraryImportRow.run_id == run["id"], func.jsonb_typeof(LibraryImportRow.payload) != "null")) == 0
+
+
+def test_forget_removed_markers_clears_deleted_read_markers_without_deleting_live_data(importing):
+    from models import ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, UserBook
+    from services.library_imports.provenance import forget_removed_markers
+    user, workflow = importing
+    _, run = start(user, workflow, ["title", "status", "review"])
+    seal(user, workflow, run, [["Preserved private book", "finished", "Keep this accepted source review"]])
+    analyzed(user, workflow, run)
+    assert apply(user, workflow, run)["phase"] == "completed"
+    record = workflow.db.scalar(select(ImportedLibraryRecord).where(ImportedLibraryRecord.user_id == user.id))
+    attempt = workflow.db.scalar(select(ReadingAttempt).where(ReadingAttempt.user_book_id == record.user_book_id))
+    workflow.db.execute(delete(ReadingAttempt).where(ReadingAttempt.id == attempt.id))
+    workflow.db.commit()
+    assert workflow.db.scalar(select(ImportedReadLink.removed).where(ImportedReadLink.record_id == record.id))
+    assert forget_removed_markers(workflow.db, user.id) == {"removed_markers": 0, "removed_read_markers": 1}
+    assert workflow.db.scalar(select(func.count()).select_from(ImportedReadLink).where(ImportedReadLink.record_id == record.id)) == 0
+    workflow.db.refresh(record)
+    assert record.context["review"] == "Keep this accepted source review"
+    assert workflow.db.get(UserBook, record.user_book_id) is not None
+
+
+def test_database_size_check_timeout_returns_retry_without_advancing_import(import_api, monkeypatch):
+    from services.library_imports.workflow import ImportWorkflow
+    user, workflow, client = import_api
+    _, run = start(user, workflow, ["title"])
+    original = ImportWorkflow._capacity
+    def timed_out_capacity(self, **_):
+        self.db.execute(text("SET LOCAL statement_timeout = '20ms'"))
+        self.db.execute(text("SELECT pg_sleep(0.05)"))
+    monkeypatch.setattr(ImportWorkflow, "_capacity", timed_out_capacity)
+    response = client.put(f"/me/library-imports/{run['id']}/batches/0", json={"rows": [["A synthetic bounded retry"]]})
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "import_temporarily_unavailable_retry"
+    assert workflow.status(user.id, run["id"])["row_count"] == 0
+    monkeypatch.setattr(ImportWorkflow, "_capacity", original)
+    assert client.put(f"/me/library-imports/{run['id']}/batches/0", json={"rows": [["A synthetic bounded retry"]]}).status_code == 200
+    assert workflow.status(user.id, run["id"])["row_count"] == 1

@@ -21,6 +21,7 @@ class StartImport(InspectImport):
     id: UUID
     scope: Annotated[StrictStr, Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")] = "default"
     source: Literal["auto", "paste"] = "auto"
+    encoding: Literal["UTF-8", "windows-1252"] = "UTF-8"
     status_map: dict[Annotated[StrictStr, Field(max_length=120)], Literal["", "want", "reading", "paused", "finished", "dnf"]] = Field(default_factory=dict, max_length=100)
 
 
@@ -39,7 +40,7 @@ class ImportDecision(ImportRequest):
     action: Literal["match", "private", "skip", "preserve"]
     book_id: int | None = Field(default=None, strict=True, ge=1)
     entry_id: int | None = Field(default=None, strict=True, ge=1)
-    history_policy: Literal["preserve", "add"] = "preserve"
+    history_policy: Literal["preserve", "add", "context_only"] = "preserve"
     accept_source_update: bool = Field(default=False, strict=True)
 
     @model_validator(mode="after")

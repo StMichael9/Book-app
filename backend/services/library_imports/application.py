@@ -81,6 +81,9 @@ def apply_groups(db, run, groups):
         if any(records.get(row.record_key) and records[row.record_key].removed for row in group):
             _review(group, "removed_record")
             continue
+        if any(row.record_key in records and row.plan.get("expected_source_updated_at") != records[row.record_key].updated_at.isoformat() for row in group):
+            _review(group, "source_context_changed_since_preview")
+            continue
         source_groups = {key: [row for row in group if row.record_key == key] for key in {row.record_key for row in group}}
         contexts = {key: _context(value) for key, value in source_groups.items()}
         if any(value is None for value in contexts.values()):
@@ -115,11 +118,15 @@ def apply_groups(db, run, groups):
             _review(group, "conflicting_read_event")
             continue
         events = {event["key"]: event for payload in payloads for event in payload["events"]}
-        if len(events) > 100 or len({event["key"] for payload in payloads for event in payload["events"] if event["state"] in ("reading", "paused")}) > 1:
+        context_only = all(row.plan.get("history_policy") == "context_only" for row in group)
+        if {event["state"] for event in events.values()} >= {"finished", "dnf"} and not context_only:
+            _review(group, "mixed_terminal_states_require_context_decision")
+            continue
+        if len(events) > 100 or (not context_only and len({event["key"] for payload in payloads for event in payload["events"] if event["state"] in ("reading", "paused")}) > 1):
             _review(group, "conflicting_or_oversized_history")
             continue
         existing = histories.get(entry.id, []) if entry else []
-        if len(existing) > 100:
+        if len(existing) > 100 and not context_only:
             _review(group, "large_existing_history_requires_review")
             continue
         event_plans = []
@@ -132,6 +139,9 @@ def apply_groups(db, run, groups):
                         _review(group, "source_event_changed")
                         break
                     event_plans.append((row, event, "unchanged", link.attempt_id))
+                    continue
+                if context_only:
+                    event_plans.append((row, event, "context", None))
                     continue
                 native = next((attempt for attempt in existing if str(attempt.id) == event.get("native_attempt_id")), None)
                 if native:
@@ -168,6 +178,8 @@ def apply_groups(db, run, groups):
                 preserved = {value["key"]: value for value in context.get("preserved_events", [])}
                 preserved[event["key"]] = event
                 context["preserved_events"] = list(preserved.values())
+                if context_only:
+                    context["history_policy"] = "context_only"
         if any(staged_size(context) > 262144 for context in contexts.values()):
             _review(group, "source_context_limit")
             continue

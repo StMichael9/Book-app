@@ -1,7 +1,7 @@
 """Owner-only source context, private labels and explicit retention controls."""
 from sqlalchemy import delete, select
 
-from models import ImportedLibraryRecord, UserBook
+from models import ImportedLibraryRecord, ImportedReadLink, UserBook
 from services.library_imports.workflow import fail
 
 
@@ -33,7 +33,11 @@ def clear_source(db, user_id, entry_id, record_id):
 
 
 def forget_removed_markers(db, user_id):
+    # Only erased targets' minimal markers are forgotten. Live source context,
+    # saved books and actual reading attempts are never deleted by this action.
+    reads = db.execute(delete(ImportedReadLink).where(ImportedReadLink.user_id == user_id,
+        ImportedReadLink.removed.is_(True)))
     removed = db.execute(delete(ImportedLibraryRecord).where(ImportedLibraryRecord.user_id == user_id,
         ImportedLibraryRecord.user_book_id.is_(None), ImportedLibraryRecord.removed.is_(True)))
     db.commit()
-    return {"removed_markers": removed.rowcount}
+    return {"removed_markers": removed.rowcount, "removed_read_markers": reads.rowcount}

@@ -36,12 +36,17 @@ function ImportRow({ row, revision, disabled, onDecision }) {
   const [choice, setChoice] = useState("");
   const [addHistory, setAddHistory] = useState(false), [sourceUpdate, setSourceUpdate] = useState(false);
   const source = row.source;
+  const proposed = row.candidates?.find(candidate => candidate.book_id === row.plan?.book_id && candidate.book_id != null);
   return <article className="bv-import-row">
-    <h3>{source?.title || (source?.isbns?.join(", ") || `Row ${row.ordinal}`)}</h3>
+    <h3>{source?.title || proposed?.title || (source?.isbns?.join(", ") || `Row ${row.ordinal}`)}</h3>
     <p className="bv-muted">{source?.author || "Author not supplied"} · {readable(row.disposition)}</p>
+    {row.plan?.kind === "existing" && <p className="bv-help">Already in My Books. Your existing flags, notes and readings take priority.</p>}
+    {proposed && <p className="bv-help">Proposed catalogue work: {proposed.title} · {proposed.authors?.join(", ") || "Author not listed"}.</p>}
+    {row.plan?.kind === "private" && <p className="bv-help">New private-entry proposal, only with your approval.</p>}
     {row.error_code && <p className="bv-help">{readable(row.error_code)}.</p>}
     {source?.warnings?.length > 0 && <p className="bv-help">Source values needing care: {source.warnings.map(readable).join(", ")}.</p>}
     {source && <details><summary>Source information</summary><dl className="bv-import-context">
+      <dt>Source Own / Want</dt><dd>Own: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}. Unknown does not become an invented preference.</dd>
       {source.status && <><dt>Reading status</dt><dd>{readable(source.status)}</dd></>}
       {source.context?.rating != null && <><dt>Source rating</dt><dd>{source.context.rating} / 5</dd></>}
       {source.context?.review && <><dt>Imported review (private)</dt><dd>{source.context.review}</dd></>}
@@ -49,7 +54,7 @@ function ImportRow({ row, revision, disabled, onDecision }) {
       {source.context?.labels?.length > 0 && <><dt>Private source labels</dt><dd>{source.context.labels.join(", ")}</dd></>}
       {source.events?.length > 0 && <><dt>Source reading information</dt><dd>{source.events.map(event => `${readable(event.state)}: ${event.started_on || "start unknown"} → ${event.ended_on || "end unknown"}`).join("; ")}</dd></>}
     </dl></details>}
-    {["review", "ready", "approved", "invalid"].includes(row.disposition) && <fieldset disabled={disabled} className="bv-field">
+    {["review", "ready", "approved", "invalid"].includes(row.disposition) && <details open={["review", "invalid"].includes(row.disposition)}><summary>{["review", "invalid"].includes(row.disposition) ? "Resolve this book group" : "Change this proposal"}</summary><fieldset disabled={disabled} className="bv-field">
       <legend>Decision for this book group</legend>
       {row.candidates?.length > 0 && <><label htmlFor={`import-target-${row.ordinal}`}>Catalogue match</label><select id={`import-target-${row.ordinal}`} value={choice} onChange={event => setChoice(event.target.value)}><option value="">Choose a match</option>{row.candidates.map(candidate => <option key={candidate.entry_id ? `entry:${candidate.entry_id}` : candidate.book_id} value={candidate.entry_id ? `entry:${candidate.entry_id}` : `book:${candidate.book_id}`}>{candidate.title} · {candidate.authors?.join(", ") || "Author not listed"}</option>)}</select>
         <Button variant="secondary" disabled={!choice} onClick={() => {
@@ -59,11 +64,12 @@ function ImportRow({ row, revision, disabled, onDecision }) {
       {source && row.plan?.kind !== "removed" && <div className="bv-form-actions">
         {source.title && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "private" })}>Keep as a private book</Button>}
         {["existing", "catalogue", "private"].includes(row.plan?.kind) && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: addHistory ? "add" : "preserve", accept_source_update: sourceUpdate })}>Keep existing data; accept source context</Button>}
+        {["existing", "catalogue", "private"].includes(row.plan?.kind) && source.events?.length > 0 && <>{row.error_code === "mixed_terminal_states_require_context_decision" && <p>These source readings include both finished and stopped states. Bookvane will not choose a displayed status at random. You can keep every supplied span as private context, without creating reading records.</p>}<Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: "context_only", accept_source_update: sourceUpdate })}>Keep source history as context only</Button></>}
       </div>}
       {row.plan?.kind === "existing" && <label className="bv-import-check"><input type="checkbox" checked={addHistory} onChange={event => setAddHistory(event.target.checked)} />Also add clearly separate source readings. Conflicting active or overlapping readings still need review.</label>}
-      {row.error_code === "source_record_changed" && <label className="bv-import-check"><input type="checkbox" checked={sourceUpdate} onChange={event => setSourceUpdate(event.target.checked)} />Replace only this source’s previously imported context with these incoming source values. Native notes and history stay.</label>}
+      {["source_record_changed", "source_context_changed_since_preview"].includes(row.error_code) && <label className="bv-import-check"><input type="checkbox" checked={sourceUpdate} onChange={event => setSourceUpdate(event.target.checked)} />Replace only this source’s previously imported context with these incoming source values. Native notes and history stay. If you deleted that context elsewhere, this deliberately restores the incoming text.</label>}
       <Button variant="quiet" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "skip" })}>Skip this group</Button>
-    </fieldset>}
+    </fieldset></details>}
   </article>;
 }
 
@@ -158,7 +164,8 @@ function ImportSession() {
           assertCurrent();
           const data = { id: current?.id || crypto.randomUUID(), headers,
             ...(current ? { scope: current.scope, mapping: current.upload_config.mapping, status_map: current.upload_config.status_map,
-              source: current.source === "paste" ? "paste" : "auto" } : { mapping: { ...inspection.mapping, ...mapping } }) };
+              encoding: current.upload_config.encoding || "UTF-8", source: current.source === "paste" ? "paste" : "auto" }
+              : { encoding, mapping: { ...inspection.mapping, ...mapping } }) };
           current = await retry(() => imports.startImport(data, activeSignal), activeSignal);
           assertCurrent(); setRun(current);
         },
@@ -197,10 +204,10 @@ function ImportSession() {
     <PageHeading eyebrow="Your books belong here" title="Bring Your Library">Bring your saved books and supported reading history with you. Preview everything before changing your library.</PageHeading>
     <p className="bv-help">Private to your account. No platform passwords, scraping, subscriptions or automatic catalogue changes.</p>
     {notice && <p role="status">{notice}</p>}
-    {!run && recent.length > 0 && <section className="bv-section"><h2>Saved imports</h2>{recent.map(saved => <Button variant="secondary" key={saved.id} disabled={command.pending} onClick={() => command.run(async () => imports.getImport(saved.id), current => { setRun(current); setPage(null); })}>{names[saved.source]} · {phaseLabels[saved.phase]} · {saved.row_count} rows</Button>)}</section>}
+    {!run && recent.length > 0 && <section className="bv-section"><h2>Saved imports</h2>{recent.map(saved => <Button variant="secondary" key={saved.id} disabled={command.pending} onClick={() => command.run(async () => imports.getImport(saved.id), current => { setRun(current); setPage(null); setFile(null); setInspection(null); if (current.upload_config) setEncoding(current.upload_config.encoding || "UTF-8"); })}>{names[saved.source]} · {phaseLabels[saved.phase]} · {saved.row_count} rows</Button>)}</section>}
     {(!run || run.phase === "uploading") && <>
       <section className="bv-section"><h2>Upload a CSV or TSV</h2><p>Goodreads, StoryGraph and Bookvane files are recognized automatically. For other spreadsheets, we ask only about columns we cannot identify safely.</p>
-        <div className="bv-field"><label htmlFor="import-encoding">Text encoding</label><select id="import-encoding" value={encoding} disabled={command.pending} onChange={event => { setEncoding(event.target.value); setInspection(null); setFile(null); }}><option value="UTF-8">UTF-8 (usual)</option><option value="windows-1252">Windows-1252 (only if your export uses it)</option></select>
+        <div className="bv-field"><label htmlFor="import-encoding">Text encoding</label><select id="import-encoding" value={encoding} disabled={command.pending || Boolean(run)} onChange={event => { setEncoding(event.target.value); setInspection(null); setFile(null); }}><option value="UTF-8">UTF-8 (usual)</option><option value="windows-1252">Windows-1252 (only if your export uses it)</option></select>
           <label htmlFor="import-file">Library file (up to 20 MiB / 20,000 rows)</label><input id="import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" disabled={command.pending} onChange={event => selectFile(event.target.files?.[0])} /></div>
         {run?.phase === "uploading" && <p className="bv-notice">To resume, reselect the same file. Every acknowledged batch is checked; a different file cannot replace this import.</p>}
         {inspection && <div className="bv-field"><p>Recognized as {names[inspection.source]}.</p>{Object.entries(inspection.ambiguous).map(([field, columns]) => <div key={field}><label htmlFor={`map-${field}`}>Which column means {readable(field)}?</label><select id={`map-${field}`} value={mapping[field] ?? ""} onChange={event => setMapping(value => ({ ...value, [field]: Number(event.target.value) }))}><option value="" disabled>Choose a column</option>{columns.map(index => <option value={index} key={index}>{inspection.headers[index]}</option>)}</select></div>)}
@@ -246,12 +253,12 @@ function ImportSession() {
           await downloadCsv(response, "bookvane-library-v1.csv", assertCurrent);
         }, () => setNotice("Your supported library CSV was downloaded."))}>Download library CSV</Button><TextLink to="/my-data">Private reading-data JSON</TextLink>
       </details>
-      <details><summary>Advanced import privacy</summary><p>Deleted books and readings keep minimal replay markers so an old file cannot restore them. Forgetting removed-book markers means a future upload may add those books again.</p><Button variant="quiet" disabled={command.pending} onClick={() => { setForgetMarkers(true); setUnderstandsMarkers(false); }}>Forget removed-book import markers</Button></details>
+      <details><summary>Advanced import privacy</summary><p>Deleted books and readings keep minimal replay markers so an old file cannot restore them. Forgetting these markers means a future upload may add those books or readings again.</p><Button variant="quiet" disabled={command.pending} onClick={() => { setForgetMarkers(true); setUnderstandsMarkers(false); }}>Forget removed import markers</Button></details>
     </section>}
-    {forgetMarkers && <NativeDialog open title="Forget removed-book import markers?" onClose={() => { if (!command.pending) setForgetMarkers(false); }}>
-      <p>This deletes only replay markers for books you already removed. It does not delete your current books, native history or notes. Later imports may re-add forgotten books, and this cannot be undone.</p>
-      <label className="bv-import-check"><input type="checkbox" checked={understandsMarkers} onChange={event => setUnderstandsMarkers(event.target.checked)} />I understand that future uploads may add removed books again.</label>
-      <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={() => setForgetMarkers(false)}>Keep markers</Button><Button disabled={command.pending || !understandsMarkers} onClick={() => command.run(() => imports.forgetRemovedMarkers(signal()), result => { setForgetMarkers(false); setNotice(`${result.removed_markers} removed-book import markers forgotten.`); })}>Forget removed markers</Button></div>
+    {forgetMarkers && <NativeDialog open title="Forget removed import markers?" onClose={() => { if (!command.pending) setForgetMarkers(false); }}>
+      <p>This deletes only replay markers for books and readings you already removed. It does not delete your current books, source context, native history or notes. Later imports may re-add forgotten books or readings, and this cannot be undone.</p>
+      <label className="bv-import-check"><input type="checkbox" checked={understandsMarkers} onChange={event => setUnderstandsMarkers(event.target.checked)} />I understand that future uploads may add removed books or readings again.</label>
+      <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={() => setForgetMarkers(false)}>Keep markers</Button><Button disabled={command.pending || !understandsMarkers} onClick={() => command.run(() => imports.forgetRemovedMarkers(signal()), result => { setForgetMarkers(false); setNotice(`${result.removed_markers} removed-book and ${result.removed_read_markers} removed-reading import markers forgotten.`); })}>Forget removed markers</Button></div>
       {command.error && <p role="alert">{command.error}</p>}
     </NativeDialog>}
   </div></section>;

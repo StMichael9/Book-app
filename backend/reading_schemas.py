@@ -190,6 +190,7 @@ class AttemptView(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     state: str
+    origin: Literal["native", "import"] = "native"
     started_on: date | None
     ended_on: date | None
     progress_unit: str | None

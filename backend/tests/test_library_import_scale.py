@@ -20,6 +20,9 @@ def test_generated_1k_10k_20k_libraries(app_modules, db_session):
     engine = app_modules["database"].engine
     assert engine.url.host == "127.0.0.1" and engine.url.port == 55433 and engine.url.username == "bookvane_v3_test"
     assert "test" in engine.url.database and os.getenv("BOOKVANE_TEST_DB_ISOLATED") == "yes"
+    required = {"ix_import_row_result_entry", "ix_imported_record_entry", "ix_imported_read_entry"}
+    installed = set(db_session.scalars(text("SELECT indexname FROM pg_indexes WHERE schemaname='public' AND indexname IN ('ix_import_row_result_entry','ix_imported_record_entry','ix_imported_read_entry')")))
+    assert installed == required, "Use a freshly migrated final-schema target; metadata.create_all does not retrofit draft indexes"
     # Set-based generated fixture only, not the administrative ingestion pipeline.
     # There is no source download, growing local file, or retained Python catalogue.
     db_session.execute(text("""
@@ -36,9 +39,13 @@ def test_generated_1k_10k_20k_libraries(app_modules, db_session):
     """))
     db_session.commit()
     headers = ["version", "record_id", "title", "author", "work_source_id", "status", "finished_on"]
+    # Optional targeted rerun after a machine interruption; the normal gate
+    # still exercises all three sizes. This never changes production limits.
+    counts = tuple(int(value) for value in os.getenv("M5_IMPORT_BENCHMARK_ROWS", "1000,10000,20000").split(","))
+    assert counts and len(counts) == len(set(counts)) and set(counts) <= {1000, 10000, 20000}
     users = []
     try:
-        for count in (1000, 10000, 20000):
+        for count in counts:
             user = User(email=f"m5-scale-{count}-{uuid4().hex}@example.com", hashed_password="synthetic")
             db_session.add(user)
             db_session.commit()

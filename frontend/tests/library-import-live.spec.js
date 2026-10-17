@@ -32,10 +32,12 @@ test("M5 real file import, source privacy, replay, CSV and cross-account isolati
   async function upload() {
     await page.getByLabel("Library file", { exact: false }).setInputFiles({ name: "synthetic-goodreads.csv", mimeType: "text/csv", buffer: Buffer.from(file) });
     await page.getByRole("button", { name: "Check my library", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible();
+    // Upload + durable analysis/grouping are several real database requests,
+    // not an instantaneous mocked route. Keep a bounded journey-level wait.
+    await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible({ timeout: 30_000 });
     await page.getByLabel("Approve unmatched books as private entries.").check();
     await page.getByRole("button", { name: "Confirm import", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Your library is here", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your library is here", exact: true })).toBeVisible({ timeout: 30_000 });
   }
   await upload();
   await page.goto(`/book/${book.id}`);

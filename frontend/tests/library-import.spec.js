@@ -6,8 +6,8 @@ import { test as base, expect } from "@playwright/test";
 const root = "/me/library-imports";
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const test = base.extend({
-  app: async ({ page, baseURL }, use) => {
-    const state = { enabled: true, requests: [], rows: [], errors: [], run: null };
+  app: async ({ page, baseURL }, provide) => {
+    const state = { enabled: true, requests: [], rows: [], errors: [], run: null, batches: new Map() };
     page.on("pageerror", error => state.errors.push(error.message));
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url());
@@ -26,18 +26,26 @@ const test = base.extend({
         const title = body.headers.indexOf("title"), author = body.headers.indexOf("author");
         return reply({ source: "generic", mapping: { title, ...(author >= 0 ? { author } : {}) }, ambiguous: {}, missing_identity: title < 0, ignored_columns: [] });
       }
+      if (path === `${root}/forget-removed-markers`) return reply({ removed_markers: 2, removed_read_markers: 3 });
       if (path === root && method === "GET") return reply({ items: state.run ? [state.run] : [] });
       if (path === root && method === "POST") {
+        if (state.run?.id === body.id) return reply(state.run);
         state.run = { id: body.id, source: body.source === "paste" ? "paste" : "generic", scope: "default", phase: "uploading", row_count: 0, batch_count: 0,
           analyze_cursor: 0, group_cursor: 0, revision: 1, manifest_hash: null, summary: {},
-          expires_at: "2026-10-23T00:00:00Z", report_expires_at: "2026-11-15T00:00:00Z", upload_config: { headers: body.headers, mapping: body.mapping || {}, status_map: {} } };
+          expires_at: "2026-10-23T00:00:00Z", report_expires_at: "2026-11-15T00:00:00Z", upload_config: { headers: body.headers, mapping: body.mapping || {}, status_map: {}, encoding: body.encoding || "UTF-8" } };
         return reply(state.run);
       }
       if (state.run && path === `${root}/${state.run.id}`) return reply(state.run);
       if (path.includes("/batches/")) {
+        const ordinal = Number(path.split("/").at(-1)), batchHash = hash(body.rows);
+        if (state.batches.has(ordinal)) {
+          if (state.batches.get(ordinal) !== batchHash) return route.fulfill({ status: 409, json: { detail: { code: "batch_content_changed" } } });
+          return reply({ batch_hash: batchHash, status: state.run });
+        }
+        state.batches.set(ordinal, batchHash);
         state.rows.push(...body.rows);
         state.run.row_count += body.rows.length; state.run.batch_count += 1;
-        return reply({ batch_hash: hash(body.rows), status: state.run });
+        return reply({ batch_hash: batchHash, status: state.run });
       }
       if (path.endsWith("/finalize-upload")) {
         state.run.phase = "analyzing"; state.run.manifest_hash = body.manifest_hash;
@@ -55,7 +63,7 @@ const test = base.extend({
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: { detail: "Unhandled engineering fixture" } });
     });
-    await use(state);
+    await provide(state);
     expect(state.errors).toEqual([]);
   },
 });
@@ -92,13 +100,51 @@ test("large TSV upload stays in 100-row batches with explicit confirmation", asy
   const content = "title\tauthor\n" + Array.from({ length: 1000 }, (_, index) => `Engineering ${index}\tAn Author`).join("\n");
   await page.getByLabel("Library file", { exact: false }).setInputFiles({ name: "engineering.tsv", mimeType: "text/tab-separated-values", buffer: Buffer.from(content) });
   await page.getByRole("button", { name: "Check my library", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible({ timeout: 20_000 });
   const batches = app.requests.filter(request => request.path.includes("/batches/"));
   expect(batches).toHaveLength(10);
   expect(batches.at(-1).receivedAt - batches[0].receivedAt).toBeGreaterThanOrEqual(4500);
   expect(batches.every(batch => batch.body.rows.length <= 100 && Buffer.byteLength(JSON.stringify(batch.body)) < 512 * 1024)).toBe(true);
   expect(app.rows).toHaveLength(1000);
   expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
+});
+
+test("paused file resumes after reload by verifying acknowledged batches without duplicating rows", async ({ page, app }) => {
+  await page.goto("/my-books/import");
+  const file = { name: "resumable.csv", mimeType: "text/csv", buffer: Buffer.from("title\n" + Array.from({ length: 1000 }, (_, index) => `Resume work ${index}`).join("\n")) };
+  await page.getByLabel("Library file", { exact: false }).setInputFiles(file);
+  await page.getByRole("button", { name: "Check my library", exact: true }).click();
+  await expect.poll(() => app.rows.length, { intervals: [25, 50, 100] }).toBeGreaterThanOrEqual(100);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Cancel future work", exact: true })).toBeEnabled();
+  expect(app.run.phase).toBe("uploading");
+  expect(app.rows.length).toBeLessThan(1000);
+  const runId = app.run.id;
+  await page.reload();
+  await page.getByRole("button", { name: /CSV \/ TSV · Uploading your rows/ }).click();
+  await expect(page.getByLabel("Text encoding", { exact: true })).toBeDisabled();
+  await page.getByLabel("Library file", { exact: false }).setInputFiles(file);
+  await page.getByRole("button", { name: "Resume upload", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible({ timeout: 20_000 });
+  expect(app.run.id).toBe(runId);
+  expect(app.rows).toHaveLength(1000);
+  expect(app.run.batch_count).toBe(10);
+  expect(app.requests.filter(request => request.path.endsWith("/batches/0"))).toHaveLength(2);
+  expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
+});
+
+test("forgetting removed markers requires an explicit warning and confirmation", async ({ page, app }) => {
+  await page.goto("/my-books/import");
+  await page.getByText("Advanced import privacy", { exact: true }).click();
+  await page.getByRole("button", { name: "Forget removed import markers", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Forget removed markers", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Keep markers", exact: true }).click();
+  expect(app.requests.some(request => request.path.endsWith("/forget-removed-markers"))).toBe(false);
+  await page.getByRole("button", { name: "Forget removed import markers", exact: true }).click();
+  await page.getByLabel("I understand that future uploads may add removed books or readings again.").check();
+  await page.getByRole("button", { name: "Forget removed markers", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("2 removed-book and 3 removed-reading");
+  expect(app.requests.filter(request => request.path.endsWith("/forget-removed-markers")).map(request => request.body)).toEqual([{ confirmed: true }]);
 });
 
 test("malformed CSV quoting cannot finalize an import", async ({ page, app }) => {

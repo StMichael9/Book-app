@@ -90,7 +90,7 @@ class ImportWorkflow:
         result["limits"] = limits()
         if result["phase"] == "uploading":
             result["upload_config"] = {"headers": run.headers, "mapping": run.mapping, "source": run.source,
-                "status_map": run.options.get("status_map", {})}
+                "status_map": run.options.get("status_map", {}), "encoding": run.options.get("encoding", "UTF-8")}
         return result
 
     def recent(self, user_id):
@@ -103,7 +103,7 @@ class ImportWorkflow:
             fail("column_clarification_required", 422)
         source = "paste" if data.source == "paste" else inspection["source"]
         fingerprint = digest({"headers": data.headers, "mapping": inspection["mapping"], "source": source,
-                              "scope": data.scope, "status_map": data.status_map})
+                              "scope": data.scope, "status_map": data.status_map, "encoding": data.encoding})
         self._budget()
         # Serialize capacity reservations/startup cleanup across all processes.
         if not self.db.scalar(text("SELECT pg_try_advisory_xact_lock(513005, 3)")):
@@ -127,7 +127,7 @@ class ImportWorkflow:
         self._capacity(reserve=True)
         run = Run(id=data.id, user_id=user_id, source=source, scope=data.scope, headers=data.headers,
             mapping=inspection["mapping"], options={"status_map": {canonical(key): value for key, value in data.status_map.items()},
-                "ignored_columns": inspection["ignored_columns"]}, creation_fingerprint=fingerprint)
+                "ignored_columns": inspection["ignored_columns"], "encoding": data.encoding}, creation_fingerprint=fingerprint)
         self.db.add(run)
         try:
             self.db.commit()
@@ -210,6 +210,8 @@ class ImportWorkflow:
             added_bytes = 0
             for row in valid:
                 result = proposed_match(row.payload, found)
+                previous = found["previous"].get(row.record_key)
+                result["plan"]["expected_source_updated_at"] = previous.updated_at.isoformat() if previous else None
                 added_bytes += staged_size(result["candidates"], result["plan"]) - staged_size(row.candidates, row.plan)
                 row.target_key, row.candidates, row.plan = result["target_key"], result["candidates"], result["plan"]
                 row.disposition = "review" if row.plan["kind"] in ("review", "removed") or row.payload["warnings"] else "ready"
@@ -231,31 +233,46 @@ class ImportWorkflow:
             Row.ordinal > run.group_cursor).order_by(Row.ordinal).limit(100)))
         target_keys = {row.target_key for row in rows if row.target_key}
         record_keys = {row.record_key for row in rows}
-        groups = {key: (count, hashes) for key, count, hashes in self.db.execute(
-            select(Row.target_key, func.count(), func.count(func.distinct(Row.row_hash)))
+        groups = {key: (count, hashes, first, finished, stopped) for key, count, hashes, first, finished, stopped in self.db.execute(
+            select(Row.target_key, func.count(), func.count(func.distinct(Row.row_hash)), func.min(Row.ordinal),
+                func.bool_or(func.jsonb_path_exists(Row.payload, '$.events[*] ? (@.state == "finished")')),
+                func.bool_or(func.jsonb_path_exists(Row.payload, '$.events[*] ? (@.state == "dnf")')))
             .where(Row.run_id == run.id, Row.user_id == run.user_id, Row.target_key.in_(target_keys)).group_by(Row.target_key))}
         sources = dict(self.db.execute(select(Row.record_key, func.count(func.distinct(Row.target_key)))
             .where(Row.run_id == run.id, Row.user_id == run.user_id, Row.record_key.in_(record_keys)).group_by(Row.record_key)).all())
         hashes = {key: digest(sorted(set(values))) for key, values in self.db.execute(
             select(Row.record_key, func.array_agg(Row.row_hash)).where(Row.run_id == run.id, Row.user_id == run.user_id,
                 Row.record_key.in_(record_keys)).group_by(Row.record_key))}
-        accepted = dict(self.db.execute(select(ImportedLibraryRecord.record_key, ImportedLibraryRecord.accepted_hash)
+        accepted = {key: (value, policy) for key, value, policy in self.db.execute(select(ImportedLibraryRecord.record_key,
+            ImportedLibraryRecord.accepted_hash, ImportedLibraryRecord.context["history_policy"].astext)
             .where(ImportedLibraryRecord.user_id == run.user_id, ImportedLibraryRecord.source == run.source,
-                ImportedLibraryRecord.scope == run.scope, ImportedLibraryRecord.record_key.in_(record_keys))).all())
+                ImportedLibraryRecord.scope == run.scope, ImportedLibraryRecord.record_key.in_(record_keys)))}
         for row in rows:
-            if row.payload is None or row.decision:
+            if row.payload is None or row.decision or row.disposition == "duplicate":
                 continue
             # Counts are bounded SQL aggregates; never materialize an enormous
             # same-book history. Preview rejects/isolates oversized groups.
             group = groups[row.target_key]
             source_targets = sources[row.record_key]
-            if group[0] > 100 or source_targets > 1:
+            if group[1] == 1 and group[0] > 1 and source_targets == 1:
+                self.db.execute(update(Row).where(Row.run_id == run.id, Row.user_id == run.user_id,
+                    Row.target_key == row.target_key, Row.ordinal != group[2], Row.disposition.in_(("ready", "review", "approved")))
+                    .values(disposition="duplicate", error_code=None))
+                if row.ordinal != group[2]:
+                    continue
+            if (group[0] > 100 and group[1] > 1) or source_targets > 1:
                 row.disposition, row.error_code = "review", "oversized_or_conflicting_identity_group"
+            elif row.record_key in accepted and accepted[row.record_key][0] == hashes[row.record_key] and row.plan.get("kind") in ("existing", "catalogue", "private"):
+                if accepted[row.record_key][1] == "context_only":
+                    row.plan = {**row.plan, "history_policy": "context_only"}
+                row.disposition, row.error_code = "ready", None
+            elif group[3] and group[4]:
+                row.disposition, row.error_code = "review", "mixed_terminal_states_require_context_decision"
             elif group[1] > 1:
                 # Different rows for one work may be real rereads OR conflicting
                 # editions/statuses. Do not make input-order decide the outcome.
                 row.disposition, row.error_code = "review", "multiple_source_rows_for_work"
-            elif row.record_key in accepted and accepted[row.record_key] != hashes[row.record_key]:
+            elif row.record_key in accepted and accepted[row.record_key][0] != hashes[row.record_key]:
                 row.disposition, row.error_code = "review", "source_record_changed"
         if rows:
             run.group_cursor = rows[-1].ordinal
@@ -339,13 +356,18 @@ class ImportWorkflow:
                     fail("library_entry_not_found", 404)
                 plan["expected_version"] = entry.version
             plan.update({"history_policy": data.history_policy, "accept_source_update": data.accept_source_update})
+            source_versions = dict(self.db.execute(select(ImportedLibraryRecord.record_key, ImportedLibraryRecord.updated_at)
+                .where(ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.source == run.source,
+                    ImportedLibraryRecord.scope == run.scope, ImportedLibraryRecord.record_key.in_({item.record_key for item in group}))).all())
             for item in group:
                 item.decision = data.action
                 item.disposition = "skipped" if data.action == "skip" else "approved"
                 item.error_code = None
                 if data.action != "skip":
-                    run.stage_bytes += staged_size(plan) - staged_size(item.plan)
-                    item.plan, item.target_key = dict(plan), target_key
+                    version = source_versions.get(item.record_key)
+                    item_plan = {**plan, "expected_source_updated_at": version.isoformat() if version else None}
+                    run.stage_bytes += staged_size(item_plan) - staged_size(item.plan)
+                    item.plan, item.target_key = item_plan, target_key
             if run.stage_bytes > 32 * 1024 * 1024:
                 fail("import_staging_limit_cancel_or_use_smaller_file", 413)
         run.revision += 1

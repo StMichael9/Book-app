@@ -21,6 +21,7 @@ export default function ImportedSources({ entryId, count }) {
       {record.context.private_note && <><h4>Source private note</h4><p style={{ whiteSpace: "pre-wrap" }}>{record.context.private_note}</p></>}
       {record.context.labels?.length > 0 && <div className="bv-form-actions">{record.context.labels.map(label => <TextLink key={label} to={`/my-books?label=${encodeURIComponent(label)}`}>{label}</TextLink>)}</div>}
       {record.context.import_warnings?.length > 0 && <p className="bv-help">Source limitations: {record.context.import_warnings.map(value => value.replaceAll("_", " ")).join(", ")}. The source may not describe every reading.</p>}
+      {record.context.history_policy === "context_only" && <p className="bv-help">You chose to keep these historical spans as source context only. They did not create reading records or replace your displayed reading state.</p>}
       <details><summary>Other preserved source values</summary><dl>{Object.entries(record.context).filter(([key]) => !["review", "rating", "rating_scale", "labels", "private_note", "import_warnings"].includes(key)).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}</dd></div>)}</dl></details>
       {!library.readOnly && <Button variant="quiet" disabled={command.pending} onClick={() => setRemoval(record)}>Delete this source context</Button>}
     </article>)}
