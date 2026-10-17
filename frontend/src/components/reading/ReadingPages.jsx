@@ -8,6 +8,7 @@ import { useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
+import ImportedSources from "./imports/ImportedSources.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -191,6 +192,7 @@ export function ReadingWorkspacePage() {
       {editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id && <Button disabled={!entry || library.readOnly || command.pending} onClick={() => command.run(() => updateReadingAttempt(selected.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen selected reading (discard unsaved edits)</Button>}
     </div>}
     {entry && <ReadingHistory entry={entry} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal)} />}
+    {entry && request.data?.imported_sources_count > 0 && <ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={request.data.imported_sources_count} />}
     {entry && library.privacyControls && <section className="bv-section"><h2>Your data, your choice</h2><p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p><Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing) || Boolean(removal)} onClick={() => setRemoval({ entry })}>Forget this book</Button></section>}
     {removal && <ReadingRemovalDialog key={removal.attempt?.id || removal.entry.id} entry={removal.entry} attempt={removal.attempt} onClose={() => setRemoval(null)} onRemoved={() => { setRemoval(null); request.retry(); }} />}
   </section>;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -12,6 +12,8 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
 import "../../styles/ui-v2/bookvane.css";
+
+const LibraryImportPage = lazy(() => import("../reading/imports/LibraryImportPage.jsx"));
 
 function Brand() {
   const { readingActions } = useUserBooks();
@@ -91,7 +93,7 @@ function RouteEffects() {
     }
     first.current = false;
     const titles = { "/": "Discover your next book", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
-    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
+    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring Your Library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
@@ -123,6 +125,7 @@ function Shell() {
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage />} /><Route path="/reset-password" element={<RecoveryPage reset />} />
         <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
+        <Route path="/my-books/import" element={<RequireAccount><ReadingGate><Suspense fallback={<p className="bv-container" role="status">Opening your library import…</p>}><LibraryImportPage /></Suspense></ReadingGate></RequireAccount>} />
         <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />
         <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/privacy" element={<ReadingPrivacyPage />} />

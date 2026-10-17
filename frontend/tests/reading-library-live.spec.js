@@ -4,6 +4,10 @@ async function registerReadingAccount(page, email, returnTo) {
   await page.goto(`/register?returnTo=${encodeURIComponent(returnTo)}`);
   await page.getByLabel("Email address", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
+  await submitReadingRegistration(page);
+}
+
+async function submitReadingRegistration(page) {
   const registered = page.waitForResponse(response => new URL(response.url()).pathname === "/auth/register" && response.request().method() === "POST");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   if ((await registered).status() === 429) {
@@ -24,7 +28,7 @@ test("M1 real registration, independent flags, persistence and two-account isola
     await tab.goto(`${baseURL}/register?returnTo=/book/${book.id}`);
     await tab.getByLabel("Email address", { exact: true }).fill(email);
     await tab.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
-    await tab.getByRole("button", { name: "Create account", exact: true }).click();
+    await submitReadingRegistration(tab);
     await expect(tab.getByRole("heading", { name: book.title, exact: true })).toBeVisible();
   }
   await register(page, "m1-owner-a@example.com");
@@ -62,12 +66,15 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await page.goto("/register");
   await page.getByLabel("Email address", { exact: true }).fill("m2-lifecycle@example.com");
   await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await submitReadingRegistration(page);
   await expect(page).toHaveURL(/\/home$/);
   await page.getByRole("link", { name: "Find a book", exact: true }).click();
   await page.getByRole("link", { name: "View Local library integration book", exact: true }).click();
   await page.getByRole("button", { name: "Add Local library integration book to Own", exact: true }).click();
   await page.getByRole("button", { name: "Add Local library integration book to Want", exact: true }).click();
+  // Start from the acknowledged shelf version, not an in-flight flag write.
+  // Native optimistic concurrency deliberately refuses the latter as stale.
+  await expect(page.getByRole("button", { name: "Remove Local library integration book from Want", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open or start your reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   const api = "http://127.0.0.1:8005";
@@ -131,7 +138,7 @@ test("M2 private missing book and historical dates stay private and optional", a
   await page.goto("/register?returnTo=/my-books/private");
   await page.getByLabel("Email address", { exact: true }).fill("m2-private@example.com");
   await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await submitReadingRegistration(page);
   await page.getByLabel("Title", { exact: true }).fill("読書の家");
   await page.getByLabel("Author (optional)", { exact: true }).fill("Private test author");
   await page.getByRole("button", { name: "Add private book", exact: true }).click();
@@ -180,7 +187,7 @@ test("M2 guest start intent survives registration without duplicating history on
   await page.getByRole("link", { name: "Create an account", exact: true }).click();
   await page.getByLabel("Email address", { exact: true }).fill("m2-guest-start@example.com");
   await page.getByLabel("Password", { exact: true }).fill("isolated-browser-password");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
+  await submitReadingRegistration(page);
   await expect(page.getByRole("button", { name: "Try starting again", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Try starting again", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
@@ -225,6 +232,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   }
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await page.getByRole("button", { name: "Start reading again", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   const current = (await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json()).current_attempt;
   expect(current.id).not.toBe(first.id); expect(current.note).toBeNull(); expect(current.reaction).toBeNull();
   await page.locator(".bv-reading-history").getByRole("button", { name: "Note and reaction", exact: true }).last().click();
@@ -232,7 +240,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   await page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true }).fill("Corrected first-read memory");
   await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
-  expect((await (await page.request.get(`${api}/me/reading-attempts/${first.id}`)).json()).attempt.note).toBe("Corrected first-read memory");
+  await expect.poll(async () => (await (await page.request.get(`${api}/me/reading-attempts/${first.id}`)).json()).attempt.note).toBe("Corrected first-read memory");
   expect((await (await page.request.get(`${api}/me/reading-attempts/${current.id}`)).json()).attempt.note).toBeNull();
   const other = await browser.newContext();
   try {

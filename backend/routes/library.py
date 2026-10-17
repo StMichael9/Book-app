@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
-from database import get_db
+from database import get_db, settings
 from models import User
 from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
@@ -27,8 +27,9 @@ def writing_user(current_user: User = Depends(get_current_user)):
 def capabilities(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     writable = reading_enabled(current_user.id)
     return {"enabled": writable or library_needs_v3(db, current_user.id), "writable": writable, "contract_version": 1,
-            "milestone": "M4", "features": {"library": True, "reading_actions": True,
-            "private_context": True, "reading_export": True, "privacy_controls": True, "next_read": True, "library_import": False}}
+            "milestone": "M5" if settings.library_import_enabled else "M4", "features": {"library": True, "reading_actions": True,
+            "private_context": True, "reading_export": True, "privacy_controls": True, "next_read": True,
+            "library_import": writable and settings.library_import_enabled}}
 
 
 @router.get("/library", response_model=LibraryPage)
@@ -36,8 +37,9 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
 def library_page(request: Request, q: str = Query(default="", max_length=200),
                  facet: LibraryFacet = "all", limit: int = Query(default=25, ge=1, le=100),
                  cursor: str | None = Query(default=None, max_length=1024),
+                 label: str = Query(default="", max_length=120),
                  current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
-    return LibraryService(db).page(current_user.id, q=q, facet=facet, limit=limit, cursor=cursor)
+    return LibraryService(db).page(current_user.id, q=q, facet=facet, limit=limit, cursor=cursor, label=label)
 
 
 @router.post("/library/lookup")
