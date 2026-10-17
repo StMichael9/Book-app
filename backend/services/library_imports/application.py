@@ -136,6 +136,18 @@ def apply_groups(db, run, groups):
                 link = links.get((record.id, event["key"])) if record else None
                 if link:
                     if link.event_hash != digest(event):
+                        # A stable external event can change without changing
+                        # the native read it was originally linked to. Accepted
+                        # identical replay is a no-op, even after context erasure.
+                        if record.accepted_hash == hashes[row.record_key]:
+                            event_plans.append((row, event, "unchanged", link.attempt_id))
+                            continue
+                        # The changed-source guard above already requires
+                        # explicit update consent. Preserve the incoming span
+                        # only as context; never rewrite the old link or attempt.
+                        if context_only:
+                            event_plans.append((row, event, "context", None))
+                            continue
                         _review(group, "source_event_changed")
                         break
                     event_plans.append((row, event, "unchanged", link.attempt_id))

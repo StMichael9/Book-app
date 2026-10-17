@@ -89,6 +89,12 @@ From `frontend`, `PLAYWRIGHT_CHANNEL=msedge`:
   Registration fixtures respect the existing five/minute limit with one bounded
   wait/retry; do not raise the production authentication limits.
 
+Corrective candidate developer evidence: 217 broad backend passes; 143 full
+client passes followed by 10 focused M5 passes (overlapping counts); seven real
+browser/API/PostgreSQL passes on fresh corrected-code fixtures. Treat these as
+developer evidence, not independent closure. The two new UI cases verify a
+resumed recheck's status and retained partial-cancellation totals.
+
 Do not overlap frontend production builds: they share `dist`. Stop only verified
 task-owned preview processes. Transfer the local cluster execution hold explicitly.
 
@@ -106,13 +112,28 @@ for the acknowledged shelf state; that correction is not a UX fix/certification.
 
 Read-only QA previously identified mixed finished/DNF histories choosing displayed
 state by UUID tie. Candidate now requires an explicit context-only decision for
-that case; native history ordering is unchanged. **Independent closure is pending.**
+that case; native history ordering is unchanged. Independent R1 passed that
+specific regression; this does not certify global native history ordering.
 
-Native Goodreads and StoryGraph exports are still a separate completion gate.
-Founder agreed to provide small owned/sanitized exports near the end. Current
-synthetic files and historical public example schemas are engineering evidence,
-not proof of every current platform variant. Non-empty StoryGraph date-list
-syntax remains preserved source context unless validated by a real fixture.
+R1 on `4bad704` found three P2 issues. The corrective candidate must independently
+close changed-stable-event context acceptance/replay/erasure, whole-file decision
+rescans, and partial-cancellation totals. Include partial-apply review and
+reconfirmation, expiry and retry totals. Decision rechecks now persist compact
+original/destination/source seeds and traverse complete connected groups; test
+vacated/joined targets, transitive source overlaps, >100 affected rows, a new
+session mid-recheck, unchanged unrelated rows, and unresolved-collision refusal.
+The developer's new maximum-size review fixture seeds the already-analyzed
+20K-row phase in bounded writes: it is review-path evidence, not a new end-to-end
+20K upload benchmark. Recheck state is internal run metadata, not a schema change.
+
+Native-format acceptance remains separate from synthetic engine evidence. R1
+additionally passed the genuine CC0 historical 2024 Goodreads export (323 rows),
+including full workflow and reordered replay. Preserve its pinned provenance and
+limitations in the independent report; it is not fresh 2026 provider coverage.
+Founder has no platform accounts and may find volunteer exports. Fresh StoryGraph
+acceptance remains open; do not use unlicensed personal exports or ask for account
+credentials. Non-empty StoryGraph date-list syntax remains preserved source
+context unless validated by a real fixture.
 
 Record exact executed results and defects; do not turn skips into passes. No
 integration/production-readiness claim until independent QA and native-format

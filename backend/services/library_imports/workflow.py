@@ -6,7 +6,7 @@ per-record commits. The authenticated browser drives one short step at a time.
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import delete, func, select, text, update
+from sqlalchemy import Text, and_, case, cast, delete, func, literal, or_, select, text, union_all, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
@@ -88,6 +88,7 @@ class ImportWorkflow:
         if run.expires_at <= utcnow() and run.phase not in TERMINAL:
             result["phase"] = "expired"
         result["limits"] = limits()
+        result["rechecking"] = bool(run.options.get("recheck"))
         if result["phase"] == "uploading":
             result["upload_config"] = {"headers": run.headers, "mapping": run.mapping, "source": run.source,
                 "status_map": run.options.get("status_map", {}), "encoding": run.options.get("encoding", "UTF-8")}
@@ -228,9 +229,34 @@ class ImportWorkflow:
         self.db.commit()
         return self.status(user_id, run.id)
 
+    def _group_rows(self, run):
+        query = select(Row).where(Row.run_id == run.id, Row.user_id == run.user_id, Row.ordinal > run.group_cursor)
+        scope = run.options.get("recheck")
+        if scope:
+            # Reconcile the complete connected target/source groups, not merely
+            # changed row IDs. UNION deduplicates graph KEYS, so cycles and a
+            # repeated 20K-row source cannot cause a quadratic row self-join.
+            # Only compact seeds are persisted; all input remains capped at 20K.
+            seeds = [("target", key) for key in scope["targets"]] + [("record", key) for key in scope["records"]]
+            seed_query = union_all(*(select(literal(kind).label("kind"), literal(key).label("key"))
+                for kind, key in seeds)).subquery("import_review_seeds")
+            keys = select(cast(seed_query.c.kind, Text).label("kind"), cast(seed_query.c.key, Text).label("key"))\
+                .cte("import_review_keys", recursive=True)
+            edge = Row.__table__.alias("import_review_edges")
+            next_kind = case((keys.c.kind == "target", "record"), else_="target")
+            next_key = case((keys.c.kind == "target", edge.c.record_key), else_=edge.c.target_key)
+            joined = and_(edge.c.run_id == run.id, edge.c.user_id == run.user_id,
+                or_(and_(keys.c.kind == "target", edge.c.target_key == keys.c.key),
+                    and_(keys.c.kind == "record", edge.c.record_key == keys.c.key)))
+            keys = keys.union(select(cast(next_kind, Text), cast(next_key, Text))
+                .select_from(edge.join(keys, joined)).where(next_key.is_not(None)))
+            query = query.where(or_(Row.target_key.in_(select(keys.c.key).where(keys.c.kind == "target")),
+                Row.record_key.in_(select(keys.c.key).where(keys.c.kind == "record"))))
+        return list(self.db.scalars(query.order_by(Row.ordinal).limit(100)))
+
     def _group(self, run):
-        rows = list(self.db.scalars(select(Row).where(Row.run_id == run.id, Row.user_id == run.user_id,
-            Row.ordinal > run.group_cursor).order_by(Row.ordinal).limit(100)))
+        rechecking = bool(run.options.get("recheck"))
+        rows = self._group_rows(run)
         target_keys = {row.target_key for row in rows if row.target_key}
         record_keys = {row.record_key for row in rows}
         groups = {key: (count, hashes, first, finished, stopped) for key, count, hashes, first, finished, stopped in self.db.execute(
@@ -264,7 +290,9 @@ class ImportWorkflow:
                 row.disposition, row.error_code = "review", "oversized_or_conflicting_identity_group"
             elif row.record_key in accepted and accepted[row.record_key][0] == hashes[row.record_key] and row.plan.get("kind") in ("existing", "catalogue", "private"):
                 if accepted[row.record_key][1] == "context_only":
+                    before = staged_size(row.plan)
                     row.plan = {**row.plan, "history_policy": "context_only"}
+                    run.stage_bytes += staged_size(row.plan) - before
                 row.disposition, row.error_code = "ready", None
             elif group[3] and group[4]:
                 row.disposition, row.error_code = "review", "mixed_terminal_states_require_context_decision"
@@ -276,18 +304,27 @@ class ImportWorkflow:
                 row.disposition, row.error_code = "review", "source_record_changed"
         if rows:
             run.group_cursor = rows[-1].ordinal
-        if run.group_cursor == run.row_count:
+        if run.stage_bytes > 32 * 1024 * 1024:
+            fail("import_staging_limit_cancel_or_use_smaller_file", 413)
+        if len(rows) < 100 or (not rechecking and run.group_cursor == run.row_count):
+            if rechecking:
+                run.options = {key: value for key, value in run.options.items() if key != "recheck"}
             run.phase = "preview_ready"
             run.summary = self._summary(run)
 
     def _summary(self, run):
-        return {"rows": run.row_count, "dispositions": dict(self.db.execute(select(Row.disposition, func.count())
+        summary = {"rows": run.row_count, "dispositions": dict(self.db.execute(select(Row.disposition, func.count())
             .where(Row.run_id == run.id, Row.user_id == run.user_id).group_by(Row.disposition)).all()),
             "distinct_targets": self.db.scalar(select(func.count(func.distinct(Row.target_key))).where(Row.run_id == run.id, Row.user_id == run.user_id)),
             "targets_by_kind": dict(self.db.execute(select(Row.plan["kind"].astext, func.count(func.distinct(Row.target_key)))
                 .where(Row.run_id == run.id, Row.user_id == run.user_id, Row.target_key.is_not(None))
                 .group_by(Row.plan["kind"].astext)).all()),
             "ignored_columns": run.options.get("ignored_columns", [])}
+        # Committed counters survive review, cancellation and expiry. Only
+        # advance_apply adds to them, atomically with the corresponding writes.
+        if "applied" in run.summary:
+            summary["applied"] = dict(run.summary["applied"])
+        return summary
 
     def preview(self, user_id, run_id, *, after=0, only_review=False, limit=25):
         run = self.db.scalar(select(Run).where(Run.id == run_id, Run.user_id == user_id))
@@ -317,6 +354,8 @@ class ImportWorkflow:
         related = related | (Row.record_key == row.record_key)
         query = select(Row).where(Row.run_id == run.id, Row.user_id == user_id, related).order_by(Row.ordinal)
         group = list(self.db.scalars(query.limit(101)))
+        original_targets = {item.target_key for item in group if item.target_key}
+        affected_records = {item.record_key for item in group}
         if len(group) > 100:
             if data.action != "skip":
                 fail("oversized_group_must_be_skipped", 422)
@@ -371,8 +410,11 @@ class ImportWorkflow:
             if run.stage_bytes > 32 * 1024 * 1024:
                 fail("import_staging_limit_cancel_or_use_smaller_file", 413)
         run.revision += 1
-        # A match may combine formerly separate target groups. Recheck all
-        # collisions with bounded grouping requests before another confirmation.
+        # Preserve both vacated and destination groups, including source-key
+        # relationships that cross them. Scope + revision + cursor commit with
+        # the decision; closing/restarting never loses pending reconciliation.
+        targets = original_targets | {item.target_key for item in group if item.target_key}
+        run.options = {**run.options, "recheck": {"targets": sorted(targets), "records": sorted(affected_records)}}
         run.phase, run.group_cursor = "grouping", 0
         self._touch(run)
         self.db.commit()
@@ -411,7 +453,7 @@ class ImportWorkflow:
                 Row.disposition.in_(("invalid", "review"))).values(disposition="skipped"))
         run.confirmed_revision, run.phase = run.revision, "applying"
         run.options = {**run.options, "confirmation": data.model_dump()}
-        run.summary = {**self._summary(run), "applied": {}}
+        run.summary = self._summary(run)
         self._touch(run)
         self.db.commit()
         return self.status(user_id, run.id)
@@ -488,6 +530,7 @@ class ImportWorkflow:
         self.db.execute(update(Row).where(Row.run_id == run.id, Row.user_id == run.user_id)
             .values(payload=None, candidates=[], plan={}, target_key=None))
         run.stage_bytes = 0
+        run.options = {key: value for key, value in run.options.items() if key != "recheck"}
 
     def cleanup(self):
         # One bounded maintenance pass per import start, using SKIP LOCKED.

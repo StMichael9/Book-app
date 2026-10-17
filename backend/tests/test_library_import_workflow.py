@@ -566,7 +566,9 @@ def test_cancel_after_partial_apply_preserves_committed_entries_and_stops_future
     assert workflow.advance_apply(user.id, run["id"])["phase"] == "applying"
     committed = workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id))
     assert committed == 100
-    assert workflow.cancel(user.id, run["id"])["phase"] == "cancelled"
+    cancelled = workflow.cancel(user.id, run["id"])
+    assert cancelled["phase"] == "cancelled"
+    assert cancelled["summary"]["applied"]["added_entries"] == committed
     with pytest.raises(HTTPException):
         workflow.advance_apply(user.id, run["id"])
     workflow.db.rollback()
@@ -613,3 +615,199 @@ def test_database_size_check_timeout_returns_retry_without_advancing_import(impo
     monkeypatch.setattr(ImportWorkflow, "_capacity", original)
     assert client.put(f"/me/library-imports/{run['id']}/batches/0", json={"rows": [["A synthetic bounded retry"]]}).status_code == 200
     assert workflow.status(user.id, run["id"])["row_count"] == 1
+
+
+def test_changed_stable_event_context_consent_preserves_read_and_erasure_on_replay(importing):
+    from models import ImportedLibraryRecord, ImportedReadLink, ReadingAttempt
+    from services.library_imports.provenance import clear_source
+    user, workflow = importing
+    headers = ["version", "record_id", "attempt_id", "title", "status", "finished_on"]
+    def stage(ended):
+        _, run = start(user, workflow, headers)
+        seal(user, workflow, run, [["1", "stable-work", "stable-read", "Synthetic source date correction", "finished", ended]])
+        analyzed(user, workflow, run)
+        return run
+    original = stage("2024-01-01")
+    assert apply(user, workflow, original)["phase"] == "completed"
+    record = workflow.db.scalar(select(ImportedLibraryRecord).where(ImportedLibraryRecord.user_id == user.id))
+    original_link = workflow.db.scalar(select(ImportedReadLink).where(ImportedReadLink.record_id == record.id))
+    link_identity = original_link.id, original_link.attempt_id, original_link.event_hash
+    changed = stage("2024-02-02")
+    ready = workflow.status(user.id, changed["id"])
+    state = workflow.decide(user.id, changed["id"], 1, ImportDecision(expected_revision=ready["revision"],
+        action="preserve", history_policy="context_only", accept_source_update=True))
+    while state["phase"] == "grouping":
+        state = workflow.advance_analysis(user.id, changed["id"])
+    assert apply(user, workflow, changed, skip=False)["phase"] == "completed"
+    workflow.db.refresh(record)
+    assert any(event["ended_on"] == "2024-02-02" for event in record.context["preserved_events"])
+    for erase in (False, True):
+        if erase:
+            clear_source(workflow.db, user.id, record.user_book_id, record.id)
+        replay = stage("2024-02-02")
+        assert apply(user, workflow, replay, skip=False)["phase"] == "completed"
+        attempts = list(workflow.db.scalars(select(ReadingAttempt).where(ReadingAttempt.user_book_id == record.user_book_id)))
+        assert len(attempts) == 1 and str(attempts[0].ended_on) == "2024-01-01"
+        workflow.db.refresh(original_link)
+        assert (original_link.id, original_link.attempt_id, original_link.event_hash) == link_identity
+        if erase:
+            workflow.db.refresh(record)
+            assert record.context == {}
+
+
+def test_review_rechecks_vacated_joined_and_transitive_groups_across_restart(importing, app_modules):
+    from models import Book, LibraryImportRow, UserBook
+    from services.library_imports.workflow import ImportWorkflow
+    user, workflow = importing
+    owner = user.id
+    books = [Book(title=f"Connected review fixture {index}", source_id=f"/works/OL{920000000+index}W") for index in range(151)]
+    workflow.db.add_all(books)
+    workflow.db.commit()
+    headers = ["version", "record_id", "title", "work_source_id"]
+    rows = [["1", f"linked-{index}", books[book].title, books[book].source_id]
+        for index in range(150) for book in (index, index + 1)]
+    rows += [["1", f"unrelated-{index}", f"Unrelated private fixture {index}", ""] for index in range(400)]
+    _, run = start(user, workflow, headers)
+    batches = []
+    for ordinal in range(7):
+        cells = rows[ordinal * 100:(ordinal + 1) * 100]
+        result = workflow.upload(owner, run["id"], ordinal, UploadImportBatch(rows=cells))
+        batches.append({"ordinal": ordinal, "hash": result["batch_hash"], "length": len(cells)})
+    workflow.finalize(owner, run["id"], FinalizeImport(row_count=700, batch_count=7, manifest_hash=digest(batches)))
+    ready = analyzed(user, workflow, run)
+    untouched = workflow.db.scalar(select(LibraryImportRow).where(LibraryImportRow.run_id == run["id"], LibraryImportRow.ordinal == 700))
+    before = dict(untouched.plan), untouched.disposition
+    state = workflow.decide(owner, run["id"], 1, ImportDecision(expected_revision=ready["revision"], action="match", book_id=books[0].id))
+    assert state["phase"] == "grouping" and state["rechecking"]
+    first = workflow.advance_analysis(owner, run["id"])
+    assert first["group_cursor"] == 100 and first["phase"] == "grouping"
+    workflow.db.rollback()
+    # New process/session has only persisted seed scope and checkpoint. The
+    # vacated group connects another 298 rows through source-record keys.
+    with app_modules["database"].SessionLocal() as session:
+        restarted = ImportWorkflow(session)
+        state = restarted.status(owner, run["id"])
+        assert state["rechecking"] and state["group_cursor"] == 100
+        steps = 1
+        while state["phase"] == "grouping":
+            state = restarted.advance_analysis(owner, run["id"])
+            steps += 1
+            assert steps <= 4
+        assert steps == 4 and state["group_cursor"] == 300 and not state["rechecking"]
+        assert state["summary"]["dispositions"].get("review", 0) > 0
+        with pytest.raises(HTTPException):
+            restarted.confirm(owner, run["id"], ConfirmImport(expected_revision=state["revision"],
+                manifest_hash=state["manifest_hash"], approve_private=True, skip_unresolved=False))
+        session.rollback()
+    workflow.db.expire_all()
+    untouched = workflow.db.scalar(select(LibraryImportRow).where(LibraryImportRow.run_id == run["id"], LibraryImportRow.ordinal == 700))
+    assert (untouched.plan, untouched.disposition) == before
+    assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == owner)) == 0
+
+
+def test_destination_collision_still_requires_review_after_one_match(importing, seeded_books):
+    user, workflow = importing
+    book = next(iter(seeded_books.values()))
+    book.source_id = "/works/OL920001001W"
+    workflow.db.commit()
+    _, run = start(user, workflow, ["version", "record_id", "title", "author", "work_source_id"])
+    seal(user, workflow, run, [["1", "uncertain", book.title, "A contradictory source author", book.source_id],
+        ["1", "other-source", book.title, book.authors[0].name, book.source_id]])
+    ready = analyzed(user, workflow, run)
+    state = workflow.decide(user.id, run["id"], 1, ImportDecision(expected_revision=ready["revision"], action="match", book_id=book.id))
+    while state["phase"] == "grouping":
+        state = workflow.advance_analysis(user.id, run["id"])
+    second = workflow.preview(user.id, run["id"])["items"][1]
+    assert second["disposition"] == "review" and second["error_code"] == "multiple_source_rows_for_work"
+    with pytest.raises(HTTPException):
+        workflow.confirm(user.id, run["id"], ConfirmImport(expected_revision=state["revision"],
+            manifest_hash=state["manifest_hash"], approve_private=True, skip_unresolved=False))
+    workflow.db.rollback()
+
+
+def test_one_review_decision_does_not_rescan_twenty_thousand_unrelated_rows(importing):
+    from sqlalchemy.dialects.postgresql import insert
+    from models import LibraryImportRow, LibraryImportRun, UserBook
+    from services.library_imports.formats import normalize_row, staged_size
+    user, workflow = importing
+    _, run = start(user, workflow, ["title"])
+    saved = workflow.db.get(LibraryImportRun, run["id"])
+    # Seed the already-analyzed phase in bounded batches. This specifically
+    # measures review scope at the maximum file size, not upload/matching speed.
+    stage_bytes = 0
+    for batch in range(200):
+        rows = []
+        for offset in range(100):
+            ordinal = batch * 100 + offset + 1
+            payload = normalize_row(saved.source, saved.headers, saved.mapping, [f"Independent synthetic work {ordinal}"])
+            plan = {"kind": "private", "private_available": True}
+            stage_bytes += staged_size(payload, plan, [])
+            rows.append({"run_id": saved.id, "user_id": user.id, "ordinal": ordinal,
+                "batch_ordinal": batch, "batch_length": 100, "batch_hash": "a" * 64,
+                "payload": payload, "row_hash": digest(payload), "record_key": payload["record_key"],
+                "target_key": f"record:{payload['record_key']}", "plan": plan, "disposition": "ready"})
+        workflow.db.execute(insert(LibraryImportRow), rows)
+        workflow.db.commit()
+    saved.row_count, saved.batch_count = 20000, 200
+    saved.stage_bytes, saved.phase = stage_bytes, "preview_ready"
+    workflow.db.commit()
+    state = workflow.decide(user.id, saved.id, 10001, ImportDecision(expected_revision=saved.revision, action="private"))
+    assert state["rechecking"]
+    state = workflow.advance_analysis(user.id, saved.id)
+    assert state["phase"] == "preview_ready" and not state["rechecking"]
+    assert state["group_cursor"] == 10001
+    assert state["summary"]["dispositions"] == {"ready": 19999, "approved": 1}
+    assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id)) == 0
+
+
+@pytest.mark.parametrize("finish", ["review_then_complete", "expire"])
+def test_partial_apply_totals_survive_review_reconfirmation_and_expiry(importing, seeded_books, finish):
+    from models import LibraryImportRun, UserBook
+    user, workflow = importing
+    book = next(iter(seeded_books.values()))
+    book.source_id = "/works/OL920002001W"
+    entry = UserBook(user_id=user.id, book_id=book.id, is_wanted=True, save_note="Native original")
+    workflow.db.add(entry)
+    workflow.db.commit()
+    _, run = start(user, workflow, ["version", "record_id", "title", "work_source_id"])
+    manifest = []
+    rows = [["1", f"partial-{index}", f"Partial counter fixture {index}", ""] for index in range(199)]
+    rows.append(["1", "changed-native", book.title, book.source_id])
+    for ordinal in range(2):
+        result = workflow.upload(user.id, run["id"], ordinal, UploadImportBatch(rows=rows[ordinal*100:(ordinal+1)*100]))
+        manifest.append({"ordinal": ordinal, "hash": result["batch_hash"], "length": 100})
+    workflow.finalize(user.id, run["id"], FinalizeImport(row_count=200, batch_count=2, manifest_hash=digest(manifest)))
+    ready = analyzed(user, workflow, run)
+    workflow.confirm(user.id, run["id"], ConfirmImport(expected_revision=ready["revision"],
+        manifest_hash=ready["manifest_hash"], approve_private=True, skip_unresolved=False))
+    state = workflow.advance_apply(user.id, run["id"])
+    assert state["summary"]["applied"]["added_entries"] == 100
+    if finish == "expire":
+        saved = workflow.db.get(LibraryImportRun, run["id"])
+        from datetime import timedelta
+        from services.library_imports.workflow import utcnow
+        saved.expires_at = utcnow() - timedelta(seconds=1)
+        workflow.db.commit()
+        workflow.cleanup()
+        workflow.db.commit()
+        state = workflow.status(user.id, run["id"])
+        assert state["phase"] == "expired" and state["summary"]["applied"]["added_entries"] == 100
+        assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id)) == 101
+        return
+    entry.version += 1
+    entry.save_note = "Keep the concurrent native edit"
+    workflow.db.commit()
+    state = workflow.advance_apply(user.id, run["id"])
+    assert state["phase"] == "preview_ready" and state["summary"]["applied"]["added_entries"] == 199
+    assert workflow.preview(user.id, run["id"], after=199)["items"][0]["error_code"] == "library_changed_since_preview"
+    state = workflow.decide(user.id, run["id"], 200, ImportDecision(expected_revision=state["revision"], action="preserve"))
+    while state["phase"] == "grouping":
+        state = workflow.advance_analysis(user.id, run["id"])
+    assert state["summary"]["applied"]["added_entries"] == 199
+    state = apply(user, workflow, run, skip=False)
+    assert state["phase"] == "completed" and state["summary"]["applied"]["added_entries"] == 199
+    assert state["summary"]["applied"]["linked_records"] == 200
+    assert workflow.advance_apply(user.id, run["id"])["summary"]["applied"] == state["summary"]["applied"]
+    workflow.db.refresh(entry)
+    assert entry.save_note == "Keep the concurrent native edit"
+    assert workflow.db.scalar(select(func.count()).select_from(UserBook).where(UserBook.user_id == user.id)) == 200

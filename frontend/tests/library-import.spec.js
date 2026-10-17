@@ -175,3 +175,27 @@ test("phone import stays within My Books navigation and fits the viewport", asyn
   expect(app.requests.filter(request => request.path === root && request.method === "POST")).toHaveLength(0);
   await page.screenshot({ path: "../backend/.v3-test-runtime/m5-import-phone.png", fullPage: true });
 });
+
+test("resumed decision check does not present an ordinal as checked-row progress", async ({ page, app }) => {
+  app.run = { id: "saved-recheck", source: "generic", phase: "grouping", row_count: 20000,
+    group_cursor: 10001, rechecking: true, revision: 2, summary: {},
+    expires_at: "2026-10-23T00:00:00Z" };
+  await page.goto("/my-books/import");
+  await page.getByRole("button", { name: /20000 rows/ }).click();
+  await expect(page.getByRole("heading", { name: "Checking your updated decision", exact: true })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("20000 source rows");
+  await expect(page.getByRole("status")).not.toContainText("10001 checked");
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
+  expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
+});
+
+test("cancelled partial import still shows committed book and reading totals", async ({ page, app }) => {
+  app.run = { id: "saved-cancelled", source: "generic", phase: "cancelled", row_count: 201,
+    revision: 2, summary: { applied: { added_entries: 100, added_reads: 42 } },
+    expires_at: "2026-10-23T00:00:00Z" };
+  await page.goto("/my-books/import");
+  await page.getByRole("button", { name: /201 rows/ }).click();
+  await expect(page.getByText("100 new library entries · 42 new historical readings.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to My Books", exact: true })).toBeVisible();
+  expect(app.requests.some(request => request.path.endsWith("/advance") || request.path.endsWith("/confirm"))).toBe(false);
+});

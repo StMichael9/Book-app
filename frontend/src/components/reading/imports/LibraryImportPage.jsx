@@ -198,7 +198,7 @@ function ImportSession() {
       return walk(current, assertCurrent, activeSignal);
     }, setRun);
   }
-  const progress = run?.phase === "analyzing" ? run.analyze_cursor : run?.phase === "grouping" ? run.group_cursor : run?.phase === "uploading" ? run.row_count : null;
+  const progress = run?.phase === "analyzing" ? run.analyze_cursor : run?.phase === "grouping" && !run.rechecking ? run.group_cursor : run?.phase === "uploading" ? run.row_count : null;
   return <section className="bv-container bv-import-page"><div className="bv-narrow">
     <TextLink to="/my-books">Back to My Books</TextLink>
     <PageHeading eyebrow="Your books belong here" title="Bring Your Library">Bring your saved books and supported reading history with you. Preview everything before changing your library.</PageHeading>
@@ -217,7 +217,7 @@ function ImportSession() {
       </section>
       {!run && <section className="bv-section bv-field"><h2>Or paste a book list</h2><label htmlFor="import-paste">One title, title — author, or ISBN per line</label><textarea id="import-paste" rows={6} value={paste} maxLength={480000} disabled={command.pending} onChange={event => setPaste(event.target.value)} placeholder={"A book title\nAnother title — An author"} /><p className="bv-help">Up to 1,000 lines. No reading history will be invented.</p><Button disabled={command.pending || !paste.trim()} onClick={uploadPaste}>Check this list</Button></section>}
     </>}
-    {run && <section className="bv-section" aria-busy={command.pending}><h2>{phaseLabels[run.phase] || "Import progress"}</h2><p role="status">{names[run.source]} · {run.row_count} source rows{progress !== null ? ` · ${progress} checked in this phase` : ""}.</p>
+    {run && <section className="bv-section" aria-busy={command.pending}><h2>{run.phase === "grouping" && run.rechecking ? "Checking your updated decision" : phaseLabels[run.phase] || "Import progress"}</h2><p role="status">{names[run.source]} · {run.row_count} source rows{progress !== null ? ` · ${progress} checked in this phase` : ""}.</p>
       <p className="bv-help">Resume until {new Date(run.expires_at).toLocaleDateString()}. Closing this page pauses work. Committed batches remain; cancelling stops future batches, it does not undo additions.</p>
       {command.pending ? <Button variant="secondary" onClick={() => { controller.current?.abort(); setNotice("Paused. Return to this saved import to continue."); }}>Pause</Button> : ["analyzing", "grouping", "applying"].includes(run.phase) && <Button onClick={() => command.run(assertCurrent => walk(run, assertCurrent, signal()), setRun)}>Continue</Button>}
       {run.summary?.applied && <p>{run.summary.applied.added_entries || 0} new library entries · {run.summary.applied.added_reads || 0} new historical readings. Source rows, books and readings are different counts.</p>}
