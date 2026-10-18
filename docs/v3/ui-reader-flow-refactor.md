@@ -32,7 +32,14 @@ Public detail's guarded **Open or start your reading** route remains, with expli
 
 ## Verification and remaining gates
 
-Results are recorded in the UI chat's implementation handoff after completion. Do not equate an implementation build/mock-browser pass with independent QA, physical Safari or hosted/public acceptance.
+Completed implementation verification:
+
+- Full frontend regression run: **188 passed, zero failures, 16.0m**, using local Chromium and wholly intercepted API fixtures. The production preview was built from core composition commit `4355f55`.
+- The later CSS-only mobile/checkbox refinement at application commit `d0bd2cd` passed **seven focused checks, 2.2m**, including 320/390/1440px layout captures, light/dark Finish, personal card destinations, historical/paused copy and import review-before-confirm. These overlap the full suite and are not 195 distinct checks. Its preceding seven-case CSS check also passed and is not added as another unique total.
+- Final application production build passed to a separate artifact directory; lint passed with 12 existing warnings and no new warnings/errors. No dependency manifest or lockfile changed.
+- Integration-spec-only follow-up `06b9cb6` updates contextual accessible names/disclosure navigation. The real API/database integration suite was **not** executed here; no backend/database result is claimed.
+
+Logs, final fixture screenshots and the detailed UI handoff are in the UI chat's `deliverables` directory. Test preview servers were stopped by their harnesses; final cleanup is recorded in the handoff. Independent final-head Edge/WebKit review and physical Safari/hosted acceptance remain open. This is developer verification, not independent QA or public-release approval.
 
 Initial verification setup failures: ordinary sandbox networking blocked dependency retrieval/server start; packages installed with the supported per-command network permission. WebKit installation using a workspace cache then failed with explicit network-policy 403 at browser-download hosts. No alternate-domain bypass was attempted. Chromium is available locally.
 
