@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
 import { getBooks, getBookById } from "../../api/books.js";
@@ -71,6 +71,7 @@ function FilterDialog({ onClose, onApply, initial, authenticated }) {
 
 export function BrowsePage() {
   const auth = useAuth();
+  const library = useUserBooks();
   const reader = useReader();
   const [params, setParams] = useSearchParams();
   const queryKey = params.toString();
@@ -89,7 +90,8 @@ export function BrowsePage() {
   const setMode = (value) => setSearchDraft((current) => ({ ...current, mode: value }));
   const setDraft = (value) => setSearchDraft((current) => ({ ...current, value }));
   const [filterOpen, setFilterOpen] = useState(false);
-  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
+  const shelfRevision = shelf || exclude ? library.revision : 0;
+  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}:${reader.preferencesVersion}:${shelfRevision}` : "public";
   const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
   const items = request.data?.items || [];
   const total = request.data?.total || 0;
@@ -150,13 +152,24 @@ export function BookPage() {
   const browseFrom = candidate.split("?")[0] === "/browse" ? candidate : "/browse";
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`);
   const book = request.data;
+  const loadingNode = useRef(null), restoreHeadingFocus = useRef(false);
+  const trackLoading = useCallback(node => {
+    if (!node && loadingNode.current?.contains(document.activeElement)) restoreHeadingFocus.current = true;
+    loadingNode.current = node;
+  }, []);
+  const focusLoadedTitle = useCallback(node => {
+    if (node && restoreHeadingFocus.current) {
+      restoreHeadingFocus.current = false;
+      node.focus({ preventScroll: true });
+    }
+  }, []);
   const saved = reader.libraryReady && !library.loading && !library.error && library.booksById[bookId]?.status;
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
   return <section className="bv-container">
     <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
-    {request.loading ? <div className="bv-detail"><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState> : <article className="bv-detail" aria-labelledby="bv-book-title">
+    {request.loading ? <div className="bv-detail" ref={trackLoading}><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState> : <article className="bv-detail" aria-labelledby="bv-book-title">
       <div className="bv-detail-art"><BookCover book={book} priority /></div>
-      <div className="bv-detail-body"><h1 id="bv-book-title">{book.title || "Untitled book"}</h1>
+      <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={focusLoadedTitle}>{book.title || "Untitled book"}</h1>
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}

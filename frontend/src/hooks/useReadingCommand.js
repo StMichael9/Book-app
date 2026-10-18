@@ -4,7 +4,7 @@ import { errorText } from "../components/ui-v2/data.js";
 
 // A departed account must never publish a result, download, error or navigation
 // into the next account. Command identifiers and drafts remain page-local.
-export function useReadingCommand(fallback = "Your reading couldn’t be updated. Please try again.") {
+export function useReadingCommand(fallback = "Your reading couldn’t be updated. Please try again.", { conflictMessage } = {}) {
   const auth = useAuth();
   const session = useRef(auth.sessionGeneration);
   const mounted = useRef(true), busy = useRef(false);
@@ -23,7 +23,7 @@ export function useReadingCommand(fallback = "Your reading couldn’t be updated
       const result = await operation(() => { if (!current()) throw new Error("Account changed"); });
       if (current()) accept(result);
     } catch (failure) {
-      if (current()) setError(errorText(failure, fallback));
+      if (current()) setError(failure.status === 409 && conflictMessage ? conflictMessage : errorText(failure, fallback));
     } finally {
       busy.current = false;
       if (current()) setPending(false);

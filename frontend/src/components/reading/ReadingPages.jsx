@@ -230,10 +230,14 @@ export function PrivateBookPage() {
 // Off/old backends are gated before this component can issue any command.
 export function StartReadingPage() {
   const { bookId } = useParams();
-  const go = useNavigate(), library = useUserBooks(), command = useReadingCommand();
+  const go = useNavigate(), library = useUserBooks(), command = useReadingCommand(
+    "We couldn’t confirm your reading started. Please try again.",
+    { conflictMessage: "Your library changed while we were starting this reading. Check its current state and try again." });
   const identity = useRef(crypto.randomUUID());
   const started = useRef(false);
   const begin = () => command.run(async assertCurrent => {
+    await library.waitForBookWrites(Number(bookId));
+    assertCurrent();
     const lookup = (await lookupLibraryBooks([Number(bookId)])).items[0];
     assertCurrent();
     let workspace;
@@ -252,5 +256,5 @@ export function StartReadingPage() {
   }, result => { library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`, { replace: true }); });
   const beginCurrent = useEffectEvent(begin);
   useEffect(() => { if (!started.current && !library.readOnly) { started.current = true; beginCurrent(); } }, [library.readOnly]);
-  return <section className="bv-container"><PageHeading title={library.readOnly ? "Reading changes are paused." : "Opening your reading…"} />{command.error && <><p role="alert">{command.error}</p><Button disabled={command.pending} onClick={begin}>Try starting again</Button></>}<TextLink to="/my-books">Back to My Books</TextLink></section>;
+  return <section className="bv-container"><PageHeading title={library.readOnly ? "Reading changes are paused." : command.error ? "We couldn’t confirm your reading started." : "Opening your reading…"} />{command.error && <><p role="alert">{command.error}</p><Button disabled={command.pending} onClick={begin}>Try starting again</Button></>}<TextLink to="/my-books">Back to My Books</TextLink></section>;
 }

@@ -5,9 +5,14 @@ import { errorText } from "./data.js";
 import { ReaderContext } from "./readerState.js";
 
 function initialTheme() {
+  // The inline bootstrap applies the preference before CSS/React can paint.
+  const bootstrapped = document.documentElement.getAttribute("data-theme");
+  if (bootstrapped === "light" || bootstrapped === "dark") return bootstrapped;
   try {
     const stored = localStorage.getItem("bookvane-theme");
     if (stored === "light" || stored === "dark") return stored;
+    const legacy = localStorage.getItem("shelfbound-theme");
+    if (legacy === "light" || legacy === "dark") return legacy;
   } catch { /* The interface also works when storage is unavailable. */ }
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }

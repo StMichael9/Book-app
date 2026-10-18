@@ -4,7 +4,7 @@ const api = "https://127.0.0.1:8009";
 const origin = "https://127.0.0.1:5192";
 const password = "Local-test-password-123";
 
-test("real HTTPS cookies, refresh, two-user isolation, persistence and password reset", async ({ browser }) => {
+test("real HTTPS cookies, refresh, two-user isolation, persistence and password reset", async ({ browser }, testInfo) => {
   const first = await browser.newContext({ ignoreHTTPSErrors: true });
   const second = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 } });
   const failures = [];
@@ -19,12 +19,14 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
   }
   const a = await first.newPage(), b = await second.newPage();
   const emailA = `local-a-${Date.now()}@example.com`, emailB = `local-b-${Date.now()}@example.com`;
+  const accountLanding = testInfo.config.metadata.readingTLS ? "/home" : "/my-books";
   async function register(page, email) {
     await page.goto(`${origin}/register`);
     await page.getByLabel("Email address", { exact: true }).fill(email);
     await page.getByLabel("Password", { exact: true }).fill(password);
     await page.getByRole("button", { name: "Create account", exact: true }).click();
-    await expect(page).toHaveURL(`${origin}/my-books`);
+    await expect(page).toHaveURL(`${origin}${accountLanding}`);
+    if (testInfo.config.metadata.readingTLS) await page.goto(`${origin}/my-books`);
   }
   try {
     await register(a, emailA); await register(b, emailB);
@@ -32,7 +34,8 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
       const cookies = (await context.cookies(api)).filter(c => ["access_token", "refresh_token"].includes(c.name));
       expect(cookies).toHaveLength(2);
       for (const cookie of cookies) {
-        expect(cookie.secure).toBe(true); expect(cookie.httpOnly).toBe(true); expect(cookie.sameSite).toBe("None");
+        expect(cookie.secure).toBe(true); expect(cookie.httpOnly).toBe(true);
+        expect(cookie.sameSite).toBe(testInfo.config.metadata.cookieSameSite || "None");
       }
     }
     expect(await a.evaluate(() => document.cookie)).not.toContain("access_token");
@@ -42,7 +45,10 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     await a.goto(`${origin}/my-books`); await a.reload(); await expect(a.locator(".bv-book-card")).toHaveCount(1);
     await b.reload(); await expect(b.locator(".bv-book-card")).toHaveCount(0);
     const blocked = await second.request.delete(`${api}/books/1/status`, { headers: { Origin: origin } });
-    expect(blocked.status()).toBe(404);
+    // V3 deliberately rejects every stale V2 writer before status lookup.
+    // Actual cross-owner V3 access is checked separately below.
+    expect(blocked.status()).toBe(testInfo.config.metadata.readingTLS ? 409 : 404);
+    if (testInfo.config.metadata.readingTLS) expect((await blocked.json()).detail).toContain("independent Own and Want");
     await a.goto(`${origin}/preferences`); await a.getByLabel("Fantasy", { exact: true }).check();
     await a.getByRole("button", { name: "Save preferences" }).click(); await expect(a).toHaveURL(`${origin}/browse`);
     await b.goto(`${origin}/preferences`); await expect(b.getByLabel("Fantasy", { exact: true })).not.toBeChecked();
@@ -53,6 +59,25 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     const denied = await first.request.post(`${api}/me/preferences`, { headers: { Origin: "https://untrusted.example" }, data: { tag_ids: [] } });
     expect(denied.status()).toBe(403);
     await a.reload(); await expect(a.getByLabel("Fantasy", { exact: true })).toBeChecked();
+
+    if (testInfo.config.metadata.readingTLS) {
+      const capabilities = await (await first.request.get(`${api}/me/reading-capabilities`)).json();
+      expect(capabilities.enabled && capabilities.features.reading_actions).toBe(true);
+      const library = await (await first.request.get(`${api}/me/library`)).json();
+      expect(library.items).toHaveLength(1);
+      const entry = library.items[0];
+      const started = await first.request.put(`${api}/me/reading-attempts/${crypto.randomUUID()}`, {
+        headers: { Origin: origin }, data: { entry_id: entry.id, expected_version: entry.version },
+      });
+      expect(started.status()).toBe(200);
+      expect((await started.json()).attempt.state).toBe("reading");
+      expect((await second.request.get(`${api}/me/library/${entry.id}/reading`)).status()).toBe(404);
+      const preflight = await first.request.fetch(`${api}/me/library/lookup`, { method: "OPTIONS",
+        headers: { Origin: origin, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type" } });
+      expect(preflight.status()).toBe(200);
+      expect(preflight.headers()["access-control-allow-origin"]).toBe(origin);
+      expect(preflight.headers()["access-control-allow-credentials"]).toBe("true");
+    }
 
     const refreshBefore = (await first.cookies(api)).find(c => c.name === "refresh_token").value;
     const expired = await first.request.get(`${api}/__test__/expire-access`, { headers: { "X-Bookvane-Test": "local-browser-test-only" } });
@@ -85,7 +110,9 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     await a.getByLabel("Password", { exact: true }).fill(password); await a.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(a.getByRole("alert")).toContainText("Invalid email or password");
     await a.getByLabel("Password", { exact: true }).fill("New-local-password-456"); await a.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(a).toHaveURL(`${origin}/my-books`); await expect(a.locator(".bv-book-card")).toHaveCount(1);
+    await expect(a).toHaveURL(`${origin}${accountLanding}`);
+    if (testInfo.config.metadata.readingTLS) await a.goto(`${origin}/my-books`);
+    await expect(a.locator(".bv-book-card")).toHaveCount(1);
     const toRevoke = (await first.cookies(api)).find(c => c.name === "refresh_token").value;
     await a.goto(`${origin}/account`); await a.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(a).toHaveURL(`${origin}/`);
