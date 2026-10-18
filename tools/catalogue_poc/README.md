@@ -12,6 +12,7 @@ million-book service.
 |---|---|
 | `schema.sql` | Public source identities, works, authors, editions, ISBN associations, aliases, import checkpoints and external-content FTS5 |
 | `normalize.py` | Adapts Bookvane's pure validators; no app settings, models or database connections |
+| `dumps.py` | Strict UTF-8/byte-bounded TSV wrapper validation, provenance and same-pass compressed checksum verification |
 | `storage.py` | Parameterized libSQL HTTP transactions, explicit destination allowlist, remote FK enforcement; in-memory SQLite tests only |
 | `ingest.py` | Bounded batches, source-key prefilters, source-owned relationships, transactional checkpoints, delayed search indexing |
 | `query.py` | Bounded title/author prefix candidates, exact work ID and validated ISBN lookup; preserves ambiguity |
@@ -23,7 +24,12 @@ The existing `backend/data/clean.py` and `backend/data/sources.py` remain unchan
 Shared text, cover, ISBN, page count, author and edition validators are reused.
 The public catalogue's curated genre/required-author gate is deliberately not used:
 an external reference catalogue must be broader. Author names are not identities.
-No cover image files, private CSVs, accounts or reading data belong here.
+No cover image files, private CSVs, accounts or reading data belong here. The
+external reader reuses the shared hashing core and resolver, but does not inherit
+the application's replacement UTF-8 decoding or discarded TSV provenance.
+Schema version 2 adds author/edition modified timestamps and an active-edition
+marker. Its isolated version-1 upgrade is transactional and tested with preserved
+synthetic metadata. This is not a Neon/application migration.
 
 The transport uses the documented libSQL HTTP/Hrana conditional-batch protocol.
 No new SDK dependency or local database replica was introduced. The existing
@@ -42,7 +48,12 @@ Neither environment-variable runner guards nor local write counters are a
 security boundary or proof of organization-wide remaining quota. Before import,
 verify actual plan, overages disabled, shared usage and reset date. Successful
 statement counters do not necessarily include failed/rolled-back billed writes.
-Never raise quotas, enable overages or upgrade a service automatically.
+Never raise quotas, enable overages or upgrade a service automatically. On
+18 October the official subscription API confirmed Starter, monthly,
+**overages=false**; no change was necessary. Usage:93 reads,42 writes,126976 bytes,
+one database,zero syncs. The separately approved temporary organization token was
+immediately revoked and its local copy removed. Only the database-scoped token
+remains; no organization credential is retained or supplied to the runner.
 
 ## Developer commands
 
@@ -78,7 +89,7 @@ The seven-day token is stored as the encrypted `TURSO_CATALOGUE_POC_TOKEN` Actio
 secret in that runner repository; its existing Neon secret was not read or changed.
 
 Proposed first stage: up to **1,000 accepted public works**, conservative 100,000
-session-write guard and 4,000,000,000-byte storage guard; one bounded runner session
+session-write guard and 250,000,000-byte sample storage guard; one bounded runner session
 before any continuation decision. A run ID pins the complete dated manifest once.
 There is no automatic target growth, automatic spending or app integration.
 Later 100K/500K/1M stages require measured fanout/storage/read/write projections
@@ -93,11 +104,12 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
 
 ## Evidence actually obtained
 
-- Local synthetic tests: **29/29 passed**, exit 0, 0.464s on the developer's rerun.
+- Current local synthetic tests: **51/51 passed**, exit 0, 1.832s on the developer's rerun.
   Independent QA passed the original 27 and identified two additional findings:
   redirect credential forwarding and index reset before budget guards. The revised
   client rejects all redirects and index guards precede reset; two negative tests
-  now cover these. Corrected-candidate QA re-verification remains pending.
+  now cover these; independent QA passed the corrected29-test candidate. The
+  expanded51-test ingestion candidate awaits its own independent review.
   These tests do not establish real-source or cloud matching quality.
 - Actual remote engine reports SQLite **3.47.0**. Schema/FTS5 creation succeeded.
 - Remote FK enforcement and failed-batch rollback passed. A temporary metadata
@@ -107,27 +119,37 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
   of per-book storage. No title-search latency benchmark is claimed from an empty DB.
 - No sample, 100K, 500K or 1M import, catalogue refresh or real-source throughput
   benchmark has run. Independent QA acceptance remains pending.
-- Account overview observed 57 reads, 40 writes, 126.98 KB storage, one database,
-  zero syncs against 500M/10M/5GB/100/3GB allowances. Billing is Free with no payment
-  method. Delayed dashboard observations are not proof of overages OFF.
+- Prior cloud verification run39150590125 passed29 tests plus actual Turso
+  schema/FK/rollback checks. It did not run the newer51-test candidate or ingest
+  books. Earlier evidence is not relabeled as current-candidate evidence.
+- Account subscription/usage API verified Starter with overages OFF; details above.
 
 ## Known limits before accepting a real catalogue stage
 
 - First-N selection is an operational prefix sample, not representative, popularity
   ranked, balanced or an unbiased test of metadata/edition fanout.
-- The shared dump decoder replaces invalid UTF-8, bounds lines in characters and
-  discards outer TSV revision/modified fields. Its `byte_size` is not actual UTF-8
-  byte accounting. Strict wrapper consistency/provenance checks and per-reason
-  omission/source-byte metrics need work before source-integrity acceptance.
-- Unchanged editions avoid relationship rewrites. Changed useful editions replace
-  source-owned links/ISBNs. A now-unusable edition is not yet reconciled away;
-  refresh acceptance, out-of-order revisions and redirect chains need more tests.
+- The isolated adapter now rejects damaged UTF-8, validates wrapper key/type/
+  revision consistency, preserves outer revision/modified values and counts actual
+  bytes. Wrong hashes, truncation, oversized records and prefix replay are tested.
+  Rejection diagnostics are bounded; detailed field-omission quality analysis is
+  still part of the real sample review.
+- Useful edition changes reconcile source-owned relationships; an edition becoming
+  unusable is deactivated and its stale ISBN links removed. A later same-snapshot
+  expansion attaches new selected-work links without rewriting unchanged metadata.
+  Older known revisions cannot replace newer ones. A **new dated snapshot refresh
+  is deliberately refused** pending complete disappearance/redirect reconciliation;
+  current staging experiments expand the exact same pinned manifest.
 - Redirects are retained when either endpoint is selected. Multi-hop chains whose
   intermediate IDs are outside the selected set can be incomplete. Deletes are
   tombstones; they do not delete user data (none exists here) or merge works.
-- Raw batch size and HTTP payload are bounded; a batch exceeding the 1.5 MB payload
-  cap fails closed. Adaptive subdivision for large description/fanout outliers
-  remains to be verified/implemented before unattended large runs.
+- Oversized multi-record transactions are subdivided with per-sub-batch atomic
+  checkpoints; interruption/resume is tested. A single record too large for the
+  1.5 MB HTTP cap still fails closed for review rather than being silently dropped.
+- Once the target is reached, a bounded source-ID prefilter avoids a database
+  query per later work batch while the source continues to EOF/checksum. A10K-row
+  test proves no per-batch catalogue lookups for an unrelated source suffix.
+  Temporary source-network errors have at most3 attempts with2/4-second backoff;
+  database writes are not blindly retried after ambiguous network outcomes.
 - Search is token-prefix FTS5, not arbitrary substring, typo correction, semantic
   matching or reliable CJK word segmentation. ISBN collisions remain multiple
   candidates. An automatic-match confidence policy is not part of this experiment.
@@ -140,7 +162,9 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
 ## Capacity and future integration
 
 Current published Free allowances: 5 GB storage, 500M rows read/month, 10M rows
-written/month. Actual account usage/overages must be verified independently.
+written/month. Account overages OFF is verified; fresh shared usage must still be
+checked before each larger stage. Neither changing provider terms nor a third
+party later changing account settings can be guaranteed by this experiment.
 References: [pricing](https://turso.tech/pricing),
 [usage accounting](https://docs.turso.tech/help/usage-and-billing),
 [libSQL HTTP](https://docs.turso.tech/sdk/http/reference),

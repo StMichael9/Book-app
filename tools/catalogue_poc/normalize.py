@@ -15,7 +15,7 @@ from data.clean import (  # noqa: E402
     normalize_author, normalize_edition, normalize_redirect, normalize_delete,
     work_key, year,
 )
-from data.sources import resolve_snapshot, stream_dump  # noqa: E402
+from data.sources import DumpRow, _HashingReader, resolve_snapshot  # noqa: E402
 
 
 def search_key(value):
@@ -48,8 +48,9 @@ def work(data):
         cover_id=cover_id(data.get('covers')),
         author_ids=list(dict.fromkeys(key for item in author_values if (key := author_key(item)))),
         source_revision=data.get('revision') if type(data.get('revision')) is int else None,
-        source_modified=_text((data.get('last_modified') or {}).get('value'))
-            if isinstance(data.get('last_modified'), dict) else None)
+        source_modified=_text(data.get('_dump_modified')) or
+            (_text((data.get('last_modified') or {}).get('value'))
+             if isinstance(data.get('last_modified'), dict) else None))
     result['fingerprint'] = fingerprint(result)
     return result
 
@@ -59,6 +60,7 @@ def author(data):
     if result:
         result['name_key'] = search_key(result['name'])
         result['source_revision'] = data.get('revision') if type(data.get('revision')) is int else None
+        result['source_modified'] = _text(data.get('_dump_modified'))
         result['fingerprint'] = fingerprint(result)
     return result
 
@@ -68,7 +70,8 @@ def editions(data):
     work_ids = sorted({row['source_id'] for row in result})
     for row in result:
         row.update(title=_text(data.get('title')), cover_id=cover_id(data.get('covers')),
-            source_revision=data.get('revision') if type(data.get('revision')) is int else None)
+            source_revision=data.get('revision') if type(data.get('revision')) is int else None,
+            source_modified=_text(data.get('_dump_modified')))
         # A multi-work edition has one identity and one metadata fingerprint.
         row['fingerprint'] = fingerprint({**{key: value for key, value in row.items() if key != 'source_id'},
                                          'associated_work_ids': work_ids})

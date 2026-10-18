@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 
 from . import normalize as n
-from .storage import CatalogueError, bulk
+from .storage import CatalogueError, bulk, payload_bytes
 
 PHASES = ('works', 'authors', 'editions', 'redirects', 'deletes', 'index', 'complete')
 
@@ -40,7 +41,7 @@ class Bloom:
 
 
 def keys_filter(store, table):
-    if table not in ('works', 'authors'):
+    if table not in ('works', 'authors', 'editions'):
         raise ValueError('Unsupported source-identity filter')
     bloom, cursor = Bloom(), ''
     while True:
@@ -80,23 +81,39 @@ def start(store, run_id, manifest, target):
         count = store.run('SELECT count(*) AS n FROM works')[0]['n']
         if count > target:
             raise ValueError('Existing catalogue exceeds requested total target; nothing is deleted')
+        previous=store.run("SELECT manifest FROM import_runs WHERE phase='complete' ORDER BY updated_at DESC LIMIT 1")
+        if previous and json.loads(previous[0]['manifest'])!=manifest:
+            raise ValueError('This POC can expand the same pinned snapshot; a new-snapshot refresh requires reconciliation review')
         store.transaction([('INSERT INTO import_runs(id,manifest,target,phase,counters) VALUES(?,?,?,?,?)',
             (run_id, pinned, target, 'works', json.dumps({'works': count, 'invalid': 0})))])
         row = store.run('SELECT * FROM import_runs WHERE id=?', (run_id,))[0]
     return row
 
 
-def checkpoint(store, run, statements, line, counters, phase=None, verified=None):
+def checkpoint_sql(run, statements, line, counters, phase=None, verified=None):
     # An independent writer cannot advance a stale checkpoint and partially commit.
     guard = ('INSERT INTO checkpoint_guard(id,valid) VALUES(1,CASE WHEN EXISTS('
         'SELECT 1 FROM import_runs WHERE id=? AND phase=? AND checkpoint=?) THEN 1 ELSE 0 END) '
         'ON CONFLICT(id) DO UPDATE SET valid=excluded.valid', (run['id'], run['phase'], run['checkpoint']))
     next_phase = phase or run['phase']
     proofs = json.dumps(verified if verified is not None else json.loads(run['verified_phases']))
-    store.transaction([guard, *statements, (
+    return [guard, *statements, (
         'UPDATE import_runs SET phase=?,checkpoint=?,counters=?,verified_phases=?,updated_at=CURRENT_TIMESTAMP WHERE id=?',
-        (next_phase, line, json.dumps(counters, sort_keys=True), proofs, run['id']))])
+        (next_phase, line, json.dumps(counters, sort_keys=True), proofs, run['id']))]
+
+
+def checkpoint(store, run, statements, line, counters, phase=None, verified=None):
+    next_phase=phase or run['phase']
+    proofs=json.dumps(verified if verified is not None else json.loads(run['verified_phases']))
+    store.transaction(checkpoint_sql(run,statements,line,counters,phase,verified))
     run.update(phase=next_phase, checkpoint=line, counters=json.dumps(counters), verified_phases=proofs)
+
+
+def current_revision(row, existing):
+    """Never overwrite a known newer source revision with older/missing data."""
+    if existing is None or existing.get('source_revision') is None:
+        return True
+    return row.get('source_revision') is not None and row['source_revision']>=existing['source_revision']
 
 
 def work_statements(store, records, snapshot, available):
@@ -105,6 +122,8 @@ def work_statements(store, records, snapshot, available):
     accepted = []
     new = 0
     for source_id, row in values.items():
+        if not current_revision(row,existing.get(source_id)):
+            continue
         if source_id not in existing:
             if new >= available:
                 continue
@@ -141,32 +160,47 @@ def phase_statements(store, phase, records, snapshot, available):
     if phase == 'authors':
         rows = {value['source_id']: value for record in records if (value := n.author(record))}
         existing = selected(store, 'authors', rows)
-        cols = ('source_id','name','name_key','snapshot','source_revision','fingerprint')
+        cols = ('source_id','name','name_key','snapshot','source_revision','source_modified','fingerprint')
         values = [tuple(snapshot if col == 'snapshot' else row[col] for col in cols)
-                  for key, row in rows.items() if key in existing]
+                  for key, row in rows.items() if key in existing and current_revision(row,existing[key])]
         return bulk('INSERT INTO authors', cols, values,
             'ON CONFLICT(source_id) DO UPDATE SET name=excluded.name,name_key=excluded.name_key,'
-            'snapshot=excluded.snapshot,source_revision=excluded.source_revision,fingerprint=excluded.fingerprint '
+            'snapshot=excluded.snapshot,source_revision=excluded.source_revision,source_modified=excluded.source_modified,fingerprint=excluded.fingerprint '
             'WHERE authors.fingerprint IS NOT excluded.fingerprint'), 0
     if phase == 'editions':
         normalized = [edition for record in records for edition in n.editions(record)]
         found = selected(store, 'works', [row['source_id'] for row in normalized])
         normalized = [row for row in normalized if row['source_id'] in found]
         unique = {row['edition_key']: row for row in normalized}
-        existing = selected(store, 'editions', unique)
+        relevant=set(unique)
+        raw={record['key']:record for record in records if isinstance(record.get('key'),str)
+             and re.fullmatch(r'/books/OL[0-9]+M',record['key'])}
+        existing = selected(store, 'editions', raw)
+        unique={key:row for key,row in unique.items() if current_revision(row,existing.get(key))}
         changed = {key:row for key,row in unique.items() if key not in existing
-                   or existing[key]['fingerprint'] != row['fingerprint']}
-        normalized = [row for row in normalized if row['edition_key'] in changed]
+                   or existing[key]['fingerprint'] != row['fingerprint'] or existing[key]['active']==0}
+        normalized = [row for row in normalized if row['edition_key'] in unique]
         cols = ('source_id','title','page_count','cover_id','languages','publication_date','publishers',
-                'physical_format','snapshot','source_revision','fingerprint')
+                'physical_format','snapshot','source_revision','source_modified','fingerprint','active')
         values = []
         for key, row in changed.items():
-            values.append(tuple(key if col == 'source_id' else snapshot if col == 'snapshot'
+            values.append(tuple(key if col == 'source_id' else 1 if col=='active' else snapshot if col == 'snapshot'
                 else json.dumps(row[col], ensure_ascii=False) if col in ('languages','publishers') else row[col]
                 for col in cols))
         updates = ','.join(col+'=excluded.'+col for col in cols if col != 'source_id')
         statements = bulk('INSERT INTO editions', cols, values,
-            'ON CONFLICT(source_id) DO UPDATE SET '+updates+' WHERE editions.fingerprint<>excluded.fingerprint')
+            'ON CONFLICT(source_id) DO UPDATE SET '+updates+' WHERE editions.fingerprint<>excluded.fingerprint OR editions.active=0')
+        inactive=[(key,record.get('revision'),record.get('_dump_modified'),snapshot)
+                  for key,record in raw.items() if key in existing and existing[key]['active']
+                  and current_revision({'source_revision':record.get('revision')},existing[key])
+                  and key not in relevant]
+        if inactive:
+            statements.append(('UPDATE editions SET active=0,page_count=NULL,source_revision=json_extract(j.value,\'$[1]\'),'
+                'source_modified=json_extract(j.value,\'$[2]\'),snapshot=json_extract(j.value,\'$[3]\') '
+                "FROM json_each(?) j WHERE editions.source_id=json_extract(j.value,'$[0]')",(json.dumps(inactive),)))
+            dead_keys=(json.dumps([row[0] for row in inactive]),)
+            statements.extend((f'DELETE FROM {table} WHERE edition_id IN (SELECT value FROM json_each(?))',dead_keys)
+                              for table in ('edition_works','edition_isbns'))
         if changed:
             keys = (json.dumps(list(changed)),)
             statements.extend((f'DELETE FROM {table} WHERE edition_id IN (SELECT value FROM json_each(?))', keys)
@@ -215,36 +249,75 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
             max_rows_written=7_500_000, deadline=None, eof_verified=False):
     """Accepts a bounded iterator; tests cannot accidentally initiate a download."""
     phase, counters = run['phase'], json.loads(run['counters'])
-    bloom = keys_filter(store, 'authors' if phase == 'authors' else 'works') if phase != 'works' else None
+    bloom = keys_filter(store, 'authors' if phase == 'authors' else 'works')
+    edition_bloom=keys_filter(store,'editions') if phase=='editions' else None
     pending, line, invalid = [], run['checkpoint'], 0
     snapshot = json.loads(run['manifest'])['date']
 
     def flush():
         nonlocal pending, invalid
-        if store.size() >= max_bytes or store.rows_written >= max_rows_written:
-            raise Paused('Storage/write safety threshold reached; checkpoint retained')
-        statements, added = phase_statements(store, phase, pending, snapshot, max(0,run['target']-counters['works']))
-        next_counts = {**counters, 'works': counters['works']+added, 'invalid': counters.get('invalid',0)+invalid}
-        checkpoint(store, run, statements, line, next_counts)
-        counters.update(next_counts)
+        base_invalid=counters.get('invalid',0)
+
+        def write(entries,end_line,rejected):
+            if (store.size()>=max_bytes or store.rows_written>=max_rows_written
+                    or deadline and time.monotonic()>=deadline):
+                raise Paused('Storage/write/time safety threshold reached; checkpoint retained')
+            statements,added=phase_statements(store,phase,[entry[0] for entry in entries],snapshot,
+                                              max(0,run['target']-counters['works']))
+            next_counts={**counters,'works':counters['works']+added,'invalid':base_invalid+rejected}
+            encoded_size=payload_bytes(checkpoint_sql(run,statements,end_line,next_counts))
+            if encoded_size>1_500_000:
+                if len(entries)<2:
+                    raise CatalogueError('A single source record exceeds the safe transaction payload; review required')
+                middle=len(entries)//2
+                write(entries[:middle],entries[middle-1][1],entries[middle-1][2])
+                write(entries[middle:],end_line,rejected)
+                return
+            # Conservative batch reserve; the provider's overages-OFF hard quota
+            # remains authoritative. This is not a billed-usage prediction.
+            if (store.size()+4*encoded_size+1_048_576>max_bytes
+                    or store.rows_written+64*len(entries)+16>max_rows_written):
+                raise Paused('Next batch would consume reserved storage/write headroom')
+            checkpoint(store,run,statements,end_line,next_counts)
+            counters.update(next_counts)
+            if edition_bloom is not None:
+                for record,_,_ in entries:
+                    if isinstance(record.get('key'),str):
+                        edition_bloom.add(record['key'])
+            if phase=='works':
+                for record,_,_ in entries:
+                    if isinstance(record.get('key'),str):
+                        bloom.add(record['key'])
+
+        write(pending,line,invalid)
         pending, invalid = [], 0
 
     for row in rows:
         if deadline and time.monotonic() >= deadline:
-            if line > run['checkpoint']:
-                flush()
+            # Do not mutate after an expired deadline; replay the uncommitted
+            # bounded batch from the last committed checkpoint instead.
             raise Paused('Time budget reached; resume the same pinned run')
         line = row.line_number
         if row.record is None:
             invalid += 1
-        elif likely(phase, row.record, bloom):
-            pending.append(row.record)
+        elif ((phase=='works' and (counters['works']<run['target']
+                    or isinstance(row.record.get('key'),str) and row.record['key'] in bloom))
+                or phase!='works' and likely(phase, row.record, bloom) or edition_bloom is not None
+                and isinstance(row.record.get('key'),str) and row.record['key'] in edition_bloom):
+            pending.append((row.record,line,invalid))
         if len(pending) >= batch_size or line-run['checkpoint'] >= 50_000:
             flush()
     if line > run['checkpoint'] or pending:
         flush()
     proofs = json.loads(run['verified_phases'])
     if eof_verified:
+        if phase=='works':
+            if counters['works']==0:
+                raise CatalogueError('No valid works accepted; source phase cannot be accepted')
+            counters['target_shortfall']=max(0,run['target']-counters['works'])
+        if (store.size()>=max_bytes or store.rows_written+16>=max_rows_written
+                or deadline and time.monotonic()>=deadline):
+            raise Paused('Phase transition paused at the committed checkpoint')
         proofs = sorted(set(proofs+[phase]))
         next_phase = PHASES[PHASES.index(phase)+1]
         checkpoint(store, run, [], 0, counters, next_phase, proofs)
@@ -262,6 +335,8 @@ def build_index(store, run, *, max_bytes=4_000_000_000, max_rows_written=7_500_0
     if store.size() >= max_bytes or store.rows_written >= max_rows_written:
         raise Paused('Index storage/write safety threshold reached; checkpoint unchanged')
     if run['checkpoint'] == 0:
+        if store.rows_written+4*json.loads(run['counters'])['works']+16>=max_rows_written:
+            raise Paused('Index reset would consume reserved write headroom')
         checkpoint(store, run, [("INSERT INTO works_search(works_search) VALUES('delete-all')", ())],
                    -1, json.loads(run['counters']))
     cursor = max(0, run['checkpoint'])
@@ -275,6 +350,8 @@ def build_index(store, run, *, max_bytes=4_000_000_000, max_rows_written=7_500_0
             checkpoint(store, run, [], 0, json.loads(run['counters']), 'complete')
             return
         end = found[-1]['id']
+        if store.rows_written+64*len(found)+16>=max_rows_written:
+            raise Paused('Next index batch would consume reserved write headroom')
         statements = [(
             'UPDATE works SET authors_key=COALESCE((SELECT group_concat(name_key,\' \') FROM '
             '(SELECT a.name_key FROM work_authors wa JOIN authors a ON a.source_id=wa.author_id '

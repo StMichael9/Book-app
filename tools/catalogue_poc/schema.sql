@@ -1,6 +1,6 @@
 -- Independent libSQL catalogue. No users, shelves, private files or application IDs.
 CREATE TABLE IF NOT EXISTS catalogue_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-INSERT INTO catalogue_meta VALUES ('schema_version','1') ON CONFLICT(key) DO NOTHING;
+INSERT INTO catalogue_meta VALUES ('schema_version','2') ON CONFLICT(key) DO NOTHING;
 CREATE TABLE IF NOT EXISTS import_runs (
  id TEXT PRIMARY KEY, manifest TEXT NOT NULL, target INTEGER NOT NULL CHECK(target>0),
  phase TEXT NOT NULL, checkpoint INTEGER NOT NULL DEFAULT 0,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS works (
 CREATE INDEX IF NOT EXISTS works_title ON works(title_key,source_id);
 CREATE TABLE IF NOT EXISTS authors (
  source_id TEXT PRIMARY KEY, name TEXT, name_key TEXT, snapshot TEXT NOT NULL,
- source_revision INTEGER, fingerprint TEXT
+ source_revision INTEGER, source_modified TEXT, fingerprint TEXT
 );
 CREATE INDEX IF NOT EXISTS authors_name ON authors(name_key,source_id);
 CREATE TABLE IF NOT EXISTS work_authors (
@@ -29,7 +29,8 @@ CREATE INDEX IF NOT EXISTS work_authors_author ON work_authors(author_id,work_id
 CREATE TABLE IF NOT EXISTS editions (
  source_id TEXT PRIMARY KEY, title TEXT, page_count INTEGER, cover_id INTEGER,
  languages TEXT NOT NULL, publication_date TEXT, publishers TEXT NOT NULL, physical_format TEXT,
- snapshot TEXT NOT NULL, source_revision INTEGER, fingerprint TEXT NOT NULL
+ snapshot TEXT NOT NULL, source_revision INTEGER, source_modified TEXT, fingerprint TEXT NOT NULL,
+ active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1))
 );
 CREATE TABLE IF NOT EXISTS edition_works (
  edition_id TEXT NOT NULL REFERENCES editions(source_id), work_id INTEGER NOT NULL REFERENCES works(id),

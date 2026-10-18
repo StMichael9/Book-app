@@ -6,8 +6,11 @@ import re
 import statistics
 import sys
 import time
+import requests
+from urllib3.exceptions import HTTPError as StreamNetworkError
 
 from . import normalize as n
+from .dumps import stream_dump
 from .ingest import Paused, build_index, consume, start
 from .query import by_isbn, by_work, search
 from .storage import CatalogueError, Store
@@ -35,7 +38,7 @@ def main(argv=None):
     try:
         if args.command == 'init':
             store.initialize()
-            result = {'schema': 1, 'bytes': store.size()}
+            result = {'schema': 2, 'bytes': store.size()}
         elif args.command == 'status':
             result = {'runs': store.run('SELECT id,target,phase,checkpoint,counters,verified_phases FROM import_runs'),
                       'allocated_bytes': store.size()}
@@ -58,28 +61,56 @@ def main(argv=None):
                 if not args.target_works:
                     raise ValueError('Specify target works for a new run')
                 manifest = n.resolve_snapshot(args.snapshot, user_agent=user_agent).manifest()
+                manifest['adapter_version']=2
+                manifest['code_ref']=os.environ.get('SOURCE_SHA','explicit-local-test')
                 target = args.target_works
+            if manifest.get('adapter_version')!=2:
+                raise ValueError('Run uses an unsupported source adapter; review rather than silently changing it')
+            print(json.dumps({'pinned_snapshot':manifest['date'],'target_works':target,
+                              'files':manifest['files'],'adapter_version':2}),flush=True)
             run = start(store, args.run_id, manifest, target)
             deadline = time.monotonic() + args.time_budget_seconds
+            last_progress=time.monotonic()
+            metrics={}
             def heartbeat():
-                if time.monotonic() >= deadline:
+                nonlocal last_progress
+                now=time.monotonic()
+                if now>=deadline:
                     raise Paused('Runner deadline reached while replaying the pinned gzip prefix')
+                if now-last_progress>=30:
+                    print(json.dumps({'phase':run['phase'],'checkpoint':run['checkpoint'],
+                        'counters':json.loads(run['counters']),'source':metrics}),flush=True)
+                    last_progress=now
             while run['phase'] != 'complete':
                 if run['phase'] == 'index':
                     build_index(store, run, max_bytes=args.max_storage_bytes,
                                 max_rows_written=args.max_session_rows_written, deadline=deadline)
                     continue
                 file = manifest['files'][run['phase']]
-                stream = n.stream_dump(file['url'], start_line=run['checkpoint'], user_agent=user_agent,
-                    expected_size=file['size'], expected_md5=file['md5'], progress_callback=heartbeat)
-                try:
-                    consume(store, run, stream, batch_size=args.batch_size, max_bytes=args.max_storage_bytes,
-                            max_rows_written=args.max_session_rows_written, deadline=deadline, eof_verified=True)
-                finally:
-                    stream.close()
+                metrics={}
+                for attempt in range(3):
+                    stream = stream_dump(file['url'], start_line=run['checkpoint'], user_agent=user_agent,
+                        expected_size=file['size'], expected_md5=file['md5'], progress_callback=heartbeat,metrics=metrics)
+                    try:
+                        consume(store, run, stream, batch_size=args.batch_size, max_bytes=args.max_storage_bytes,
+                                max_rows_written=args.max_session_rows_written, deadline=deadline, eof_verified=True)
+                        break
+                    except (requests.RequestException,StreamNetworkError) as exc:
+                        status=getattr(getattr(exc,'response',None),'status_code',None)
+                        if attempt==2 or status is not None and status not in (429,500,502,503,504):
+                            raise CatalogueError('Source network request failed after bounded retries; checkpoint retained') from None
+                        print(json.dumps({'phase':run['phase'],'source_retry':attempt+1,
+                                          'checkpoint':run['checkpoint']}),flush=True)
+                        heartbeat()
+                        time.sleep(2**(attempt+1))
+                    except (EOFError,OSError):
+                        raise CatalogueError('Truncated or invalid compressed source; checkpoint retained, phase unverified') from None
+                    finally:
+                        stream.close()
                 print(json.dumps({'phase': run['phase'], 'checkpoint': run['checkpoint'],
-                    'counters': json.loads(run['counters']), 'bytes': store.size()}), flush=True)
+                    'counters': json.loads(run['counters']), 'bytes': store.size(),'source':metrics}), flush=True)
             result = {'run': run['id'], 'phase': run['phase'], 'counters': json.loads(run['counters']),
+                      'target_reached':json.loads(run['counters'])['works']>=run['target'],
                       'verified_phases': json.loads(run['verified_phases']), 'bytes': store.size()}
         else:
             if not store.run("SELECT id FROM import_runs WHERE phase='complete' LIMIT 1"):

@@ -22,7 +22,7 @@ def by_isbn(store, identifier):
     return store.run('SELECT DISTINCT w.source_id,w.title,e.source_id AS edition_id,e.page_count,e.languages '
         'FROM edition_isbns i JOIN editions e ON e.source_id=i.edition_id '
         'JOIN edition_works ew ON ew.edition_id=e.source_id JOIN works w ON w.id=ew.work_id '
-        'WHERE i.isbn13=? AND w.deleted=0 ORDER BY w.source_id,e.source_id LIMIT 26', (value,))
+        'WHERE i.isbn13=? AND w.deleted=0 AND e.active=1 ORDER BY w.source_id,e.source_id LIMIT 26', (value,))
 
 
 def by_work(store, identifier):

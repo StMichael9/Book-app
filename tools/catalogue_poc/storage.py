@@ -52,6 +52,12 @@ def transactional_payload(statements):
     return {'requests': [{'type': 'batch', 'batch': {'steps': steps}}, {'type': 'close'}]}
 
 
+def payload_bytes(statements):
+    payload=transactional_payload(statements)
+    payload['requests'].insert(0,{'type':'execute','stmt':statement('PRAGMA foreign_keys=ON')})
+    return len(json.dumps(payload,separators=(',',':')).encode())
+
+
 class Store:
     def __init__(self, *, sqlite_path=None, url=None, token=None, timeout=40):
         if bool(sqlite_path) == bool(url):
@@ -167,6 +173,18 @@ class Store:
         return self._http(transactional_payload(statements))
 
     def initialize(self):
+        exists=self.run("SELECT name FROM sqlite_master WHERE type='table' AND name='catalogue_meta'")
+        if exists:
+            version=self.run("SELECT value FROM catalogue_meta WHERE key='schema_version'")
+            if version==[{'value':'1'}]:
+                self.transaction([
+                    ('ALTER TABLE authors ADD COLUMN source_modified TEXT',()),
+                    ('ALTER TABLE editions ADD COLUMN source_modified TEXT',()),
+                    ('ALTER TABLE editions ADD COLUMN active INTEGER NOT NULL DEFAULT 1 CHECK(active IN(0,1))',()),
+                    ("UPDATE catalogue_meta SET value='2' WHERE key='schema_version'",()),
+                ])
+            elif version!=[{'value':'2'}]:
+                raise CatalogueError('Unsupported catalogue schema')
         source = Path(__file__).with_name('schema.sql').read_text(encoding='utf-8')
         buffer, statements = '', []
         for line in source.splitlines():
@@ -177,7 +195,7 @@ class Store:
         if buffer.strip():
             raise CatalogueError('Incomplete catalogue DDL')
         self.transaction(statements)
-        if self.run("SELECT value FROM catalogue_meta WHERE key='schema_version'") != [{'value': '1'}]:
+        if self.run("SELECT value FROM catalogue_meta WHERE key='schema_version'") != [{'value': '2'}]:
             raise CatalogueError('Unsupported catalogue schema')
 
     def size(self):
