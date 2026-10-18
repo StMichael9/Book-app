@@ -218,7 +218,7 @@ for (const changeAccount of [false, true]) test(`M6 departed preference save inv
   } finally { release(); }
 });
 
-for (const status of [404, 503]) test(`M6 book error and retry respect subsequent focus; status=${status}`, async ({ page, app }) => {
+for (const status of [404, 503]) for (const keyboard of [false, true]) for (const retryFailure of [false, true]) for (const moveFocus of [false, true]) test(`M6 book error and retry respect subsequent focus; status=${status}; keyboard=${keyboard}; retryFailure=${retryFailure}; moveFocus=${moveFocus}`, async ({ page, app }) => {
   let release;
   app.bookFailure = status;
   app.holdBook = new Promise(resolve => { release = resolve; });
@@ -229,14 +229,19 @@ for (const status of [404, 503]) test(`M6 book error and retry respect subsequen
     await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
     release();
     await expect(page.getByRole("heading", { name: status === 404 ? "This book couldn’t be found." : "This book couldn’t load.", exact: true })).toBeFocused();
-    app.bookFailure = 0;
+    app.bookFailure = retryFailure ? status : 0;
     app.holdBook = new Promise(resolve => { release = resolve; });
-    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    const retry = page.getByRole("button", { name: "Try again", exact: true });
+    if (keyboard) { await retry.focus(); await page.keyboard.press("Enter"); }
+    else await retry.click();
     await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
     const back = page.getByRole("link", { name: "Back to discovery", exact: true });
-    await back.focus(); release();
-    await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeVisible();
-    await expect(back).toBeFocused();
+    if (moveFocus) await back.focus();
+    release();
+    const finalHeading = page.getByRole("heading", { name: retryFailure ? status === 404 ? "This book couldn’t be found." : "This book couldn’t load." : "Test-only Fantasy", exact: true });
+    await expect(finalHeading).toBeVisible();
+    if (moveFocus) await expect(back).toBeFocused();
+    else await expect(finalHeading).toBeFocused();
   } finally { release(); }
 });
 

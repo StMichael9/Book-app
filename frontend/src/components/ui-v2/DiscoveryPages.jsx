@@ -169,7 +169,9 @@ export function BookPage() {
     completeFocusTransition(node);
   }, [completeFocusTransition]);
   const trackError = useCallback(node => {
-    if (!node && errorNode.current) restoreHeadingFocus.current = errorNode.current.contains(document.activeElement);
+    // Safari pointer activation may focus main rather than the Retry button.
+    // Preserve the explicit retry intent until the next loading mount consumes it.
+    if (!node && errorNode.current?.contains(document.activeElement)) restoreHeadingFocus.current = true;
     errorNode.current = node;
     completeFocusTransition(node);
   }, [completeFocusTransition]);
@@ -177,7 +179,7 @@ export function BookPage() {
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
   return <section className="bv-container">
     <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
-    {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
+    {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
       <div className="bv-detail-art"><BookCover book={book} priority /></div>
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}

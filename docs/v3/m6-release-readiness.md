@@ -65,6 +65,16 @@ The first developer correction run had **47 passed / 2 failed of 49, 2.6m**. The
 
 Recovery limitation: QA-007 is repaired for **Forgot password → Back to sign in in the same navigation flow**. Delivered reset emails contain a fragment token, not pending book intent; completing that emailed flow returns to ordinary sign-in/Home/My Books. Cross-tab/device restoration of the earlier book action is not implemented or advertised as verified. No reset token is added to navigation context to bridge this limitation.
 
+### Independent correction pass on `d8672e4`
+
+Report: `deliverables/Bookvane_V3_M6_Correction_QA_2026-10-17.md`. **67 passed / 2 failed of 69, 3.8m**. All eight original independent residual cases, six independent first-paint samples and the three earlier WebKit failure boundaries passed. QA closed M6-QA-009 and M6-QA-011 locally. Original focus theft is repaired, but M6-QA-010/QA-005 remained partially open: WebKit pointer Retry leaves focus on MAIN during loading and success; the two stronger acceptance checks failed. Eight separate diagnostic observations passed in 42s but merely established the keyboard/pointer difference; they do not cancel failed acceptance tests.
+
+Two **new genuine local HTTPS cases passed, 35.7s**, on fresh r2 fixtures: rapid Want → Start remained single-attempt/Own-preserving, same-session late preference acknowledgement refreshed discovery, and a late acknowledgement after a real account switch caused zero extra successor-account catalogue reads or preference changes. Original-account subjects persisted, successor preferences stayed empty, and there were zero page errors. The earlier full auth/reset HTTPS evidence remains separately attributed to `483b2ea`; it was not rerun or relabeled. QA verified cleanup and returned execution.
+
+UI lead accepted the narrow explicit Retry-intent direction: record the reader's Retry action, consume it at the next loading mount, then let actual subsequently moved focus determine completion behavior. The final pointer/keyboard correction and its focused independent acceptance remain pending; no backend/scale/HTTPS rerun is needed for this isolated focus change unless new evidence warrants it.
+
+Developer implemented the explicit Retry marker and preserved it across error-node removal, while retaining the loading-node completion containment check. Expanded the acceptance matrix to initial 404/503 × keyboard/pointer × successful/failed retry × focus retained/moved. **24 focused Edge cases passed, 1.2m**, including all 16 matrix combinations, two normal delayed-focus cases and six phone/keyboard regressions. Lint and whitespace checks passed. This new source still requires independent WebKit/focused acceptance before full local focus closure.
+
 ## Mandatory before public release — not silently deferred past it
 
 | ID | Required outcome | Owner / acceptance | Status |
