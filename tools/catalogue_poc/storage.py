@@ -11,11 +11,17 @@ from pathlib import Path
 import sqlite3
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 class CatalogueError(RuntimeError):
     pass
+
+
+class RejectRedirects(HTTPRedirectHandler):
+    """The approved fixed database endpoint must never forward its Bearer token."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
 
 
 def encoded(value):
@@ -55,6 +61,7 @@ class Store:
         self.token = token
         self.timeout = timeout
         self.rows_read = self.rows_written = 0
+        self.opener = None
         if sqlite_path:
             if sqlite_path != ':memory:':
                 raise ValueError('Local catalogue storage is test-only and in-memory; use the remote target for imports')
@@ -69,6 +76,7 @@ class Store:
                     or parsed.port is not None or not token):
                 raise ValueError('Only the dedicated approved Turso catalogue target is permitted')
             self.url = 'https://' + parsed.hostname + '/v2/pipeline'
+            self.opener = build_opener(RejectRedirects())
 
     def close(self):
         if self.connection:
@@ -85,7 +93,7 @@ class Store:
         request = Request(self.url, data=body, headers={
             'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'})
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with self.opener.open(request, timeout=self.timeout) as response:
                 raw = response.read(8_000_001)
             if len(raw) > 8_000_000:
                 raise CatalogueError('Catalogue response exceeded bounded response size')

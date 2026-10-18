@@ -256,6 +256,11 @@ def build_index(store, run, *, max_bytes=4_000_000_000, max_rows_written=7_500_0
         raise ValueError('Source phases must finish before indexing')
     if set(json.loads(run['verified_phases'])) != set(PHASES[:5]):
         raise ValueError('All five full dump checksums must be verified before indexing')
+    # Check before clearing the previous index or changing any checkpoint.
+    if deadline and time.monotonic() >= deadline:
+        raise Paused('Index time budget reached; checkpoint unchanged')
+    if store.size() >= max_bytes or store.rows_written >= max_rows_written:
+        raise Paused('Index storage/write safety threshold reached; checkpoint unchanged')
     if run['checkpoint'] == 0:
         checkpoint(store, run, [("INSERT INTO works_search(works_search) VALUES('delete-all')", ())],
                    -1, json.loads(run['counters']))

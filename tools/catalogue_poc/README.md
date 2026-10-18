@@ -61,18 +61,21 @@ python -m tools.catalogue_poc.cli status
 ```
 
 These are not instructions to run a real import locally. `ingest` refuses ordinary
-workstation execution. The remote workflow is not installed or started yet.
+workstation execution. The cloud workflow setup is separately approved; real
+ingestion remains gated until sample-entry and account safeguards are verified.
 
-## Recommended remote execution (not yet authorized/configured)
+## Approved remote execution setup (sample execution still gated)
 
-Add a **separate Turso workflow** to the existing public
+The user approved adding a **separate Turso workflow** to the existing public
 `StMichael9/bookvane-catalogue-imports` runner repository. Do not change its Neon
 workflow or the application's default/release branches. Use a standard free Linux
 runner, a reviewed immutable application feature-branch commit, minimal read-only
 repository permissions, explicit Turso-only secret injection, single-job
 concurrency and no dump artifacts. Test code runs before secrets are injected.
-The existing project's exact locked dependencies must be used, rather than
-unversioned package installation.
+The pure HTTP dependency subset in this directory is pinned to the existing
+project's versions, avoiding unversioned installation and unrelated app packages.
+The seven-day token is stored as the encrypted `TURSO_CATALOGUE_POC_TOKEN` Actions
+secret in that runner repository; its existing Neon secret was not read or changed.
 
 Proposed first stage: up to **1,000 accepted public works**, conservative 100,000
 session-write guard and 4,000,000,000-byte storage guard; one bounded runner session
@@ -90,8 +93,12 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
 
 ## Evidence actually obtained
 
-- Local synthetic tests executed successfully; see current test log/report for
-  exact count. They do not establish real-source or cloud matching quality.
+- Local synthetic tests: **29/29 passed**, exit 0, 0.464s on the developer's rerun.
+  Independent QA passed the original 27 and identified two additional findings:
+  redirect credential forwarding and index reset before budget guards. The revised
+  client rejects all redirects and index guards precede reset; two negative tests
+  now cover these. Corrected-candidate QA re-verification remains pending.
+  These tests do not establish real-source or cloud matching quality.
 - Actual remote engine reports SQLite **3.47.0**. Schema/FTS5 creation succeeded.
 - Remote FK enforcement and failed-batch rollback passed. A temporary metadata
   marker did not persist; no synthetic bibliographic rows were committed.
@@ -100,6 +107,9 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
   of per-book storage. No title-search latency benchmark is claimed from an empty DB.
 - No sample, 100K, 500K or 1M import, catalogue refresh or real-source throughput
   benchmark has run. Independent QA acceptance remains pending.
+- Account overview observed 57 reads, 40 writes, 126.98 KB storage, one database,
+  zero syncs against 500M/10M/5GB/100/3GB allowances. Billing is Free with no payment
+  method. Delayed dashboard observations are not proof of overages OFF.
 
 ## Known limits before accepting a real catalogue stage
 

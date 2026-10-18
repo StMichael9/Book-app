@@ -5,11 +5,12 @@ import sys
 import time
 import unittest
 from unittest.mock import patch
+from urllib.request import Request
 
 from tools.catalogue_poc import normalize as n
 from tools.catalogue_poc.ingest import Paused, build_index, checkpoint, consume, phase_statements, start
 from tools.catalogue_poc.query import by_isbn, by_work, search
-from tools.catalogue_poc.storage import CatalogueError, Store, transactional_payload
+from tools.catalogue_poc.storage import CatalogueError, RejectRedirects, Store, transactional_payload
 from data.sources import DumpRow
 
 MANIFEST = {'identifier': 'fixture', 'date': '2026-09-30', 'files': {}}
@@ -187,7 +188,7 @@ class CatalogueTests(unittest.TestCase):
         with self.assertRaises(Paused):
             build_index(self.store,self.run,deadline=time.monotonic()-1)
         self.assertEqual(self.run['phase'],'index')
-        self.assertEqual(self.run['checkpoint'],-1)
+        self.assertEqual(self.run['checkpoint'],0)
 
     def test_foreign_key_failure_rolls_back_entire_batch(self):
         with self.assertRaises(sqlite3.IntegrityError):
@@ -201,9 +202,27 @@ class CatalogueTests(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self,*args): pass
             def read(self,limit): return b'{"results":[]}'
-        with patch('tools.catalogue_poc.storage.urlopen',return_value=Response()):
+        with patch.object(remote.opener,'open',return_value=Response()):
             with self.assertRaises(CatalogueError):
                 remote.run('SELECT 1')
+
+    def test_database_redirects_never_forward_bearer_token(self):
+        request = Request('https://bookvane-catalogue-poc-stmichael9.aws-us-west-2.turso.io/v2/pipeline',
+                          data=b'{}',headers={'Authorization':'Bearer synthetic'})
+        for status in (301,302,303,307,308):
+            for target in ('https://unexpected.example/db','http://unexpected.example/db',
+                           'https://bookvane-catalogue-poc-stmichael9.aws-us-west-2.turso.io/other'):
+                self.assertIsNone(RejectRedirects().redirect_request(request,None,status,'redirect',{},target))
+
+    def test_index_capacity_guard_precedes_mutation(self):
+        self.run['phase']='index'
+        self.run['verified_phases']=json.dumps(['works','authors','editions','redirects','deletes'])
+        self.store.transaction([('UPDATE import_runs SET phase=?,verified_phases=?',
+                                ('index',self.run['verified_phases']))])
+        with self.assertRaises(Paused):
+            build_index(self.store,self.run,max_bytes=1)
+        self.assertEqual(self.run['checkpoint'],0)
+        self.assertEqual(self.store.run('SELECT checkpoint FROM import_runs'),[{'checkpoint':0}])
 
     def test_local_file_and_production_targets_refused(self):
         for target in ('catalogue.db','postgresql://example.test/db','file:test.db'):
