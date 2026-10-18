@@ -25,7 +25,8 @@ const test = base.extend({
       if (path === "/auth/login") { state.authenticated = true; state.account = "B"; return reply(200, {}); }
       if (path === "/me/reading-capabilities") {
         if (state.capabilityFails) return reply(503, {});
-        return reply(200, { enabled: !state.legacy, writable: !state.readOnly, contract_version: 1 });
+        return reply(200, { enabled: !state.legacy, writable: !state.readOnly, contract_version: 1,
+          features: { reading_actions: Boolean(state.readingActions) } });
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/books") {
@@ -53,12 +54,25 @@ const test = base.extend({
             is_owned: entry?.is_owned ?? false, is_wanted: entry?.is_wanted ?? false, reading_state: null }; }) });
       }
       if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") {
+        if (state.holdFlag) await state.holdFlag;
+        if (state.flagFails) return reply(503, { detail: "Temporary failure" });
         const id = Number(path.split("/").at(-1));
         let entry = state.entries.get(id);
         if (state.conflictNext) { state.conflictNext = false; entry = { ...entry, version: entry.version + 1, is_wanted: false }; state.entries.set(id, entry); }
         if (entry && body.expected_version !== entry.version) return reply(409, { detail: { code: "entry_changed", message: "Your library changed on another page. Review its current state and try again.", current: entry } });
         entry = { ...(entry || row(id, false, false)), ...body, version: entry ? entry.version + 1 : 1 };
         state.entries.set(id, entry); return reply(200, entry);
+      }
+      const workspace = path.match(/^\/me\/library\/(\d+)\/reading$/);
+      if (workspace) return reply(200, { entry: state.entries.get(Number(workspace[1])), current_attempt: state.attempt || null, editions: [] });
+      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: state.attempt ? [state.attempt] : [], next_cursor: null });
+      if (path.startsWith("/me/reading-attempts/") && method === "PUT") {
+        if (state.startConflict) return reply(409, { detail: { message: "Your library changed on another page." } });
+        const entry = state.entries.get(body.entry_id);
+        if (body.expected_version !== entry.version) return reply(409, { detail: { message: "Your library changed on another page." } });
+        entry.version += 1; entry.reading_state = "reading"; entry.is_wanted = false;
+        state.attempt = { id: path.split("/").at(-1), state: "reading", created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z" };
+        return reply(200, { entry, attempt: state.attempt });
       }
       if (path === "/me/library") {
         if (state.pageFails) return reply(503, {});
@@ -76,6 +90,48 @@ const test = base.extend({
     await provide(state);
     expect(state.errors).toEqual([]);
   },
+});
+
+for (const failedSave of [false, true]) test(`M6 Start waits for a same-book Want save; failed save=${failedSave}`, async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries.set(1, row(1, true, false));
+  let release;
+  app.holdFlag = new Promise(resolve => { release = resolve; });
+  await page.goto("/book/1");
+  await page.getByRole("button", { name: "Add Library fixture 01 to Want", exact: true }).click();
+  await expect.poll(() => app.requests.filter(request => request.path === "/me/library/books/1" && request.method === "PUT").length).toBe(1);
+  await page.getByRole("link", { name: "Open or start your reading", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Opening your reading…", exact: true })).toBeVisible();
+  expect(app.requests.filter(request => request.path.startsWith("/me/reading-attempts/"))).toHaveLength(0);
+  app.flagFails = failedSave;
+  release();
+  if (failedSave) {
+    await expect(page.getByRole("heading", { name: "We couldn’t confirm your reading started.", exact: true })).toBeVisible();
+    expect(app.requests.filter(request => request.path.startsWith("/me/reading-attempts/"))).toHaveLength(0);
+    app.flagFails = false;
+    await page.getByRole("button", { name: "Try starting again", exact: true }).click();
+  }
+  await expect(page).toHaveURL(/\/my-books\/1$/);
+  expect(app.requests.filter(request => request.path.startsWith("/me/reading-attempts/") && request.method === "PUT")).toHaveLength(1);
+  expect(app.entries.get(1).is_owned).toBe(true);
+  expect(app.entries.get(1).is_wanted).toBe(false);
+});
+
+test("M6 genuine Start conflict has truthful copy and explicit idempotent retry", async ({ page, app }) => {
+  app.readingActions = true;
+  app.startConflict = true;
+  await page.goto("/my-books/start/1");
+  await expect(page.getByRole("heading", { name: "We couldn’t confirm your reading started.", exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("while we were starting this reading");
+  await expect(page.getByRole("alert")).not.toContainText("another page");
+  const first = app.requests.find(request => request.path.startsWith("/me/reading-attempts/") && request.method === "PUT");
+  expect(app.attempt).toBeUndefined();
+  app.startConflict = false;
+  await page.getByRole("button", { name: "Try starting again", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/1$/);
+  const attempts = app.requests.filter(request => request.path.startsWith("/me/reading-attempts/") && request.method === "PUT");
+  expect(attempts).toHaveLength(2);
+  expect(attempts[1].path).toBe(first.path);
 });
 
 test("V3 discovery batches visible state and never loads the complete shelf", async ({ page, app }) => {
@@ -185,15 +241,22 @@ async function expireAndSignInAsB(page, app, returnTo) {
   app.authenticated = false;
   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/login(?:\?|$)/);
+  await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
   // Keep this entirely within the SPA: a full navigation would clear the
   // module-level request map and conceal the account-switching defect.
   if (returnTo) await page.evaluate(path => {
     window.history.replaceState(null, "", `/login?returnTo=${encodeURIComponent(path)}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, returnTo);
+  if (returnTo) await expect(page.getByRole("link", { name: "Create an account", exact: true })).toHaveAttribute("href", `/register?${new URLSearchParams({ returnTo })}`);
   await page.getByLabel("Email address", { exact: true }).fill("b@example.com");
   await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
+  await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("b@example.com");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("synthetic-password");
+  const signedIn = page.waitForResponse(response => response.url().endsWith("/auth/login") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await signedIn;
 }
 
 for (const legacy of [true, false]) {

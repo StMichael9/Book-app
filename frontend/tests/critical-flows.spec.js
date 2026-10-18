@@ -80,6 +80,7 @@ const test = base.extend({
           return reply(200, state.preferences);
         }
         if (state.mutationFails) return reply(503, { detail: "Save unavailable" });
+        if (state.holdPreferenceSave) await state.holdPreferenceSave;
         state.preferences = body.tag_ids.map((id) => ({
           tag_id: id, tag: { id, name: id === 1 ? "fantasy" : "mystery", type: "genre" }, source_text: body.source_text,
         }));
@@ -107,11 +108,14 @@ const test = base.extend({
           url.searchParams.getAll("tag").every((tag) => book.tags.some((item) => item.name === tag)));
         if (url.searchParams.get("exclude_owned") === "true") items = items.filter((book) => !state.saved.some((item) => item.book_id === book.id && item.status === "owned"));
         if (url.searchParams.get("shelf_status")) items = items.filter((book) => state.saved.some((item) => item.book_id === book.id && item.status === url.searchParams.get("shelf_status")));
+        if (state.preferenceRanking && state.preferences.some(item => item.tag_id === 3)) items.sort((a, b) => Number(b.id === 3) - Number(a.id === 3));
         const size = Number(url.searchParams.get("size") || 20);
         const pageNumber = Number(url.searchParams.get("page") || 1);
         return reply(200, { items: items.slice((pageNumber - 1) * size, pageNumber * size), total: items.length, page: pageNumber, size });
       }
       if (/^\/books\/\d+$/.test(path)) {
+        if (state.holdBook) await state.holdBook;
+        if (state.bookFailure) return reply(state.bookFailure, { detail: "Synthetic delayed book failure" });
         const book = books.find((item) => item.id === Number(path.split("/")[2]));
         return book ? reply(200, book) : reply(404, { detail: "Book not found" });
       }
@@ -126,6 +130,141 @@ const test = base.extend({
     await runFixture(state);
     expect(state.errors).toEqual([]);
   },
+});
+
+for (const rejected of [false, true]) test(`M6 invalid reset can request a new link without reloading; rejected=${rejected}`, async ({ page, app }) => {
+  app.authenticated = false;
+  await page.goto(rejected ? "/reset-password#token=invalid" : "/reset-password");
+  if (rejected) {
+    await page.getByLabel("New password").fill("Synthetic-recovery-password");
+    await page.getByRole("button", { name: "Reset password", exact: true }).click();
+  }
+  await expect(page.getByRole("heading", { name: "This link is no longer valid.", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Send a new link", exact: true }).click();
+  await expect(page.getByLabel("Email address", { exact: true })).toBeVisible();
+  await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
+  await page.getByRole("button", { name: "Send reset link", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Check your inbox.", exact: true })).toBeVisible();
+});
+
+test("M6 recovery preserves safe save/discovery intent but not token parameters", async ({ page, app }) => {
+  app.authenticated = false; app.saved = [];
+  const params = new URLSearchParams({ bookId: "1", save: "want", returnTo: `/book/1?from=${encodeURIComponent("/browse?tag=fantasy")}`, token: "never-copy-this" });
+  await page.goto(`/login?${params}`);
+  await page.getByRole("link", { name: "Forgot password?", exact: true }).click();
+  expect(new URL(page.url()).searchParams.get("bookId")).toBe("1");
+  expect(new URL(page.url()).searchParams.has("token")).toBe(false);
+  await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
+  await page.getByRole("button", { name: "Send reset link", exact: true }).click();
+  await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want", exact: true })).toBeEnabled();
+  await expect(page.getByRole("link", { name: "Back to discovery", exact: true })).toHaveAttribute("href", "/browse?tag=fantasy");
+  expect(app.requests.filter(request => request.path === "/books/1/status" && request.method === "POST")).toHaveLength(1);
+});
+
+test("M6 late preference save cannot replace the page the reader navigated to", async ({ page, app }) => {
+  let release;
+  app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
+  await page.goto("/preferences");
+  await page.getByLabel("Mystery", { exact: true }).check();
+  const completed = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/me/preferences") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+  await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
+  await page.getByRole("link", { name: "My Books", exact: true }).first().click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  release();
+  await (await completed).finished();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.preferences.some(preference => preference.tag_id === 3)).toBe(true);
+});
+
+for (const changeAccount of [false, true]) test(`M6 departed preference save invalidates only its own session; account changed=${changeAccount}`, async ({ page, app }) => {
+  let release;
+  app.preferenceRanking = true;
+  app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/preferences");
+    await page.getByLabel("Mystery", { exact: true }).check();
+    const completed = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+    await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
+    if (changeAccount) {
+      app.authenticated = false;
+      await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+      await expect(page).toHaveURL(/\/login\?/);
+      await page.getByLabel("Email address", { exact: true }).fill("different-reader@example.com");
+      await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/preferences$/);
+    }
+    await page.getByRole("link", { name: "Discover", exact: true }).first().click();
+    await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Fantasy");
+    const before = app.requests.filter(request => request.path === "/books").length;
+    release(); await (await completed).finished();
+    await expect(page).toHaveURL(/\/browse$/);
+    if (changeAccount) {
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      expect(app.requests.filter(request => request.path === "/books")).toHaveLength(before);
+      await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Fantasy");
+    } else {
+      await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThan(before);
+      await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Mystery");
+    }
+    await expect(page.getByText("Your discovery subjects are saved.", { exact: true })).toHaveCount(0);
+  } finally { release(); }
+});
+
+for (const status of [404, 503]) for (const keyboard of [false, true]) for (const retryFailure of [false, true]) for (const moveFocus of [false, true]) test(`M6 book error and retry respect subsequent focus; status=${status}; keyboard=${keyboard}; retryFailure=${retryFailure}; moveFocus=${moveFocus}`, async ({ page, app }) => {
+  let release;
+  app.bookFailure = status;
+  app.holdBook = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/browse");
+    await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    release();
+    await expect(page.getByRole("heading", { name: status === 404 ? "This book couldn’t be found." : "This book couldn’t load.", exact: true })).toBeFocused();
+    app.bookFailure = retryFailure ? status : 0;
+    app.holdBook = new Promise(resolve => { release = resolve; });
+    const retry = page.getByRole("button", { name: "Try again", exact: true });
+    if (keyboard) { await retry.focus(); await page.keyboard.press("Enter"); }
+    else await retry.click();
+    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    const back = page.getByRole("link", { name: "Back to discovery", exact: true });
+    if (moveFocus) await back.focus();
+    release();
+    const finalHeading = page.getByRole("heading", { name: retryFailure ? status === 404 ? "This book couldn’t be found." : "This book couldn’t load." : "Test-only Fantasy", exact: true });
+    await expect(finalHeading).toBeVisible();
+    if (moveFocus) await expect(back).toBeFocused();
+    else await expect(finalHeading).toBeFocused();
+  } finally { release(); }
+});
+
+for (const moveFocus of [false, true]) test(`M6 delayed book focus preserves keyboard intent; moved focus=${moveFocus}`, async ({ page, app }) => {
+  let release;
+  app.holdBook = new Promise(resolve => { release = resolve; });
+  await page.goto("/browse");
+  await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+  if (moveFocus) await page.getByRole("link", { name: "Back to discovery", exact: true }).focus();
+  release();
+  await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeVisible();
+  if (moveFocus) await expect(page.getByRole("link", { name: "Back to discovery", exact: true })).toBeFocused();
+  else await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
+});
+
+for (const filter of ["shelf_status=want", "exclude_owned=true"]) test(`M6 legacy filtered discovery reflects committed shelf writes: ${filter}`, async ({ page, app }) => {
+  await page.goto(`/browse?${filter}`);
+  await page.getByRole("button", { name: "Add Test-only Fantasy to Own", exact: true }).click();
+  await expect(page.getByRole("link", { name: "Test-only Fantasy", exact: true })).toHaveCount(0);
+  expect(app.saved.find(entry => entry.book_id === 1).status).toBe("owned");
+  await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThanOrEqual(2);
 });
 
 test("failed preference load cannot overwrite saved preferences; retry restores them", async ({ page, app }) => {

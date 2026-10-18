@@ -123,7 +123,7 @@ function Shell() {
       <Routes>
         <Route path="/" element={readingActions ? <Navigate to="/home" replace /> : <WelcomePage />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
-        <Route path="/forgot-password" element={<RecoveryPage />} /><Route path="/reset-password" element={<RecoveryPage reset />} />
+        <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
         <Route path="/my-books/import" element={<RequireAccount><ReadingGate><Suspense fallback={<p className="bv-container" role="status">Opening your library import…</p>}><LibraryImportPage /></Suspense></ReadingGate></RequireAccount>} />
         <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />

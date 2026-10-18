@@ -10,6 +10,7 @@ import { useReader } from "./readerState.js";
 import { errorText, loadSubjectOptions, safeReturnTo, subjectLabel, useRequest, validBookId } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "./primitives.jsx";
 import LibraryPage from "../reading/LibraryPage.jsx";
+import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 
 export function RequireAccount({ children }) {
   const auth = useAuth();
@@ -33,6 +34,14 @@ function accountIntent(params) {
   const status = params.get("save");
   const intent = id && ["want", "owned"].includes(status) && new URL(returnTo, window.location.origin).pathname === `/book/${id}` ? { id, status } : null;
   return { returnTo, intent };
+}
+
+function recoveryNavigation(params) {
+  const { returnTo, intent } = accountIntent(params);
+  const context = new URLSearchParams();
+  if (params.has("returnTo")) context.set("returnTo", returnTo);
+  if (intent) { context.set("bookId", String(intent.id)); context.set("save", intent.status); }
+  return context.size ? `?${context}` : "";
 }
 
 export function AuthPage({ register = false }) {
@@ -69,7 +78,7 @@ export function AuthPage({ register = false }) {
         {error && <p className="bv-field-error" role="alert">{error}</p>}
         <div className="bv-field"><label htmlFor="bv-auth-email">Email address</label><input id="bv-auth-email" type="email" name="email" autoComplete="email" required placeholder="you@example.com" /></div>
         <PasswordField creating={register} />
-        {!register && <TextLink to="/forgot-password">Forgot password?</TextLink>}
+        {!register && <TextLink to={`/forgot-password${recoveryNavigation(params)}`}>Forgot password?</TextLink>}
         <Button type="submit" className="bv-full-width" disabled={pending}>{pending ? register ? "Creating your account…" : "Signing in…" : register ? "Create account" : "Sign in"}</Button>
       </form><p className="bv-auth-switch">{register ? "Already have an account? " : "New to Bookvane? "}<TextLink to={switchPath}>{register ? "Sign in" : "Create an account"}</TextLink></p>
       <TextLink to="/browse"><ArrowLeft aria-hidden="true" />Back to books</TextLink>
@@ -123,16 +132,17 @@ function PreferencesEditor({ data }) {
   const navigate = useNavigate();
   const reader = useReader();
   const [selected, setSelected] = useState(() => data.preferences.map((item) => item.tag_id));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  async function submit(event) {
-    event.preventDefault(); if (saving) return;
-    setSaving(true); setError("");
-    try {
+  const command = useReadingCommand("Your preferences couldn’t be saved. Your choices are still here.");
+  const saving = command.pending, error = command.error;
+  function submit(event) {
+    event.preventDefault();
+    command.run(async assertCurrent => {
       await savePreferences({ tagIds: selected, sourceText: data.preferences[0]?.source_text || "" });
-      reader.preferencesSaved(); reader.announce("Your discovery subjects are saved."); navigate("/browse");
-    } catch (requestError) { setError(errorText(requestError, "Your preferences couldn’t be saved. Your choices are still here.")); }
-    finally { setSaving(false); }
+      reader.preferencesSaved();
+      assertCurrent();
+    }, () => {
+      reader.announce("Your discovery subjects are saved."); navigate("/browse");
+    });
   }
   return <form onSubmit={submit} aria-busy={saving}>
       <fieldset className="bv-preference-panel"><legend>What catches your eye?</legend><p className="bv-muted">Choose as many or as few as you like. This is optional.</p><div className="bv-preference-grid">{data.options.map((tag) => <label className="bv-check-tile" key={tag.id}><input type="checkbox" checked={selected.includes(tag.id)} disabled={saving} onChange={(event) => setSelected((current) => event.target.checked ? [...current, tag.id] : current.filter((value) => value !== tag.id))} /><span>{subjectLabel(tag.name)}</span></label>)}</div>
@@ -145,6 +155,8 @@ function PreferencesEditor({ data }) {
 export function RecoveryPage({ reset = false }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const recoveryContext = recoveryNavigation(params);
   const [token, setToken] = useState(() => reset ? new URLSearchParams(location.hash.slice(1)).get("token") : null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
@@ -166,10 +178,10 @@ export function RecoveryPage({ reset = false }) {
       else setError(errorText(requestError, "We couldn’t complete your request. Please try again."));
     } finally { setPending(false); }
   }
-  return <section className="bv-container"><div className="bv-narrow">{!done && <TextLink to="/login"><ArrowLeft aria-hidden="true" />Back to sign in</TextLink>}
-    {expired ? <><PageHeading title="This link is no longer valid.">Request a new reset link to get back to your books. Your account is still there.</PageHeading><ActionLink to="/forgot-password">Send a new link</ActionLink></> : done ? <>
+  return <section className="bv-container"><div className="bv-narrow">{!done && <TextLink to={`/login${recoveryContext}`}><ArrowLeft aria-hidden="true" />Back to sign in</TextLink>}
+    {expired ? <><PageHeading title="This link is no longer valid.">Request a new reset link to get back to your books. Your account is still there.</PageHeading><ActionLink to={`/forgot-password${recoveryContext}`}>Send a new link</ActionLink></> : done ? <>
       {!reset && <div className="bv-medallion"><Mail aria-hidden="true" /></div>}<PageHeading title={reset ? "A fresh start." : "Check your inbox."}>{reset ? "Your password is updated. You can sign in again." : "If an account exists for that email address, we’ll send a link to reset your password."}</PageHeading>
-      {!reset && <p className="bv-notice">Not there yet? Check your spam folder, or try another email address.</p>}<ActionLink to="/login">Back to sign in</ActionLink>{!reset && <Button variant="quiet" onClick={() => setDone(false)}>Try another email address</Button>}
+      {!reset && <p className="bv-notice">Not there yet? Check your spam folder, or try another email address.</p>}<ActionLink to={`/login${recoveryContext}`}>Back to sign in</ActionLink>{!reset && <Button variant="quiet" onClick={() => setDone(false)}>Try another email address</Button>}
     </> : <><PageHeading title={reset ? "A fresh start." : "Forgot your password?"}>{reset ? "Choose a new password for your Bookvane account." : "Enter the email address you used for Bookvane. We’ll help you get back to your books."}</PageHeading>
       <form onSubmit={submit} aria-busy={pending}>{reset ? <PasswordField label="New password" creating /> : <div className="bv-field"><label htmlFor="bv-recovery-email">Email address</label><input id="bv-recovery-email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" /></div>}
         {error && <p className="bv-field-error" role="alert">{error}</p>}<Button type="submit" className="bv-full-width" disabled={pending}>{pending ? "Working…" : reset ? "Reset password" : "Send reset link"}</Button>
