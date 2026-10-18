@@ -102,6 +102,23 @@ test("M4 finish skip cannot hide a committed pending start and completion remain
   } finally { release(); }
 });
 
+for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books/1");
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  const finished = page.getByRole("heading", { name: "Reading saved.", exact: true });
+  await expect(finished).toBeFocused();
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(await page.locator(".bv-finish-choices").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`v3-ui-finish-${theme}-${width}.png`), fullPage: true });
+  }
+  expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
+});
+
 test("M4 Home is shelf-first, short and private; viewing and switching modes never writes", async ({ page, app }) => {
   await page.goto("/home");
   const choices = page.getByRole("region", { name: "Choose your next read" });
