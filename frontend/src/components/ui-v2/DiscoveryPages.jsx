@@ -24,7 +24,7 @@ export function WelcomePage() {
     <section className="bv-container bv-hero">
       <div>
         <h1>Your next book<br />is <em>waiting.</em></h1>
-        <p className="bv-lead bv-muted">Follow your curiosity. Discover books, save what catches your eye, and make a library that feels like you.</p>
+        <p className="bv-lead bv-muted">Discover books, save what catches your eye, and return to a reading home that feels like you.</p>
         <div className="bv-hero-actions"><ActionLink to="/browse">Explore books <ArrowRight aria-hidden="true" /></ActionLink>
           {auth.isAuthenticated && <TextLink to="/my-books">Return to your library</TextLink>}</div>
         <p className="bv-help">{!auth.isAuthenticated && "No account needed. "}{books.data && `${books.data.total.toLocaleString()} books to explore.`}</p>
@@ -189,7 +189,7 @@ export function BookPage() {
           {book.published_year != null && <div><dt>Published</dt><dd>{book.published_year}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
         </dl>}
         <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
-        {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink></div>}
+        {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink><p className="bv-help">Open an existing reading, or start your first. Starting keeps Own and clears Want. A new reread is always your choice.</p></div>}
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
         <section className="bv-description"><h2>About this book</h2><p>{book.description || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p></section>
         <div className="bv-share"><ShareBookButton book={book} /></div>

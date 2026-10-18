@@ -76,17 +76,26 @@ test("My Books entry and real local CSV parser preserve Unicode, quotes and embe
   await page.getByLabel("Library file", { exact: false }).setInputFiles({ name: "engineering.csv", mimeType: "text/csv", buffer: Buffer.from(content) });
   await page.getByRole("button", { name: "Check my library", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-import-journey [aria-current='step']")).toContainText("Review");
+  expect(await page.locator(".bv-import-confirm").evaluate(node => Boolean(document.querySelector(".bv-import-row").compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`v3-ui-import-review-${width}.png`), fullPage: true });
+  }
   expect(app.rows).toEqual([["夜の本, Part 2", "É. Auteur", 'A review\nwith "quotes"'], ["Another Book", "Another Author", "=1+1"]]);
   expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
   await page.getByLabel("Approve unmatched books as private entries.").check();
   await page.getByRole("button", { name: "Confirm import", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your library is here", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to your reading home", exact: true })).toHaveAttribute("href", "/home");
   expect(app.requests.filter(request => request.path.endsWith("/confirm"))).toHaveLength(1);
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => /import|csv|review/i.test(key)))).toEqual([]);
 });
 
 test("pasted list shares the preview engine and does not invent history", async ({ page, app }) => {
   await page.goto("/my-books/import");
+  await page.getByText("Or paste a book list", { exact: true }).click();
   await page.getByLabel("One title, title — author, or ISBN per line").fill("A-B\nA Title — An Author\n9781250313195");
   await page.getByRole("button", { name: "Check this list" }).click();
   await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible();
