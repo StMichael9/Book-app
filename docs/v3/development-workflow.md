@@ -2,6 +2,8 @@
 
 Michael requested a shared V3 branch with separate feature branches and pull requests.
 
+**October 17 integration update:** Michael explicitly approved integrating M5 and M6 into `v3`. M5 PR #16 merged at `79eb1473399d28e524e606c2a9f22fccb8bb2200`; M6 uses PR #17, with its implementation independently tested at `c5d43d7` and later documentation-only updates. Preserve merge commits, feature branches, existing repository rules and the separate public-release gates. Earlier M5/M6 unmerged descriptions below record their branch-creation/QA-handoff state, not a continuing prohibition after this approval. No `main` merge or V3 production deployment is authorized.
+
 - `main` remains the released V2 baseline. Do not change the default branch or deploy V3 without explicit approval. Existing V2 branches remain intact.
 - `v3` is the integration branch, initially created at the verified released main commit `100ab702faf8baa17289f93caa36c1bd41c4c34a`. Do not commit implementation directly to it.
 - Existing `codex/v3-reading-home` is the M0/M1 feature branch. Publish it and open a PR whose base is `v3`, preserving its local implementation and correction commits.

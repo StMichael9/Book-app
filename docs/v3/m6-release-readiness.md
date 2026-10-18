@@ -3,11 +3,13 @@
 October 17, 2026. **Local engineering corrections independently accepted; hosted pilot and public-release acceptance remain incomplete.**
 This is the consolidated implementation/testing/deferral report Michael requested. The final application candidate is `c5d43d7b56eada0615ab7fb1cc53a9f9711500c0`; subsequent closeout edits are documentation only. All confirmed M6 local preference, theme and focus findings are closed within their tested scope. This is not a guarantee of zero bugs or a public-release certificate. No production database, hosted service, real email or catalogue import was part of M6 verification.
 
+**Subsequent integration approval, October 17:** Michael explicitly instructed merging M5 and M6 into `v3`. M5 PR #16 merged at `79eb1473399d28e524e606c2a9f22fccb8bb2200`; M6 integration is authorized through PR #17. Earlier draft/unmerged wording in this report records the QA-freeze state and no longer prohibits the approved development integration. It does not waive any remaining public-release gate or authorize deployment, production migrations, public V3 enablement or a merge to `main`. Consult the PRs for final integration SHAs. This update changes documentation only; runtime test attribution remains unchanged.
+
 ## Branch and ownership
 
 M6 `codex/v3-m6-release-verification` starts exactly at tested M5 `525df5f962f62338e5e5517a680496882f09a673` (runtime `ded5f88`). M5 remains unmerged; M6 is stacked on it to test the complete code without silently accepting its native-format gate. `v3` at branch creation is accepted M4 `2d14fd9b0033b9986a4a94999390f797301ac77b`; `main` is released V2 `100ab702faf8baa17289f93caa36c1bd41c4c34a`. No direct integration-branch implementation commits, force pushes or branch deletion.
 
-[Draft PR #17](https://github.com/StMichael9/Book-app/pull/17) targets `v3` and is stacked on M5 PR #16. It remains draft/unmerged; its cumulative diff includes M5. Review M6-only changes from `525df5f`. Neither PR nor this report authorizes deployment or waives native-export acceptance.
+[PR #17](https://github.com/StMichael9/Book-app/pull/17) targets `v3` and was initially stacked on M5 PR #16 while both were drafts. M5 is now integrated under the subsequent approval above; review M6-only changes from `525df5f`. Neither integration nor this report authorizes deployment or waives native-export acceptance.
 
 Lead owns source/configuration/recovery preparation. **Coordinate v2 UI/UX work** reviews UI scope and design; **Run Bookvane QA and release testing** independently verifies frozen candidates. Local database/build execution is transferred explicitly, never run concurrently against shared fixtures or `dist`. Michael/consenting volunteers own native-export and physical-device acceptance; Michael approves any hosted rollout.
 
@@ -134,7 +136,7 @@ M6 retained both local HTTPS attempt traces in ignored `.v3-test-runtime` eviden
 
 ## Engineering closeout and remaining M6 scope
 
-**Local engineering candidate ready for founder/manual QA; complete M6 and public V3 release are not yet finished.** Final independently tested application SHA: `c5d43d7b56eada0615ab7fb1cc53a9f9711500c0`. Later engineering-closeout commits change documentation only. No M6 deployed SHA exists. M5/M6 remain review branches, draft PR #17 remains stacked on #16, and `v3`/`main` were not merged or deployed by this work.
+**Local engineering candidate ready for founder/manual QA; complete M6 and public V3 release are not yet finished.** Final independently tested application SHA: `c5d43d7b56eada0615ab7fb1cc53a9f9711500c0`. Later engineering-closeout commits change documentation only. No M6 deployed SHA exists. At the QA handoff, both milestone PRs remained unmerged; the subsequent integration approval at the top supersedes that state for `v3` only. `main` and the production V3 rollout remain out of scope.
 
 Next required inputs/actions are consented current native exports, physical-phone/full reader-loop acceptance, a monitored contact chosen by Michael, and separately approved matching deployment/recovery/HTTPS verification followed by the documented pilot. Support branding is not a development blocker. Existing minor limitations and optional future features do not justify another unapproved refactor.
 
