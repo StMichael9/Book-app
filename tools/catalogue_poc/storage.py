@@ -68,6 +68,7 @@ class Store:
         self.timeout = timeout
         self.rows_read = self.rows_written = 0
         self.opener = None
+        self.before_request = None
         if sqlite_path:
             if sqlite_path != ':memory:':
                 raise ValueError('Local catalogue storage is test-only and in-memory; use the remote target for imports')
@@ -89,6 +90,8 @@ class Store:
             self.connection.close()
 
     def _http(self, payload):
+        if self.before_request:
+            self.before_request()
         # Each HTTP pipeline opens a fresh connection. Enable constraints before
         # BEGIN, not inside a transaction (where SQLite ignores this PRAGMA).
         requests = [{'type': 'execute', 'stmt': statement('PRAGMA foreign_keys=ON')}, *payload['requests']]
@@ -113,6 +116,18 @@ class Store:
         envelopes = result.get('results') if isinstance(result, dict) else None
         if not isinstance(envelopes, list) or len(envelopes) != len(requests):
             raise CatalogueError('Incomplete remote response; resume and reconcile the checkpoint')
+        # Include all returned statement statistics, even setup/failed transactions.
+        # They remain supplementary to the account-wide provider meter.
+        for envelope in envelopes:
+            response = envelope.get('response', {})
+            if response.get('type') == 'batch':
+                statistics = response.get('result', {}).get('step_results', [])
+            else:
+                statistics = [response.get('result')]
+            for item in statistics:
+                if isinstance(item, dict):
+                    self.rows_read += item.get('rows_read', 0)
+                    self.rows_written += item.get('rows_written', 0)
         outputs = []
         for index, envelope in enumerate(envelopes):
             if envelope.get('type') != 'ok':
@@ -137,8 +152,6 @@ class Store:
                 outputs.append(response['result'])
         decoded = []
         for item in outputs:
-            self.rows_read += item.get('rows_read', 0)
-            self.rows_written += item.get('rows_written', 0)
             names = [column['name'] for column in item.get('cols', [])]
             rows = []
             for cells in item.get('rows', []):

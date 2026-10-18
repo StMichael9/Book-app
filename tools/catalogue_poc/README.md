@@ -1,7 +1,10 @@
 # External catalogue proof of concept — isolated, not an app integration
 
-Status, 18 October 2026: schema initialized in the separate **bookvane-catalogue-poc**
-Turso/libSQL database. **Zero actual works, authors or editions imported.**
+Initial setup evidence, 18 October 2026: schema initialized in the separate
+**bookvane-catalogue-poc** Turso/libSQL database, initially with zero entities.
+The first cloud sample subsequently committed 1,000 real works. Enrichment and
+full source verification were still running at that check; this is not a
+completed/indexed sample or a capacity claim. See the saved stage report.
 No application files, Neon databases or Render settings were changed. The database
 is not exposed to Bookvane users. This is experimental tooling, not a completed
 million-book service.
@@ -17,6 +20,8 @@ million-book service.
 | `ingest.py` | Bounded batches, source-key prefilters, source-owned relationships, transactional checkpoints, delayed search indexing |
 | `query.py` | Bounded title/author prefix candidates, exact work ID and validated ISBN lookup; preserves ambiguity |
 | `cli.py` | Explicit configuration, cloud-only ingestion gate, pinned-run resume and lookup readiness checks |
+| `quota.py` | Approved read-only account meter; Free/overages verification, tenth-percent events and 80% ceiling with reserve |
+| `grow.py` | Cloud-only 1K/100K/500K orchestration, shared job deadline and pinned-manifest expansion |
 | `remote_smoke.py` | Small, explicitly invoked cloud schema/FK/rollback check; never imports catalogue or app records |
 | `tests/` | Synthetic in-memory correctness tests, not capacity evidence |
 
@@ -196,3 +201,49 @@ Later public promotion could reuse work-level source IDs, editions and the exist
 Neon upsert/reconciliation foundation. It still needs a separately approved
 transaction, collision/legacy matching policy and catalogue-capacity guard; it is
 not simply an unrestricted cross-database insert. No app model changes are made.
+
+## Approved 80% guarded continuation (supersedes the initial sample-only gate)
+
+The user authorized continued growth toward500K, tenth-percent alerts and a stop
+at80% of Free resources. A separately approved temporary organization API token
+is stored only as the encrypted runner secret `TURSO_CATALOGUE_USAGE_TOKEN`.
+It has broad organization permissions, but this client permits only GET
+subscription/plans/usage and rejects redirects. It must be revoked when importing
+stops. The earlier one-off billing token remains revoked. The database token
+scope and expiry are unchanged; no app credential or private data is involved.
+
+`CATALOGUE_ACCOUNT_GUARD=required` attaches the guard before remote SQL. Imports
+beyond the1K sample require this guard, including resuming a saved larger target.
+The live plan must still be zero-cost, monthly, and overages explicitlyfalse.
+Missing/expired credentials, incomplete usage, unavailable API or unexpected plan
+pause without a write retry. Usage is checked every30seconds and plan every5min,
+also before the first request; successful HTTP statement counters cover meter lag
+within the job, including returned failed-batch statistics. An80% ceiling applies
+to storage, monthly rows read/written and sync allowance, capped at the previously
+verified Free allowances even if a plan advertises more. Existing per-batch
+allocation/payload reserves remain. A pre-request reserve can stop earlier than80%.
+
+Provider metering is not instantaneous; this is a conservative operational guard,
+not a mathematical guarantee about an unseen concurrent account writer or future
+provider changes. Paid overages OFF is the provider's independent hard backstop.
+No other writer or admin should change this isolated account during ingestion.
+
+Thresholds10..80 emit structured `quota_threshold` log events; missing intermediate
+thresholds are not skipped. A `quota_stop`/`quota_stop:true` result is a latched
+operational stop for the monitor: do not resume after a reset or increase limits
+without user direction. Reporting must distinguish actual provider usage from the
+more conservative job high-water estimate. Chat alerts come from the scheduled
+monitor, not directly from Python logs, and can arrive after the batch threshold.
+
+The guarded workflow may use one standard public-repo runner for up to330minutes;
+the importer has a shared290-minute processing budget. This replaces the20-minute
+sample budget, which cannot finish the whole works gzip. No raw files, cache or
+artifact retention is introduced. `grow` resumes the existing1K run first, then
+100K and finally500K using `--from-run` to inherit the exact stored snapshot URLs,
+sizes and hashes; no new snapshot discovery occurs for expansion. It stops on any
+failure or pause, never increases the500K goal, and never auto-pays. A later time
+continuation must show progress and remain within the same approved guards; quota
+stops, repeated non-progress replay and source failures require review.
+
+Run all isolated tests with `python -m unittest discover -s tools/catalogue_poc/tests -v`.
+The original56 tests remain part of this command; quota/growth tests are additional.

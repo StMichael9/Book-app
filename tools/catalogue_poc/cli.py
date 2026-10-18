@@ -13,15 +13,17 @@ from . import normalize as n
 from .dumps import stream_dump
 from .ingest import Paused, build_index, consume, start
 from .query import by_isbn, by_work, search
+from .quota import Account, Guard, QuotaPaused
 from .storage import CatalogueError, Store
 
 
-def main(argv=None):
+def main(argv=None, *, store=None, guard=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('init','status','ingest','search','isbn','work','benchmark'))
     parser.add_argument('--run-id')
     parser.add_argument('--snapshot', default='auto')
     parser.add_argument('--target-works', type=int)
+    parser.add_argument('--from-run', help='Reuse a completed run\'s exact pinned manifest for expansion')
     parser.add_argument('--query', default='')
     parser.add_argument('--batch-size', type=int, default=50)
     parser.add_argument('--time-budget-seconds', type=int, default=1200)
@@ -34,8 +36,15 @@ def main(argv=None):
         parser.error('Storage guard must stay below the verified Free allowance')
     if not 1 <= args.max_session_rows_written <= 7_500_000:
         parser.error('Session write guard must retain Free-tier headroom')
-    store = Store(url=os.environ.get('CATALOGUE_TURSO_URL'), token=os.environ.get('CATALOGUE_TURSO_TOKEN'))
+    owns_store = store is None
+    store = store or Store(url=os.environ.get('CATALOGUE_TURSO_URL'), token=os.environ.get('CATALOGUE_TURSO_TOKEN'))
     try:
+        if os.environ.get('CATALOGUE_ACCOUNT_GUARD') == 'required':
+            guard = guard or Guard(Account(os.environ.get('TURSO_CATALOGUE_USAGE_TOKEN')), store)
+            store.before_request = guard.check
+            print(json.dumps(guard.check()), flush=True)
+        elif args.command == 'ingest' and args.target_works and args.target_works > 1000:
+            raise QuotaPaused('Imports beyond the initial sample require the account-wide 80% guard')
         if args.command == 'init':
             store.initialize()
             result = {'schema': 2, 'bytes': store.size()}
@@ -57,6 +66,15 @@ def main(argv=None):
                 if args.snapshot != 'auto' and args.snapshot != manifest['date']:
                     raise ValueError('Resume cannot switch the pinned snapshot')
                 target = args.target_works or rows[0]['target']
+            elif args.from_run:
+                previous = store.run("SELECT manifest FROM import_runs WHERE id=? AND phase='complete'",
+                                     (args.from_run,))
+                if not previous or not args.target_works:
+                    raise ValueError('Expansion requires a completed source run and explicit target')
+                manifest = json.loads(previous[0]['manifest'])
+                if args.snapshot != 'auto' and args.snapshot != manifest['date']:
+                    raise ValueError('Expansion cannot change the pinned snapshot')
+                target = args.target_works
             else:
                 if not args.target_works:
                     raise ValueError('Specify target works for a new run')
@@ -69,6 +87,10 @@ def main(argv=None):
             print(json.dumps({'pinned_snapshot':manifest['date'],'target_works':target,
                               'files':manifest['files'],'adapter_version':2}),flush=True)
             run = start(store, args.run_id, manifest, target)
+            if guard:
+                args.max_storage_bytes = min(args.max_storage_bytes, guard.limits['storage_bytes'] * 80 // 100)
+            elif run['target'] > 1000:
+                raise QuotaPaused('A larger saved run also requires the account-wide guard')
             deadline = time.monotonic() + args.time_budget_seconds
             last_progress=time.monotonic()
             metrics={}
@@ -79,7 +101,8 @@ def main(argv=None):
                     raise Paused('Runner deadline reached while replaying the pinned gzip prefix')
                 if now-last_progress>=30:
                     print(json.dumps({'phase':run['phase'],'checkpoint':run['checkpoint'],
-                        'counters':json.loads(run['counters']),'source':metrics}),flush=True)
+                        'counters':json.loads(run['counters']),'source':metrics,
+                        'account':guard.check() if guard else None}),flush=True)
                     last_progress=now
             while run['phase'] != 'complete':
                 if run['phase'] == 'index':
@@ -137,8 +160,9 @@ def main(argv=None):
                     'session_rows_read': store.rows_read, 'session_rows_written': store.rows_written}
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         return 0
-    except Paused as exc:
-        print(json.dumps({'status': 'paused', 'reason': str(exc)}))
+    except (Paused, QuotaPaused) as exc:
+        print(json.dumps({'status': 'paused', 'reason': str(exc),
+                          'quota_stop': isinstance(exc, QuotaPaused)}))
         return 75
     except CatalogueError as exc:
         print(json.dumps({'status':'failed','reason':str(exc)}))
@@ -147,7 +171,8 @@ def main(argv=None):
         print(json.dumps({'status': 'failed', 'reason': 'Catalogue operation refused or failed; credentials/raw records withheld'}))
         return 1
     finally:
-        store.close()
+        if owns_store:
+            store.close()
 
 
 if __name__ == '__main__':
