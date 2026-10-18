@@ -28,10 +28,11 @@ export function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks();
   const request = useRequest(getReadingHome, `home:${auth.sessionGeneration}:${library.revision}`);
   return <section className="bv-container bv-reading-home">
-    <PageHeading eyebrow="Your personal reading home" title="A little time for your books.">Pick up where you left off, or find your next beginning.</PageHeading>
+    <div className="bv-home-heading"><PageHeading eyebrow="Your reading home" title="Pick up where you left off.">A little space for what you’re reading now.</PageHeading><ActionLink to="/my-books" variant="secondary">Open My Books</ActionLink></div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <SlowReadingNotice loading={request.loading} />
-    <div className="bv-reading-heading"><h2>Your current reading</h2><TextLink to="/my-books">My Books</TextLink></div>
+    <div className="bv-home-layout"><section className="bv-reading-desk" aria-labelledby="bv-current-reading-title">
+    <div className="bv-reading-heading"><h2 id="bv-current-reading-title">Your current reading</h2></div>
     {request.loading ? <BookSkeletons count={3} /> : request.error ? <EmptyState error title="Your reading couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your books haven’t changed.</EmptyState> : <>
       {request.data.current_reads.length ? <div className="bv-current-grid">{request.data.current_reads.map(({ entry, attempt }) => <CurrentReadingCard key={entry.id} entry={entry} attempt={attempt} />)}</div> : <div className="bv-home-start">
         <h2>{request.data.paused_count ? "A book can wait for you." : "Make this reading home your own."}</h2>
@@ -39,9 +40,9 @@ export function ReadingHomePage() {
         <div className="bv-form-actions"><ActionLink to={request.data.paused_count ? "/my-books?status=paused" : "/my-books"}>{request.data.paused_count ? "Open paused books" : "Choose from My Books"}</ActionLink><ActionLink to="/browse" variant="secondary">Find a book</ActionLink></div>
         {library.libraryImport && !library.readOnly && <p><TextLink to="/my-books/import">Bring Your Library</TextLink> · Start with the books and history you already have.</p>}
       </div>}
-      <div className="bv-home-support"><TextLink to="/my-books?status=reading">See all current reads ({request.data.reading_count})</TextLink>{request.data.paused_count > 0 && <TextLink to="/my-books?status=paused">Paused books ({request.data.paused_count})</TextLink>}<TextLink to="/my-books?status=want">Your Want books</TextLink>{!library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}</div>
+      {(request.data.reading_count > request.data.current_reads.length || (request.data.paused_count > 0 && request.data.current_reads.length > 0)) && <div className="bv-home-support">{request.data.reading_count > request.data.current_reads.length && <TextLink to="/my-books?status=reading">See all current reads ({request.data.reading_count})</TextLink>}{request.data.paused_count > 0 && request.data.current_reads.length > 0 && <TextLink to="/my-books?status=paused">Paused books ({request.data.paused_count})</TextLink>}</div>}
     </>}
-    {library.nextRead && <NextReadSection key={auth.sessionGeneration} />}
+    </section>{library.nextRead && <aside className="bv-home-next" aria-label="Your next beginning"><NextReadSection key={auth.sessionGeneration} /></aside>}</div>
   </section>;
 }
 
