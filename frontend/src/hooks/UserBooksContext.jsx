@@ -25,6 +25,7 @@ export function UserBooksProvider({ children }) {
   const [privacyControls, setPrivacyControls] = useState(false);
   const [readingExport, setReadingExport] = useState(false);
   const [nextRead, setNextRead] = useState(false);
+  const [libraryImport, setLibraryImport] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -35,6 +36,7 @@ export function UserBooksProvider({ children }) {
   const queued = useRef(new Map());
   const requests = useRef(new Set());
   const pipeline = useRef(null);
+  const pendingFlagWrites = useRef(new Map());
 
   const rememberEntries = useCallback((entries) => {
     for (const entry of entries) {
@@ -51,17 +53,27 @@ export function UserBooksProvider({ children }) {
     setBooksById(Object.fromEntries(cache.current));
   }, []);
 
+  const invalidateLookups = useCallback(() => {
+    generation.current += 1;
+    for (const controller of requests.current) controller.abort();
+    for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Library changed; check this book again."));
+    queued.current.clear();
+    pipeline.current = null;
+  }, []);
+
   useEffect(() => {
     const token = ++generation.current;
     const controllers = requests.current;
     let active = true;
     setLoadedSession(sessionKey);
     cache.current.clear(); setBooksById({}); setLookupErrors({}); setError(""); setMode("loading");
+    pendingFlagWrites.current.clear();
     setReadOnly(false);
     setReadingActions(false);
     setPrivateContext(false);
     setPrivacyControls(false); setReadingExport(false);
     setNextRead(false);
+    setLibraryImport(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -82,6 +94,7 @@ export function UserBooksProvider({ children }) {
         setPrivacyControls(capabilities.features?.privacy_controls === true);
         setReadingExport(capabilities.features?.reading_export === true);
         setNextRead(capabilities.features?.next_read === true);
+        setLibraryImport(capabilities.features?.library_import === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -148,29 +161,47 @@ export function UserBooksProvider({ children }) {
     return Promise.all(pending);
   }, [mode, rememberEntries]);
 
-  const setFlag = useCallback(async (bookId, status, value) => {
-    if (readOnly) throw new Error("Library changes are temporarily paused.");
-    const token = generation.current;
-    await loadVisibleBooks([bookId]);
-    if (token !== generation.current) throw new Error("Account changed");
-    const current = cache.current.get(bookId);
-    if (!current?.known) throw new Error("Check your saved status before making changes.");
-    try {
-      const result = await ensureLibraryBook(bookId, {
-        [status === "owned" ? "is_owned" : "is_wanted"]: value,
-        ...(current.version ? { expected_version: current.version } : {}),
-      });
-      if (token === generation.current) { rememberEntries([result]); setRevision(number => number + 1); }
-      return result;
-    } catch (failure) {
-      if (token === generation.current && failure.status === 409) {
-        if (failure.detail?.current) rememberEntries([failure.detail.current]);
-        else { cache.current.delete(bookId); await loadVisibleBooks([bookId], true).catch(() => {}); }
-        setRevision(number => number + 1);
+  const setFlag = useCallback((bookId, status, value) => {
+    const writes = pendingFlagWrites.current.get(bookId) || new Set();
+    const operation = (async () => {
+      if (readOnly) throw new Error("Library changes are temporarily paused.");
+      const token = generation.current;
+      await loadVisibleBooks([bookId]);
+      if (token !== generation.current) throw new Error("Account changed");
+      const current = cache.current.get(bookId);
+      if (!current?.known) throw new Error("Check your saved status before making changes.");
+      try {
+        const result = await ensureLibraryBook(bookId, {
+          [status === "owned" ? "is_owned" : "is_wanted"]: value,
+          ...(current.version ? { expected_version: current.version } : {}),
+        });
+        if (token === generation.current) { rememberEntries([result]); setRevision(number => number + 1); }
+        return result;
+      } catch (failure) {
+        if (token === generation.current && failure.status === 409) {
+          if (failure.detail?.current) rememberEntries([failure.detail.current]);
+          else { cache.current.delete(bookId); await loadVisibleBooks([bookId], true).catch(() => {}); }
+          setRevision(number => number + 1);
+        }
+        throw failure;
       }
-      throw failure;
-    }
+    })();
+    writes.add(operation);
+    pendingFlagWrites.current.set(bookId, writes);
+    return operation.finally(() => {
+      writes.delete(operation);
+      if (!writes.size && pendingFlagWrites.current.get(bookId) === writes) pendingFlagWrites.current.delete(bookId);
+    });
   }, [loadVisibleBooks, rememberEntries, readOnly]);
+
+  const waitForBookWrites = useCallback(async bookId => {
+    const token = generation.current;
+    while (pendingFlagWrites.current.get(bookId)?.size) {
+      await Promise.all([...pendingFlagWrites.current.get(bookId)]);
+      if (token !== generation.current) throw new Error("Account changed; check this book again.");
+    }
+    if (token !== generation.current) throw new Error("Account changed; check this book again.");
+  }, []);
 
   const value = useMemo(() => ({
     booksById: loadedSession === sessionKey ? booksById : {},
@@ -182,28 +213,30 @@ export function UserBooksProvider({ children }) {
     privacyControls: loadedSession === sessionKey && privacyControls,
     readingExport: loadedSession === sessionKey && readingExport,
     nextRead: loadedSession === sessionKey && nextRead,
+    libraryImport: loadedSession === sessionKey && libraryImport,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
+    importChanged() {
+      invalidateLookups();
+      cache.current.clear(); setBooksById({}); setLookupErrors({});
+      setRevision(number => number + 1);
+    },
     readingRemoved(bookId) {
       // Invalidate in-flight lookups before marking this book known-absent.
       // A slower pre-deletion lookup must not resurrect its saved flags.
-      generation.current += 1;
-      for (const controller of requests.current) controller.abort();
-      for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Library changed; check this book again."));
-      queued.current.clear();
-      pipeline.current = null;
+      invalidateLookups();
       if (bookId) {
         cache.current.delete(bookId);
         rememberEntries([{ book_id: bookId, entry_id: null, is_owned: false, is_wanted: false, version: null }]);
       }
       setRevision(number => number + 1);
     },
-    revision, readOnly, lookupErrors: loadedSession === sessionKey ? lookupErrors : {}, loadVisibleBooks, rememberEntries,
+    revision, readOnly, lookupErrors: loadedSession === sessionKey ? lookupErrors : {}, loadVisibleBooks, rememberEntries, waitForBookWrites,
     retryLoad() { setLoadAttempt(attempt => attempt + 1); },
     async updateStatus(bookId, status) {
       if (mode === "v3") return setFlag(bookId, status, true);
       const token = generation.current;
       const next = await setBookStatus(bookId, status);
-      if (token === generation.current) setBooksById(current => ({ ...current, [bookId]: next }));
+      if (token === generation.current) { setBooksById(current => ({ ...current, [bookId]: next })); setRevision(number => number + 1); }
       return next;
     },
     async clearStatus(bookId, status) {
@@ -212,8 +245,9 @@ export function UserBooksProvider({ children }) {
       await removeBookStatus(bookId);
       if (token !== generation.current) return;
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
+      setRevision(number => number + 1);
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, libraryImport, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag, invalidateLookups, waitForBookWrites]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

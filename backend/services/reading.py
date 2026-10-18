@@ -9,7 +9,7 @@ from sqlalchemy import case, func, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
-from models import Book, Edition, ReadingAttempt, UserBook
+from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, UserBook
 from reading_schemas import AttemptDetail, AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
 from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
 
@@ -206,7 +206,9 @@ class ReadingService(LibraryService):
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
         return ReadingWorkspace(entry=entry, current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
-            editions=[dict(row) for row in editions])
+            editions=[dict(row) for row in editions], imported_sources_count=self.db.scalar(select(func.count()).select_from(ImportedLibraryRecord)
+                .where(ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.user_book_id == entry_id,
+                    ImportedLibraryRecord.removed.is_(False), ImportedLibraryRecord.context != {})))
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):
         self.detail(user_id, entry_id)  # Owner predicate before any history lookup.

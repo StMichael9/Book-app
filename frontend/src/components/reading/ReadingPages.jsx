@@ -8,6 +8,7 @@ import { useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
+import ImportedSources from "./imports/ImportedSources.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -191,6 +192,7 @@ export function ReadingWorkspacePage() {
       {editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id && <Button disabled={!entry || library.readOnly || command.pending} onClick={() => command.run(() => updateReadingAttempt(selected.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen selected reading (discard unsaved edits)</Button>}
     </div>}
     {entry && <ReadingHistory entry={entry} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal)} />}
+    {entry && request.data?.imported_sources_count > 0 && <ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={request.data.imported_sources_count} />}
     {entry && library.privacyControls && <section className="bv-section"><h2>Your data, your choice</h2><p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p><Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing) || Boolean(removal)} onClick={() => setRemoval({ entry })}>Forget this book</Button></section>}
     {removal && <ReadingRemovalDialog key={removal.attempt?.id || removal.entry.id} entry={removal.entry} attempt={removal.attempt} onClose={() => setRemoval(null)} onRemoved={() => { setRemoval(null); request.retry(); }} />}
   </section>;
@@ -228,10 +230,14 @@ export function PrivateBookPage() {
 // Off/old backends are gated before this component can issue any command.
 export function StartReadingPage() {
   const { bookId } = useParams();
-  const go = useNavigate(), library = useUserBooks(), command = useReadingCommand();
+  const go = useNavigate(), library = useUserBooks(), command = useReadingCommand(
+    "We couldn’t confirm your reading started. Please try again.",
+    { conflictMessage: "Your library changed while we were starting this reading. Check its current state and try again." });
   const identity = useRef(crypto.randomUUID());
   const started = useRef(false);
   const begin = () => command.run(async assertCurrent => {
+    await library.waitForBookWrites(Number(bookId));
+    assertCurrent();
     const lookup = (await lookupLibraryBooks([Number(bookId)])).items[0];
     assertCurrent();
     let workspace;
@@ -250,5 +256,5 @@ export function StartReadingPage() {
   }, result => { library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`, { replace: true }); });
   const beginCurrent = useEffectEvent(begin);
   useEffect(() => { if (!started.current && !library.readOnly) { started.current = true; beginCurrent(); } }, [library.readOnly]);
-  return <section className="bv-container"><PageHeading title={library.readOnly ? "Reading changes are paused." : "Opening your reading…"} />{command.error && <><p role="alert">{command.error}</p><Button disabled={command.pending} onClick={begin}>Try starting again</Button></>}<TextLink to="/my-books">Back to My Books</TextLink></section>;
+  return <section className="bv-container"><PageHeading title={library.readOnly ? "Reading changes are paused." : command.error ? "We couldn’t confirm your reading started." : "Opening your reading…"} />{command.error && <><p role="alert">{command.error}</p><Button disabled={command.pending} onClick={begin}>Try starting again</Button></>}<TextLink to="/my-books">Back to My Books</TextLink></section>;
 }

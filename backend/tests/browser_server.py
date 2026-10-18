@@ -10,10 +10,13 @@ from pathlib import Path
 from sqlalchemy.engine import make_url
 
 url = make_url(os.environ["DATABASE_URL"])
+v3_test = os.environ.get("BOOKVANE_V3_TLS_TEST") == "yes"
+expected_role = "bookvane_v3_test" if v3_test else "bookvane_test"
+expected_port = 55433 if v3_test else 55432
 if (os.environ.get("BOOKVANE_TEST_DB_ISOLATED") != "yes"
-        or url.host != "127.0.0.1" or url.port != 55432
-        or not url.database or "browser_test" not in url.database
-        or url.username != "bookvane_test"):
+        or url.host != "127.0.0.1" or url.port != expected_port
+        or not url.database or not url.database.endswith("browser_test")
+        or url.username != expected_role):
     raise RuntimeError("Browser harness requires the loopback-only disposable browser_test database")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -30,7 +33,7 @@ from sqlalchemy import func, select, text
 
 from main import app
 from database import SessionLocal, engine, settings
-from models import Author, Book, Tag, TagType
+from models import Author, Book, Tag, TagType, User
 from auth.dependencies import get_current_user
 from auth import auth
 
@@ -38,12 +41,16 @@ with engine.connect() as connection:
     database, role, superuser = connection.execute(text(
         "SELECT current_database(), current_user, rolsuper FROM pg_roles WHERE rolname=current_user"
     )).one()
-    if database != url.database or role != "bookvane_test" or superuser:
+    if database != url.database or role != expected_role or superuser:
         raise RuntimeError("Unexpected database or privileged test role")
+    if v3_test and connection.scalar(text("SELECT version_num FROM alembic_version")) != "f5c12a608de3":
+        raise RuntimeError("M6 HTTPS verification requires the migrated V3 schema")
+if settings.is_dev:
+    raise RuntimeError("HTTPS verification requires production security settings")
 
 with SessionLocal.begin() as session:
-    if session.scalar(select(func.count()).select_from(Book)):
-        raise RuntimeError("Use a fresh browser_test database; existing books will not be modified")
+    if session.scalar(select(func.count()).select_from(Book)) or session.scalar(select(func.count()).select_from(User)):
+        raise RuntimeError("Use a fresh browser_test database; existing books/users will not be modified")
     fantasy = Tag(name="fantasy", type=TagType.genre)
     mystery = Tag(name="mystery", type=TagType.genre)
     author = Author(name="Local integration fixture")
@@ -76,7 +83,8 @@ def reset_link(email: str):
 def expire_access(response: Response, user=Depends(get_current_user)):
     token = jwt.encode({"sub": str(user.id), "ver": user.token_version,
         "exp": datetime.now(timezone.utc) - timedelta(seconds=1)}, settings.secret_key, algorithm="HS256")
-    response.set_cookie("access_token", token, httponly=True, secure=True, samesite="none")
+    response.set_cookie("access_token", token, httponly=True, secure=True,
+                        samesite=auth.COOKIE_SAMESITE, domain=auth.COOKIE_DOMAIN)
     return {"message": "Test access token expired"}
 
 

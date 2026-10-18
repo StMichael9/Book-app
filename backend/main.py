@@ -1,5 +1,6 @@
 import os
 import logging
+from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Depends, Request
@@ -7,7 +8,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from database import get_db, settings
+from database import get_db, settings, SessionLocal
 
 from routes import books
 from routes import autocomplete
@@ -16,6 +17,7 @@ from routes import user_preferences
 from routes import email_signups
 from routes import library
 from routes import reading
+from routes import library_imports
 
 from auth.auth import router as auth_router
 
@@ -28,7 +30,25 @@ from slowapi.errors import RateLimitExceeded
 
 from rate_limit import limiter
 
-app = FastAPI()
+@asynccontextmanager
+async def app_lifespan(_app):
+    # No scheduled worker or paid service. Readers cannot resume/access expired
+    # staging even before this bounded physical cleanup gets an opportunity.
+    if settings.reading_v3_enabled or settings.library_import_enabled:
+        from sqlalchemy.exc import SQLAlchemyError
+        from services.library_imports.workflow import ImportWorkflow
+        try:
+            with SessionLocal.begin() as maintenance:
+                maintenance.execute(text("SET LOCAL statement_timeout = '8s'"))
+                maintenance.execute(text("SET LOCAL lock_timeout = '1s'"))
+                if maintenance.scalar(text("SELECT to_regclass('library_import_runs') IS NOT NULL")) and maintenance.scalar(text("SELECT pg_try_advisory_xact_lock(513005,3)")):
+                    ImportWorkflow(maintenance).cleanup()
+        except SQLAlchemyError:
+            logging.getLogger(__name__).warning("Import staging cleanup deferred; next import activity can retry.")
+    yield
+
+
+app = FastAPI(lifespan=app_lifespan)
 
 
 class PrivateQueryLogFilter(logging.Filter):
@@ -62,6 +82,7 @@ def _parse_cors_origins() -> list[str]:
     return origins
 
 
+app.add_middleware(library_imports.ImportBodyLimit)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_parse_cors_origins(),
@@ -94,6 +115,8 @@ app.include_router(user_preferences.router)
 app.include_router(email_signups.router)
 app.include_router(library.router)
 app.include_router(reading.router)
+app.include_router(library_imports.router)
+app.include_router(library_imports.sources_router)
 
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)

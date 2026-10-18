@@ -25,17 +25,18 @@ export default function LibraryPage() {
   const q = params.get("q") || "";
   const facet = ["owned", "want", "reading", "paused", "finished", "dnf"].includes(params.get("status")) ? params.get("status") : "all";
   const cursor = params.get("cursor") || "";
+  const label = params.get("label") || "";
   const { rememberEntries } = library;
   const request = useRequest(async () => {
-    const page = await getLibraryPage({ q, facet, ...(cursor ? { cursor } : {}) });
+    const page = await getLibraryPage({ q, facet, ...(cursor ? { cursor } : {}), ...(label ? { label } : {}) });
     if (!Array.isArray(page?.items) || !page.counts || typeof page.total !== "number") throw new Error("Unable to load your library.");
     return page;
-  }, `library:${auth.sessionGeneration}:${q}:${facet}:${cursor}:${library.revision}`);
+  }, `library:${auth.sessionGeneration}:${q}:${facet}:${cursor}:${label}:${library.revision}`);
   useEffect(() => {
     if (request.data) rememberEntries(request.data.items);
   }, [request.data, rememberEntries]);
   function navigate(nextFacet, nextQuery, nextCursor = "", pagination = false) {
-    setParams({ ...(nextFacet === "all" ? {} : { status: nextFacet }), ...(nextQuery ? { q: nextQuery } : {}), ...(nextCursor ? { cursor: nextCursor } : {}) },
+    setParams({ ...(nextFacet === "all" ? {} : { status: nextFacet }), ...(nextQuery ? { q: nextQuery } : {}), ...(nextCursor ? { cursor: nextCursor } : {}), ...(label ? { label } : {}) },
       { state: pagination ? { libraryPagination: true } : null });
   }
   const counts = request.data?.counts;
@@ -46,9 +47,10 @@ export default function LibraryPage() {
   return <section className="bv-container bv-reading-library">
     <div className="bv-library-heading"><PageHeading eyebrow="Your personal library" title="My Books">Books you own, books you want, and room for your reading history.</PageHeading><ActionLink to="/browse" variant="secondary">Find more books</ActionLink></div>
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
+    {label && <p className="bv-notice">Imported label: {label} <Button variant="quiet" onClick={() => { const next = new URLSearchParams(params); next.delete("label"); next.delete("cursor"); setParams(next); }}>Clear label filter</Button></p>}
     <div className="bv-library-facets" role="group" aria-label="Filter your library">{facets.map(([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>)}</div>
     <p className="bv-help">Own and Want are independent. A book can belong to both.</p>
-    {library.readingActions && <div className="bv-form-actions"><TextLink to="/home">Your reading home</TextLink>{!library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}</div>}
+    {library.readingActions && <div className="bv-form-actions"><TextLink to="/home">Your reading home</TextLink>{!library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}{library.libraryImport && !library.readOnly && <TextLink to="/my-books/import">Bring Your Library</TextLink>}</div>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
     {request.loading ? <BookSkeletons /> : request.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<><Button onClick={request.retry}>Try again</Button>{cursor && <Button variant="quiet" onClick={() => navigate(facet, q)}>Return to first page</Button>}</>}>Your saved books haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <>
