@@ -78,8 +78,8 @@ test("My Books entry and real local CSV parser preserve Unicode, quotes and embe
   await expect(page.getByRole("heading", { name: "Review your library", exact: true })).toBeVisible();
   await expect(page.locator(".bv-import-journey [aria-current='step']")).toContainText("Review");
   expect(await page.locator(".bv-import-confirm").evaluate(node => Boolean(document.querySelector(".bv-import-row").compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width <= 390 ? 844 : 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`v3-ui-import-review-${width}.png`), fullPage: true });
   }

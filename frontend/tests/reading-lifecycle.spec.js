@@ -118,8 +118,8 @@ const test = base.extend({
 
 test("UI refactor current reading leads Home on desktop and phone", async ({ page, app }) => {
   app.currentReads = [{ entry: app.entries.get(101), attempt: app.attempt }];
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width <= 390 ? 844 : 1000 });
     await page.goto("/home");
     const current = page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
     await expect(current).toBeVisible();

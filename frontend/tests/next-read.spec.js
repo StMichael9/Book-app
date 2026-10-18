@@ -111,8 +111,11 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
   await expect(finished).toBeFocused();
   await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
   expect(await page.locator(".bv-finish-choices").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: test.info().outputPath(`v3-ui-finish-${theme}-390.png`), fullPage: true });
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`v3-ui-finish-${theme}-${width}.png`), fullPage: true });
+  }
   expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
 });
 
