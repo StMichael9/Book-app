@@ -18,7 +18,9 @@ PHASES = ('works', 'authors', 'editions', 'redirects', 'deletes', 'index', 'comp
 
 
 class Paused(CatalogueError):
-    pass
+    def __init__(self, message, *, kind='safety'):
+        super().__init__(message)
+        self.kind = kind
 
 
 class Bloom:
@@ -264,7 +266,8 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
         def write(entries,end_line,rejected):
             if (store.size()>=max_bytes or store.rows_written>=max_rows_written
                     or deadline and time.monotonic()>=deadline):
-                raise Paused('Storage/write/time safety threshold reached; checkpoint retained')
+                raise Paused('Storage/write/time safety threshold reached; checkpoint retained',
+                             kind='time' if deadline and time.monotonic()>=deadline else 'capacity')
             statements,added=phase_statements(store,phase,[entry[0] for entry in entries],snapshot,
                                               max(0,run['target']-counters['works']))
             next_counts={**counters,'works':counters['works']+added,'invalid':base_invalid+rejected}
@@ -280,7 +283,7 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
             # remains authoritative. This is not a billed-usage prediction.
             if (store.size()+4*encoded_size+1_048_576>max_bytes
                     or store.rows_written+64*len(entries)+16>max_rows_written):
-                raise Paused('Next batch would consume reserved storage/write headroom')
+                raise Paused('Next batch would consume reserved storage/write headroom', kind='capacity')
             checkpoint(store,run,statements,end_line,next_counts)
             counters.update(next_counts)
             if edition_bloom is not None:
@@ -299,7 +302,7 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
         if deadline and time.monotonic() >= deadline:
             # Do not mutate after an expired deadline; replay the uncommitted
             # bounded batch from the last committed checkpoint instead.
-            raise Paused('Time budget reached; resume the same pinned run')
+            raise Paused('Time budget reached; resume the same pinned run', kind='time')
         line = row.line_number
         if row.record is None:
             invalid += 1
@@ -320,7 +323,8 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
             counters['target_shortfall']=max(0,run['target']-counters['works'])
         if (store.size()>=max_bytes or store.rows_written+16>=max_rows_written
                 or deadline and time.monotonic()>=deadline):
-            raise Paused('Phase transition paused at the committed checkpoint')
+            raise Paused('Phase transition paused at the committed checkpoint',
+                         kind='time' if deadline and time.monotonic()>=deadline else 'capacity')
         proofs = sorted(set(proofs+[phase]))
         next_phase = PHASES[PHASES.index(phase)+1]
         checkpoint(store, run, [], 0, counters, next_phase, proofs)
@@ -334,27 +338,27 @@ def build_index(store, run, *, max_bytes=4_000_000_000, max_rows_written=7_500_0
         raise ValueError('All five full dump checksums must be verified before indexing')
     # Check before clearing the previous index or changing any checkpoint.
     if deadline and time.monotonic() >= deadline:
-        raise Paused('Index time budget reached; checkpoint unchanged')
+        raise Paused('Index time budget reached; checkpoint unchanged', kind='time')
     if store.size() >= max_bytes or store.rows_written >= max_rows_written:
-        raise Paused('Index storage/write safety threshold reached; checkpoint unchanged')
+        raise Paused('Index storage/write safety threshold reached; checkpoint unchanged', kind='capacity')
     if run['checkpoint'] == 0:
         if store.rows_written+4*json.loads(run['counters'])['works']+16>=max_rows_written:
-            raise Paused('Index reset would consume reserved write headroom')
+            raise Paused('Index reset would consume reserved write headroom', kind='capacity')
         checkpoint(store, run, [("INSERT INTO works_search(works_search) VALUES('delete-all')", ())],
                    -1, json.loads(run['counters']))
     cursor = max(0, run['checkpoint'])
     while True:
         if deadline and time.monotonic() >= deadline:
-            raise Paused('Index time budget reached; resume the saved checkpoint')
+            raise Paused('Index time budget reached; resume the saved checkpoint', kind='time')
         if store.size() >= max_bytes or store.rows_written >= max_rows_written:
-            raise Paused('Index storage/write safety threshold reached')
+            raise Paused('Index storage/write safety threshold reached', kind='capacity')
         found = store.run('SELECT id FROM works WHERE id>? ORDER BY id LIMIT 100', (cursor,))
         if not found:
             checkpoint(store, run, [], 0, json.loads(run['counters']), 'complete')
             return
         end = found[-1]['id']
         if store.rows_written+64*len(found)+16>=max_rows_written:
-            raise Paused('Next index batch would consume reserved write headroom')
+            raise Paused('Next index batch would consume reserved write headroom', kind='capacity')
         statements = [(
             'UPDATE works SET authors_key=COALESCE((SELECT group_concat(name_key,\' \') FROM '
             '(SELECT a.name_key FROM work_authors wa JOIN authors a ON a.source_id=wa.author_id '

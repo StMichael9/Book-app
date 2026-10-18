@@ -17,7 +17,7 @@ from .quota import Account, Guard, QuotaPaused
 from .storage import CatalogueError, Store
 
 
-def main(argv=None, *, store=None, guard=None):
+def main(argv=None, *, store=None, guard=None, absolute_deadline=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('init','status','ingest','search','isbn','work','benchmark'))
     parser.add_argument('--run-id')
@@ -30,6 +30,9 @@ def main(argv=None, *, store=None, guard=None):
     parser.add_argument('--max-storage-bytes', type=int, default=4_000_000_000)
     parser.add_argument('--max-session-rows-written', type=int, default=100_000)
     args = parser.parse_args(argv)
+    deadline = time.monotonic() + args.time_budget_seconds
+    if absolute_deadline is not None:
+        deadline = min(deadline, absolute_deadline)
     if not 1 <= args.batch_size <= 100 or not 10 <= args.time_budget_seconds <= 18_000:
         parser.error('Bounded batch/time limits required')
     if not 1_000_000 <= args.max_storage_bytes <= 4_000_000_000:
@@ -45,6 +48,15 @@ def main(argv=None, *, store=None, guard=None):
             print(json.dumps(guard.check()), flush=True)
         elif args.command == 'ingest' and args.target_works and args.target_works > 1000:
             raise QuotaPaused('Imports beyond the initial sample require the account-wide 80% guard')
+        if args.command == 'ingest':
+            def before_request():
+                if time.monotonic() >= deadline:
+                    raise Paused('Shared cloud deadline reached before SQL request', kind='time')
+                if guard:
+                    guard.check()
+                if time.monotonic() >= deadline:
+                    raise Paused('Shared cloud deadline expired during account preflight', kind='time')
+            store.before_request = before_request
         if args.command == 'init':
             store.initialize()
             result = {'schema': 2, 'bytes': store.size()}
@@ -52,6 +64,8 @@ def main(argv=None, *, store=None, guard=None):
             result = {'runs': store.run('SELECT id,target,phase,checkpoint,counters,verified_phases FROM import_runs'),
                       'allocated_bytes': store.size()}
         elif args.command == 'ingest':
+            if time.monotonic() >= deadline:
+                raise Paused('Shared cloud deadline expired during preflight', kind='time')
             # No large import from a personal workstation, even accidentally.
             if os.environ.get('GITHUB_ACTIONS') != 'true' or os.environ.get('CATALOGUE_POC_REMOTE_JOB_APPROVED') != 'yes':
                 raise ValueError('Dump ingestion requires the approved isolated GitHub Actions job')
@@ -86,19 +100,20 @@ def main(argv=None, *, store=None, guard=None):
                 raise ValueError('Run uses an unsupported source adapter; review rather than silently changing it')
             print(json.dumps({'pinned_snapshot':manifest['date'],'target_works':target,
                               'files':manifest['files'],'adapter_version':2}),flush=True)
+            if time.monotonic() >= deadline:
+                raise Paused('Shared cloud deadline expired during source/setup preflight', kind='time')
             run = start(store, args.run_id, manifest, target)
             if guard:
                 args.max_storage_bytes = min(args.max_storage_bytes, guard.limits['storage_bytes'] * 80 // 100)
             elif run['target'] > 1000:
                 raise QuotaPaused('A larger saved run also requires the account-wide guard')
-            deadline = time.monotonic() + args.time_budget_seconds
             last_progress=time.monotonic()
             metrics={}
             def heartbeat():
                 nonlocal last_progress
                 now=time.monotonic()
                 if now>=deadline:
-                    raise Paused('Runner deadline reached while replaying the pinned gzip prefix')
+                    raise Paused('Runner deadline reached while replaying the pinned gzip prefix', kind='time')
                 if now-last_progress>=30:
                     print(json.dumps({'phase':run['phase'],'checkpoint':run['checkpoint'],
                         'counters':json.loads(run['counters']),'source':metrics,
@@ -162,7 +177,9 @@ def main(argv=None, *, store=None, guard=None):
         return 0
     except (Paused, QuotaPaused) as exc:
         print(json.dumps({'status': 'paused', 'reason': str(exc),
-                          'quota_stop': isinstance(exc, QuotaPaused)}))
+                          'quota_stop': isinstance(exc, QuotaPaused),
+                          'pause_kind': 'quota' if isinstance(exc, QuotaPaused) else exc.kind,
+                          'resume_allowed': isinstance(exc, Paused) and exc.kind == 'time'}))
         return 75
     except CatalogueError as exc:
         print(json.dumps({'status':'failed','reason':str(exc)}))

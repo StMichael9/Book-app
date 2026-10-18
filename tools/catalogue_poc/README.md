@@ -245,5 +245,13 @@ failure or pause, never increases the500K goal, and never auto-pays. A later tim
 continuation must show progress and remain within the same approved guards; quota
 stops, repeated non-progress replay and source failures require review.
 
+Stage completion must pass both stored counters/zero shortfall and an actual works
+count before growth advances or reports the500K goal reached. Final output includes
+the achieved count, not only the configured target. One absolute job deadline
+passes through CLI preflight and is checked before SQL/source processing; setup
+latency cannot create a fresh budget. Pauses expose `pause_kind` and
+`resume_allowed`; only `time` may permit a later continuation. Capacity, quota and
+unknown safety pauses stop for review even when a checkpoint was saved.
+
 Run all isolated tests with `python -m unittest discover -s tools/catalogue_poc/tests -v`.
 The original56 tests remain part of this command; quota/growth tests are additional.
