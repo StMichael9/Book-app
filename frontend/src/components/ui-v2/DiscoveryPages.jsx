@@ -152,24 +152,34 @@ export function BookPage() {
   const browseFrom = candidate.split("?")[0] === "/browse" ? candidate : "/browse";
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`);
   const book = request.data;
-  const loadingNode = useRef(null), restoreHeadingFocus = useRef(false);
-  const trackLoading = useCallback(node => {
-    if (!node && loadingNode.current?.contains(document.activeElement)) restoreHeadingFocus.current = true;
-    loadingNode.current = node;
-  }, []);
-  const focusLoadedTitle = useCallback(node => {
-    if (node && restoreHeadingFocus.current) {
-      restoreHeadingFocus.current = false;
-      node.focus({ preventScroll: true });
+  const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
+  const completeFocusTransition = useCallback(node => {
+    if (!node) return;
+    const restore = restoreHeadingFocus.current;
+    restoreHeadingFocus.current = false;
+    const heading = node.matches("h1") ? node : node.querySelector("h1, h2");
+    if (restore && heading) {
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
     }
   }, []);
+  const trackLoading = useCallback(node => {
+    if (!node && loadingNode.current) restoreHeadingFocus.current = loadingNode.current.contains(document.activeElement);
+    loadingNode.current = node;
+    completeFocusTransition(node);
+  }, [completeFocusTransition]);
+  const trackError = useCallback(node => {
+    if (!node && errorNode.current) restoreHeadingFocus.current = errorNode.current.contains(document.activeElement);
+    errorNode.current = node;
+    completeFocusTransition(node);
+  }, [completeFocusTransition]);
   const saved = reader.libraryReady && !library.loading && !library.error && library.booksById[bookId]?.status;
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
   return <section className="bv-container">
     <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
-    {request.loading ? <div className="bv-detail" ref={trackLoading}><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState> : <article className="bv-detail" aria-labelledby="bv-book-title">
+    {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-skeleton bv-skeleton--cover" /><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
       <div className="bv-detail-art"><BookCover book={book} priority /></div>
-      <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={focusLoadedTitle}>{book.title || "Untitled book"}</h1>
+      <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}

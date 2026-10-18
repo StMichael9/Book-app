@@ -108,12 +108,14 @@ const test = base.extend({
           url.searchParams.getAll("tag").every((tag) => book.tags.some((item) => item.name === tag)));
         if (url.searchParams.get("exclude_owned") === "true") items = items.filter((book) => !state.saved.some((item) => item.book_id === book.id && item.status === "owned"));
         if (url.searchParams.get("shelf_status")) items = items.filter((book) => state.saved.some((item) => item.book_id === book.id && item.status === url.searchParams.get("shelf_status")));
+        if (state.preferenceRanking && state.preferences.some(item => item.tag_id === 3)) items.sort((a, b) => Number(b.id === 3) - Number(a.id === 3));
         const size = Number(url.searchParams.get("size") || 20);
         const pageNumber = Number(url.searchParams.get("page") || 1);
         return reply(200, { items: items.slice((pageNumber - 1) * size, pageNumber * size), total: items.length, page: pageNumber, size });
       }
       if (/^\/books\/\d+$/.test(path)) {
         if (state.holdBook) await state.holdBook;
+        if (state.bookFailure) return reply(state.bookFailure, { detail: "Synthetic delayed book failure" });
         const book = books.find((item) => item.id === Number(path.split("/")[2]));
         return book ? reply(200, book) : reply(404, { detail: "Book not found" });
       }
@@ -180,6 +182,64 @@ test("M6 late preference save cannot replace the page the reader navigated to", 
   expect(app.preferences.some(preference => preference.tag_id === 3)).toBe(true);
 });
 
+for (const changeAccount of [false, true]) test(`M6 departed preference save invalidates only its own session; account changed=${changeAccount}`, async ({ page, app }) => {
+  let release;
+  app.preferenceRanking = true;
+  app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/preferences");
+    await page.getByLabel("Mystery", { exact: true }).check();
+    const completed = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+    await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
+    if (changeAccount) {
+      app.authenticated = false;
+      await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+      await expect(page).toHaveURL(/\/login\?/);
+      await page.getByLabel("Email address", { exact: true }).fill("different-reader@example.com");
+      await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await expect(page).toHaveURL(/\/preferences$/);
+    }
+    await page.getByRole("link", { name: "Discover", exact: true }).first().click();
+    await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Fantasy");
+    const before = app.requests.filter(request => request.path === "/books").length;
+    release(); await (await completed).finished();
+    await expect(page).toHaveURL(/\/browse$/);
+    if (changeAccount) {
+      await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      expect(app.requests.filter(request => request.path === "/books")).toHaveLength(before);
+      await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Fantasy");
+    } else {
+      await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThan(before);
+      await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Mystery");
+    }
+    await expect(page.getByText("Your discovery subjects are saved.", { exact: true })).toHaveCount(0);
+  } finally { release(); }
+});
+
+for (const status of [404, 503]) test(`M6 book error and retry respect subsequent focus; status=${status}`, async ({ page, app }) => {
+  let release;
+  app.bookFailure = status;
+  app.holdBook = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/browse");
+    await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    release();
+    await expect(page.getByRole("heading", { name: status === 404 ? "This book couldn’t be found." : "This book couldn’t load.", exact: true })).toBeFocused();
+    app.bookFailure = 0;
+    app.holdBook = new Promise(resolve => { release = resolve; });
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    const back = page.getByRole("link", { name: "Back to discovery", exact: true });
+    await back.focus(); release();
+    await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeVisible();
+    await expect(back).toBeFocused();
+  } finally { release(); }
+});
+
 for (const moveFocus of [false, true]) test(`M6 delayed book focus preserves keyboard intent; moved focus=${moveFocus}`, async ({ page, app }) => {
   let release;
   app.holdBook = new Promise(resolve => { release = resolve; });
@@ -199,7 +259,7 @@ for (const filter of ["shelf_status=want", "exclude_owned=true"]) test(`M6 legac
   await page.getByRole("button", { name: "Add Test-only Fantasy to Own", exact: true }).click();
   await expect(page.getByRole("link", { name: "Test-only Fantasy", exact: true })).toHaveCount(0);
   expect(app.saved.find(entry => entry.book_id === 1).status).toBe("owned");
-  expect(app.requests.filter(request => request.path === "/books").length).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThanOrEqual(2);
 });
 
 test("failed preference load cannot overwrite saved preferences; retry restores them", async ({ page, app }) => {

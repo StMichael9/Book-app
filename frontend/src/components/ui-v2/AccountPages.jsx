@@ -138,9 +138,10 @@ function PreferencesEditor({ data }) {
     event.preventDefault();
     command.run(async assertCurrent => {
       await savePreferences({ tagIds: selected, sourceText: data.preferences[0]?.source_text || "" });
+      reader.preferencesSaved();
       assertCurrent();
     }, () => {
-      reader.preferencesSaved(); reader.announce("Your discovery subjects are saved."); navigate("/browse");
+      reader.announce("Your discovery subjects are saved."); navigate("/browse");
     });
   }
   return <form onSubmit={submit} aria-busy={saving}>

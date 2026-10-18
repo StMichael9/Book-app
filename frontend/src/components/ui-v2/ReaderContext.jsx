@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { errorText } from "./data.js";
@@ -30,6 +30,11 @@ export function ReaderProvider({ children }) {
   const [preferencesVersion, setPreferencesVersion] = useState(0);
   const session = useRef(0);
   const authenticated = useRef(auth.isAuthenticated);
+  const preferenceAccount = useRef(auth.sessionGeneration);
+  useLayoutEffect(() => {
+    preferenceAccount.current = auth.sessionGeneration;
+    return () => { preferenceAccount.current = null; };
+  }, [auth.sessionGeneration]);
   // Reset session-scoped UI before rendering a different authentication state.
   if (readiness.authenticated !== auth.isAuthenticated || readiness.generation !== auth.sessionGeneration) {
     setReadiness({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
@@ -38,7 +43,8 @@ export function ReaderProvider({ children }) {
   }
   const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.generation === auth.sessionGeneration && readiness.ready;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.style.colorScheme = theme;
     try { localStorage.setItem("bookvane-theme", theme); } catch { /* Optional persistence. */ }
   }, [theme]);
@@ -97,6 +103,10 @@ export function ReaderProvider({ children }) {
   return <ReaderContext.Provider value={{
     theme, setTheme, gate, setGate, message, announce, saveBook, busyIds, saveErrors,
     libraryReady, preferencesVersion,
-    preferencesSaved: () => setPreferencesVersion((value) => value + 1),
+    // A completed write still invalidates discovery after leaving Preferences,
+    // but a callback captured by a departed account cannot publish to its successor.
+    preferencesSaved: () => {
+      if (auth.isAuthenticated && preferenceAccount.current === auth.sessionGeneration) setPreferencesVersion(value => value + 1);
+    },
   }}>{children}</ReaderContext.Provider>;
 }

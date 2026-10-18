@@ -241,15 +241,22 @@ async function expireAndSignInAsB(page, app, returnTo) {
   app.authenticated = false;
   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL(/\/login(?:\?|$)/);
+  await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
   // Keep this entirely within the SPA: a full navigation would clear the
   // module-level request map and conceal the account-switching defect.
   if (returnTo) await page.evaluate(path => {
     window.history.replaceState(null, "", `/login?returnTo=${encodeURIComponent(path)}`);
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, returnTo);
+  if (returnTo) await expect(page.getByRole("link", { name: "Create an account", exact: true })).toHaveAttribute("href", `/register?${new URLSearchParams({ returnTo })}`);
   await page.getByLabel("Email address", { exact: true }).fill("b@example.com");
   await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
+  await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("b@example.com");
+  await expect(page.getByLabel("Password", { exact: true })).toHaveValue("synthetic-password");
+  const signedIn = page.waitForResponse(response => response.url().endsWith("/auth/login") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await signedIn;
 }
 
 for (const legacy of [true, false]) {
