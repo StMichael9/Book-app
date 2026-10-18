@@ -279,7 +279,7 @@ def test_export_large_library_streams_fixed_query_count(context_entry, app_modul
             if record["type"] == "complete": counts = record["counts"]
         assert counts == {"entry": 10001, "reading": 1, "preference": 0}
         assert records == 10004 and maximum < 5000
-        assert len(queries) == 7  # three settings, snapshot anchor, three cursors
+        assert len(queries) == 9  # settings, anchor, five fixed cursors (including private source context)
     finally:
         event.remove(engine, "before_cursor_execute", observe)
 

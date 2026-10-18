@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from database import settings
-from models import Author, Book, ReadingAttempt, UserBook, UserBookStatus, book_authors
+from models import Author, Book, ImportedLibraryRecord, ReadingAttempt, UserBook, UserBookStatus, book_authors
 from reading_schemas import EntryDetail, FlagUpdate, LibraryEntry, LibraryPage
 
 
@@ -23,7 +23,7 @@ def reading_enabled(user_id) -> bool:
 def library_needs_v3(db: Session, user_id) -> bool:
     return bool(db.scalar(select(UserBook.id).where(UserBook.user_id == user_id,
         or_(UserBook.book_id.is_(None), UserBook.save_note.is_not(None),
-            UserBook.is_owned == UserBook.is_wanted, has_history(UserBook.id))).limit(1)))
+            UserBook.is_owned == UserBook.is_wanted, has_history(UserBook.id), has_imports(UserBook.id))).limit(1)))
 
 
 def require_reading(user_id, db=None, *, write=False):
@@ -39,10 +39,14 @@ def has_history(entry_id):
     return select(ReadingAttempt.id).where(ReadingAttempt.user_book_id == entry_id).exists()
 
 
+def has_imports(entry_id):
+    return select(ImportedLibraryRecord.id).where(ImportedLibraryRecord.user_book_id == entry_id).exists()
+
+
 def legacy_write_guard(db: Session, user_id, book_id):
     # Keep this guard even after disabling the pilot; feature-off cannot erase history.
     entry = db.scalar(select(UserBook).where(UserBook.user_id == user_id, UserBook.book_id == book_id).with_for_update().execution_options(populate_existing=True))
-    richer = entry is not None and (entry.save_note is not None or entry.is_owned == entry.is_wanted or db.scalar(select(has_history(entry.id))))
+    richer = entry is not None and (entry.save_note is not None or entry.is_owned == entry.is_wanted or db.scalar(select(has_history(entry.id))) or db.scalar(select(has_imports(entry.id))))
     if reading_enabled(user_id) or richer:
         raise HTTPException(409, detail="Your library now uses independent Own and Want controls. Refresh this page before making changes.")
 
@@ -96,9 +100,12 @@ class LibraryService:
                  "is_wanted": found[book_id][4] if book_id in found else False,
                  "reading_state": found[book_id][5] if book_id in found else None} for book_id in book_ids]
 
-    def page(self, user_id, *, q="", facet="all", limit=25, cursor=None):
+    def page(self, user_id, *, q="", facet="all", limit=25, cursor=None, label=""):
         pattern = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         conditions = [UserBook.user_id == user_id]
+        if label:
+            conditions.append(select(ImportedLibraryRecord.id).where(ImportedLibraryRecord.user_id == user_id,
+                ImportedLibraryRecord.user_book_id == UserBook.id, ImportedLibraryRecord.context["labels"].contains([label])).exists())
         if q.strip():
             # Uncorrelated ID sets avoid nested relationship EXISTS inside an
             # OR: that shape can inflate planner/JIT cost on large libraries.
@@ -123,7 +130,8 @@ class LibraryService:
         history_counts = dict(self.db.execute(select(ReadingAttempt.state, func.count(func.distinct(UserBook.id)))
             .join(UserBook, ReadingAttempt.user_book_id == UserBook.id).where(*conditions).group_by(ReadingAttempt.state)).all())
         counts.update({state: history_counts.get(state, 0) for state in ("reading", "paused", "finished", "dnf")})
-        scope = hashlib.sha256(json.dumps([str(user_id), q.strip(), facet], separators=(",", ":")).encode()).hexdigest()
+        cursor_scope = [str(user_id), q.strip(), facet] + ([label] if label else [])
+        scope = hashlib.sha256(json.dumps(cursor_scope, separators=(",", ":")).encode()).hexdigest()
         if cursor:
             anchor, last = self._decode_cursor(cursor, scope)
         else:
