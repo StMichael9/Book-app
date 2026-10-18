@@ -35,7 +35,7 @@ Implemented on the M6 working candidate:
 
 ### Developer verification on October 17
 
-Current runtime is the uncommitted M6 diff from `525df5f`; freeze its implementation SHA before independent QA. Environment: Windows, Node 24.12.0 / npm 11.6.2, installed Edge; local PostgreSQL 16.9 for the separate HTTPS check. No production connection or real email is used.
+Implementation/test-harness candidate: **`b3d2a873d90e5a8bf9ba9b2a38c0627a99bfa8ad`**, based on `525df5f`. The 164-case full client and six WebKit cases ran against the identical application source; subsequent edits only corrected HTTPS test expectations and documentation. The corrected HTTPS test has not yet completed. Environment: Windows, Node 24.12.0 / npm 11.6.2, installed Edge; local PostgreSQL 16.9 for the separate HTTPS check. No production connection or real email is used.
 
 | Check | Actual result / scope |
 |---|---|
@@ -49,6 +49,8 @@ Current runtime is the uncommitted M6 diff from `525df5f`; freeze its implementa
 | Local HTTPS/browser/API/PostgreSQL journey | Two stopped attempts exposed V2-only test assumptions: default `/my-books` instead of V3 `/home`, then legacy-write 404 instead of the deliberate V3 stale-writer 409. Corrected the fixture, not application behavior. Secure/HttpOnly/Lax cookie and persisted shelf checks reached in the second attempt; full refresh/reset journey remains **unverified on the corrected M6 harness** until independent execution |
 
 Before correction, a direct current-build probe reproduced QA-004: `/forgot-password`, zero email forms, expired heading still present after Send a new link. The repaired invalid/rejected-link cases now pass in the full client suite. QA-002/003/005/006/007/008 have developer acceptance coverage; independent closure is still pending. QA-001's earlier mobile fix is retained, with physical/hosted acceptance separate.
+
+Root's execution is stopped for independent QA: no listeners on 5189/5192/5193/8005/8009, zero other PostgreSQL client connections, clean `pg_ctl` shutdown of the exact local test cluster. Neither populated root HTTPS database is a valid fresh QA fixture. QA must use new disposable databases and record the actual tested SHA. No review, CI result, integration or deployment approval is inferred from this handoff.
 
 ## Mandatory before public release — not silently deferred past it
 
