@@ -39,7 +39,7 @@ const test = base.extend({
       if (path === "/me/reading-capabilities") {
         if (state.oldBackend) return reply(404, {});
         return reply(200, { enabled: !state.disabled, writable: !state.readOnly, contract_version: 1,
-          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls) } });
+          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls), library_import: Boolean(state.libraryImport) } });
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/me/reading-export") {
@@ -47,7 +47,7 @@ const test = base.extend({
         if (state.exportFails) return reply(503, { detail: "Temporary failure" });
         return route.fulfill({ status: 200, contentType: "application/x-ndjson", body: state.exportTruncated ? '{"type":"metadata"}\n' : '{"type":"metadata","format_version":1}\n{"type":"complete","format_version":1,"counts":{"entry":2,"reading":1,"preference":0}}\n' });
       }
-      if (path === "/me/home") return reply(200, { current_reads: state.currentReads || [], reading_count: state.currentReads?.length || 0, paused_count: state.pausedCount || 0 });
+      if (path === "/me/home") return reply(200, { current_reads: state.currentReads || [], reading_count: state.readingCount ?? state.currentReads?.length ?? 0, paused_count: state.pausedCount || 0 });
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => {
         const entry = state.entries.get(id);
         return { book_id: id, entry_id: entry?.id ?? null, is_owned: entry?.is_owned ?? false,
@@ -138,6 +138,48 @@ test("UI refactor paused Home has a truthful empty-current state", async ({ page
   await expect(page.getByRole("heading", { name: "A book can wait for you.", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open paused books", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
   await expect(page.getByText("Progress is optional.", { exact: true })).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tasks and layouts; theme=${theme}`, async ({ page, app }) => {
+  app.libraryImport = true;
+  app.entries.set(103, makeEntry(103, "reading", true));
+  app.currentReads = [
+    { entry: app.entries.get(101), attempt: app.attempt },
+    { entry: app.entries.get(103), attempt: { ...app.attempt, progress_unit: "pages", progress_value: 12, total_pages: null } },
+    { entry: app.entries.get(102), attempt: { ...app.attempt, progress_value: null } },
+  ];
+  app.readingCount = 8; app.pausedCount = 2;
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    const desk = page.getByRole("region", { name: "Your current reading", exact: true });
+    await expect(desk.getByRole("article")).toHaveCount(3);
+    await expect(desk.getByRole("progressbar", { name: "Reading progress for Reading fixture 101" })).toHaveAttribute("value", "40");
+    await expect(desk.getByRole("progressbar")).toHaveCount(1);
+    await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
+    await expect(page.getByRole("link", { name: "Paused books (2)", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
+    await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
+    const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
+    await expect(first).toBeVisible();
+    expect((await first.boundingBox()).y).toBeLessThan(750);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`reading-desk-${theme}-${width}.png`), fullPage: true });
+    await page.getByRole("link", { name: "Open My Books", exact: true }).click();
+    await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toBeVisible();
+    await expect(page.locator(".bv-current-book")).toHaveCount(0);
+    await expect(page.locator(".bv-personal-book")).toHaveCount(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`collection-${theme}-${width}.png`), fullPage: true });
+  }
+  expect(app.requests.filter(request => ["PUT", "PATCH", "DELETE"].includes(request.method))).toHaveLength(0);
 });
 
 test("UI refactor catalogue and private library titles open personal workspaces", async ({ page, app }) => {

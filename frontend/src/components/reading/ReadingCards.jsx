@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookCover, ShelfActions, TextLink } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookCover, ShelfActions, TextLink } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-home.css";
 
@@ -21,13 +21,15 @@ export function CurrentReadingCard({ entry, attempt }) {
   const book = entryBook(entry);
   const progress = attempt.progress_value == null ? null : attempt.progress_unit === "percent"
     ? `${attempt.progress_value}%` : `Page ${attempt.progress_value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
+  const progressMax = attempt.progress_unit === "percent" ? 100 : attempt.total_pages;
   return <article className="bv-current-book">
     <Link to={`/my-books/${entry.id}`} tabIndex={-1} aria-hidden="true"><BookCover book={book} priority /></Link>
     <div><p className="bv-eyebrow">Reading{!entry.book ? " · Private book" : ""}</p>
       <h3><Link to={`/my-books/${entry.id}`}>{book.title}</Link></h3>
       <p className="bv-author">{authorLabel(book)}</p>
       {progress && <p className="bv-reading-progress">{progress}</p>}
-      <TextLink to={`/my-books/${entry.id}`} aria-label={`Continue your reading: ${book.title}`}>Continue your reading</TextLink>
+      {progress && progressMax > 0 && attempt.progress_value >= 0 && attempt.progress_value <= progressMax && <progress className="bv-reading-meter" value={attempt.progress_value} max={progressMax} aria-label={`Reading progress for ${book.title}`} />}
+      <ActionLink to={`/my-books/${entry.id}`} aria-label={`Continue your reading: ${book.title}`}>Continue reading</ActionLink>
     </div>
   </article>;
 }
