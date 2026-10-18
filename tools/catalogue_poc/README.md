@@ -104,12 +104,14 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
 
 ## Evidence actually obtained
 
-- Current local synthetic tests: **51/51 passed**, exit 0, 1.832s on the developer's rerun.
+- Current local synthetic tests: **56/56 passed**, exit 0, 1.125s on the developer's rerun.
   Independent QA passed the original 27 and identified two additional findings:
   redirect credential forwarding and index reset before budget guards. The revised
   client rejects all redirects and index guards precede reset; two negative tests
   now cover these; independent QA passed the corrected29-test candidate. The
-  expanded51-test ingestion candidate awaits its own independent review.
+  expanded51-test candidate also passed independent QA, which found two bounded
+  sample-entry issues. Catalogue type/namespace validation and minimal identity
+  projections now address those; the corrected56-test candidate awaits recheck.
   These tests do not establish real-source or cloud matching quality.
 - Actual remote engine reports SQLite **3.47.0**. Schema/FTS5 creation succeeded.
 - Remote FK enforcement and failed-batch rollback passed. A temporary metadata
@@ -133,6 +135,12 @@ deadline exit 75, but remote orchestration/automatic continuation is **not built
   bytes. Wrong hashes, truncation, oversized records and prefix replay are tested.
   Rejection diagnostics are bounded; detailed field-omission quality analysis is
   still part of the real sample review.
+- Only work/author/edition types with their matching source namespaces, and
+  catalogue-key redirects/deletes, are accepted. A missing JSON type uses the
+  validated outer type; a present malformed/mismatched JSON type is rejected.
+  Identity queries return IDs, fingerprints and revision/active flags only,
+  never full descriptions. A32-wide-description test covers the old8MB response
+  failure path without network access.
 - Useful edition changes reconcile source-owned relationships; an edition becoming
   unusable is deactivated and its stale ISBN links removed. A later same-snapshot
   expansion attaches new selected-work links without rewriting unchanged metadata.

@@ -20,8 +20,11 @@ def parse_line(raw):
     if len(fields) != 5:
         raise ValueError('expected five TSV fields')
     kind,key,revision,modified,body = fields
-    if not re.fullmatch(r'/type/[a-z_]+',kind) or not key.startswith(('/works/','/authors/','/books/')):
+    if not re.fullmatch(r'/(?:works/OL[0-9]+W|authors/OL[0-9]+A|books/OL[0-9]+M)',key):
         raise ValueError('unsupported source wrapper')
+    expected={'works':'/type/work','authors':'/type/author','books':'/type/edition'}[key.split('/')[1]]
+    if kind not in (expected,'/type/redirect','/type/delete'):
+        raise ValueError('source type/namespace mismatch')
     if not re.fullmatch(r'[0-9]{1,18}',revision) or not modified or len(modified)>80:
         raise ValueError('invalid wrapper provenance')
     record = json.loads(body)
@@ -30,7 +33,7 @@ def parse_line(raw):
     if 'revision' in record and (type(record['revision']) is not int or record['revision'] != int(revision)):
         raise ValueError('source revision mismatch')
     record_type = record.get('type')
-    if isinstance(record_type,dict) and record_type.get('key') != kind:
+    if 'type' in record and (not isinstance(record_type,dict) or record_type.get('key') != kind):
         raise ValueError('source record type mismatch')
     # The outer dump revision/time are authoritative even if absent in JSON.
     record['revision'] = int(revision)

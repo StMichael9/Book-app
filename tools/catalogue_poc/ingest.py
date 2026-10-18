@@ -55,12 +55,15 @@ def keys_filter(store, table):
 
 def selected(store, table, keys):
     keys = sorted(set(keys))
-    if table not in ('works', 'authors', 'editions'):
+    columns={'works':'id,source_id,fingerprint,source_revision,deleted',
+             'authors':'source_id,fingerprint,source_revision',
+             'editions':'source_id,fingerprint,source_revision,active'}.get(table)
+    if columns is None:
         raise ValueError('Unsupported catalogue table')
     found = {}
     for offset in range(0, len(keys), 100):
         chunk = keys[offset:offset+100]
-        for row in store.run(f'SELECT * FROM {table} WHERE source_id IN (' + ','.join('?' for _ in chunk) + ')', chunk):
+        for row in store.run(f'SELECT {columns} FROM {table} WHERE source_id IN (' + ','.join('?' for _ in chunk) + ')', chunk):
             found[row['source_id']] = row
     return found
 

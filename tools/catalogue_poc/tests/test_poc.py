@@ -15,9 +15,9 @@ from urllib.request import Request
 
 from tools.catalogue_poc import normalize as n
 from tools.catalogue_poc import dumps
-from tools.catalogue_poc.ingest import Paused, build_index, checkpoint, consume, phase_statements, start
+from tools.catalogue_poc.ingest import Paused, build_index, checkpoint, consume, phase_statements, selected, start
 from tools.catalogue_poc.query import by_isbn, by_work, search
-from tools.catalogue_poc.storage import CatalogueError, RejectRedirects, Store, transactional_payload
+from tools.catalogue_poc.storage import CatalogueError, RejectRedirects, Store, bulk, transactional_payload
 from data.sources import DumpRow
 
 MANIFEST = {'identifier': 'fixture', 'date': '2026-09-30', 'files': {}}
@@ -326,6 +326,22 @@ class CatalogueTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             start(self.store,'new-snapshot',{**MANIFEST,'date':'2026-10-31'},10)
 
+    def test_identity_projection_does_not_fetch_wide_metadata(self):
+        description='z'*262100
+        values=[(f'/works/OL{index}W','Synthetic title','synthetic title',description,'fixture','fingerprint')
+                for index in range(1,33)]
+        self.assertGreater(32*len(description.encode()),8_000_000)
+        self.store.transaction(bulk('INSERT INTO works',
+            ('source_id','title','title_key','description','snapshot','fingerprint'),values))
+        found=selected(self.store,'works',[row[0] for row in values])
+        self.assertEqual(len(found),32)
+        self.assertLess(len(json.dumps(found).encode()),20000)
+        self.assertEqual(set(next(iter(found.values()))),{'id','source_id','fingerprint','source_revision','deleted'})
+
+    def test_identity_projection_table_names_are_allowlisted(self):
+        with self.assertRaises(ValueError):
+            selected(self.store,'works; DROP TABLE works',['/works/OL1W'])
+
     def test_older_work_revision_cannot_replace_authors(self):
         consume(self.store,self.run,rows([{**work(),'revision':3}]))
         consume(self.store,self.run,rows([{**work(author=2),'revision':2}],offset=1))
@@ -377,9 +393,9 @@ class CatalogueTests(unittest.TestCase):
 class DumpTests(unittest.TestCase):
     url='https://archive.org/download/ol_dump_2026-09-30/ol_dump_works_2026-09-30.txt.gz'
 
-    def line(self,record=None,revision=1):
+    def line(self,record=None,revision=1,kind='/type/work'):
         value=record or work(title='星の王子さま')
-        return (f'/type/work\t{value["key"]}\t{revision}\t2026-09-30T00:00:00\t'+
+        return (f'{kind}\t{value["key"]}\t{revision}\t2026-09-30T00:00:00\t'+
                 json.dumps(value,ensure_ascii=False)+'\n').encode()
 
     def stream(self,body,metrics=None,**kwargs):
@@ -412,6 +428,24 @@ class DumpTests(unittest.TestCase):
             dumps.parse_line(self.line().replace(b'/type/work\t/works/OL1W',b'/type/work\t/works/OL2W'))
         with self.assertRaises(ValueError):
             dumps.parse_line(self.line({**work(),'revision':2},revision=1))
+
+    def test_non_catalogue_and_cross_namespace_types_rejected(self):
+        for kind,key in (('/type/user','/works/OL1W'),('/type/work','/authors/OL1A'),
+                         ('/type/author','/books/OL1M'),('/type/edition','/works/OL1W')):
+            with self.subTest(kind=kind,key=key),self.assertRaises(ValueError):
+                dumps.parse_line(self.line({'key':key,'title':'Synthetic'},kind=kind))
+
+    def test_present_json_type_must_be_a_matching_object(self):
+        for kind in (None,'/type/work',[],True,{}, {'key':'/type/user'}):
+            with self.subTest(kind=kind),self.assertRaises(ValueError):
+                dumps.parse_line(self.line({**work(),'type':kind}))
+
+    def test_missing_json_type_uses_validated_outer_catalogue_type(self):
+        for kind,key in (('/type/work','/works/OL1W'),('/type/author','/authors/OL1A'),
+                         ('/type/edition','/books/OL1M'),('/type/redirect','/works/OL1W'),
+                         ('/type/delete','/books/OL1M')):
+            value=dumps.parse_line(self.line({'key':key,'title':'Synthetic'},kind=kind))
+            self.assertEqual(value['_dump_type'],kind)
 
     def test_prefix_replay_hashes_complete_source(self):
         raw=self.line()+self.line(work(key=2))

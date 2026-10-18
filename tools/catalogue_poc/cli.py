@@ -140,7 +140,10 @@ def main(argv=None):
     except Paused as exc:
         print(json.dumps({'status': 'paused', 'reason': str(exc)}))
         return 75
-    except (CatalogueError, ValueError):
+    except CatalogueError as exc:
+        print(json.dumps({'status':'failed','reason':str(exc)}))
+        return 1
+    except ValueError:
         print(json.dumps({'status': 'failed', 'reason': 'Catalogue operation refused or failed; credentials/raw records withheld'}))
         return 1
     finally:
