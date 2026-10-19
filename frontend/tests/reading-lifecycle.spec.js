@@ -236,6 +236,7 @@ for (const theme of ["light", "dark"]) test(`editorial workspace is book-first w
     expect(app.requests.slice(before).filter(r => r.path === "/books/101")).toHaveLength(1);
     expect(app.requests.slice(before).filter(r => r.path === "/me/next-read")).toHaveLength(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 1440) expect((await page.locator(".bv-editorial-workspace").boundingBox()).width).toBe(1240);
     await page.screenshot({ path: test.info().outputPath(`editorial-workspace-${theme}-${width}.png`), fullPage: true });
   }
   const before = app.requests.filter(r => r.path === "/me/next-read").length;
@@ -247,6 +248,36 @@ for (const theme of ["light", "dark"]) test(`editorial workspace is book-first w
   await page.getByRole("button", { name: "Back to this reading", exact: true }).click();
   await expect(page.getByRole("button", { name: "Explore more choices", exact: true })).toBeFocused();
   expect(app.requests.filter(r => ["PUT", "PATCH"].includes(r.method))).toHaveLength(0);
+});
+
+for (const theme of ["light", "dark"]) test(`editorial workspace phone text enlargement and keyboard order; ${theme}`, async ({ page, app }) => {
+  app.privateContext = true; app.nextRead = true;
+  const entry = makeEntry(101, "reading", true);
+  entry.private_title = "A long reading title — 読書の記憶 ".repeat(9);
+  entry.private_author = "A reader with a long author name ".repeat(7);
+  app.entries.set(101, entry);
+  app.entries.set(201, { ...makeEntry(201, null), is_wanted: true });
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await page.goto("/my-books/101");
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
+  const stop = page.getByRole("button", { name: "Stop reading", exact: true });
+  await stop.focus(); await page.keyboard.press("Tab");
+  await expect(page.locator(".bv-workspace-memory > summary")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".bv-workspace-history > summary")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".bv-workspace-manage > summary")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("link", { name: "Open your book", exact: true })).toBeFocused();
+  // Exercise a user text override without resizing or inventing metadata.
+  await page.locator(".bv-editorial-workspace").evaluate(root => {
+    const sizes = [...root.querySelectorAll("h1,h2,h3,p,button,a,summary")].map(node => [node, parseFloat(getComputedStyle(node).fontSize)]);
+    for (const [node, size] of sizes) node.style.fontSize = `${size * 2}px`;
+  });
+  const overflow = await page.locator(".bv-editorial-workspace *").evaluateAll(nodes => nodes.filter(node => node.getBoundingClientRect().right > innerWidth + 1).map(node => ({ tag: node.tagName, className: node.className, right: node.getBoundingClientRect().right })));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), JSON.stringify(overflow)).toBe(true);
+  expect(app.requests.filter(r => ["PUT", "PATCH", "DELETE"].includes(r.method))).toHaveLength(0);
 });
 
 test("editorial workspace history is lazy and reopening uses the loaded page", async ({ page, app }) => {
@@ -325,6 +356,24 @@ test("editorial workspace read-only progress is a view with no writable controls
   await expect(page.getByRole("button", { name: "Save progress and dates", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Finish book", exact: true })).toHaveCount(0);
   expect(app.requests.filter(r => r.method === "PATCH")).toHaveLength(0);
+});
+
+for (const status of [404, 503]) for (const moved of [false, true]) test(`editorial workspace retry preserves deliberate focus; ${status}; moved=${moved}`, async ({ page, app }) => {
+  await page.route("**/test-api/me/library/101/reading", route => route.fulfill({ status, json: {} }), { times: 1 });
+  await page.goto("/my-books/101");
+  await expect(page.getByRole("heading", { name: "This reading couldn’t load.", exact: true })).toBeVisible();
+  let release;
+  app.holdWorkspace = new Promise(done => { release = done; });
+  try {
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Loading your reading…", exact: true })).toBeFocused();
+    const back = page.getByRole("link", { name: "Back to My Books", exact: true });
+    if (moved) await back.focus();
+    release();
+    const title = page.getByRole("heading", { name: "Reading fixture 101", exact: true });
+    await expect(title).toBeVisible();
+    await expect(moved ? back : title).toBeFocused();
+  } finally { release(); }
 });
 
 for (const moveFocus of [false, true]) test(`editorial workspace delayed identity respects keyboard focus; moved=${moveFocus}`, async ({ page, app }) => {

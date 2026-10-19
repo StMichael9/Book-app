@@ -118,6 +118,7 @@ test("editorial workspace preview shares choices and a new finish returns to Wan
   await expect(page.getByRole("button", { name: "My Want books", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
   expect(app.requests.filter(r => r.path === "/books/1")).toHaveLength(1);
+  expect(new Set(app.requests.filter(r => r.path === "/me/next-read").map(r => r.params.session_id)).size).toBe(1);
   expect(app.requests.filter(r => r.method === "PATCH" && r.body.state === "finished")).toHaveLength(1);
   await page.getByRole("button", { name: "Not now", exact: true }).click();
   await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);

@@ -1,5 +1,5 @@
 /* Editorial workspace: existing Bookvane tokens, no additional navigation. */
-.bv-root .bv-editorial-workspace { max-width: 1240px; }
+.bv-root .bv-reading-workspace.bv-editorial-workspace { max-width: 1240px; }
 .bv-root .bv-workspace-layout { display: grid; grid-template-columns: minmax(0, 1fr) 326px; gap: 24px; align-items: start; padding-bottom: 32px; }
 .bv-root .bv-workspace-book { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 26px; }
 .bv-root :is(.bv-workspace-book, .bv-workspace-progress, .bv-workspace-about, .bv-workspace-memory, .bv-workspace-history, .bv-workspace-imported, .bv-workspace-manage) { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; min-width: 0; }
@@ -11,7 +11,7 @@
 .bv-root .bv-workspace-flags { gap: 10px; }
 .bv-root .bv-workspace-flags .bv-button { font-size: 14px; min-height: 44px; padding: 8px 16px; }
 .bv-root .bv-workspace-progress { grid-column: 2; grid-row: 1 / span 2; }
-.bv-root .bv-workspace-progress-heading { display: flex; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.bv-root .bv-workspace-progress-heading { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .bv-root .bv-workspace-progress-heading h2 { font-size: 24px; margin: 0; }
 .bv-root .bv-reading-state-pill { margin: 0; padding: 6px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft-green); font: 600 14px/1.4 var(--bv-body); }
 .bv-root .bv-workspace-progress-value { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; font-size: 15px; }
@@ -76,9 +76,9 @@
   .bv-root .bv-workspace-identity .bv-eyebrow { display: none; }
   .bv-root .bv-workspace-identity .bv-detail-author { font-size: 18px; margin-bottom: 12px; }
   .bv-root .bv-workspace-progress { order: 2; padding: 20px; }
-  .bv-root .bv-workspace-layout > .bv-finish-choices { order: 3; }
-  .bv-root .bv-workspace-editor { order: 4; padding: 20px; }
-  .bv-root .bv-workspace-about { order: 5; padding: 20px; }
+  .bv-root .bv-workspace-about { order: 3; padding: 20px; }
+  .bv-root .bv-workspace-layout > .bv-finish-choices { order: 4; }
+  .bv-root .bv-workspace-editor { order: 5; padding: 20px; }
   .bv-root .bv-workspace-memory { order: 6; padding: 20px; }
   .bv-root .bv-workspace-history { order: 7; padding: 20px; }
   .bv-root .bv-workspace-imported { order: 8; padding: 20px; }

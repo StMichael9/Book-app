@@ -187,6 +187,11 @@ export function ReadingWorkspacePage() {
   const finished = library.nextRead && finishNotice?.generation === auth.sessionGeneration &&
     (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) ? finishNotice : null;
   const blocked = library.readOnly || command.pending || Boolean(editing);
+  // A keyed direct child can move for Finish without remounting its controller.
+  // The quiet preview follows secondary sections in both DOM and phone order.
+  const nextSection = library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
+    enabled={loaded || Boolean(finished)} hidden={nextDismissed && !finished} finishId={finished?.id} finishedTitle={finished?.title}
+    onSkip={finished ? () => { setFinishNotice(null); setNextDismissed(true); (statusHeading.current || document.getElementById("bv-main"))?.focus(); } : undefined} />;
   return <section className="bv-container bv-reading-workspace bv-editorial-workspace">
     <div className="bv-breadcrumb"><TextLink to="/my-books">Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
@@ -208,9 +213,7 @@ export function ReadingWorkspacePage() {
           </ReadingProgress>
           <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} />
         </>}
-      {library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
-        enabled={loaded || Boolean(finished)} hidden={nextDismissed && !finished} finishId={finished?.id} finishedTitle={finished?.title}
-        onSkip={finished ? () => { setFinishNotice(null); setNextDismissed(true); (statusHeading.current || document.getElementById("bv-main"))?.focus(); } : undefined} />}
+      {finished ? nextSection : null}
       {/* Keep the editor at this stable sibling position, outside the loading
           branch. Its original record/version must survive flag refetches. */}
       {editing && <div className="bv-reading-draft bv-workspace-editor">{editing.kind === "progress" ? <ProgressForm key={`${selected.id}:${entryId}`} attempt={selected} version={editing.version} readOnly={library.readOnly || command.pending} onSaved={accept} /> : <ContextForm key={`${editing.kind}:${selected?.id || editing.entry.id}:${entryId}`} draft={editing} readOnly={library.readOnly || command.pending} onSaved={accept} />}
@@ -237,6 +240,7 @@ export function ReadingWorkspacePage() {
         </div>
         {library.privacyControls && <p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p>}
       </>}</details>
+      {!finished ? nextSection : null}
     </div>
     {removal && <ReadingRemovalDialog key={removal.attempt?.id || removal.entry.id} entry={removal.entry} attempt={removal.attempt} onClose={() => setRemoval(null)} onRemoved={() => { setRemoval(null); request.retry(); }} />}
   </section>;

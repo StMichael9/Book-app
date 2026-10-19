@@ -41,6 +41,8 @@ Editors remain at a stable sibling position outside workspace loading branches, 
 
 Finish acknowledgement is independent of suggestions availability. Skip and collapse are guarded during explicit Start. Finish suggestions default back to Want and receive heading focus. Keyboard loading-to-identity focus follows the existing local containment pattern; deliberate focus moved to Back wins. The historical editor identity/focus and native removal dialog remain intact.
 
+The quiet next preview follows secondary sections in DOM as well as phone layout. On Finish, that same keyed direct child moves before secondary tasks without remounting its controller; a request-session assertion verifies continuity. The scoped width override wins over the old narrow workspace rule, and the reading heading/state can wrap when text is enlarged.
+
 ## Validation and attribution
 
 All executions for this candidate use the isolated cloud checkout and wholly mocked browser API responses; native cache tests replace fetch. No Neon/production, real account, email, import or local database was contacted.
@@ -50,6 +52,9 @@ All executions for this candidate use the isolated cloud checkout and wholly moc
 - Public cache: **6/6 native checks passed**, direct `node frontend/tests/book-details-cache.test.mjs`. Covers concurrent deduplication, TTL, failed retry, bounded size, public-field whitelist and malformed-response recovery. Earlier `node --test` invocations reported a file-level result only; those are not counted as six checks.
 - Lint: passed with 12 existing warnings, no added warning. Production build passed in the focused run. Full-suite final disposition is recorded below when complete.
 - Initial broad regression invocation was intentionally interrupted to update legacy test paths for collapsed memory and scope private-note selectors away from the new synopsis. It is not a completed run or a pass. No application behavior was changed for those test updates.
+- The next broad invocation was interrupted after 20 passes, one initial landing loading timeout and one interrupted case, to correct a source-review finding: the quiet preview's DOM order did not match its mobile placement. Its trace shows catalogue requests still pending at the existing five-second landing assertion; retain this for unchanged retest, not silent omission.
+- Focused r3: 13 passed / 2 failed (3.6 minutes). Keyboard ordering/controller continuity passed; new 200% workspace text overrides exposed horizontal overflow in both themes. The reading-heading row now wraps. A source/capture review also found that the old workspace-width rule won by stylesheet order; the new scoped selector now wins. Expanded checks include actual 1240px desktop width and 404/503 retry focus with deliberately moved versus retained focus.
+- Focused r4: **19/19 passed** after the bounded ordering/wrapping/width corrections. This adds both-theme 320px long-title/doubled-workspace-text checks and four 404/503 pointer-retry focus cases. The eight width/theme captures are preserved outside the repo in `bookvane-workspace-implementation-2026-10-19`; these show isolated synthetic fixtures, not a live catalogue/account or a usability-study result.
 - Live API/Postgres journey test paths were updated for disclosures and new button labels but **not executed**. Earlier milestone QA remains attributed to its original SHAs; it does not certify this new layout.
 
 ## Review and independent QA handoff
