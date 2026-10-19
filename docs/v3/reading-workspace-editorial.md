@@ -77,4 +77,10 @@ Physical iPhone Safari, hosted acceptance, current native-export acceptance and 
 
 ## Final candidate results
 
-Pending completion of the frozen full frontend regression run and review artifact publication. No merge/deployment/public GO.
+Application candidate: `285441d30dbb2d16097b534b77927ba858f96eae`, published in draft [PR #20](https://github.com/StMichael9/Book-app/pull/20) targeting `v3`. Later documentation-only commits do not change this application tree.
+
+Completed focused verification: 19/19 composition/state checks at the preceding correction, plus 1/1 final paused-action keyboard check; six cache checks on the unchanged public-cache implementation. Production builds and final-candidate lint pass (12 existing warnings). Eight application fixture captures cover both themes and 320/390/768/1440px.
+
+The final broad invocation at this application SHA was stopped after Michael prioritized immediate availability for local testing with limited usage remaining: **43 passed, 1 failed, 2 interrupted, 166 not run** of 212 selected cases (6.7 minutes, two workers). The failure was the existing 320px multi-route test exceeding its 60-second total budget during `/account` navigation; no overflow assertion failed. Its trace is retained. The promised unchanged serial rerun remains pending; do not silently call this a completed/green regression suite. Earlier interrupted/failing runs remain attributed above.
+
+The candidate is available for Michael's local testing now. Independent QA should retest the exact source, including that responsive case and the remaining suite. Live integration, physical Safari/device, hosted and other public-release gates remain open. No merge/deployment/public GO is claimed. The UI-owned Playwright run/preview were stopped before handoff; no database process was started.
