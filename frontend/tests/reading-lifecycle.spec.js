@@ -348,6 +348,22 @@ test("editorial workspace progress uses the saved copy and keeps missing values 
   }
 });
 
+test("editorial workspace paused actions put Resume first visually and by keyboard", async ({ page, app }) => {
+  app.attempt.state = "paused"; app.entries.get(101).reading_state = "paused";
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books/101");
+  const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
+  await want.focus();
+  for (const label of ["Resume reading", "Finish book", "Stop reading", "Update progress"]) {
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
+  }
+  const resume = await page.getByRole("button", { name: "Resume reading", exact: true }).boundingBox();
+  const progress = await page.getByRole("button", { name: "Update progress", exact: true }).boundingBox();
+  expect(resume.y).toBeLessThan(progress.y);
+  expect(app.requests.filter(r => ["PATCH", "PUT"].includes(r.method))).toHaveLength(0);
+});
+
 test("editorial workspace read-only progress is a view with no writable controls", async ({ page, app }) => {
   app.readOnly = true;
   await page.goto("/my-books/101");

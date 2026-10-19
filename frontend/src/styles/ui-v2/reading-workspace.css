@@ -25,7 +25,6 @@
 .bv-root .bv-workspace-state-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bv-root .bv-workspace-state-actions .bv-button { padding: 10px 9px; font-size: 15px; }
 .bv-root .bv-workspace-state-actions .bv-button:last-child { grid-column: 1 / -1; }
-.bv-root .bv-workspace-primary-actions--paused .bv-workspace-state-actions { order: -1; }
 .bv-root .bv-workspace-dates { border-top: 1px solid var(--bv-line); color: var(--bv-muted); padding-top: 16px; margin: 20px 0 0; font-size: 13px; }
 .bv-root .bv-workspace-about { grid-column: 1; grid-row: 2; }
 .bv-root .bv-workspace-about h2 { font-size: 25px; }

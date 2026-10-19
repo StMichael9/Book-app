@@ -187,6 +187,7 @@ export function ReadingWorkspacePage() {
   const finished = library.nextRead && finishNotice?.generation === auth.sessionGeneration &&
     (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) ? finishNotice : null;
   const blocked = library.readOnly || command.pending || Boolean(editing);
+  const progressAction = attempt && <Button key="progress" variant={attempt.state === "paused" || terminal ? "quiet" : "primary"} disabled={command.pending || Boolean(editing)} onClick={() => openEditor(attempt)}>{library.readOnly ? "View progress and dates" : terminal ? "Correct progress or dates" : "Update progress"}</Button>;
   // A keyed direct child can move for Finish without remounting its controller.
   // The quiet preview follows secondary sections in both DOM and phone order.
   const nextSection = library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
@@ -201,13 +202,14 @@ export function ReadingWorkspacePage() {
         : <>
           <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_owned", "Own"], ["is_wanted", "Want"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{label}</Button>)}</div>} />
           <ReadingProgress attempt={attempt} statusRef={statusHeading} readOnly={library.readOnly}>
-            <div className={`bv-workspace-primary-actions${attempt?.state === "paused" ? " bv-workspace-primary-actions--paused" : ""}`} role="group" aria-label="Reading actions">
+            <div className="bv-workspace-primary-actions" role="group" aria-label="Reading actions">
               {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
-              {attempt && <Button variant={attempt.state === "paused" || terminal ? "quiet" : "primary"} disabled={command.pending || Boolean(editing)} onClick={() => openEditor(attempt)}>{library.readOnly ? "View progress and dates" : terminal ? "Correct progress or dates" : "Update progress"}</Button>}
+              {attempt?.state !== "paused" ? progressAction : null}
               {attempt && !terminal && !library.readOnly && <div className="bv-workspace-state-actions">{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : [["reading", "Resume reading"]]), ["finished", "Finish book"], ["dnf", "Stop reading"]].map(([state, label]) => <Button key={label} variant={state === "reading" ? "primary" : state === "dnf" ? "quiet" : "secondary"} disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
                 accept(result);
                 if (state === "finished" && library.nextRead) { setNextDismissed(false); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration }); }
               })}>{label}</Button>)}</div>}
+              {attempt?.state === "paused" ? progressAction : null}
             </div>
             {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" onClick={request.retry}>Reload current reading</Button></p>}
           </ReadingProgress>

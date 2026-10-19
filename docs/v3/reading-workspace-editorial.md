@@ -43,6 +43,8 @@ Finish acknowledgement is independent of suggestions availability. Skip and coll
 
 The quiet next preview follows secondary sections in DOM as well as phone layout. On Finish, that same keyed direct child moves before secondary tasks without remounting its controller; a request-session assertion verifies continuity. The scoped width override wins over the old narrow workspace rule, and the reading heading/state can wrap when text is enlarged.
 
+Paused actions also use actual DOM ordering: Resume, Finish, Stop, then optional Update progress. No CSS-only reversal sends keyboard users back up the screen.
+
 ## Validation and attribution
 
 All executions for this candidate use the isolated cloud checkout and wholly mocked browser API responses; native cache tests replace fetch. No Neon/production, real account, email, import or local database was contacted.
@@ -55,6 +57,7 @@ All executions for this candidate use the isolated cloud checkout and wholly moc
 - The next broad invocation was interrupted after 20 passes, one initial landing loading timeout and one interrupted case, to correct a source-review finding: the quiet preview's DOM order did not match its mobile placement. Its trace shows catalogue requests still pending at the existing five-second landing assertion; retain this for unchanged retest, not silent omission.
 - Focused r3: 13 passed / 2 failed (3.6 minutes). Keyboard ordering/controller continuity passed; new 200% workspace text overrides exposed horizontal overflow in both themes. The reading-heading row now wraps. A source/capture review also found that the old workspace-width rule won by stylesheet order; the new scoped selector now wins. Expanded checks include actual 1240px desktop width and 404/503 retry focus with deliberately moved versus retained focus.
 - Focused r4: **19/19 passed** after the bounded ordering/wrapping/width corrections. This adds both-theme 320px long-title/doubled-workspace-text checks and four 404/503 pointer-retry focus cases. The eight width/theme captures are preserved outside the repo in `bookvane-workspace-implementation-2026-10-19`; these show isolated synthetic fixtures, not a live catalogue/account or a usability-study result.
+- The first two-worker broad invocation passed 22 cases (including the previously timed-out landing check unchanged) before interruption for the final paused-action DOM-order correction; two cases were interrupted and 187 did not run. It is not a completed suite. The added paused-order acceptance then **passed 1/1 (17.3 seconds)** with no writes, and lint passed again with the existing warnings.
 - Live API/Postgres journey test paths were updated for disclosures and new button labels but **not executed**. Earlier milestone QA remains attributed to its original SHAs; it does not certify this new layout.
 
 ## Review and independent QA handoff
