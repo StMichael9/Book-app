@@ -26,6 +26,7 @@ const test = base.extend({
       if (path === "/auth/login") { state.authenticated = true; return reply(200, {}); }
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: !state.readOnly,
         contract_version: 1, features: { reading_actions: true, next_read: !state.oldM3 } });
+      if (/^\/books\/\d+$/.test(path)) return reply(200, { ...book(Number(path.split("/").at(-1))), description: "Existing catalogue details.", tags: [] });
       if (path === "/me/home") return reply(200, { current_reads: [...state.attempts].filter(([, item]) => item.state === "reading").map(([id, item]) => ({ entry: state.entries.get(id), attempt: item })), reading_count: state.attempts.size, paused_count: 0 });
       if (path === "/me/next-read") {
         if (state.choicesFail) return reply(503, {});
@@ -100,6 +101,43 @@ test("M4 finish skip cannot hide a committed pending start and completion remain
     await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
     expect(app.requests.filter(item => item.method === "PUT" && item.path.includes("reading-attempts"))).toHaveLength(1);
   } finally { release(); }
+});
+
+test("editorial workspace preview shares choices and a new finish returns to Want without a duplicate module", async ({ page, app }) => {
+  await page.goto("/my-books/1");
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
+  const before = app.requests.filter(r => r.path === "/me/next-read").length;
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(app.requests.filter(r => r.path === "/me/next-read")).toHaveLength(before);
+  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "My Want books", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(app.requests.filter(r => r.path === "/books/1")).toHaveLength(1);
+  expect(app.requests.filter(r => r.method === "PATCH" && r.body.state === "finished")).toHaveLength(1);
+  await page.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+});
+
+test("editorial workspace excludes its current book and returning from catalogue restores a truthful Want preview", async ({ page, app }) => {
+  app.entries.get(1).is_wanted = true; app.attempts.delete(1);
+  await page.goto("/my-books/1");
+  const preview = page.getByRole("region", { name: "Next after this" });
+  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
+  expect(app.requests.find(r => r.path === "/me/next-read").excludes).toEqual(["book:1"]);
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
+  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back to this reading", exact: true }).click();
+  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
+  await expect(preview.getByRole("heading", { name: "M4 fixture 4", exact: true })).toHaveCount(0);
+  expect(app.requests.filter(r => r.path === "/me/next-read").at(-1).params.source).toBe("want");
+  expect(app.requests.filter(r => ["PUT", "PATCH"].includes(r.method))).toHaveLength(0);
 });
 
 for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {

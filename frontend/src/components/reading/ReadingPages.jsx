@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
@@ -10,11 +10,11 @@ import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
 import ImportedSources from "./imports/ImportedSources.jsx";
 import { CurrentReadingCard, SlowReadingNotice } from "./ReadingCards.jsx";
+import { ReadingBookDetails, ReadingBookIdentity, ReadingProgress } from "./ReadingBookContext.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
 const displayBook = entry => entry.book || { title: entry.private_title, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
-const progressLabel = attempt => attempt.progress_value == null ? "Progress is optional." : attempt.progress_unit === "percent" ? `${attempt.progress_value}%` : `Page ${attempt.progress_value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
 
 export function ReadingGate({ children }) {
   const library = useUserBooks();
@@ -112,12 +112,12 @@ function ContextForm({ draft, readOnly, onSaved }) {
   </form>;
 }
 
-function ReadingHistory({ entry, onCorrect, onMemory, onRemove, editing }) {
+function ReadingHistory({ entryId, enabled, onCorrect, onMemory, onRemove, editing }) {
   const auth = useAuth(), library = useUserBooks();
   const [params, setParams] = useSearchParams();
   const cursor = params.get("history_cursor") || "";
-  const request = useRequest(() => getReadingHistory(entry.id, cursor), `history:${auth.sessionGeneration}:${entry.id}:${cursor}:${library.revision}`);
-  return <section className="bv-section"><h2>Your reading history</h2>
+  const request = useRequest(() => getReadingHistory(entryId, cursor), `history:${auth.sessionGeneration}:${entryId}:${cursor}:${library.revision}`, enabled);
+  return <section className="bv-reading-history-content" aria-label="Your reading history">
     {request.loading ? <p role="status">Loading reading history…</p> : request.error ? <EmptyState error title="Your history couldn’t load." action={<><Button onClick={request.retry}>Try again</Button><Button onClick={() => setParams({})} variant="secondary">First readings</Button></>}>Your records haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <ul className="bv-reading-history">{request.data.items.map(attempt => <li key={attempt.id}><strong>{stateLabel[attempt.state]}</strong><span>{attempt.started_on || "Start date unknown"}{attempt.ended_on ? ` → ${attempt.ended_on}` : ""}</span><Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onCorrect(attempt)}>Correct this reading</Button>{library.privateContext && <Button variant="quiet" disabled={editing} onClick={() => onMemory(attempt)}>{library.readOnly ? "View reading memory" : "Note and reaction"}</Button>}{library.privacyControls && <Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onRemove(attempt)}>Delete this reading record</Button>}</li>)}</ul> : <p>No reading records on this page.</p>}
       <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => setParams({})}>First readings</Button>}{request.data.next_cursor && <Button variant="secondary" onClick={() => setParams({ history_cursor: request.data.next_cursor })}>Older readings</Button>}</div>
@@ -125,10 +125,16 @@ function ReadingHistory({ entry, onCorrect, onMemory, onRemove, editing }) {
   </section>;
 }
 
-function FinishChoices({ title, onSkip }) {
-  const heading = useRef(null);
-  useEffect(() => { heading.current?.focus(); }, []);
-  return <section className="bv-finish-choices"><h2 ref={heading} tabIndex={-1}>Reading saved.</h2><p>You finished {title}. No note, rating or progress entry is required.</p><NextReadSection onSkip={onSkip} /></section>;
+function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
+  const [params] = useSearchParams();
+  const [open, setOpen] = useState(() => Boolean(params.get("history_cursor")));
+  const [loaded, setLoaded] = useState(open);
+  return <details hidden={!visible} className="bv-workspace-history" open={open} onToggle={event => {
+    const value = event.currentTarget.open;
+    setOpen(value); if (value) setLoaded(true);
+  }}><summary>Reading history</summary>
+    {loaded && <ReadingHistory entryId={entryId} enabled={visible} {...props} />}
+  </details>;
 }
 
 export function ReadingWorkspacePage() {
@@ -140,11 +146,28 @@ export function ReadingWorkspacePage() {
   const [editing, setEditing] = useState(null);
   const [removal, setRemoval] = useState(null);
   const [finishNotice, setFinishNotice] = useState(null);
+  const [nextDismissed, setNextDismissed] = useState(false);
+  const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
+  const completeFocus = useCallback(node => {
+    if (!node) return;
+    const restore = restoreHeadingFocus.current;
+    restoreHeadingFocus.current = false;
+    const heading = node.matches("h1") ? node : node.querySelector("h1, h2");
+    if (restore && heading) { heading.setAttribute("tabindex", "-1"); heading.focus({ preventScroll: true }); }
+  }, []);
+  const trackLoading = useCallback(node => {
+    if (!node && loadingNode.current) restoreHeadingFocus.current = loadingNode.current.contains(document.activeElement);
+    loadingNode.current = node; completeFocus(node);
+  }, [completeFocus]);
+  const trackError = useCallback(node => {
+    if (!node && errorNode.current?.contains(document.activeElement)) restoreHeadingFocus.current = true;
+    errorNode.current = node; completeFocus(node);
+  }, [completeFocus]);
   const statusHeading = useRef(null);
   const [editionId, setEditionId] = useState("");
   function accept(result) {
     library.readingChanged(result.entry); setEditing(null); intent.current = null;
-    if (result.attempt && result.attempt.state !== "finished") setFinishNotice(null);
+    if (result.attempt && result.attempt.state !== "finished") { setFinishNotice(null); setNextDismissed(false); }
   }
   function create(entry, state = "reading") {
     const key = `${entry.id}:${state}`;
@@ -160,48 +183,61 @@ export function ReadingWorkspacePage() {
     command.run(() => getReadingAttempt(attempt.id), result => setEditing({
       kind: "memory", attempt: result.attempt, version: result.entry.version }));
   }
-  return <section className="bv-container bv-reading-workspace">
+  const loaded = !request.loading && !request.error && Boolean(entry);
+  const finished = library.nextRead && finishNotice?.generation === auth.sessionGeneration &&
+    (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) ? finishNotice : null;
+  const blocked = library.readOnly || command.pending || Boolean(editing);
+  return <section className="bv-container bv-reading-workspace bv-editorial-workspace">
+    <div className="bv-breadcrumb"><TextLink to="/my-books">Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
-    {request.loading ? <BookSkeletons count={1} /> : request.error ? <EmptyState error title="This reading couldn’t load." action={<><Button onClick={request.retry}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState> : <>
-    <TextLink to="/my-books">Back to My Books</TextLink><PageHeading eyebrow={entry.book ? "Your reading" : "Private book · only you"} title={book.title}>{book.authors?.map(author => author.name).join(", ") || "Author not listed"}</PageHeading>
-    {entry.book && <TextLink to={`/book/${entry.book_id}`}>About this book</TextLink>}
-    {library.readOnly && <p role="status" className="bv-notice">Your reading is available to read. Changes are temporarily paused.</p>}
-    <div className="bv-form-actions" role="group" aria-label="Your book flags">{[["is_owned", "Own"], ["is_wanted", "Want"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{label}</Button>)}</div>
-    <div className="bv-reading-status"><h2 ref={statusHeading} tabIndex={-1}>{attempt ? stateLabel[attempt.state] : "A new beginning"}</h2>{attempt && <p>{progressLabel(attempt)}</p>}</div>
-    </>}
-    {library.nextRead && finishNotice?.generation === auth.sessionGeneration && (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) &&
-      <FinishChoices key={finishNotice.id} title={finishNotice.title} onSkip={() => { setFinishNotice(null); (statusHeading.current || document.getElementById("bv-main"))?.focus(); }} />}
-    {!request.loading && !request.error && entry && <>
-    {(!attempt || terminal) && request.data.editions.length > 0 && <details className="bv-field"><summary>Choose an edition (optional)</summary><label htmlFor="reading-edition">Your copy for the new reading</label><select id="reading-edition" value={editionId} disabled={library.readOnly} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">Catalogue preferred edition</option>{request.data.editions.map(edition => <option key={edition.id} value={edition.id}>{edition.physical_format || "Edition"}{edition.page_count ? ` · ${edition.page_count} pages` : ""} · {(edition.languages || []).join(", ") || "Language not listed"}</option>)}</select><p className="bv-help">Saved progress keeps this copy’s page total even if catalogue metadata changes.</p></details>}
-    <div className="bv-form-actions bv-workspace-actions" role="group" aria-label="Reading actions">
-      {(!attempt || terminal) && <Button disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry)}>{terminal ? "Start reading again" : "Start reading"}</Button>}
-      {attempt && <>{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : attempt.state === "paused" ? [["reading", "Resume reading"]] : []), ...(!terminal ? [["finished", "Finish book"], ["dnf", "Stop reading"]] : [["reading", "Reopen this reading"]])].map(([state, label]) => <Button key={label} variant={state === "finished" || (attempt.state === "paused" && state === "reading") ? "primary" : "secondary"} disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
-        accept(result);
-        if (state === "finished" && library.nextRead) setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration });
-      })}>{label}</Button>)}</>}
-      {(!attempt || terminal) && <><Button variant="secondary" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry, "finished")}>Record a past finish</Button><Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => create(entry, "dnf")}>Record a past stop</Button></>}
-      {attempt && <Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => openEditor(attempt)}>Edit progress or dates</Button>}
+    <div className={`bv-workspace-layout${finished ? " bv-workspace-layout--finished" : ""}`}>
+      {request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
+        : request.error || !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
+        : <>
+          <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_owned", "Own"], ["is_wanted", "Want"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{label}</Button>)}</div>} />
+          <ReadingProgress attempt={attempt} statusRef={statusHeading} readOnly={library.readOnly}>
+            <div className={`bv-workspace-primary-actions${attempt?.state === "paused" ? " bv-workspace-primary-actions--paused" : ""}`} role="group" aria-label="Reading actions">
+              {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
+              {attempt && <Button variant={attempt.state === "paused" || terminal ? "quiet" : "primary"} disabled={command.pending || Boolean(editing)} onClick={() => openEditor(attempt)}>{library.readOnly ? "View progress and dates" : terminal ? "Correct progress or dates" : "Update progress"}</Button>}
+              {attempt && !terminal && !library.readOnly && <div className="bv-workspace-state-actions">{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : [["reading", "Resume reading"]]), ["finished", "Finish book"], ["dnf", "Stop reading"]].map(([state, label]) => <Button key={label} variant={state === "reading" ? "primary" : state === "dnf" ? "quiet" : "secondary"} disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
+                accept(result);
+                if (state === "finished" && library.nextRead) { setNextDismissed(false); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration }); }
+              })}>{label}</Button>)}</div>}
+            </div>
+            {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" onClick={request.retry}>Reload current reading</Button></p>}
+          </ReadingProgress>
+          <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} />
+        </>}
+      {library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
+        enabled={loaded || Boolean(finished)} hidden={nextDismissed && !finished} finishId={finished?.id} finishedTitle={finished?.title}
+        onSkip={finished ? () => { setFinishNotice(null); setNextDismissed(true); (statusHeading.current || document.getElementById("bv-main"))?.focus(); } : undefined} />}
+      {/* Keep the editor at this stable sibling position, outside the loading
+          branch. Its original record/version must survive flag refetches. */}
+      {editing && <div className="bv-reading-draft bv-workspace-editor">{editing.kind === "progress" ? <ProgressForm key={`${selected.id}:${entryId}`} attempt={selected} version={editing.version} readOnly={library.readOnly || command.pending} onSaved={accept} /> : <ContextForm key={`${editing.kind}:${selected?.id || editing.entry.id}:${entryId}`} draft={editing} readOnly={library.readOnly || command.pending} onSaved={accept} />}
+        <p className="bv-help">Own and Want changes keep this draft. Save or close the editor before other reading actions. Closing discards unsaved edits and reloads the saved reading.</p>
+        <Button variant="quiet" onClick={() => { setEditing(null); request.retry(); }}>Close editor and reload</Button>
+        {editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id && <Button disabled={!entry || library.readOnly || command.pending} onClick={() => command.run(() => updateReadingAttempt(selected.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen selected reading (discard unsaved edits)</Button>}
+      </div>}
+      {library.privateContext && <details hidden={!loaded} className="bv-workspace-memory"><summary>My reading memory</summary>{loaded && <>
+        <p className="bv-help">Optional and private. One note and reaction for each reading.</p>
+        {entry.save_note && <p className="bv-private-text">{entry.save_note}</p>}
+        {!library.readOnly && <Button variant="quiet" disabled={command.pending || Boolean(editing)} onClick={() => setEditing({ kind: "save_note", entry, version: entry.version })}>{entry.save_note ? "Edit save reason" : "Add save reason (optional)"}</Button>}
+        {attempt && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
+          <Button variant="quiet" disabled={command.pending || Boolean(editing)} onClick={() => openMemory(attempt)}>{library.readOnly ? "View reading memory" : attempt.note || attempt.reaction ? "View or edit reading memory" : "Add note and reaction (optional)"}</Button></>}
+      </>}</details>}
+      <ReadingHistoryDisclosure entryId={entryId} visible={loaded} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal)} />
+      {entry && request.data?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={request.data.imported_sources_count} /></div>}
+      <details hidden={!loaded || library.readOnly} className="bv-workspace-manage"><summary>Manage this book</summary>{loaded && !library.readOnly && <>
+        {terminal && <p className="bv-help">This reading is saved. Start again for a new read, or reopen to correct this same record.</p>}
+        {(!attempt || terminal) && request.data.editions.length > 0 && <div className="bv-field"><label htmlFor="reading-edition">Your copy for the new reading (optional)</label><select id="reading-edition" value={editionId} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">Catalogue preferred edition</option>{request.data.editions.map(edition => <option key={edition.id} value={edition.id}>{edition.physical_format || "Edition"}{edition.page_count ? ` · ${edition.page_count} pages` : ""} · {(edition.languages || []).join(", ") || "Language not listed"}</option>)}</select><p className="bv-help">Saved progress keeps this copy’s page total even if catalogue metadata changes.</p></div>}
+        <div className="bv-form-actions bv-workspace-actions">
+          {terminal && <><Button variant="secondary" disabled={blocked} onClick={() => create(entry)}>Start reading again</Button><Button variant="quiet" disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen this reading</Button></>}
+          {(!attempt || terminal) && <><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "finished")}>Record a past finish</Button><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "dnf")}>Record a past stop</Button></>}
+          {library.privacyControls && <Button variant="quiet" disabled={command.pending || Boolean(editing) || Boolean(removal)} onClick={() => setRemoval({ entry })}>Forget this book</Button>}
+        </div>
+        {library.privacyControls && <p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p>}
+      </>}</details>
     </div>
-    {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" onClick={request.retry}>Reload current reading</Button></p>}
-    {library.privateContext && <details className="bv-reading-secondary" open={Boolean(entry.save_note || attempt?.note || attempt?.reaction)}><summary>Only for you</summary>
-      <p className="bv-help">You never need to write notes or choose a reaction to read, finish or use your library.</p>
-      {entry.save_note && <p className="bv-private-text">{entry.save_note}</p>}
-      <Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing)} onClick={() => setEditing({ kind: "save_note", entry, version: entry.version })}>{entry.save_note ? "Edit save reason" : "Add save reason (optional)"}</Button>
-      {attempt && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
-        <Button variant="quiet" disabled={command.pending || Boolean(editing)} onClick={() => openMemory(attempt)}>{library.readOnly ? "View reading memory" : attempt.note || attempt.reaction ? "View or edit reading memory" : "Add note and reaction (optional)"}</Button></>}
-    </details>}
-    {terminal && <p className="bv-help">This reading is saved. Start again for a new read, or reopen to correct this same record. Choosing your next book is always up to you.</p>}
-    </>}
-    {/* Keep the same editor mounted while flags refresh the workspace. Its
-        original version stays with the draft; a later save can conflict safely. */}
-    {editing && <div className="bv-reading-draft">{editing.kind === "progress" ? <ProgressForm key={`${selected.id}:${entryId}`} attempt={selected} version={editing.version} readOnly={library.readOnly || command.pending} onSaved={accept} /> : <ContextForm key={`${editing.kind}:${selected?.id || editing.entry.id}:${entryId}`} draft={editing} readOnly={library.readOnly || command.pending} onSaved={accept} />}
-      <p className="bv-help">Own and Want changes keep this draft. Save or close the editor before other reading actions. Closing discards unsaved edits and reloads the saved reading.</p>
-      <Button variant="quiet" onClick={() => { setEditing(null); request.retry(); }}>Close editor and reload</Button>
-      {editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id && <Button disabled={!entry || library.readOnly || command.pending} onClick={() => command.run(() => updateReadingAttempt(selected.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen selected reading (discard unsaved edits)</Button>}
-    </div>}
-    {entry && <ReadingHistory entry={entry} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal)} />}
-    {entry && request.data?.imported_sources_count > 0 && <ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={request.data.imported_sources_count} />}
-    {entry && library.privacyControls && <details className="bv-reading-secondary"><summary>Your data, your choice</summary><p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p><Button variant="quiet" disabled={library.readOnly || command.pending || Boolean(editing) || Boolean(removal)} onClick={() => setRemoval({ entry })}>Forget this book</Button></details>}
     {removal && <ReadingRemovalDialog key={removal.attempt?.id || removal.entry.id} entry={removal.entry} attempt={removal.attempt} onClose={() => setRemoval(null)} onRemoved={() => { setRemoval(null); request.retry(); }} />}
   </section>;
 }

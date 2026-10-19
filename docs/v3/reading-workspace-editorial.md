@@ -1,0 +1,72 @@
+# Editorial personal reading workspace
+
+Implementation candidate, 2026-10-19. Base: `origin/v3` at `b05bd690fe1d118c0c699be324d056bae0cd117f`. Feature: `codex/v3-reading-workspace-editorial`; proposed integration target: `v3`.
+
+Michael approved the editorial workspace composition and then requested that unnecessary/confusing elements be dropped. The supplied image is a hierarchy reference, not an expanded feature/navigation specification. This candidate changes the personal workspace at `/my-books/:entryId`; Home remains the current-reading desk and My Books remains the searchable collection, as accepted before this work.
+
+## Scope and intentional simplification
+
+- Book identity, real catalogue cover or existing dignified fallback, independent Own/Want, synopsis, and actual reading progress are visible in the workspace.
+- Update progress is prominent while reading; Resume is prominent while paused. Finish/Stop remain explicit commands. Missing progress says **Not tracking progress**; a recorded zero remains zero. Catalogue page counts never replace the saved reading's copy total.
+- One synopsis, four noninteractive subject labels at most, publication year only when supplied, and a secondary catalogue-details link. No main-card ISBN, invented language/first-publication information or metadata editing.
+- **My reading memory**, **Reading history** and **Manage this book** are native disclosures. They preserve their open state during workspace refreshes. Existing single-note/reaction and separate save-reason semantics remain. History fetches only after opening; individual private memory fetches only after explicit selection.
+- The existing Home / Discover / My Books / You navigation is unchanged. No extra workspace tab row, sidebar, notification control, global search, stats, highlights, activity timeline or new menu destination.
+- One optional **Next after this** Want preview. Expanding replaces the preview with the existing choice controls. A committed Finish promotes that same controller into the established Finish → Choose Next flow. No second recommendation module or automatic Start. Collapsing a catalogue exploration restores the default Want preview.
+- Reread/reopen, historical records, copy selection and Forget remain available in Manage; no additional primary buttons competing with Finish → Choose Next.
+- Existing warm ivory / charcoal, forest/sage/rust and typography tokens are reused. No new dependencies or design framework.
+
+## Files and architecture
+
+| File | Responsibility |
+| --- | --- |
+| `frontend/src/components/reading/ReadingBookContext.jsx` | Book identity, optional public synopsis/details, truthful reading progress presentation. |
+| `frontend/src/styles/ui-v2/reading-workspace.css` | Scoped desktop grid/mobile order; existing tokens only. |
+| `frontend/src/components/reading/ReadingPages.jsx` | Workspace composition and lazy history disclosure around existing captured-version forms/commands. Existing Home/Start/private-entry product logic is retained. |
+| `frontend/src/components/reading/NextReadSection.jsx` | One shared preview/full/Finish controller; same session, command identity, request and existing server contract. Default Home usage is retained. |
+| `frontend/src/api/books.js` | Bounded public book-details cache and in-flight deduplication. Existing list-cache contract unchanged. |
+
+No changes to `frontend/src/main.jsx`, retained legacy `App.jsx`, auth/providers/hooks, backend, schema, imports, dependencies, environment/hosting or production. No external missing-book lookup or catalogue migration is included.
+
+### Request budget and privacy
+
+Cold catalogue workspace: existing private workspace GET + one public `/books/:id` GET + one existing `/me/next-read` request when that capability is enabled. No automatic history, individual memory or per-candidate detail fan-out. Private entries issue no public detail GET.
+
+Successful public detail responses are whitelisted to existing public BookSchema fields, held in memory for 45 seconds, capped at 64 completed records and keyed by API origin/book ID. Concurrent consumers share one promise. Expired/failed/malformed responses refetch; errors never poison retry. Owner flags, entry identity, save reasons and reading notes/history do not enter this cache. Requests retain the client's existing timeout/wake-up policy.
+
+Expanding preview reuses its current request/session/response; it does not make a second identical initial Want request. Explicit filters/source/rotation and library revisions can request fresh choices as before. Current-book exclusion uses the existing bounded exclusion contract. Metadata arrival/failure/retry cannot remount or clear a dirty private editor.
+
+### State safety
+
+Editors remain at a stable sibling position outside workspace loading branches, keyed by record identity rather than changing versions. They keep their captured expected version; successful Own/Want refetches do not silently rebase a draft. Existing failures/conflicts retain values. Route/account departure clears private work through existing guards. No blanket conflict retries, autosave or changes to native reading/authorization semantics.
+
+Finish acknowledgement is independent of suggestions availability. Skip and collapse are guarded during explicit Start. Finish suggestions default back to Want and receive heading focus. Keyboard loading-to-identity focus follows the existing local containment pattern; deliberate focus moved to Back wins. The historical editor identity/focus and native removal dialog remain intact.
+
+## Validation and attribution
+
+All executions for this candidate use the isolated cloud checkout and wholly mocked browser API responses; native cache tests replace fetch. No Neon/production, real account, email, import or local database was contacted.
+
+- Focused composition run r1: 5 passed / 4 failed. Four assertions omitted the `Published 2000` prefix from an otherwise correct metadata paragraph; corrected test expectations, not metadata Retry behavior. Evidence retained in `workspace-editorial-focused.log` outside the repository.
+- Focused r2: **13/13 Chromium checks passed (2.7 minutes)**. Desktop/tablet/phone at 1440/768/390/320 in both themes; no horizontal overflow; no extra navigation; lazy history; private/no-metadata fallback; detail failure/retry; late metadata + dirty stale editor; truthful missing/zero/copy-specific progress; read-only view; delayed keyboard focus; account departure; preview request reuse/current exclusion/catalogue return; committed Finish/default Want/skip.
+- Public cache: **6/6 native checks passed**, direct `node frontend/tests/book-details-cache.test.mjs`. Covers concurrent deduplication, TTL, failed retry, bounded size, public-field whitelist and malformed-response recovery. Earlier `node --test` invocations reported a file-level result only; those are not counted as six checks.
+- Lint: passed with 12 existing warnings, no added warning. Production build passed in the focused run. Full-suite final disposition is recorded below when complete.
+- Initial broad regression invocation was intentionally interrupted to update legacy test paths for collapsed memory and scope private-note selectors away from the new synopsis. It is not a completed run or a pass. No application behavior was changed for those test updates.
+- Live API/Postgres journey test paths were updated for disclosures and new button labels but **not executed**. Earlier milestone QA remains attributed to its original SHAs; it does not certify this new layout.
+
+## Review and independent QA handoff
+
+This is an isolated UI feature branch and draft-review candidate, not a merge/deployment or release-readiness claim. The lead's latest observable work was in a separate catalogue repository. No mutual file-ownership acknowledgement or independent QA execution hold has been obtained for this candidate; this must be reconciled before integration. Stateful files `ReadingPages.jsx`, `NextReadSection.jsx` and shared `api/books.js` require explicit lead source review. No claim is made that a direct cross-chat message was delivered.
+
+Freeze the published application SHA for independent QA. Do not overlap application edits/builds during that hold. Required review scenarios:
+
+1. Desktop/phone both palettes, long title/author, actual covers and missing covers, 200% zoom/text, native disclosure keyboard behavior, visible focus and fixed bottom-navigation clearance.
+2. Reading/paused/new/finished/stopped; saved zero/missing/pages/percent/100%-still-reading; private/copy-specific totals; explicit reread versus reopening; Own preserved and Want cleared on Start.
+3. Dirty progress/memory across held metadata/flag/workspace responses, safe conflict/failure and captured identity/version; source and account departure; no late private results/focus in another account.
+4. Cold/warm/expired/concurrent public details; zero detail reads for private books; opening/reopening history; no per-card/history request fan-out; preview/full response reuse.
+5. Finish acknowledgement, one optional next module, empty/failed/short Want, explicit catalogue exploration, current exclusion, source changes, pending Start/collapse/skip and stale choices.
+6. Independent live API/database compatibility only under the founder's existing environment/approval boundaries. Browser mocks are not a backend integration pass.
+
+Physical iPhone Safari, hosted acceptance, current native-export acceptance and other documented public-release gates remain separate/open. This layout does not reopen the previously corrected Safari jump as an unfixed defect, and cloud Chromium is not Safari certification.
+
+## Final candidate results
+
+Pending completion of the frozen full frontend regression run and review artifact publication. No merge/deployment/public GO.
