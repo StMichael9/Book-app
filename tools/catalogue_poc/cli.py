@@ -1,5 +1,6 @@
 """Standalone experiment CLI. No app imports, dotenv loading or default DB URL."""
 import argparse
+from email.utils import parsedate_to_datetime
 import json
 import os
 import re
@@ -7,7 +8,8 @@ import statistics
 import sys
 import time
 import requests
-from urllib3.exceptions import HTTPError as StreamNetworkError
+from urllib3.exceptions import (HTTPError as StreamNetworkError, ProtocolError,
+                               ReadTimeoutError, ConnectTimeoutError)
 
 from . import normalize as n
 from .dumps import stream_dump
@@ -15,6 +17,26 @@ from .ingest import Paused, build_index, consume, start
 from .query import by_isbn, by_work, search
 from .quota import Account, Guard, QuotaPaused
 from .storage import CatalogueError, Store
+
+MAX_SOURCE_ATTEMPTS = 12
+MAX_STALLED_ATTEMPTS = 3
+
+
+def source_retry_delay(exc, stalled):
+    """Bounded backoff; respect numeric/date Retry-After without logging headers."""
+    delay = min(60, 2 ** max(1, stalled))
+    response = getattr(exc, 'response', None)
+    value = response.headers.get('Retry-After') if response is not None else None
+    value = value.strip() if isinstance(value, str) and len(value) <= 128 else None
+    if value:
+        try:
+            requested = int(value) if value.isdigit() else parsedate_to_datetime(value).timestamp() - time.time()
+            if requested > 3600:
+                raise Paused('Source requested a long cooldown; review before continuation', kind='source')
+            delay = max(delay, max(0, requested))
+        except (ValueError, TypeError, OverflowError):
+            pass  # A malformed optional header does not disable bounded backoff.
+    return delay
 
 
 def main(argv=None, *, store=None, guard=None, absolute_deadline=None):
@@ -126,7 +148,11 @@ def main(argv=None, *, store=None, guard=None, absolute_deadline=None):
                     continue
                 file = manifest['files'][run['phase']]
                 metrics={}
-                for attempt in range(3):
+                attempts = stalled = 0
+                while True:
+                    heartbeat()
+                    attempts += 1
+                    before_checkpoint = run['checkpoint']
                     stream = stream_dump(file['url'], start_line=run['checkpoint'], user_agent=user_agent,
                         expected_size=file['size'], expected_md5=file['md5'], progress_callback=heartbeat,metrics=metrics)
                     try:
@@ -135,16 +161,41 @@ def main(argv=None, *, store=None, guard=None, absolute_deadline=None):
                         break
                     except (requests.RequestException,StreamNetworkError) as exc:
                         status=getattr(getattr(exc,'response',None),'status_code',None)
-                        if attempt==2 or status is not None and status not in (429,500,502,503,504):
-                            raise CatalogueError('Source network request failed after bounded retries; checkpoint retained') from None
-                        print(json.dumps({'phase':run['phase'],'source_retry':attempt+1,
-                                          'checkpoint':run['checkpoint']}),flush=True)
-                        heartbeat()
-                        time.sleep(2**(attempt+1))
+                        progressed = run['checkpoint'] > before_checkpoint
+                        stalled = 0 if progressed else stalled + 1
+                        transient = ((status in (429,500,502,503,504)) if status is not None else
+                            isinstance(exc, (requests.ConnectionError, requests.Timeout,
+                                requests.exceptions.ChunkedEncodingError, ProtocolError,
+                                ReadTimeoutError, ConnectTimeoutError)))
+                        transient = transient and not isinstance(exc, requests.exceptions.SSLError)
+                        retry = transient and attempts < MAX_SOURCE_ATTEMPTS and stalled < MAX_STALLED_ATTEMPTS
+                        # Only exception class/status/counters: never raw exception text,
+                        # response bodies, URLs, headers, credentials or source records.
+                        print(json.dumps({'event':'source_retry' if retry else 'source_failure',
+                            'phase':run['phase'],'attempt':attempts,'stalled_attempts':stalled,
+                            'checkpoint_before':before_checkpoint,'checkpoint':run['checkpoint'],
+                            'committed_progress':progressed,'exception_type':type(exc).__name__,
+                            'http_status':status,'retryable':bool(transient)}),flush=True)
+                        if not retry:
+                            raise CatalogueError('Source download stopped: non-retryable error or bounded '
+                                'attempt/no-progress budget exhausted; checkpoint retained') from None
+                        delay = source_retry_delay(exc, stalled)
+                        if time.monotonic() + delay >= deadline:
+                            raise Paused('Source retry cooldown exceeds remaining runner budget; review before continuation',
+                                         kind='source') from None
                     except (EOFError,OSError):
                         raise CatalogueError('Truncated or invalid compressed source; checkpoint retained, phase unverified') from None
                     finally:
                         stream.close()
+                    # Close each failed stream before backoff/replay. Poll guards
+                    # during waits; the absolute deadline is never replenished.
+                    while delay > 0:
+                        heartbeat()
+                        if guard:
+                            guard.check()
+                        interval = min(10, delay)
+                        time.sleep(interval)
+                        delay -= interval
                 print(json.dumps({'phase': run['phase'], 'checkpoint': run['checkpoint'],
                     'counters': json.loads(run['counters']), 'bytes': store.size(),'source':metrics}), flush=True)
             result = {'run': run['id'], 'phase': run['phase'], 'counters': json.loads(run['counters']),

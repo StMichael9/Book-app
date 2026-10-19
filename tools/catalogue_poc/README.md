@@ -255,3 +255,28 @@ unknown safety pauses stop for review even when a checkpoint was saved.
 
 Run all isolated tests with `python -m unittest discover -s tools/catalogue_poc/tests -v`.
 The original56 tests remain part of this command; quota/growth tests are additional.
+
+## Progress-aware source recovery
+
+The first100K attempt stopped after its third recoverable stream interruption,
+despite committed progress between interruptions. The recovery correction keeps
+the same run/manifest/checkpoints and safety guards: at most12source attempts per
+phase within the existing absolute deadline, and at most3consecutive attempts
+without checkpoint progress. Committed progress resets only the no-progress
+counter, not the total-attempt or time/quota budgets. Every replay starts from the
+stored checkpoint and still hashes the complete compressed source toEOF.
+
+Transient connection/timeouts/protocol errors and HTTP429/500/502/503/504 may
+retry. Other HTTP/configuration/TLS errors stop immediately. Numeric and HTTP-date
+Retry-After is respected; exponential backoff is capped at60seconds, source
+cooldowns at one hour, with waits split into at most10-second guarded intervals.
+A cooldown that outlasts the runner budget is a source pause, not permission to
+restart immediately. Failed streams close before waiting. Checksum/CRC/truncation,
+quota and ambiguous database failures are not retried as source-network failures.
+
+Diagnostics record only class/status, attempt/stall counts and before/after
+checkpoints, never raw errors/headers/source bodies or credentials. Exhaustion
+still stops for review; there is no endless retry, automatic paid fallback or
+new snapshot. Synthetic recovery tests include five progressing interruptions,
+12attempt and3stalled bounds, persisted-run resume without duplicate rows, rate
+limits/cooldowns, redaction, stream cleanup and deadline/quota checks.
