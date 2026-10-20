@@ -264,10 +264,12 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
         base_invalid=counters.get('invalid',0)
 
         def write(entries,end_line,rejected):
-            if (store.size()>=max_bytes or store.rows_written>=max_rows_written
-                    or deadline and time.monotonic()>=deadline):
-                raise Paused('Storage/write/time safety threshold reached; checkpoint retained',
-                             kind='time' if deadline and time.monotonic()>=deadline else 'capacity')
+            # Capacity wins if a deadline and a resource limit coincide. Only
+            # an otherwise safe deadline stop may authorize continuation.
+            if store.size()>=max_bytes or store.rows_written>=max_rows_written:
+                raise Paused('Storage/write safety threshold reached; checkpoint retained', kind='capacity')
+            if deadline and time.monotonic()>=deadline:
+                raise Paused('Batch time budget reached; checkpoint retained', kind='time')
             statements,added=phase_statements(store,phase,[entry[0] for entry in entries],snapshot,
                                               max(0,run['target']-counters['works']))
             next_counts={**counters,'works':counters['works']+added,'invalid':base_invalid+rejected}
@@ -321,10 +323,10 @@ def consume(store, run, rows, *, batch_size=50, max_bytes=4_000_000_000,
             if counters['works']==0:
                 raise CatalogueError('No valid works accepted; source phase cannot be accepted')
             counters['target_shortfall']=max(0,run['target']-counters['works'])
-        if (store.size()>=max_bytes or store.rows_written+16>=max_rows_written
-                or deadline and time.monotonic()>=deadline):
-            raise Paused('Phase transition paused at the committed checkpoint',
-                         kind='time' if deadline and time.monotonic()>=deadline else 'capacity')
+        if store.size()>=max_bytes or store.rows_written+16>=max_rows_written:
+            raise Paused('Phase transition storage/write safety threshold reached; checkpoint retained', kind='capacity')
+        if deadline and time.monotonic()>=deadline:
+            raise Paused('Phase transition time budget reached; checkpoint retained', kind='time')
         proofs = sorted(set(proofs+[phase]))
         next_phase = PHASES[PHASES.index(phase)+1]
         checkpoint(store, run, [], 0, counters, next_phase, proofs)

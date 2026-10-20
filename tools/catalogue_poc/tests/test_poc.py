@@ -128,6 +128,66 @@ class CatalogueTests(unittest.TestCase):
         self.assertEqual(self.run['checkpoint'],0)
         self.assertEqual(self.store.run('SELECT count(*) n FROM works')[0]['n'],0)
 
+    def test_batch_deadline_has_unambiguous_time_reason(self):
+        now = [0]
+        size = self.store.size()
+        def size_after_deadline():
+            now[0] = 10
+            return size
+        with patch('tools.catalogue_poc.ingest.time.monotonic', side_effect=lambda: now[0]), \
+                patch.object(self.store, 'size', side_effect=size_after_deadline), \
+                self.assertRaises(Paused) as caught:
+            consume(self.store,self.run,rows([work()]),batch_size=1,deadline=5)
+        self.assertEqual(caught.exception.kind,'time')
+        self.assertEqual(str(caught.exception),'Batch time budget reached; checkpoint retained')
+        self.assertEqual(self.run['checkpoint'],0)
+        self.assertEqual(self.store.run('SELECT count(*) n FROM works')[0]['n'],0)
+
+    def test_batch_capacity_wins_when_deadline_also_expires(self):
+        size = self.store.size()
+        for resource in ('storage','writes'):
+            with self.subTest(resource=resource):
+                now = [0]
+                def size_after_deadline():
+                    now[0] = 10
+                    if resource=='writes':
+                        self.store.rows_written = 1
+                    return size
+                limits = {'max_bytes':1} if resource=='storage' else {'max_rows_written':1}
+                with patch('tools.catalogue_poc.ingest.time.monotonic', side_effect=lambda: now[0]), \
+                        patch.object(self.store,'size',side_effect=size_after_deadline), \
+                        self.assertRaises(Paused) as caught:
+                    consume(self.store,self.run,rows([work()]),batch_size=1,deadline=5,**limits)
+                self.assertEqual(caught.exception.kind,'capacity')
+                self.assertNotIn('time',str(caught.exception))
+                self.assertEqual(self.run['checkpoint'],0)
+                self.assertEqual(self.store.run('SELECT count(*) n FROM works')[0]['n'],0)
+
+    def test_phase_deadline_does_not_accept_source_proof(self):
+        consume(self.store,self.run,rows([work()]))
+        with patch('tools.catalogue_poc.ingest.time.monotonic',return_value=10), \
+                self.assertRaises(Paused) as caught:
+            consume(self.store,self.run,rows([]),deadline=5,eof_verified=True)
+        self.assertEqual(caught.exception.kind,'time')
+        self.assertEqual(str(caught.exception),'Phase transition time budget reached; checkpoint retained')
+        self.assertEqual(self.run['checkpoint'],1)
+        self.assertEqual(self.run['phase'],'works')
+        self.assertEqual(json.loads(self.run['verified_phases']),[])
+
+    def test_phase_capacity_wins_when_deadline_also_expires(self):
+        consume(self.store,self.run,rows([work()]))
+        for resource in ('storage','writes'):
+            with self.subTest(resource=resource):
+                limits = {'max_bytes':1} if resource=='storage' else {'max_rows_written':1}
+                with patch('tools.catalogue_poc.ingest.time.monotonic',return_value=10), \
+                        self.assertRaises(Paused) as caught:
+                    consume(self.store,self.run,rows([]),deadline=5,eof_verified=True,**limits)
+                self.assertEqual(caught.exception.kind,'capacity')
+                self.assertNotIn('time',str(caught.exception))
+                self.assertEqual(self.run['checkpoint'],1)
+                self.assertEqual(self.run['phase'],'works')
+                self.assertEqual(json.loads(self.run['verified_phases']),[])
+
     def test_index_needs_every_verified_phase(self):
         self.run['phase']='index'
         with self.assertRaises(ValueError):
