@@ -33,6 +33,15 @@
 .bv-root .bv-reading-synopsis { line-height: 1.7; color: var(--bv-muted); }
 .bv-root .bv-reading-synopsis--short { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-workspace-about > .bv-text-link { display: flex; margin-top: 4px; font-size: 14px; }
+.bv-root .bv-workspace-memory { background: transparent; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; padding: 22px 0; }
+.bv-root .bv-workspace-memory h2 { font-size: 25px; margin-bottom: 12px; }
+.bv-root .bv-save-reason { margin-top: 20px; }
+.bv-root :is(.bv-save-reason, .bv-progress-settings, .bv-note-options) > summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--bv-muted); }
+.bv-root .bv-progress-settings[open], .bv-root .bv-note-options[open] { display: grid; gap: 12px; }
+.bv-root :is(.bv-progress-settings, .bv-note-options) input, .bv-root .bv-note-options select { width: 100%; }
+.bv-root .bv-reading-library .bv-filter-groups { align-items: center; gap: 12px; }
+.bv-root .bv-library-more > summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
+.bv-root .bv-library-more[open] { width: 100%; }
 .bv-root :is(.bv-workspace-memory, .bv-workspace-history, .bv-workspace-imported, .bv-workspace-manage) { grid-column: 1; }
 .bv-root :is(.bv-workspace-memory, .bv-workspace-history, .bv-workspace-manage) > summary,
 .bv-root .bv-workspace-imported .bv-section > details > summary { font: 500 24px/1.4 var(--bv-display); cursor: pointer; min-height: 44px; align-content: center; }

@@ -235,9 +235,19 @@ for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "fai
 test("M4 failed finish never opens next choices", async ({ page, app }) => {
   app.finishFails = true;
   await page.goto("/my-books/1");
+  // The quiet workspace preview is valid before Finish. A rejected Finish
+  // must neither refetch choices nor promote that preview to a finish flow.
+  const preview = page.getByRole("region", { name: "Next after this", exact: true });
+  await expect(preview.getByRole("link", { name: "Open your book", exact: true })).toBeVisible();
+  const requestsBeforeFinish = app.requests.filter(item => item.path === "/me/next-read").length;
+  expect(requestsBeforeFinish).toBe(1);
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
-  expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(0);
+  expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(requestsBeforeFinish);
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Choose your next read", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Not now", exact: true })).toHaveCount(0);
+  await expect(preview).toBeVisible();
   expect(app.attempts.get(1).state).toBe("reading");
 });
 

@@ -12,6 +12,7 @@ const makeEntry = (id, state = "reading", privateBook = false) => ({
 });
 
 async function openDisclosure(page, label) {
+  if (label === "My reading memory") { await expect(page.getByRole("region", { name: label, exact: true })).toBeVisible(); label = "Why I saved this book"; }
   const section = page.locator("details").filter({ has: page.getByText(label, { exact: true }) });
   await expect(section.locator(":scope > summary")).toBeVisible();
   if (!(await section.evaluate(node => node.open))) await section.locator(":scope > summary").click();
@@ -185,7 +186,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     expect((await first.boundingBox()).y).toBeLessThan(750);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`reading-desk-${theme}-${width}.png`), fullPage: true });
-    await page.getByRole("link", { name: "Open My Books", exact: true }).click();
+    await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "My Books", exact: true }).click();
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toBeVisible();
@@ -203,7 +204,7 @@ test("UI refactor catalogue and private library titles open personal workspaces"
   await page.goto("/my-books");
   await expect(page.getByRole("link", { name: "Reading fixture 101", exact: true })).toHaveAttribute("href", "/my-books/101");
   await expect(page.getByRole("link", { name: "Private fixture 103", exact: true })).toHaveAttribute("href", "/my-books/103");
-  await expect(page.getByRole("link", { name: "About this book: Reading fixture 101", exact: true })).toHaveAttribute("href", "/book/101");
+  await expect(page.getByRole("link", { name: "About this book: Reading fixture 101", exact: true })).toHaveCount(0);
   await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible();
   expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
@@ -231,7 +232,7 @@ for (const theme of ["light", "dark"]) test(`editorial workspace is book-first w
     await expect(page.getByText("Published 2000 · Catalogue: 999 pages · your copy may differ", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: "On this book" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeVisible();
     expect(app.requests.slice(before).filter(r => r.path.endsWith("/attempts"))).toHaveLength(0);
     expect(app.requests.slice(before).filter(r => r.path === "/books/101")).toHaveLength(1);
     expect(app.requests.slice(before).filter(r => r.path === "/me/next-read")).toHaveLength(1);
@@ -263,7 +264,9 @@ for (const theme of ["light", "dark"]) test(`editorial workspace phone text enla
   await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
   const stop = page.getByRole("button", { name: "Stop reading", exact: true });
   await stop.focus(); await page.keyboard.press("Tab");
-  await expect(page.locator(".bv-workspace-memory > summary")).toBeFocused();
+  await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.locator(".bv-save-reason > summary")).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.locator(".bv-workspace-history > summary")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -323,13 +326,14 @@ test("editorial workspace late metadata preserves a dirty version-captured edito
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: "Update progress", exact: true }).click();
     const field = page.getByLabel("Percent complete", { exact: true }); await field.fill("25");
+    await openDisclosure(page, "Manage this book");
     const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
     await want.click(); await expect(want).toHaveAttribute("aria-pressed", "true");
     await expect(field).toHaveValue("25"); await field.focus();
     release();
     await expect(page.getByText("Published 2000 · Catalogue: 999 pages · your copy may differ", { exact: true })).toBeVisible();
     await expect(field).toBeFocused();
-    await page.getByRole("button", { name: "Save progress and dates", exact: true }).click();
+    await page.getByRole("button", { name: "Save progress", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Your draft is still here");
     await expect(field).toHaveValue("25"); expect(app.attempt.progress_value).toBe(40);
     expect(app.requests.filter(r => r.path === "/books/101")).toHaveLength(1);
@@ -352,8 +356,7 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   app.attempt.state = "paused"; app.entries.get(101).reading_state = "paused";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/101");
-  const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
-  await want.focus();
+  await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
   for (const label of ["Resume reading", "Finish book", "Stop reading", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
@@ -369,7 +372,7 @@ test("editorial workspace read-only progress is a view with no writable controls
   await page.goto("/my-books/101");
   await page.getByRole("button", { name: "View progress and dates", exact: true }).click();
   await expect(page.getByLabel("Percent complete", { exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Save progress and dates", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save progress", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Finish book", exact: true })).toHaveCount(0);
   expect(app.requests.filter(r => r.method === "PATCH")).toHaveLength(0);
 });
@@ -537,12 +540,14 @@ for (const flag of ["Own", "Want"]) {
   test(`${flag} success preserves progress/date drafts across refresh without silently rebasing`, async ({ page, app }) => {
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+    await openDisclosure(page, "Format, copy & dates");
     await page.getByLabel("Percent complete", { exact: true }).fill("25");
     await page.getByLabel("Started on (optional)", { exact: true }).fill("2026-09-10");
     let release;
     app.holdWorkspace = new Promise(resolve => { release = resolve; });
     try {
       const before = app.requests.filter(request => request.path.endsWith("/reading")).length;
+      await openDisclosure(page, "Manage this book");
       await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: flag, exact: true }).click();
       await expect.poll(() => app.requests.filter(request => request.path.endsWith("/reading")).length).toBeGreaterThan(before);
       await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
@@ -550,7 +555,7 @@ for (const flag of ["Own", "Want"]) {
       release(); app.holdWorkspace = null;
       await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible();
       await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
-      await page.getByRole("button", { name: "Save progress and dates", exact: true }).click();
+      await page.getByRole("button", { name: "Save progress", exact: true }).click();
       await expect(page.getByRole("alert")).toContainText("Your draft is still here");
       expect(app.requests.filter(request => request.path.includes("/reading-attempts/")).at(-1).body.expected_version).toBe(2);
       expect(app.attempt.progress_value).toBe(40);
@@ -560,9 +565,10 @@ for (const flag of ["Own", "Want"]) {
       await expect(page.getByText("Closing discards unsaved edits", { exact: false })).toBeVisible();
       await page.getByRole("button", { name: "Close editor and reload", exact: true }).click();
       await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+      await openDisclosure(page, "Format, copy & dates");
       await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
       await page.getByLabel("Percent complete", { exact: true }).fill("25");
-      await page.getByRole("button", { name: "Save progress and dates", exact: true }).click();
+      await page.getByRole("button", { name: "Save progress", exact: true }).click();
       await expect(page.getByText("25%", { exact: true })).toBeVisible();
       expect(app.attempt.progress_value).toBe(25);
     } finally { release(); }
@@ -571,13 +577,15 @@ for (const flag of ["Own", "Want"]) {
   test(`${flag} failure preserves the draft and still permits a version-safe save`, async ({ page, app }) => {
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+    await openDisclosure(page, "Format, copy & dates");
     await page.getByLabel("Percent complete", { exact: true }).fill("25");
     await page.getByLabel("Started on (optional)", { exact: true }).fill("2026-09-10");
     app.flagFails = true;
+    await openDisclosure(page, "Manage this book");
     await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: flag, exact: true }).click();
     await expect(page.getByRole("alert")).toBeVisible();
     await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
-    await page.getByRole("button", { name: "Save progress and dates", exact: true }).click();
+    await page.getByRole("button", { name: "Save progress", exact: true }).click();
     await expect(page.getByText("25%", { exact: true })).toBeVisible();
     expect(app.attempt.started_on).toBe("2026-09-10");
     expect(app.entries.get(101).version).toBe(3);
@@ -610,7 +618,7 @@ test("read-only creation explains disabled controls and is not advertised upstre
   await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
-  await page.getByRole("link", { name: "Your reading home", exact: true }).click();
+  await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Changes are temporarily paused." })).toBeVisible();
   await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
   expect(app.requests.some(request => ["PUT", "PATCH", "POST"].includes(request.method) && request.path !== "/auth/refresh")).toBe(false);
@@ -629,12 +637,14 @@ for (const mode of ["disabled", "oldBackend"]) {
 test("drafts clear on route or account departure, not on workspace refresh", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await openDisclosure(page, "Format, copy & dates");
   await page.getByLabel("Percent complete", { exact: true }).fill("25");
   await page.evaluate(() => { history.pushState(null, "", "/my-books/102"); window.dispatchEvent(new PopStateEvent("popstate")); });
   await expect(page.getByRole("heading", { name: "Reading fixture 102", exact: true })).toBeVisible();
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveCount(0);
   await page.goBack();
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await openDisclosure(page, "Format, copy & dates");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
   app.authenticated = false;
   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
@@ -647,18 +657,19 @@ test("M3 private memory retains failed drafts, renders plain text and can be cle
   app.privateContext = true;
   await page.goto("/my-books/101");
   await openDisclosure(page, "My reading memory");
-  await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
   const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   const note = '<img src=x onerror="window.noteExecuted=true">\nMy private memory 読書';
   await expect(field).toHaveAttribute("maxlength", "2000");
   await field.fill(note);
+  await openDisclosure(page, "Reaction (optional)");
   await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("liked");
   app.contextFails = true;
-  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");
   await expect(field).toHaveValue(note);
   app.contextFails = false;
-  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText(note);
   await expect(page.getByText("Liked it", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => window.noteExecuted)).toBeUndefined();
@@ -666,12 +677,13 @@ test("M3 private memory retains failed drafts, renders plain text and can be cle
   await page.reload();
   await openDisclosure(page, "My reading memory");
   await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText(note);
-  await page.getByRole("button", { name: "View or edit reading memory", exact: true }).click();
+  await page.getByRole("button", { name: "Edit note", exact: true }).click();
   await field.fill("");
+  await openDisclosure(page, "Reaction (optional)");
   await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("");
-  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
   await openDisclosure(page, "My reading memory");
-  await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeVisible();
   expect(app.attempt.note).toBeNull(); expect(app.attempt.reaction).toBeNull();
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("My private memory");
 });
@@ -696,13 +708,15 @@ test("M3 stale memory draft survives flag updates without rebasing", async ({ pa
   app.privateContext = true;
   await page.goto("/my-books/101");
   await openDisclosure(page, "My reading memory");
-  await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
   const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   await field.fill("Unsaved reader context");
+  await openDisclosure(page, "Manage this book");
   await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true }).click();
+  await openDisclosure(page, "Manage this book");
   await expect(page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(field).toHaveValue("Unsaved reader context");
-  await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");
   await expect(field).toHaveValue("Unsaved reader context");
   expect(app.requests.filter(request => request.method === "PATCH" && request.path.includes("reading-attempts")).at(-1).body.expected_version).toBe(2);
@@ -717,7 +731,7 @@ test("M3 read-only history can show private memory without allowing saves", asyn
   await openDisclosure(page, "Reading history");
   await page.locator(".bv-reading-history").getByRole("button", { name: "View reading memory", exact: true }).click();
   await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveValue("Preserved private memory");
-  await expect(page.getByRole("button", { name: "Save reading memory", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save note", exact: true })).toBeDisabled();
   expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
 });
 
@@ -737,6 +751,7 @@ test("M3 historical memory and correction identify the selected record and recei
   const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   await expect(field).toHaveValue("Earlier reading memory");
   await field.fill("Unsaved earlier memory");
+  await openDisclosure(page, "Manage this book");
   const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
   await want.click();
   await expect(want).toHaveAttribute("aria-pressed", "true");
@@ -752,11 +767,11 @@ test("M3 historical memory and correction identify the selected record and recei
 test("M3 empty read-only memory advertises viewing rather than adding context", async ({ page, app }) => {
   app.privateContext = true; app.readOnly = true;
   await page.goto("/my-books/101");
-  await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add a note", exact: true })).toHaveCount(0);
   await openDisclosure(page, "My reading memory");
-  await page.getByRole("button", { name: "View reading memory", exact: true }).first().click();
+  await page.getByRole("button", { name: "View note", exact: true }).first().click();
   await expect(page.getByText("No note or reaction is saved for this reading. Changes are temporarily paused.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save reading memory", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save note", exact: true })).toBeDisabled();
   expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
 });
 
@@ -776,7 +791,7 @@ test("M3 late context response cannot reopen a departed account's draft", async 
   try {
     await page.goto("/my-books/101");
     await openDisclosure(page, "My reading memory");
-    await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
+    await page.getByRole("button", { name: "Add a note", exact: true }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "GET" && request.path.includes("reading-attempts")).length).toBe(1);
     app.authenticated = false;
     await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
@@ -784,4 +799,135 @@ test("M3 late context response cannot reopen a departed account's draft", async 
     release();
     await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveCount(0);
   } finally { release(); }
+});
+
+for (const theme of ["light", "dark"]) test(`zero-friction active reader journey and responsive evidence; ${theme}`, async ({ page, app }) => {
+  app.privateContext = true; app.nextRead = true;
+  app.entries.set(201, { ...makeEntry(201, null), is_wanted: true });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/my-books");
+    const cards = page.locator(".bv-personal-book");
+    await expect(cards).toHaveCount(3);
+    await expect(cards.getByRole("button")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /^Open your reading:/ })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button")).toHaveCount(3);
+    await page.screenshot({ path: test.info().outputPath(`simplified-library-${theme}-${width}.png`), fullPage: true });
+    await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Update progress", exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath(`simplified-workspace-${theme}-${width}.png`), fullPage: true });
+    await page.getByRole("button", { name: "Update progress", exact: true }).click();
+    const settings = page.locator(".bv-progress-settings");
+    await expect(settings).not.toHaveAttribute("open");
+    await expect(page.getByLabel("Progress", { exact: true })).toBeHidden();
+    await expect(page.getByLabel("Total pages (optional)", { exact: true })).toBeHidden();
+    await expect(page.getByLabel("Started on (optional)", { exact: true })).toBeHidden();
+    const field = page.getByLabel("Percent complete", { exact: true });
+    await field.fill("55");
+    await page.screenshot({ path: test.info().outputPath(`quick-progress-${theme}-${width}.png`), fullPage: true });
+    await page.getByRole("button", { name: "Save progress", exact: true }).click();
+    await expect(page.getByText("55%", { exact: true })).toBeVisible();
+    expect(app.attempt.state).toBe("reading");
+    expect(app.attempt.started_on).toBeNull(); expect(app.attempt.total_pages).toBe(200);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
+  const note = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
+  await note.fill("Keep this thought — 読書");
+  await expect(page.getByLabel("Reaction (optional)", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
+  await expect(page.getByText("Keep this thought — 読書", { exact: true })).toBeVisible();
+  expect(app.attempt.reaction ?? null).toBeNull();
+  await page.getByRole("button", { name: "Pause reading", exact: true }).click();
+  await page.getByRole("button", { name: "Resume reading", exact: true }).click();
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
+  expect(app.attempt.state).toBe("finished");
+  expect(app.attempt.note).toBe("Keep this thought — 読書");
+  await page.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+  await test.info().attach("developer-simulated-task-counts", { body: JSON.stringify({ libraryOpen: { navigations: 1 }, configuredProgress: { buttonActivations: 2, valueEdits: 1 }, note: { buttonActivations: 2, textEdits: 1 }, pause: 1, resume: 1, finish: 1, skip: 1, realParticipants: 0 }), contentType: "application/json" });
+});
+
+test("zero-friction dirty note survives a cancelled link departure; accepted departure clears private draft", async ({ page, app }) => {
+  app.privateContext = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
+  const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
+  await field.fill("Unsaved private note");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/101$/); await expect(field).toHaveValue("Unsaved private note");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  await expect(field).toHaveCount(0); expect(app.attempt.note ?? null).toBeNull();
+});
+
+test("zero-friction first progress setup and zero/full values never invent dates, totals or a finish", async ({ page, app }) => {
+  Object.assign(app.attempt, { progress_unit: null, progress_value: null, total_pages: null });
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Update progress", exact: true }).click();
+  await expect(page.getByLabel("Progress", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Started on (optional)", { exact: true })).toBeHidden();
+  await page.getByLabel("Progress", { exact: true }).selectOption("pages");
+  await page.getByLabel("Current page", { exact: true }).fill("0");
+  await page.getByRole("button", { name: "Save progress", exact: true }).click();
+  await expect(page.getByText("Page 0", { exact: true })).toBeVisible();
+  expect(app.attempt.total_pages).toBeNull(); expect(app.attempt.started_on).toBeNull();
+  for (const value of ["0", "100"]) {
+    await page.getByRole("button", { name: "Update progress", exact: true }).click();
+    await openDisclosure(page, "Format, copy & dates");
+    await page.getByLabel("Progress", { exact: true }).selectOption("percent");
+    await page.getByLabel("Percent complete", { exact: true }).fill(value);
+    await page.getByRole("button", { name: "Save progress", exact: true }).click();
+    await expect(page.getByText(`${value}%`, { exact: true })).toBeVisible();
+    expect(app.attempt.state).toBe("reading");
+    expect(app.attempt.total_pages).toBeNull(); expect(app.attempt.started_on).toBeNull();
+  }
+});
+
+test("zero-friction note-only edits preserve an unopened reaction and read-only copy stays truthful", async ({ page, app }) => {
+  app.privateContext = true; app.attempt.reaction = "loved";
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Edit note", exact: true }).click();
+  await page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true }).fill("Only my note changes");
+  await expect(page.getByLabel("Reaction (optional)", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Save note", exact: true }).click();
+  await expect(page.getByText("Only my note changes", { exact: true })).toBeVisible();
+  expect(app.attempt.reaction).toBe("loved");
+  app.attempt.note = null; app.readOnly = true;
+  await page.reload();
+  const memory = page.getByRole("region", { name: "My reading memory", exact: true });
+  await expect(memory.getByText("Loved it", { exact: true })).toBeVisible();
+  await expect(memory.getByText(/No note or reaction is saved/)).toHaveCount(0);
+  await expect(memory.getByRole("button", { name: "View note", exact: true })).toBeVisible();
+});
+
+test("zero-friction manage disclosure remains open after each independent flag acknowledgement", async ({ page, app }) => {
+  await page.goto("/my-books/101");
+  await openDisclosure(page, "Manage this book");
+  const flags = page.getByRole("group", { name: "Your book flags", exact: true });
+  await flags.getByRole("button", { name: "Want", exact: true }).click();
+  await expect(flags.getByRole("button", { name: "Want", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await flags.getByRole("button", { name: "Own", exact: true }).click();
+  await expect(flags.getByRole("button", { name: "Own", exact: true })).toHaveAttribute("aria-pressed", "false");
+  expect(app.entries.get(101).is_wanted).toBe(true); expect(app.entries.get(101).is_owned).toBe(false);
+  expect(app.attempt.state).toBe("reading");
+});
+
+test("zero-friction dirty progress can cancel native reload without losing its value", async ({ page, app }) => {
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Update progress", exact: true }).click();
+  const field = page.getByLabel("Percent complete", { exact: true });
+  await field.fill("29");
+  const dialogReady = page.waitForEvent("dialog");
+  // Trigger the native reload without Playwright waiting for a load event
+  // that intentionally never occurs when the user cancels beforeunload.
+  const reload = page.evaluate(() => window.location.reload());
+  const dialog = await dialogReady;
+  expect(dialog.type()).toBe("beforeunload"); await dialog.dismiss(); await reload;
+  await expect(field).toHaveValue("29"); expect(app.attempt.progress_value).toBe(40);
+  expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
 });

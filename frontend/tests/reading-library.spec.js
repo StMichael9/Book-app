@@ -195,7 +195,8 @@ test("large library pagination, search and both facets use bounded server querie
   await page.getByLabel("Search title or author").fill("fixture 01");
   await page.getByRole("search", { name: "Search your library" }).getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
-  await page.getByRole("group", { name: "Filter your library" }).getByRole("button", { name: /^Own/ }).click();
+  await page.getByText("More filters", { exact: true }).click();
+  await page.getByRole("group", { name: "More library filters" }).getByRole("button", { name: /^Own/ }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
   expect(app.requests.some(request => request.path === "/me/books")).toBe(false);
 });

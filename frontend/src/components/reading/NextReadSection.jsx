@@ -114,9 +114,9 @@ export default function NextReadSection({ onSkip, preview = false, currentKey, f
     const choice = result?.items[0];
     const book = choice?.book || (choice ? { title: choice.private_title, authors: choice.private_author ? [{ name: choice.private_author }] : [] } : null);
     return <section className="bv-workspace-next" aria-label="Next after this"><h2>Next after this</h2>
-      <p className="bv-help">A quiet possibility from your Want list.</p>
+      <p className="bv-help">From your Want list.</p>
       {request.loading ? <p role="status" className="bv-help">Finding a choice…</p> : request.error ? <><p role="status" className="bv-muted">Choices couldn’t load. Your reading is unchanged.</p><Button variant="quiet" onClick={request.retry}>Try choices again</Button></> : choice ?
-        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p><p className="bv-help">{choice.reasons.slice(0, 2).map(reasonText).join(" ")}</p><TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink></div></article>
+        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink></div></article>
         : <p className="bv-muted">No books are ready on your Want list. You can add something to Want or explore other choices.</p>}
       <Button ref={previewButton} variant="quiet" onClick={() => setExpanded(true)}>Explore more choices</Button>
     </section>;

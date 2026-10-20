@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionLink, BookCover, ShelfActions, TextLink } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookCover, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-home.css";
 
@@ -42,9 +42,7 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl }) {
     <div className="bv-personal-book-state">{readingLabels[entry.reading_state] && <span>{readingLabels[entry.reading_state]}</span>}{!entry.book && <span>Private book</span>}</div>
     <h3>{destination ? <Link to={destination}>{book.title}</Link> : book.title}</h3>
     <p className="bv-author">{authorLabel(book)}</p>
-    {entry.book ? <ShelfActions book={book} compact /> : <p className="bv-help">{[entry.is_owned && "Owned", entry.is_wanted && "Wanted"].filter(Boolean).join(" · ") || "Only in your library"}</p>}
-    {readingActions && <TextLink to={`/my-books/${entry.id}`} aria-label={`Open your reading: ${book.title}`}>Open your reading</TextLink>}
-    {entry.book && readingActions && <TextLink className="bv-catalogue-link" to={`/book/${entry.book.id}`} aria-label={`About this book: ${book.title}`}>About this book</TextLink>}
+    {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <p className="bv-help">{[entry.is_owned && "Owned", entry.is_wanted && "Want to read"].filter(Boolean).join(" · ") || (!entry.book ? "Only in your library" : "In your library")}</p>}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop ↗</a>}
   </article>;
 }

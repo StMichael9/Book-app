@@ -119,7 +119,7 @@ export function BrowsePage() {
     document.getElementById("bv-results-heading")?.scrollIntoView({ block: "start" });
   }
   return <section className="bv-container">
-    <div className="bv-page-heading"><h1 id="bv-main-title">Find your next chapter.</h1><p className="bv-muted">A book you know. A subject you love. Somewhere new to start.</p></div>
+    <div className="bv-page-heading"><h1 id="bv-main-title">Find your next chapter.</h1><p className="bv-muted">Search by title or author, or start with a subject you love.</p></div>
     <div className="bv-search-zone"><form className="bv-search-form" onSubmit={applySearch} role="search">
       <label className="bv-sr-only" htmlFor="bv-search-mode">Search by</label><select id="bv-search-mode" value={mode} onChange={(event) => setMode(event.target.value)}><option value="book">Title</option><option value="author">Author</option></select>
       <label className="bv-sr-only" htmlFor="bv-search-query">{mode === "author" ? "Search authors" : "Search book titles"}</label><input id="bv-search-query" type="search" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={mode === "author" ? "Find an author" : "Find a book"} />
