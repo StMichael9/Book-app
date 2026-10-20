@@ -835,9 +835,17 @@ for (const theme of ["light", "dark"]) test(`zero-friction active reader journey
   await page.getByRole("button", { name: "Add a note", exact: true }).click();
   const note = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   await note.fill("Keep this thought — 読書");
+  await expect(page.getByRole("region", { name: "My reading memory", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Add a note", exact: true })).toHaveCount(0);
+  for (const captureWidth of [390, 1440]) {
+    await page.setViewportSize({ width: captureWidth, height: 900 });
+    await page.getByRole("button", { name: "Save note", exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: test.info().outputPath(`note-editor-${theme}-${captureWidth}.png`) });
+  }
   await expect(page.getByLabel("Reaction (optional)", { exact: true })).toBeHidden();
   await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByText("Keep this thought — 読書", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "My reading memory", exact: true })).toBeVisible();
   expect(app.attempt.reaction ?? null).toBeNull();
   await page.getByRole("button", { name: "Pause reading", exact: true }).click();
   await page.getByRole("button", { name: "Resume reading", exact: true }).click();

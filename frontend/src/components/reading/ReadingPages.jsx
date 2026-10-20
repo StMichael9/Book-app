@@ -248,7 +248,7 @@ export function ReadingWorkspacePage() {
         <Button variant="quiet" onClick={() => { setEditing(null); setDirty(false); request.retry(); }}>Close editor and reload</Button>
         {editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id && <Button disabled={!entry || library.readOnly || command.pending} onClick={() => command.run(() => updateReadingAttempt(selected.id, { expected_version: entry.version, state: "reading" }), accept)}>Reopen selected reading (discard unsaved edits)</Button>}
       </div>}
-      {library.privateContext && <section hidden={!loaded} className="bv-workspace-memory" aria-label="My reading memory"><h2>My note</h2>{loaded && <>
+      {library.privateContext && <section hidden={!loaded || (editing?.kind === "memory" && selected?.id === attempt?.id)} className="bv-workspace-memory" aria-label="My reading memory"><h2>My note</h2>{loaded && <>
         {attempt && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
           {!attempt.note && !attempt.reaction && <p className="bv-help">{library.readOnly ? "Your note would appear here. Changes are temporarily paused." : "A thought worth keeping? Your note is private and always optional."}</p>}
           <Button variant="secondary" disabled={command.pending || Boolean(editing)} onClick={() => openMemory(attempt)}>{library.readOnly ? "View note" : attempt.note || attempt.reaction ? "Edit note" : "Add a note"}</Button></>}
