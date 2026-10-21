@@ -63,6 +63,44 @@ def test_full_lifecycle_reopen_and_reread_without_optional_inputs(client, owner,
     assert client.get(f"/me/library/{saved['id']}/reading").json()["current_attempt"]["id"] == second
 
 
+@pytest.mark.parametrize('private', [False, True])
+def test_finished_to_reading_moves_one_book_and_preserves_context(client, owner, seeded_books, private):
+    if private:
+        response = client.post('/me/library/private', json={'request_id':str(uuid.uuid4()),
+            'title':'Private shelf transition', 'is_owned':True})
+        assert response.status_code == 200, response.text
+        saved = response.json()
+    else:
+        saved = entry(client, seeded_books)
+    identity, result = start(client, saved)
+    result = change(client, identity, result, note='Keep this reading context', state='finished')
+    def shelf(state):
+        response = client.get('/me/library', params={'facet':state})
+        assert response.status_code == 200, response.text
+        return response.json()
+    assert [row['id'] for row in shelf('finished')['items']] == [saved['id']]
+    assert shelf('reading')['total'] == 0
+    result = change(client, identity, result, state='reading')
+    assert result['attempt']['id'] == identity and result['attempt']['note'] == 'Keep this reading context'
+    assert result['attempt']['ended_on'] is None and result['entry']['is_owned']
+    assert shelf('finished')['total'] == 0
+    assert shelf('reading')['counts']['finished'] == 0
+    assert [row['id'] for row in shelf('reading')['items']] == [saved['id']]
+    assert shelf('all')['total'] == 1
+    assert len(client.get(f"/me/library/{saved['id']}/attempts").json()['items']) == 1
+    # A deliberate reread preserves prior history but still occupies one status shelf.
+    result = change(client, identity, result, state='finished')
+    second, result = start(client, result['entry'])
+    assert second != identity
+    assert shelf('finished')['total'] == 0 and shelf('reading')['total'] == 1
+    result = change(client, second, result, state='paused')
+    assert shelf('paused')['total'] == 1 and shelf('finished')['total'] == shelf('reading')['total'] == 0
+    result = change(client, second, result, state='dnf')
+    assert shelf('dnf')['total'] == 1 and shelf('finished')['total'] == shelf('paused')['total'] == 0
+    assert len(client.get(f"/me/library/{saved['id']}/attempts").json()['items']) == 2
+    assert shelf('all')['total'] == 1
+
+
 def test_creation_replay_after_transitions_and_intent_conflict(client, owner, seeded_books):
     saved = entry(client, seeded_books)
     identity, result = start(client, saved)

@@ -120,16 +120,21 @@ class LibraryService:
                 UserBook.book_id.in_(matching_books),
             ))
         facet_conditions = {"all": True, "owned": UserBook.is_owned.is_(True), "want": UserBook.is_wanted.is_(True)}
-        facet_conditions.update({state: select(ReadingAttempt.id).where(
-            ReadingAttempt.user_book_id == UserBook.id, ReadingAttempt.state == state,
-        ).exists() for state in ("reading", "paused", "finished", "dnf")})
-        # Aggregate history once instead of probing four history subqueries for
-        # every entry in a large library (which also inflated PostgreSQL JIT cost).
+        # Status shelves describe one current/latest reading, not every state
+        # ever recorded. Keep older attempts intact in the book's history.
+        ranked = select(ReadingAttempt.user_book_id, ReadingAttempt.state,
+            func.row_number().over(partition_by=ReadingAttempt.user_book_id,
+                order_by=(case((ReadingAttempt.state.in_(["reading", "paused"]), 0), else_=1),
+                          ReadingAttempt.created_at.desc(), ReadingAttempt.id.desc())).label("position")
+        ).where(ReadingAttempt.user_book_id.in_(select(UserBook.id).where(UserBook.user_id == user_id))).subquery()
+        current = select(ranked.c.user_book_id, ranked.c.state).where(ranked.c.position == 1).subquery()
+        facet_conditions.update({state: UserBook.id.in_(select(current.c.user_book_id).where(current.c.state == state))
+            for state in ("reading", "paused", "finished", "dnf")})
         count_query = select(*[func.count(UserBook.id).filter(facet_conditions[name]).label(name)
             for name in ("all", "owned", "want")]).where(*conditions)
         counts = dict(self.db.execute(count_query).mappings().one())
-        history_counts = dict(self.db.execute(select(ReadingAttempt.state, func.count(func.distinct(UserBook.id)))
-            .join(UserBook, ReadingAttempt.user_book_id == UserBook.id).where(*conditions).group_by(ReadingAttempt.state)).all())
+        history_counts = dict(self.db.execute(select(current.c.state, func.count(UserBook.id))
+            .join(UserBook, current.c.user_book_id == UserBook.id).where(*conditions).group_by(current.c.state)).all())
         counts.update({state: history_counts.get(state, 0) for state in ("reading", "paused", "finished", "dnf")})
         cursor_scope = [str(user_id), q.strip(), facet] + ([label] if label else [])
         scope = hashlib.sha256(json.dumps(cursor_scope, separators=(",", ":")).encode()).hexdigest()
