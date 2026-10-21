@@ -11,6 +11,7 @@ from sqlalchemy import text
 from database import get_db, settings, SessionLocal
 
 from routes import books
+from routes import catalogue
 from routes import autocomplete
 from routes import user_books
 from routes import user_preferences
@@ -108,6 +109,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(books.router)
+app.include_router(catalogue.router)
 app.include_router(autocomplete.router)
 app.include_router(auth_router)
 app.include_router(user_books.router)

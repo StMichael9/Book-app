@@ -1,0 +1,280 @@
+[WebServer] (node:96748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:96774) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+
+[WebServer] (node:96819) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:96832) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 99 tests using 1 worker
+
+(node:96859) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/99] tests/extended-catalogue.spec.js:44:1 › automatic lookup preserves Neon and confirms before private selection
+[2/99] tests/extended-catalogue.spec.js:62:1 › outage keeps Neon results and manual fallback
+[3/99] tests/extended-catalogue.spec.js:70:1 › off feature makes no catalogue requests
+[4/99] tests/extended-catalogue.spec.js:77:1 › subject filters never silently include unclassified external results
+[5/99] tests/extended-catalogue.spec.js:83:1 › malformed results fail closed without crashing or hiding Neon
+[6/99] tests/extended-catalogue.spec.js:91:1 › phone layout and keyboard confirmation stay accessible
+[7/99] tests/extended-catalogue.spec.js:103:1 › local search completes first, then additional loading replaces premature no-match
+[8/99] tests/extended-catalogue.spec.js:119:1 › both sources empty has one honest final empty state
+[9/99] tests/extended-catalogue.spec.js:126:1 › failed A selection cannot leak its error into B confirmation
+[10/99] tests/extended-catalogue.spec.js:145:1 › manual fallback keeps bibliographic input and distinguishes CSV import
+[11/99] tests/extended-catalogue.spec.js:161:1 › prefill is document-only and cannot survive an account switch
+  1) tests/extended-catalogue.spec.js:161:1 › prefill is document-only and cannot survive an account switch 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: 'Sign in', exact: true }).first()
+        - waiting for navigation to finish...
+        - navigated to "http://127.0.0.1:5197/"
+
+
+      166 |   await page.getByRole('link', { name: 'Your account', exact: true }).click();
+      167 |   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+    > 168 |   await page.getByRole('link', { name: 'Sign in', exact: true }).first().click();
+          |                                                                          ^
+      169 |   await page.getByLabel('Email address', { exact: true }).fill('different@example.invalid');
+      170 |   await page.getByLabel('Password', { exact: true }).fill('NotARealPassword123!');
+      171 |   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+        at /workspace/Book-app-ui-journey/frontend/tests/extended-catalogue.spec.js:168:74
+
+    Error Context: test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:97385) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[12/99] tests/extended-catalogue.spec.js:180:1 › selected private cover survives the integrated workspace, library and Next Read factories
+[13/99] tests/extended-catalogue.spec.js:193:1 › document reload drops the optional manual prefill without persisting a private draft
+[14/99] tests/library-import.spec.js:71:1 › My Books entry and real local CSV parser preserve Unicode, quotes and embedded newlines
+[15/99] tests/library-import.spec.js:96:1 › pasted list shares the preview engine and does not invent history
+[16/99] tests/library-import.spec.js:107:1 › large TSV upload stays in 100-row batches with explicit confirmation
+[17/99] tests/library-import.spec.js:121:1 › paused file resumes after reload by verifying acknowledged batches without duplicating rows
+[18/99] tests/library-import.spec.js:145:1 › forgetting removed markers requires an explicit warning and confirmation
+[19/99] tests/library-import.spec.js:159:1 › malformed CSV quoting cannot finalize an import
+[20/99] tests/library-import.spec.js:169:1 › feature off keeps V2/V3 My Books and blocks the direct import route
+[21/99] tests/library-import.spec.js:178:1 › phone import stays within My Books navigation and fits the viewport
+[22/99] tests/library-import.spec.js:188:1 › resumed decision check does not present an ordinal as checked-row progress
+[23/99] tests/library-import.spec.js:201:1 › cancelled partial import still shows committed book and reading totals
+[24/99] tests/reading-corrections.spec.js:60:34 › Undo finish reopens the same record without creating a reread at 390px
+[25/99] tests/reading-corrections.spec.js:60:34 › Undo finish reopens the same record without creating a reread at 1440px
+[26/99] tests/reading-corrections.spec.js:76:1 › reread requires explicit confirmation; Cancel and Escape make no writes and restore focus
+[27/99] tests/reading-corrections.spec.js:98:1 › mistaken active reread can be explicitly removed, then previous finish undone without losing older history
+[28/99] tests/reading-corrections.spec.js:125:1 › Finished facet honestly explains an active reread without duplicating library entries
+[29/99] tests/reading-corrections.spec.js:137:1 › failed or stale reread retains visible history and captured version rather than rebasing
+[30/99] tests/reading-corrections.spec.js:150:1 › read-only workspace cannot reopen, reread or delete
+[31/99] tests/reading-corrections.spec.js:162:1 › a historical finished record cannot be reopened while another reading is active
+[32/99] tests/reading-corrections.spec.js:173:1 › failed undo retains the finished record, flags and full history
+[33/99] tests/reading-corrections.spec.js:185:1 › pending reread cannot be dismissed or sent twice
+[34/99] tests/reading-lifecycle.spec.js:140:1 › UI refactor current reading leads Home on desktop and phone
+[35/99] tests/reading-lifecycle.spec.js:156:1 › UI refactor paused Home has a truthful empty-current state
+[36/99] tests/reading-lifecycle.spec.js:164:40 › Home and My Books have distinct tasks and layouts; theme=light
+[37/99] tests/reading-lifecycle.spec.js:164:40 › Home and My Books have distinct tasks and layouts; theme=dark
+[38/99] tests/reading-lifecycle.spec.js:206:1 › UI refactor catalogue and private library titles open personal workspaces
+[39/99] tests/reading-lifecycle.spec.js:217:1 › UI refactor historical facet explains active rereads without changing the query
+  2) tests/reading-lifecycle.spec.js:217:1 › UI refactor historical facet explains active rereads without changing the query 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Books with a finished reading. Each card shows its current or latest recorded reading state.', { exact: true })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Books with a finished reading. Each card shows its current or latest recorded reading state.', { exact: true })
+
+
+      217 | test("UI refactor historical facet explains active rereads without changing the query", async ({ page, app }) => {
+      218 |   await page.goto("/my-books?status=finished");
+    > 219 |   await expect(page.getByText("Books with a finished reading. Each card shows its current or latest recorded reading state.", { exact: true })).toBeVisible();
+          |                                                                                                                                                 ^
+      220 |   await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
+      221 |   expect(app.requests.filter(request => request.path === "/me/library").at(-1).body).toBeNull();
+      222 | });
+        at /workspace/Book-app-ui-journey/frontend/tests/reading-lifecycle.spec.js:219:145
+
+    Error Context: test-results/tests-reading-lifecycle-UI-eb676--without-changing-the-query/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-lifecycle-UI-eb676--without-changing-the-query/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-lifecycle-UI-eb676--without-changing-the-query/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:98433) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[40/99] tests/reading-lifecycle.spec.js:224:40 › editorial workspace is book-first without an extra navbar; light
+[41/99] tests/reading-lifecycle.spec.js:224:40 › editorial workspace is book-first without an extra navbar; dark
+[42/99] tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; light
+  3) tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; light 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  getByRole('button', { name: 'Add a note', exact: true })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Add a note', exact: true })
+        13 × locator resolved to <button type="button" data-draft-trigger="memory" class="bv-button bv-button--secondary ">Add a note</button>
+           - unexpected value "inactive"
+
+
+      269 |   const stop = page.getByRole("button", { name: "Stop reading", exact: true });
+      270 |   await stop.focus(); await page.keyboard.press("Tab");
+    > 271 |   await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeFocused();
+          |                                                                               ^
+      272 |   await page.keyboard.press("Tab");
+      273 |   await expect(page.locator(".bv-save-reason > summary")).toBeFocused();
+      274 |   await page.keyboard.press("Tab");
+        at /workspace/Book-app-ui-journey/frontend/tests/reading-lifecycle.spec.js:271:79
+
+    Error Context: test-results/tests-reading-lifecycle-ed-fa681-nt-and-keyboard-order-light/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-lifecycle-ed-fa681-nt-and-keyboard-order-light/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-lifecycle-ed-fa681-nt-and-keyboard-order-light/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:98625) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[43/99] tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; dark
+  4) tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; dark 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  getByRole('button', { name: 'Add a note', exact: true })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Add a note', exact: true })
+        12 × locator resolved to <button type="button" data-draft-trigger="memory" class="bv-button bv-button--secondary ">Add a note</button>
+           - unexpected value "inactive"
+
+
+      269 |   const stop = page.getByRole("button", { name: "Stop reading", exact: true });
+      270 |   await stop.focus(); await page.keyboard.press("Tab");
+    > 271 |   await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeFocused();
+          |                                                                               ^
+      272 |   await page.keyboard.press("Tab");
+      273 |   await expect(page.locator(".bv-save-reason > summary")).toBeFocused();
+      274 |   await page.keyboard.press("Tab");
+        at /workspace/Book-app-ui-journey/frontend/tests/reading-lifecycle.spec.js:271:79
+
+    Error Context: test-results/tests-reading-lifecycle-ed-11453-ent-and-keyboard-order-dark/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-lifecycle-ed-11453-ent-and-keyboard-order-dark/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-lifecycle-ed-11453-ent-and-keyboard-order-dark/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:98764) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[44/99] tests/reading-lifecycle.spec.js:290:1 › editorial workspace history is lazy and reopening uses the loaded page
+[45/99] tests/reading-lifecycle.spec.js:304:1 › editorial workspace private books never request public metadata
+[46/99] tests/reading-lifecycle.spec.js:312:1 › editorial workspace keeps reading usable when book details fail
+[47/99] tests/reading-lifecycle.spec.js:326:1 › editorial workspace late metadata preserves a dirty version-captured editor
+[48/99] tests/reading-lifecycle.spec.js:348:1 › editorial workspace progress uses the saved copy and keeps missing values honest
+[49/99] tests/reading-lifecycle.spec.js:359:1 › editorial workspace paused actions put Resume first visually and by keyboard
+[50/99] tests/reading-lifecycle.spec.js:375:1 › editorial workspace read-only progress is a view with no writable controls
+[51/99] tests/reading-lifecycle.spec.js:385:69 › editorial workspace retry preserves deliberate focus; 404; moved=false
+[52/99] tests/reading-lifecycle.spec.js:385:69 › editorial workspace retry preserves deliberate focus; 404; moved=true
+  5) tests/reading-lifecycle.spec.js:385:69 › editorial workspace retry preserves deliberate focus; 404; moved=true 
+
+    Test was interrupted.
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  getByRole('heading', { name: 'Reading fixture 101', exact: true })
+    Expected: visible
+    Received: undefined
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'Reading fixture 101', exact: true })
+      - Protocol error (Runtime.callFunctionOn): Internal server error, session closed.
+
+
+      396 |     release();
+      397 |     const title = page.getByRole("heading", { name: "Reading fixture 101", exact: true });
+    > 398 |     await expect(title).toBeVisible();
+          |                         ^
+      399 |     await expect(moved ? back : title).toBeFocused();
+      400 |   } finally { release(); }
+      401 | });
+        at /workspace/Book-app-ui-journey/frontend/tests/reading-lifecycle.spec.js:398:25
+
+    Error Context: test-results/tests-reading-lifecycle-ed-8b960-berate-focus-404-moved-true/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-lifecycle-ed-8b960-berate-focus-404-moved-true/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-lifecycle-ed-8b960-berate-focus-404-moved-true/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  4 failed
+    tests/extended-catalogue.spec.js:161:1 › prefill is document-only and cannot survive an account switch 
+    tests/reading-lifecycle.spec.js:217:1 › UI refactor historical facet explains active rereads without changing the query 
+    tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; light 
+    tests/reading-lifecycle.spec.js:258:40 › editorial workspace phone text enlargement and keyboard order; dark 
+  1 interrupted
+    tests/reading-lifecycle.spec.js:385:69 › editorial workspace retry preserves deliberate focus; 404; moved=true 
+  47 did not run
+  47 passed (6.7m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

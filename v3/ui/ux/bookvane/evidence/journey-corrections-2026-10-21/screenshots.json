@@ -1,0 +1,24 @@
+[
+  {
+    "path": "v3/ui/ux/bookvane/assets/journey-corrections-2026-10-21/finished-phone-390.png",
+    "sha256": "f2f3db3b56b251768264e55fcd0f03b5a7290baf488222da68dcc1deb9fd98f5",
+    "bytes": 84121,
+    "width": 390,
+    "height": 1926,
+    "application_sha": "48acfa767dcec8c385724ca7e8556b2e5fbd2233",
+    "fixture": "Synthetic private finished book with two historical readings; no real account data",
+    "capture_test": "Undo finish reopens the same record without creating a reread",
+    "visually_inspected": true
+  },
+  {
+    "path": "v3/ui/ux/bookvane/assets/journey-corrections-2026-10-21/finished-desktop-1440.png",
+    "sha256": "12cde32848e67661c5bad4874316008bbaf49a5d16de7e811b62b0380aff1ce5",
+    "bytes": 107219,
+    "width": 1440,
+    "height": 1557,
+    "application_sha": "48acfa767dcec8c385724ca7e8556b2e5fbd2233",
+    "fixture": "Synthetic private finished book with two historical readings; no real account data",
+    "capture_test": "Undo finish reopens the same record without creating a reread",
+    "visually_inspected": true
+  }
+]

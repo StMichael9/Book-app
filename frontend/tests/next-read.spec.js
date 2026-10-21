@@ -26,6 +26,7 @@ const test = base.extend({
       if (path === "/auth/login") { state.authenticated = true; return reply(200, {}); }
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: !state.readOnly,
         contract_version: 1, features: { reading_actions: true, next_read: !state.oldM3 } });
+      if (/^\/books\/\d+$/.test(path)) return reply(200, { ...book(Number(path.split("/").at(-1))), description: "Existing catalogue details.", tags: [] });
       if (path === "/me/home") return reply(200, { current_reads: [...state.attempts].filter(([, item]) => item.state === "reading").map(([id, item]) => ({ entry: state.entries.get(id), attempt: item })), reading_count: state.attempts.size, paused_count: 0 });
       if (path === "/me/next-read") {
         if (state.choicesFail) return reply(503, {});
@@ -102,6 +103,44 @@ test("M4 finish skip cannot hide a committed pending start and completion remain
   } finally { release(); }
 });
 
+test("editorial workspace preview shares choices and a new finish returns to Want without a duplicate module", async ({ page, app }) => {
+  await page.goto("/my-books/1");
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
+  const before = app.requests.filter(r => r.path === "/me/next-read").length;
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(app.requests.filter(r => r.path === "/me/next-read")).toHaveLength(before);
+  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "My Want books", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(app.requests.filter(r => r.path === "/books/1")).toHaveLength(1);
+  expect(new Set(app.requests.filter(r => r.path === "/me/next-read").map(r => r.params.session_id)).size).toBe(1);
+  expect(app.requests.filter(r => r.method === "PATCH" && r.body.state === "finished")).toHaveLength(1);
+  await page.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+});
+
+test("editorial workspace excludes its current book and returning from catalogue restores a truthful Want preview", async ({ page, app }) => {
+  app.entries.get(1).is_wanted = true; app.attempts.delete(1);
+  await page.goto("/my-books/1");
+  const preview = page.getByRole("region", { name: "Next after this" });
+  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
+  expect(app.requests.find(r => r.path === "/me/next-read").excludes).toEqual(["book:1"]);
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
+  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Back to this reading", exact: true }).click();
+  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
+  await expect(preview.getByRole("heading", { name: "M4 fixture 4", exact: true })).toHaveCount(0);
+  expect(app.requests.filter(r => r.path === "/me/next-read").at(-1).params.source).toBe("want");
+  expect(app.requests.filter(r => ["PUT", "PATCH"].includes(r.method))).toHaveLength(0);
+});
+
 for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -121,6 +160,7 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
 
 test("M4 Home is shelf-first, short and private; viewing and switching modes never writes", async ({ page, app }) => {
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   const choices = page.getByRole("region", { name: "Choose your next read" });
   await expect(choices.getByRole("article")).toHaveCount(2);
   await expect(choices.getByRole("heading", { name: "Private queued reading", exact: true })).toBeVisible();
@@ -138,6 +178,7 @@ for (const theme of ["light", "dark"]) test(`Home reading desk and compact next 
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
     const desk = page.getByRole("region", { name: "Your current reading", exact: true });
     const next = page.getByRole("region", { name: "Choose your next read", exact: true });
     await expect(desk.getByRole("link", { name: "Continue your reading: M4 fixture 1" })).toBeVisible();
@@ -159,6 +200,7 @@ for (const theme of ["light", "dark"]) test(`Home reading desk and compact next 
 
 test("M4 controls preserve intent across sources, explain unknown metadata and clear unsaved fields", async ({ page, app }) => {
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   await page.getByText("Refine choices (optional)", { exact: true }).click();
   await page.getByLabel("At most this many pages (optional)", { exact: true }).fill("100");
   await page.getByLabel("Subject (optional)", { exact: true }).selectOption("1");
@@ -196,15 +238,26 @@ for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "fai
 test("M4 failed finish never opens next choices", async ({ page, app }) => {
   app.finishFails = true;
   await page.goto("/my-books/1");
+  // The quiet workspace preview is valid before Finish. A rejected Finish
+  // must neither refetch choices nor promote that preview to a finish flow.
+  const preview = page.getByRole("region", { name: "Next after this", exact: true });
+  await expect(preview.getByRole("link", { name: "Open your book", exact: true })).toBeVisible();
+  const requestsBeforeFinish = app.requests.filter(item => item.path === "/me/next-read").length;
+  expect(requestsBeforeFinish).toBe(1);
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
-  expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(0);
+  expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(requestsBeforeFinish);
+  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Choose your next read", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Not now", exact: true })).toHaveCount(0);
+  await expect(preview).toBeVisible();
   expect(app.attempts.get(1).state).toBe("reading");
 });
 
 test("M4 explicit private start retries a lost response without duplicate attempts", async ({ page, app }) => {
   app.loseStartResponse = true;
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   const start = page.getByRole("button", { name: "Start reading Private queued reading", exact: true });
   await start.click();
   await expect(page.getByRole("alert")).toBeVisible();
@@ -217,6 +270,7 @@ test("M4 explicit private start retries a lost response without duplicate attemp
 
 test("M4 stale choice cannot silently create a reread", async ({ page, app }) => {
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true })).toBeVisible();
   app.entries.get(2).version = 9; app.entries.get(2).is_wanted = false;
   app.attempts.set(2, attempt("22222222-2222-4222-8222-222222222222", "finished"));
@@ -228,6 +282,7 @@ test("M4 stale choice cannot silently create a reread", async ({ page, app }) =>
 test("M4 read-only and older backends never expose a writable or unsupported next flow", async ({ page, app }) => {
   app.readOnly = true;
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   await expect(page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true })).toBeDisabled();
   await expect(page.getByText("You can view choices. Starting a reading is temporarily paused.", { exact: true })).toBeVisible();
   app.oldM3 = true;
@@ -241,6 +296,7 @@ test("M4 read-only and older backends never expose a writable or unsupported nex
 test("M4 different choices preserve filters and bounded session exclusions without changing shelves", async ({ page, app }) => {
   for (const id of [4, 5, 6]) app.entries.set(id, { ...entry(id), is_owned: true });
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   const choices = page.getByRole("region", { name: "Choose your next read" });
   await choices.getByText("Refine choices (optional)", { exact: true }).click();
   await page.getByLabel("Only books I marked Own", { exact: true }).check();
@@ -260,6 +316,7 @@ test("M4 different choices preserve filters and bounded session exclusions witho
 
 test("M4 explicit catalogue start uses the existing entry and attempt contracts without inventing ownership", async ({ page, app }) => {
   await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
   await page.getByRole("button", { name: "Explore something new", exact: true }).click();
   await page.getByRole("button", { name: "Start reading M4 fixture 4", exact: true }).click();
   await expect(page).toHaveURL(/\/my-books\/4$/);
@@ -274,6 +331,7 @@ test("M4 pending start blocks conflicting choice controls and keeps one command"
   app.holdWorkspace = new Promise(resolve => { release = resolve; });
   try {
     await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
     const button = page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true });
     await button.click();
     await expect(button).toBeDisabled();
@@ -290,6 +348,7 @@ test("M4 late private choices cannot reappear after account departure", async ({
   app.holdChoices = new Promise(resolve => { release = resolve; });
   try {
     await page.goto("/home");
+  await page.getByRole("button", { name: "Choose next", exact: true }).click();
     await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").length).toBe(1);
     app.authenticated = false;
     await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));

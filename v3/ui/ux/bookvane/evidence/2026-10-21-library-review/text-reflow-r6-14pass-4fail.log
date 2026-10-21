@@ -1,0 +1,164 @@
+[WebServer] (node:89394) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:89407) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:89444) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:89457) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 18 tests using 2 workers
+
+(node:89476) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:89477) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via cover with real cover (20.0s)
+  ✓   2 frontend/tests/reading-library.spec.js:214:1 › pilot library stays usable on a phone in both themes (23.1s)
+LIBRARY_GEOMETRY {"width":390,"firstBookTop":375.390625}
+  ✓   3 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via title with missing cover (15.4s)
+  ✓   4 frontend/tests/reading-library.spec.js:386:1 › independent review: mobile collection reaches books without a wall of controls (12.3s)
+  ✓   5 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via cover with missing cover (10.1s)
+  ✘   6 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 320 (12.2s)
+(node:89907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   7 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via title with real cover (6.5s)
+  ✓   9 frontend/tests/mobile-navigation.spec.js:70:1 › keyboard skip link focuses main without jumping to the catalogue bottom (6.3s)
+  ✓  10 frontend/tests/mobile-navigation.spec.js:81:1 › keyboard shelf actions remain visible above the fixed mobile navigation (5.9s)
+  ✘   8 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 390 (11.7s)
+(node:90130) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  11 frontend/tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar (7.7s)
+  ✓  12 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 768 (5.5s)
+  ✓  13 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 1440 (3.4s)
+  ✘  14 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 320 (3.4s)
+(node:90371) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  15 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 390 (4.2s)
+(node:90513) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  16 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 768 (14.7s)
+  ✓  17 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 1440 (6.9s)
+  ✓  18 frontend/tests/reading-library.spec.js:577:1 › independent review: twenty-thousand saved books retain bounded pages and readable counts (4.0s)
+
+
+  1) frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 320 
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 145
+    Received:    88
+
+      471 |       expect(box.height).toBeGreaterThanOrEqual(44);
+      472 |       const clearance = await page.locator(".bv-root").evaluate(node => parseFloat(getComputedStyle(node).paddingBottom));
+    > 473 |       expect(clearance).toBeGreaterThanOrEqual((await nav.boundingBox()).height);
+          |                         ^
+      474 |     }
+      475 |     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
+      476 |     const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:473:25
+
+    Error Context: frontend/test-results/tests-reading-library-inde-aa4f2-nd-missing-covers-light-320/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-aa4f2-nd-missing-covers-light-320/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-aa4f2-nd-missing-covers-light-320/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 390 
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 145
+    Received:    88
+
+      471 |       expect(box.height).toBeGreaterThanOrEqual(44);
+      472 |       const clearance = await page.locator(".bv-root").evaluate(node => parseFloat(getComputedStyle(node).paddingBottom));
+    > 473 |       expect(clearance).toBeGreaterThanOrEqual((await nav.boundingBox()).height);
+          |                         ^
+      474 |     }
+      475 |     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
+      476 |     const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:473:25
+
+    Error Context: frontend/test-results/tests-reading-library-inde-5742a-nd-missing-covers-light-390/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-5742a-nd-missing-covers-light-390/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-5742a-nd-missing-covers-light-390/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 320 
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 145
+    Received:    88
+
+      471 |       expect(box.height).toBeGreaterThanOrEqual(44);
+      472 |       const clearance = await page.locator(".bv-root").evaluate(node => parseFloat(getComputedStyle(node).paddingBottom));
+    > 473 |       expect(clearance).toBeGreaterThanOrEqual((await nav.boundingBox()).height);
+          |                         ^
+      474 |     }
+      475 |     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
+      476 |     const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:473:25
+
+    Error Context: frontend/test-results/tests-reading-library-inde-e73e6-and-missing-covers-dark-320/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-e73e6-and-missing-covers-dark-320/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-e73e6-and-missing-covers-dark-320/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 390 
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 145
+    Received:    88
+
+      471 |       expect(box.height).toBeGreaterThanOrEqual(44);
+      472 |       const clearance = await page.locator(".bv-root").evaluate(node => parseFloat(getComputedStyle(node).paddingBottom));
+    > 473 |       expect(clearance).toBeGreaterThanOrEqual((await nav.boundingBox()).height);
+          |                         ^
+      474 |     }
+      475 |     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
+      476 |     const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:473:25
+
+    Error Context: frontend/test-results/tests-reading-library-inde-98284-and-missing-covers-dark-390/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4 failed
+    frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 320 
+    frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 390 
+    frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 320 
+    frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 390 
+  14 passed (2.4m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

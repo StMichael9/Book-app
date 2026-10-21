@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionLink, BookCover, ShelfActions, TextLink } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookCover, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-home.css";
 
 const readingLabels = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
-const entryBook = entry => entry.book || { title: entry.private_title, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
+const entryBook = entry => entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
 
 export function SlowReadingNotice({ loading }) {
   const [slow, setSlow] = useState(false);
@@ -34,17 +34,15 @@ export function CurrentReadingCard({ entry, attempt }) {
   </article>;
 }
 
-export function LibraryEntryCard({ entry, priority, readingActions, buyUrl }) {
+export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navigationState, onOpen, historicalFacet }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   return <article className="bv-book-card bv-personal-book">
-    {destination ? <Link className="bv-book-link" to={destination} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
-    <div className="bv-personal-book-state">{readingLabels[entry.reading_state] && <span>{readingLabels[entry.reading_state]}</span>}{!entry.book && <span>Private book</span>}</div>
-    <h3>{destination ? <Link to={destination}>{book.title}</Link> : book.title}</h3>
+    {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
+    <div className="bv-personal-book-state">{readingLabels[entry.reading_state] && <span>{entry.reading_state === "reading" ? "Reading now" : readingLabels[entry.reading_state]}</span>}{["finished", "dnf"].includes(historicalFacet) && historicalFacet !== entry.reading_state && <span>{historicalFacet === "finished" ? "Finished before" : "Stopped before"}</span>}{!entry.book && <span>Private book</span>}</div>
+    <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3>
     <p className="bv-author">{authorLabel(book)}</p>
-    {entry.book ? <ShelfActions book={book} compact /> : <p className="bv-help">{[entry.is_owned && "Owned", entry.is_wanted && "Wanted"].filter(Boolean).join(" · ") || "Only in your library"}</p>}
-    {readingActions && <TextLink to={`/my-books/${entry.id}`} aria-label={`Open your reading: ${book.title}`}>Open your reading</TextLink>}
-    {entry.book && readingActions && <TextLink className="bv-catalogue-link" to={`/book/${entry.book.id}`} aria-label={`About this book: ${book.title}`}>About this book</TextLink>}
+    {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <p className="bv-help">{[entry.is_owned && "Owned", entry.is_wanted && "Want to read"].filter(Boolean).join(" · ") || (!entry.book ? "Only in your library" : "In your library")}</p>}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop ↗</a>}
   </article>;
 }

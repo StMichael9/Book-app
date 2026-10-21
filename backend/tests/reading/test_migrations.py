@@ -76,9 +76,16 @@ def test_full_chain_populated_backfill_safe_downgrade_and_recovery(tmp_path):
     failure = migrate(url, "downgrade", "d9b6e1f2a3c4", succeeds=False)
     assert "downgrade would lose private data" in failure.stderr
     with engine.connect() as connection:
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f5c12a608de3"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "a17d09c25ef1"
         assert connection.scalar(text("SELECT count(*) FROM reading_attempts")) == 1
     # Recovery rehearsal contains synthetic fixtures only; no production dump.
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO user_books(id,user_id,private_title,private_catalogue) VALUES (203,:id,'Private source fixture',CAST(:metadata AS jsonb))"),
+            {'id':user_id,'metadata':'{"source":"openlibrary","work_id":"/works/OL1W","snapshot":"synthetic"}'})
+    before_refusal = snapshot(engine)
+    refusal = migrate(url,'downgrade','f5c12a608de3',succeeds=False)
+    assert 'Retain catalogue provenance' in refusal.stderr
+    assert snapshot(engine) == before_refusal
     binary_dir = Path(os.getenv("PG_BIN_DIR", "C:/Program Files/PostgreSQL/16/bin"))
     dump_binary = shutil.which("pg_dump") or str(binary_dir / "pg_dump.exe")
     restore_binary = shutil.which("pg_restore") or str(binary_dir / "pg_restore.exe")
@@ -90,6 +97,6 @@ def test_full_chain_populated_backfill_safe_downgrade_and_recovery(tmp_path):
     assert snapshot(restore_engine) == snapshot(engine)
     with restore_engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM reading_attempts")) == 1
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f5c12a608de3"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "a17d09c25ef1"
     engine.dispose()
     restore_engine.dispose()

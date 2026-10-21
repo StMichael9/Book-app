@@ -23,7 +23,7 @@ class NextReadService:
                    else_=func.concat("entry:", UserBook.id))
         columns = (key.label("key"), UserBook.id.label("entry_id"), UserBook.version,
             Book.id.label("book_id"), Book.title, Book.source_id, Book.cover_image_url,
-            Book.page_count, Book.isbn13, UserBook.private_title, UserBook.private_author,
+            Book.page_count, Book.isbn13, UserBook.private_title, UserBook.private_author, UserBook.private_catalogue,
             func.coalesce(UserBook.is_owned, False).label("owned"),
             func.coalesce(UserBook.is_wanted, False).label("wanted"), prior.label("revisit"))
         if query.source == "want":
@@ -126,7 +126,7 @@ class NextReadService:
                 "cover_image_url": row["cover_image_url"], "page_count": row["page_count"],
                 "isbn13": row["isbn13"], "authors": authors[row["book_id"]]}
             items.append(NextReadChoice(key=row["key"], entry_id=row["entry_id"], version=row["version"], book=book,
-                private_title=row["private_title"], private_author=row["private_author"],
+                private_title=row["private_title"], private_author=row["private_author"], private_catalogue=row["private_catalogue"],
                 is_owned=row["owned"], is_wanted=row["wanted"], revisit=row["revisit"], reasons=reasons))
         return NextReadResult(source=query.source, session_id=query.session_id, rotation=query.rotation,
             items=items, eligible_count=eligible_count, remaining_count=remaining,

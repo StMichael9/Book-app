@@ -29,6 +29,7 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
     return {"enabled": writable or library_needs_v3(db, current_user.id), "writable": writable, "contract_version": 1,
             "milestone": "M5" if settings.library_import_enabled else "M4", "features": {"library": True, "reading_actions": True,
             "private_context": True, "reading_export": True, "privacy_controls": True, "next_read": True,
+            "extended_catalogue": writable and settings.external_catalogue_enabled,
             "library_import": writable and settings.library_import_enabled}}
 
 

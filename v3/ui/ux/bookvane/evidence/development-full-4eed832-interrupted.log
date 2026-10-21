@@ -1,0 +1,280 @@
+[WebServer] (node:36211) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36224) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:36248) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36261) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 232 tests using 1 worker
+
+(node:36280) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓    1 src/components/ui-v2/tests/reader-flows.spec.js:77:1 › charcoal dark surfaces keep sage actions, form boundaries and focus readable (8.3s)
+  ✓    2 src/components/ui-v2/tests/reader-flows.spec.js:130:1 › anonymous save survives registration and resumes exactly once (3.5s)
+  ✓    3 src/components/ui-v2/tests/reader-flows.spec.js:141:1 › save confirmation waits for the API and shelf moves update the shared library (3.1s)
+  ✓    4 src/components/ui-v2/tests/reader-flows.spec.js:151:1 › failed writes retain the prior status and offer a real retry (1.9s)
+  ✓    5 src/components/ui-v2/tests/reader-flows.spec.js:157:1 › initial library load blocks writes and failures do not imply an empty shelf (2.1s)
+  ✓    6 src/components/ui-v2/tests/reader-flows.spec.js:165:1 › author search, AND filters, hidden owned books, history and pagination use the API contract (6.2s)
+  ✓    7 src/components/ui-v2/tests/reader-flows.spec.js:178:1 › preference-load failures cannot overwrite data; saved tag IDs preserve existing notes (2.7s)
+  ✓    8 src/components/ui-v2/tests/reader-flows.spec.js:186:1 › malformed preferences are a load failure rather than writable empty choices (1.9s)
+  ✓    9 src/components/ui-v2/tests/reader-flows.spec.js:190:1 › recovery remains neutral, accepts a fragment token, and handles expired links (3.4s)
+  ✓   10 src/components/ui-v2/tests/reader-flows.spec.js:196:1 › dialog traps keyboard focus, closes with Escape, and restores the trigger (3.2s)
+  ✓   11 src/components/ui-v2/tests/reader-flows.spec.js:202:1 › missing cover and description have intentional fallbacks; search failures preserve context (2.7s)
+  ✓   12 src/components/ui-v2/tests/reader-flows.spec.js:207:1 › external return URLs are ignored and invalid login preserves the form (2.7s)
+  ✓   13 src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 320px (12.5s)
+  ✓   14 src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 390px (12.7s)
+  ✓   15 src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 768px (13.2s)
+  ✘   16 src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 1440px (1.2m)
+(node:36949) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   17 src/components/ui-v2/tests/reader-flows.spec.js:225:1 › discovery context survives book details and signing in to save (10.1s)
+  ✓   18 src/components/ui-v2/tests/reader-flows.spec.js:236:1 › save-after-sign-in failures offer a retry without repeating registration (3.8s)
+  ✓   19 src/components/ui-v2/tests/reader-flows.spec.js:269:1 › dark theme keeps primary headings and book titles legible alongside legacy styles (6.2s)
+  ✓   20 src/components/ui-v2/tests/reader-flows.spec.js:291:1 › an unfinished save notice does not follow the reader to an unrelated book (2.6s)
+  ✓   21 src/components/ui-v2/tests/reader-flows.spec.js:302:1 › library failures have one retry on My Books and still block unknown shelf writes (2.3s)
+  ✓   22 src/components/ui-v2/tests/reader-flows.spec.js:316:1 › choosing a different shelf after continuation failure replaces the pending save (3.5s)
+  ✓   23 src/components/ui-v2/tests/reader-flows.spec.js:332:40 › minimalist landing is clear, responsive and account-free; light (8.2s)
+  ✓   24 src/components/ui-v2/tests/reader-flows.spec.js:332:40 › minimalist landing is clear, responsive and account-free; dark (7.6s)
+  ✓   25 src/components/ui-v2/tests/reader-flows.spec.js:353:1 › minimalist root does not flash marketing during auth/capability checks and returns V3 readers Home (36.6s)
+  ✓   26 src/components/ui-v2/tests/reader-flows.spec.js:377:1 › minimalist landing retains existing legacy fallback and scoped catalogue recovery (2.7s)
+  ✓   27 tests/auth-data.spec.js:82:1 › slow startup explains the wait without parallel refreshes or a navigation workaround (2.1s)
+  ✓   28 tests/auth-data.spec.js:97:1 › unreachable startup keeps private data gated and retries without navigation (2.3s)
+  ✓   29 tests/auth-data.spec.js:110:1 › startup server errors offer retry; genuine expiry returns to sign in (4.5s)
+  ✓   30 tests/auth-data.spec.js:122:1 › a stalled startup has a finite deadline and a safe retry (12.2s)
+  ✓   31 tests/auth-data.spec.js:138:1 › a refresh outage does not silently sign out or overwrite a saved shelf (3.5s)
+  ✓   32 tests/auth-data.spec.js:152:1 › a timed-out startup cannot replace cookies from a later explicit login (3.2s)
+  ✓   33 tests/auth-data.spec.js:170:1 › startup refresh failure cannot undo explicit login (3.1s)
+  ✓   34 tests/auth-data.spec.js:179:1 › startup cookie response completes before a newer login cookie (4.0s)
+  ✓   35 tests/auth-data.spec.js:188:1 › expired access refreshes once; permanent expiry removes private UI (4.6s)
+  ✓   36 tests/auth-data.spec.js:199:1 › logout waits for a cookie-writing automatic refresh (4.3s)
+  ✓   37 tests/auth-data.spec.js:216:1 › explicit preference clearing and first note preservation survive the new UI (4.7s)
+  ✓   38 tests/auth-data.spec.js:227:1 › a reset link can be consumed once through the production entry (4.1s)
+  ✓   39 tests/auth-data.spec.js:239:1 › ordinary discovery has one shared library read and one startup refresh (2.6s)
+  ✓   40 tests/auth-data.spec.js:247:1 › a departed account's late write 401 cannot replay under a new account (5.0s)
+  ✓   41 tests/critical-flows.spec.js:135:39 › M6 invalid reset can request a new link without reloading; rejected=false (3.6s)
+  ✓   42 tests/critical-flows.spec.js:135:39 › M6 invalid reset can request a new link without reloading; rejected=true (4.1s)
+  ✓   43 tests/critical-flows.spec.js:150:1 › M6 recovery preserves safe save/discovery intent but not token parameters (5.1s)
+  ✓   44 tests/critical-flows.spec.js:168:1 › M6 late preference save cannot replace the page the reader navigated to (3.7s)
+  ✓   45 tests/critical-flows.spec.js:185:44 › M6 departed preference save invalidates only its own session; account changed=false (4.1s)
+  ✓   46 tests/critical-flows.spec.js:185:44 › M6 departed preference save invalidates only its own session; account changed=true (5.5s)
+  ✓   47 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=false; retryFailure=false; moveFocus=false (3.8s)
+  ✓   48 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=false; retryFailure=false; moveFocus=true (4.3s)
+  ✓   49 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=false; retryFailure=true; moveFocus=false (5.1s)
+  ✓   50 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=false; retryFailure=true; moveFocus=true (3.3s)
+  ✓   51 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=true; retryFailure=false; moveFocus=false (3.3s)
+  ✓   52 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=true; retryFailure=false; moveFocus=true (2.9s)
+  ✓   53 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=true; retryFailure=true; moveFocus=false (3.1s)
+  ✓   54 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=404; keyboard=true; retryFailure=true; moveFocus=true (3.1s)
+  ✓   55 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=false; retryFailure=false; moveFocus=false (3.3s)
+  ✓   56 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=false; retryFailure=false; moveFocus=true (4.8s)
+  ✓   57 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=false; retryFailure=true; moveFocus=false (3.6s)
+  ✓   58 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=false; retryFailure=true; moveFocus=true (3.2s)
+  ✓   59 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=true; retryFailure=false; moveFocus=false (2.9s)
+  ✓   60 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=true; retryFailure=false; moveFocus=true (3.7s)
+  ✓   61 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=true; retryFailure=true; moveFocus=false (3.9s)
+  ✓   62 tests/critical-flows.spec.js:221:153 › M6 book error and retry respect subsequent focus; status=503; keyboard=true; retryFailure=true; moveFocus=true (3.5s)
+  ✓   63 tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=false (2.6s)
+  ✓   64 tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=true (2.8s)
+  ✓   65 tests/critical-flows.spec.js:262:67 › M6 legacy filtered discovery reflects committed shelf writes: shelf_status=want (2.6s)
+  ✓   66 tests/critical-flows.spec.js:262:67 › M6 legacy filtered discovery reflects committed shelf writes: exclude_owned=true (3.3s)
+  ✓   67 tests/critical-flows.spec.js:270:1 › failed preference load cannot overwrite saved preferences; retry restores them (2.6s)
+  ✓   68 tests/critical-flows.spec.js:284:1 › malformed preferences are not treated as an empty saved preference list (1.8s)
+  ✓   69 tests/critical-flows.spec.js:291:1 › failed preference save preserves edits and can be retried (3.0s)
+  ✓   70 tests/critical-flows.spec.js:306:1 › explicitly clearing loaded preferences still works (2.3s)
+  ✓   71 tests/critical-flows.spec.js:314:1 › Want to Own to removed updates both shelves immediately and persists on reload (4.5s)
+  ✓   72 tests/critical-flows.spec.js:332:1 › a failed status write does not move or remove the saved book (2.4s)
+  ✓   73 tests/critical-flows.spec.js:342:1 › failed shelf load offers retry instead of claiming the library is empty (2.9s)
+  ✓   74 tests/critical-flows.spec.js:351:1 › status buttons wait for saved statuses and prevent overwriting an unknown shelf state (2.2s)
+  ✓   75 tests/critical-flows.spec.js:360:1 › changing status in details is reflected when navigating to My Books (2.5s)
+  ✓   76 tests/critical-flows.spec.js:371:1 › category search, tag removal, reset and browser back follow current controls (3.3s)
+  ✓   77 tests/critical-flows.spec.js:392:1 › direct author search updates a category URL (3.1s)
+  ✘   78 tests/critical-flows.spec.js:404:1 › science-fiction landing links and discovery requests use the actual catalogue tag (1.0m)
+(node:39240) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   79 tests/critical-flows.spec.js:414:1 › signed-out phone visitors can reach sign in and registration from navigation (1.0m)
+(node:39381) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   80 tests/critical-flows.spec.js:426:1 › registration, onboarding, logout and protected routes remain connected (7.2s)
+  ✓   81 tests/critical-flows.spec.js:444:1 › failed login displays an error and remains signed out (2.3s)
+  ✓   82 tests/critical-flows.spec.js:455:1 › expired access retries once after refresh and permanent expiry returns to login (3.8s)
+  ✓   83 tests/critical-flows.spec.js:469:1 › password recovery screens handle generic response, invalid link and single use (4.2s)
+  ✓   84 tests/critical-flows.spec.js:490:1 › a late startup refresh failure cannot undo a successful login (2.6s)
+  ✓   85 tests/critical-flows.spec.js:508:1 › a delayed existing-session refresh cannot overwrite cookies from a newer login (2.7s)
+  ✓   86 tests/critical-flows.spec.js:526:1 › search and missing-book failures show errors instead of crashing (2.7s)
+  ✓   87 tests/critical-flows.spec.js:534:1 › pagination renders different records and a new search returns to page one (3.6s)
+  ✓   88 tests/critical-flows.spec.js:551:1 › ordinary authenticated discovery has bounded request counts and one shared library read (3.6s)
+  ✓   89 tests/critical-flows.spec.js:560:1 › shelf read failure blocks detail-page writes until retry succeeds (2.0s)
+  ✓   90 tests/library-import.spec.js:71:1 › My Books entry and real local CSV parser preserve Unicode, quotes and embedded newlines (5.4s)
+  ✓   91 tests/library-import.spec.js:96:1 › pasted list shares the preview engine and does not invent history (5.4s)
+  ✓   92 tests/library-import.spec.js:107:1 › large TSV upload stays in 100-row batches with explicit confirmation (25.0s)
+  ✓   93 tests/library-import.spec.js:121:1 › paused file resumes after reload by verifying acknowledged batches without duplicating rows (11.3s)
+  ✓   94 tests/library-import.spec.js:145:1 › forgetting removed markers requires an explicit warning and confirmation (3.9s)
+  ✓   95 tests/library-import.spec.js:159:1 › malformed CSV quoting cannot finalize an import (3.2s)
+  ✓   96 tests/library-import.spec.js:169:1 › feature off keeps V2/V3 My Books and blocks the direct import route (3.3s)
+  ✓   97 tests/library-import.spec.js:178:1 › phone import stays within My Books navigation and fits the viewport (2.9s)
+  ✓   98 tests/library-import.spec.js:188:1 › resumed decision check does not present an ordinal as checked-row progress (2.7s)
+  ✓   99 tests/library-import.spec.js:201:1 › cancelled partial import still shows committed book and reading totals (3.3s)
+  ✓  100 tests/m6-release.spec.js:14:3 › M6 theme before and after React: current preference wins (3.5s)
+  ✓  101 tests/m6-release.spec.js:14:3 › M6 theme before and after React: current light wins (3.7s)
+  ✓  102 tests/m6-release.spec.js:14:3 › M6 theme before and after React: legacy migrates (3.6s)
+  ✓  103 tests/m6-release.spec.js:14:3 › M6 theme before and after React: invalid current falls back to legacy (3.5s)
+  ✓  104 tests/m6-release.spec.js:14:3 › M6 theme before and after React: invalid preferences use system (3.6s)
+  ✓  105 tests/m6-release.spec.js:14:3 › M6 theme before and after React: blocked reads use system (2.1s)
+  ✓  106 tests/m6-release.spec.js:14:3 › M6 theme before and after React: blocked writes preserve legacy choice (2.2s)
+  ✓  107 tests/m6-release.spec.js:43:1 › M6 saved theme switches and reloads without preference reversal (3.5s)
+  ✓  108 tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via cover with real cover (2.4s)
+  ✓  109 tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via title with missing cover (2.4s)
+  ✓  110 tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via cover with missing cover (4.8s)
+  ✓  111 tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via title with real cover (4.1s)
+  ✓  112 tests/mobile-navigation.spec.js:70:1 › keyboard skip link focuses main without jumping to the catalogue bottom (2.3s)
+  ✓  113 tests/mobile-navigation.spec.js:81:1 › keyboard shelf actions remain visible above the fixed mobile navigation (2.3s)
+  ✓  114 tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar (3.4s)
+  ✓  115 tests/next-read.spec.js:86:1 › M4 finish skip cannot hide a committed pending start and completion remains visible (3.1s)
+  ✓  116 tests/next-read.spec.js:106:1 › editorial workspace preview shares choices and a new finish returns to Want without a duplicate module (3.1s)
+  ✓  117 tests/next-read.spec.js:128:1 › editorial workspace excludes its current book and returning from catalogue restores a truthful Want preview (2.7s)
+  ✓  118 tests/next-read.spec.js:144:40 › UI refactor finish choices precede secondary workspace actions; theme=light (2.7s)
+  ✓  119 tests/next-read.spec.js:144:40 › UI refactor finish choices precede secondary workspace actions; theme=dark (3.0s)
+  ✓  120 tests/next-read.spec.js:161:1 › M4 Home is shelf-first, short and private; viewing and switching modes never writes (2.7s)
+  ✓  121 tests/next-read.spec.js:176:40 › Home reading desk and compact next choices remain distinct from the collection; theme=light (5.9s)
+  ✓  122 tests/next-read.spec.js:176:40 › Home reading desk and compact next choices remain distinct from the collection; theme=dark (7.0s)
+  ✓  123 tests/next-read.spec.js:201:1 › M4 controls preserve intent across sources, explain unknown metadata and clear unsaved fields (4.7s)
+  ✓  124 tests/next-read.spec.js:222:40 › M4 failed choices do not undo a committed finish; skip is quiet (3.0s)
+  ✓  125 tests/next-read.spec.js:222:40 › M4 malformed choices do not undo a committed finish; skip is quiet (3.7s)
+  ✓  126 tests/next-read.spec.js:238:1 › M4 failed finish never opens next choices (2.6s)
+  ✓  127 tests/next-read.spec.js:257:1 › M4 explicit private start retries a lost response without duplicate attempts (2.9s)
+  ✓  128 tests/next-read.spec.js:271:1 › M4 stale choice cannot silently create a reread (2.5s)
+  ✓  129 tests/next-read.spec.js:282:1 › M4 read-only and older backends never expose a writable or unsupported next flow (2.9s)
+  ✓  130 tests/next-read.spec.js:296:1 › M4 different choices preserve filters and bounded session exclusions without changing shelves (4.3s)
+  ✓  131 tests/next-read.spec.js:317:1 › M4 explicit catalogue start uses the existing entry and attempt contracts without inventing ownership (3.0s)
+  ✓  132 tests/next-read.spec.js:329:1 › M4 pending start blocks conflicting choice controls and keeps one command (2.9s)
+  ✓  133 tests/next-read.spec.js:346:1 › M4 late private choices cannot reappear after account departure (2.6s)
+  ✓  134 tests/reading-library.spec.js:95:41 › M6 Start waits for a same-book Want save; failed save=false (2.7s)
+  ✓  135 tests/reading-library.spec.js:95:41 › M6 Start waits for a same-book Want save; failed save=true (4.1s)
+  ✓  136 tests/reading-library.spec.js:120:1 › M6 genuine Start conflict has truthful copy and explicit idempotent retry (2.4s)
+  ✓  137 tests/reading-library.spec.js:137:1 › V3 discovery batches visible state and never loads the complete shelf (2.3s)
+  ✓  138 tests/reading-library.spec.js:146:1 › Own and Want coexist, removing one preserves the other and survives reload (3.2s)
+  ✓  139 tests/reading-library.spec.js:160:1 › failed and malformed lookups block writes and offer a real retry (2.7s)
+  ✓  140 tests/reading-library.spec.js:171:1 › a stale update shows current state without overwriting it (3.2s)
+  ✘  141 tests/reading-library.spec.js:182:1 › large library pagination, search and both facets use bounded server queries (1.4s)
+
+
+  1) src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 1440px 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+      - navigating to "http://127.0.0.1:5189/browse", waiting until "load"
+
+
+      219 |   }
+      220 |   await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark"); await page.reload(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
+    > 221 |   await page.emulateMedia({ reducedMotion: "reduce" }); await page.goto("/browse"); await page.getByRole("button", { name: "Filters", exact: true }).click(); expect(await page.getByRole("dialog").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+          |                                                                    ^
+      222 | });
+      223 |
+      224 |
+        at /workspace/Book-app-ux-final/frontend/src/components/ui-v2/tests/reader-flows.spec.js:221:68
+
+    Error Context: test-results/src-components-ui-v2-tests-d6330-routes-and-themes-at-1440px/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/src-components-ui-v2-tests-d6330-routes-and-themes-at-1440px/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/src-components-ui-v2-tests-d6330-routes-and-themes-at-1440px/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/critical-flows.spec.js:404:1 › science-fiction landing links and discovery requests use the actual catalogue tag 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: /^Science fiction/ })
+
+
+      404 | test("science-fiction landing links and discovery requests use the actual catalogue tag", async ({ page, app }) => {
+      405 |   await page.goto("/");
+    > 406 |   await page.getByRole("link", { name: /^Science fiction/ }).click();
+          |                                                              ^
+      407 |   await expect(page).toHaveURL(/tag=science_fiction/);
+      408 |   await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Science Fiction"]);
+      409 |   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "Discover", exact: true }).click();
+        at /workspace/Book-app-ux-final/frontend/tests/critical-flows.spec.js:406:62
+
+    Error Context: test-results/tests-critical-flows-scien-3097f-se-the-actual-catalogue-tag/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-critical-flows-scien-3097f-se-the-actual-catalogue-tag/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-critical-flows-scien-3097f-se-the-actual-catalogue-tag/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) tests/critical-flows.spec.js:414:1 › signed-out phone visitors can reach sign in and registration from navigation 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByRole('navigation', { name: 'Mobile navigation' }).getByRole('link', { name: 'You', exact: true })
+
+
+      416 |   await page.setViewportSize({ width: 390, height: 844 });
+      417 |   await page.goto("/");
+    > 418 |   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
+          |                                                                                                                     ^
+      419 |   await expect(page.getByRole("main").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+      420 |   await page.getByRole("main").getByRole("link", { name: "Create account", exact: true }).click();
+      421 |   await expect(page).toHaveURL(/\/register$/);
+        at /workspace/Book-app-ux-final/frontend/tests/critical-flows.spec.js:418:117
+
+    Error Context: test-results/tests-critical-flows-signe-a2389-egistration-from-navigation/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-critical-flows-signe-a2389-egistration-from-navigation/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-critical-flows-signe-a2389-egistration-from-navigation/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) tests/reading-library.spec.js:182:1 › large library pagination, search and both facets use bounded server queries 
+
+    Test was interrupted.
+
+    Error: Object with guid response@13c168a15c76e171fb1eb0badc56e130 was not bound in the connection
+
+    Error Context: test-results/tests-reading-library-larg-8f054--use-bounded-server-queries/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-library-larg-8f054--use-bounded-server-queries/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-library-larg-8f054--use-bounded-server-queries/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 failed
+    src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 1440px 
+    tests/critical-flows.spec.js:404:1 › science-fiction landing links and discovery requests use the actual catalogue tag 
+    tests/critical-flows.spec.js:414:1 › signed-out phone visitors can reach sign in and registration from navigation 
+  1 interrupted
+    tests/reading-library.spec.js:182:1 › large library pagination, search and both facets use bounded server queries 
+  91 did not run
+  137 passed (13.6m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

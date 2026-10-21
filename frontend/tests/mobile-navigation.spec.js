@@ -91,3 +91,17 @@ test("keyboard shelf actions remain visible above the fixed mobile navigation", 
     return element.getBoundingClientRect().bottom <= nav.getBoundingClientRect().top;
   })).toBe(true);
 });
+
+test("landing first touch opens a real book at the top without a guest app toolbar", async ({ page, app }) => {
+  app.realCover = true; app.detailDelay = 1000;
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true })).toHaveCount(0);
+  const cover = page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true });
+  await cover.tap();
+  await expect(page).toHaveURL(/\/book\/1/);
+  const heading = page.locator("#bv-book-title");
+  await expect(heading).toHaveText(books[0].title);
+  await expect(heading).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(180);
+});

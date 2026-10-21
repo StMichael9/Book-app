@@ -148,6 +148,8 @@ class UserBook(Base):
         UniqueConstraint('user_id', 'book_id', name='uq_user_book'),
         UniqueConstraint('id', 'user_id', name='uq_user_book_owner'),
         UniqueConstraint('user_id', 'create_request_id', name='uq_user_book_request'),
+        Index('uq_private_catalogue_work', 'user_id', text("(private_catalogue ->> 'work_id')"), unique=True,
+              postgresql_where=text('private_catalogue IS NOT NULL')),
         CheckConstraint("version >= 1", name="ck_user_book_version"),
         CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
         CheckConstraint("(book_id IS NOT NULL AND private_title IS NULL AND private_author IS NULL) OR "
@@ -169,6 +171,7 @@ class UserBook(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     private_title: Mapped[str | None] = mapped_column(Text)
     private_author: Mapped[str | None] = mapped_column(Text)
+    private_catalogue: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     create_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     creation_fingerprint: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

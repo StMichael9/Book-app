@@ -91,3 +91,6 @@
   .bv-root .bv-reading-workspace .bv-button { min-height: 44px; }
   .bv-root .bv-filter-label { width: 100%; }
 }
+
+.bv-import-link { flex-direction: column; gap: 2px; }
+.bv-import-link > span { font-size: .75rem; font-weight: 400; }

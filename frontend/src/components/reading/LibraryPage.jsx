@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BookOpen } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -9,6 +9,7 @@ import { useRequest } from "../ui-v2/data.js";
 import { ActionLink, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
 
 import { LibraryEntryCard } from "./ReadingCards.jsx";
+import { useLibraryNavigation } from "./libraryNavigationState.js";
 
 function LibrarySearch({ query, onSearch }) {
   const [draft, setDraft] = useState(query);
@@ -24,6 +25,19 @@ export default function LibraryPage() {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const go = useNavigate();
+  const root = useRef(null);
+  const navigation = useLibraryNavigation();
+  const previousView = navigation.get(location.state?.libraryPrevious);
+  function rememberView() {
+    navigation.remember(location.key, { href: location.pathname + location.search, previous: location.state?.libraryPrevious });
+  }
+  function focusCollection() {
+    const heading = root.current?.querySelector("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus({ preventScroll: true });
+    // Only an explicit page command moves the viewport. Late responses never do.
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }
   const q = params.get("q") || "";
   const facet = ["owned", "want", "reading", "paused", "finished", "dnf"].includes(params.get("status")) ? params.get("status") : "all";
   const cursor = params.get("cursor") || "";
@@ -38,35 +52,40 @@ export default function LibraryPage() {
     if (request.data) rememberEntries(request.data.items);
   }, [request.data, rememberEntries]);
   function navigate(nextFacet, nextQuery, nextCursor = "", pagination = false) {
+    if (pagination) { rememberView(); focusCollection(); }
     setParams({ ...(nextFacet === "all" ? {} : { status: nextFacet }), ...(nextQuery ? { q: nextQuery } : {}), ...(nextCursor ? { cursor: nextCursor } : {}), ...(label ? { label } : {}) },
-      { state: pagination ? { libraryPagination: true } : null });
+      { state: pagination ? { libraryPrevious: location.key } : null });
   }
   const counts = request.data?.counts;
-  const facets = [["all", "All"], ["want", "Want"], ["owned", "Own"],
-    ...[["reading", "Reading"], ["paused", "Paused"], ["finished", "Finished"], ["dnf", "Stopped"]].filter(([key]) => counts?.[key] || facet === key)];
+  const commonFacets = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want"], ...(library.readingActions ? [["finished", "Finished"]] : [])];
+  const otherFacets = [["owned", "Own"], ...(library.readingActions ? [["paused", "Paused"], ["dnf", "Stopped"]] : [])];
+  const activeOther = otherFacets.find(([key]) => key === facet);
+  const filterButton = ([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>;
   const affiliateLinks = facet === "want" && request.data?.items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
 
-  return <section className="bv-container bv-reading-library">
-    <div className="bv-library-heading"><PageHeading eyebrow="Your complete collection" title="My Books">Find, organize and revisit your books, from Want to past readings.</PageHeading>{library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary">Bring Your Library</ActionLink>}</div>
+  return <section ref={root} className="bv-container bv-reading-library">
+    <div className="bv-library-heading"><PageHeading title="My Books" />{library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link" aria-label="Bring Your Library" aria-describedby="bv-import-kind">Bring Your Library<span id="bv-import-kind">CSV / TSV import</span></ActionLink>}</div>
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
     {label && <p className="bv-notice">Imported label: {label} <Button variant="quiet" onClick={() => { const next = new URLSearchParams(params); next.delete("label"); next.delete("cursor"); setParams(next); }}>Clear label filter</Button></p>}
-    <div className="bv-filter-groups">{[["Your books", facets.slice(0, 3)], ["Readings", facets.slice(3)]].filter(([, items]) => items.length).map(([group, items]) => <div key={group} className="bv-library-facets" role="group" aria-label={group === "Your books" ? "Filter your library" : "Filter reading history"}><span className="bv-filter-label">{group}</span>{items.map(([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>)}</div>)}</div>
-    <p className="bv-help">{facet === "finished" || facet === "dnf" ? `Books with a ${facet === "finished" ? "finished" : "stopped"} reading. Each card shows its current or latest recorded reading state.` : "Own and Want are independent. A book can belong to both."}</p>
-    <div className="bv-library-tools">{library.readingActions && <TextLink to="/home">Your reading home</TextLink>}<TextLink to="/browse">Find more books</TextLink>{library.readingActions && !library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}</div>
+    <div className="bv-filter-groups"><div className="bv-library-facets" role="group" aria-label="Filter your library">{[...commonFacets, ...(activeOther ? [activeOther] : [])].map(filterButton)}</div>
+      <details className="bv-library-more"><summary>More filters</summary><div className="bv-library-facets" role="group" aria-label="More library filters">{otherFacets.filter(([key]) => key !== facet).map(filterButton)}</div><p className="bv-help">Own and Want are separate; a book can be on both lists.</p></details>
+    </div>
+    {(facet === "finished" || facet === "dnf") && <p className="bv-help">Books you’ve {facet === "finished" ? "finished" : "stopped"} at least once. Earlier readings stay in history, so a book here can also appear in Reading. Each card shows its current or latest reading.</p>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
-    {request.loading ? <BookSkeletons /> : request.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<><Button onClick={request.retry}>Try again</Button>{cursor && <Button variant="quiet" onClick={() => navigate(facet, q)}>Return to first page</Button>}</>}>Your saved books haven’t changed.</EmptyState> : <>
+    {request.loading ? <BookSkeletons /> : request.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<><Button onClick={request.retry}>Try again</Button>{cursor && <Button variant="quiet" onClick={() => { navigate(facet, q); focusCollection(); }}>Return to first page</Button>}</>}>Your saved books haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <>
-      <p className="bv-library-caption bv-muted" role="status">{request.data.total} {request.data.total === 1 ? "book" : "books"}{q ? ` matching “${q}”` : " in this view"}. Newest saved first.</p>
-      <div className="bv-book-grid">{request.data.items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} buyUrl={facet === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : null} />)}</div>
+      <p className="bv-library-caption bv-muted" role="status">{request.data.total} {request.data.total === 1 ? "book" : "books"}{q ? ` matching “${q}”` : " in this view"}.</p>
+      <div className="bv-book-grid">{request.data.items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} historicalFacet={facet} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView} buyUrl={facet === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : null} />)}</div>
       {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
       </> : <EmptyState icon={BookOpen} title={cursor ? "No books on this page." : q || facet !== "all" ? "No saved books match this view." : "Give your books a home."} action={!cursor && <ActionLink to="/browse">Discover books</ActionLink>}>
         {cursor ? "Your library may have changed. Return to an earlier page or start again at the first page." : q || facet !== "all" ? "Try another title or author, or change the library filter." : "Save a book with Own or Want to keep it here."}
       </EmptyState>}
       {(cursor || request.data.next_cursor) && <nav className="bv-library-pagination" aria-label="Library pages">
-        {cursor && location.state?.libraryPagination && <Button variant="secondary" onClick={() => go(-1)}>Previous page</Button>}
-        {cursor && <Button variant="secondary" onClick={() => navigate(facet, q)}>Return to first page</Button>}
+        {cursor && previousView && <Button variant="secondary" onClick={() => { go(previousView.href, { state: { libraryPrevious: previousView.previous } }); focusCollection(); }}>Previous page</Button>}
+        {cursor && <Button variant="secondary" onClick={() => { navigate(facet, q); focusCollection(); }}>Return to first page</Button>}
         {request.data.next_cursor && <Button variant="secondary" onClick={() => navigate(facet, q, request.data.next_cursor, true)}>Next page</Button>}
       </nav>}
     </>}
+    {library.readingActions && !library.readOnly && <p className="bv-library-tools"><TextLink to="/my-books/private">Add one book manually</TextLink></p>}
   </section>;
 }

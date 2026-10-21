@@ -1,0 +1,91 @@
+[WebServer] (node:74525) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:74543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:74576) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:74589) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 2 tests using 1 worker
+
+(node:74608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 frontend/tests/reading-library.spec.js:385:1 › independent review: mobile collection reaches books without a wall of controls (6.4s)
+(node:74751) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 frontend/tests/reading-library.spec.js:398:1 › independent review: workspace returns to the searched filtered library page (10.3s)
+
+
+  1) frontend/tests/reading-library.spec.js:385:1 › independent review: mobile collection reaches books without a wall of controls 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 420
+    Received:   629.390625
+
+      393 |   await testInfo.attach("library-first-book-position", { body: JSON.stringify({ width: 390, firstBookTop: top }), contentType: "application/json" });
+      394 |   await page.screenshot({ path: testInfo.outputPath("review-library-390.png"), fullPage: true });
+    > 395 |   expect(top).toBeLessThan(420);
+          |               ^
+      396 | });
+      397 |
+      398 | test("independent review: workspace returns to the searched filtered library page", async ({ page, app }) => {
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:395:15
+
+    Error Context: frontend/test-results/tests-reading-library-inde-2da90--without-a-wall-of-controls/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-2da90--without-a-wall-of-controls/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-2da90--without-a-wall-of-controls/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) frontend/tests/reading-library.spec.js:398:1 › independent review: workspace returns to the searched filtered library page 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected: "http://127.0.0.1:5189/my-books?status=want&q=Library&cursor=25&label=Imported"
+    Received: "http://127.0.0.1:5189/my-books"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        13 × locator resolved to <html lang="en" data-theme="light">…</html>
+           - unexpected value "http://127.0.0.1:5189/my-books"
+
+
+      407 |   await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toBeVisible();
+      408 |   await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
+    > 409 |   await expect(page).toHaveURL(original);
+          |                      ^
+      410 |   await expect(page.locator(".bv-book-card")).toHaveCount(5);
+      411 |   await page.getByRole("button", { name: "Previous page", exact: true }).click();
+      412 |   await expect(page).not.toHaveURL(/cursor=/);
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:409:22
+
+    Error Context: frontend/test-results/tests-reading-library-inde-f87fe-rched-filtered-library-page/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-f87fe-rched-filtered-library-page/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-f87fe-rched-filtered-library-page/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    frontend/tests/reading-library.spec.js:385:1 › independent review: mobile collection reaches books without a wall of controls 
+    frontend/tests/reading-library.spec.js:398:1 › independent review: workspace returns to the searched filtered library page 
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

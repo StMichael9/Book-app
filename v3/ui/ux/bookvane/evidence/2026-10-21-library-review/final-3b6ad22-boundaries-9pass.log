@@ -1,0 +1,34 @@
+[WebServer] (node:91765) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91778) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:91802) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:91815) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:91834) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 frontend/src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 320px (20.8s)
+  ✓  2 frontend/src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 390px (15.1s)
+  ✓  3 frontend/src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 768px (13.6s)
+  ✓  4 frontend/src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 1440px (36.2s)
+  ✓  5 frontend/tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=false (3.8s)
+  ✓  6 frontend/tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=true (3.7s)
+  ✓  7 frontend/tests/critical-flows.spec.js:414:1 › signed-out phone visitors can reach sign in and registration directly from the landing (2.9s)
+  ✓  8 frontend/tests/critical-flows.spec.js:426:1 › registration, onboarding, logout and protected routes remain connected (6.9s)
+  ✓  9 frontend/tests/reading-lifecycle.spec.js:359:1 › editorial workspace paused actions put Resume first visually and by keyboard (3.3s)
+
+  9 passed (2.0m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

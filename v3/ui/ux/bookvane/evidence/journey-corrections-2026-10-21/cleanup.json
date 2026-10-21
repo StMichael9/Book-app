@@ -1,0 +1,8 @@
+{
+  "application_sha": "48acfa767dcec8c385724ca7e8556b2e5fbd2233",
+  "test_only_head": "a13a82905780d8eeeb05b70d6815358c66d87663",
+  "preview_port_5197_open": false,
+  "active_ui_test_processes": [],
+  "database_processes_started_by_this_pass": false,
+  "real_accounts_or_production_contacted_by_this_pass": false
+}

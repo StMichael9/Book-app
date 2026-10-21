@@ -172,12 +172,14 @@ class ReadingService(LibraryService):
         self.db.delete(entry)
         self.db.commit()
 
-    def create_private(self, user_id, data):
+    def create_private(self, user_id, data, *, catalogue_metadata=None):
         values = data.model_dump(mode="json", exclude={"request_id"})
         values["author"] = values["author"] or None
+        if catalogue_metadata is not None:
+            values['catalogue'] = catalogue_metadata
         intent = fingerprint(values)
         new_id = self.db.scalar(insert(UserBook).values(user_id=user_id,
-            private_title=values["title"], private_author=values["author"],
+            private_title=values["title"], private_author=values["author"], private_catalogue=catalogue_metadata,
             is_owned=data.is_owned, is_wanted=data.is_wanted,
             status=projection(data.is_owned, data.is_wanted), version=1,
             create_request_id=data.request_id, creation_fingerprint=intent)

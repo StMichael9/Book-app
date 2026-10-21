@@ -1,0 +1,114 @@
+[
+  {
+    "file": "library-review-dark-1440-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "5e9aaf5b8f4ad8cb592f4eaec73abe291e72f4a1489c1a5fc717e841ef2f9405",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-1440.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "c20e65b73042959ca461f0c579a7c82442fad4ba7118c2e321702a2899f842a9",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-320-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "abdff1139e5f92d4f4a0d341404ae80982d33e43679ce1ca0fe8c8122d673f14",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-320.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "e3ca451b6e30b3993b3f70372aa040fec03734a50e0d001d6305a39156155a9c",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-390-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "80c77a8ffbaa0e5e1cddfd4b6041526b138f6fc20c90adf6bea836ad545ce5f5",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-390.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "659c4ebf8b630ee2bbff3dedf54a6b17950ea5378b06a7186aac133cae799479",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-768-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "df9ca3403bd0f6a12b2c5d7fd8c78e36ebfd01610dadba034eae20c0ae08e869",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-dark-768.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "2d97050bd5181838b338be88f15fe87cef7fb54fcd7d217d4a49682e349eb4c5",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-1440-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "f7d13d623a904ee258022c0e686b494a0508cd26d1fb5936fafccf83ea5b5082",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-1440.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "03ff10de28b10eae71b78c3e5667f0d7b3133eed3e78d1e093f83c6efa5f5bc0",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-320-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "9fbc70a85645b34b981b50b320c79e4271777e4fd9c13f947d0d2281ea0b97a3",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-320.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "223c4265873f44259027b80cc0d5cda14f6012acc2fdf3b0b6d71edf0d18538b",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-390-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "d10047116f0630b9f30cacfb83878d533bab4ddf430d150f394ef978f03654fb",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-390.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "817dd6fd7f53971719122137ce19283256960e7393967a93ce46a1832d614494",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-768-enlarged.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "08a19038f51b49076a500d031386169216995645a31f0c34402da618fa66a91e",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  },
+  {
+    "file": "library-review-light-768.png",
+    "source_commit": "ce4744dae35ed941cab0227c28ae2932488c22b9",
+    "sha256": "2de2f3603a285fc387488730d36797d0ffb2613ce549cc6c43db4e00ea13f238",
+    "fixture": "synthetic in-memory API; missing and broken covers plus a private entry",
+    "capture": "viewport; enlarged images double each descendant computed font size once"
+  }
+]

@@ -31,6 +31,7 @@ class NextReadChoice(BaseModel):
     book: "LibraryBook | None"
     private_title: str | None
     private_author: str | None
+    private_catalogue: dict | None = None
     is_owned: bool
     is_wanted: bool
     revisit: bool
@@ -121,6 +122,7 @@ class LibraryEntry(BaseModel):
     book: LibraryBook | None
     private_title: str | None
     private_author: str | None
+    private_catalogue: dict | None = None
     is_owned: bool
     is_wanted: bool
     version: int
