@@ -70,11 +70,11 @@ function ReadingHistory({ entryId, enabled, onCorrect, onMemory, onRemove, editi
   </section>;
 }
 
-function ReadingHistoryDisclosure({ visible, entryId, detailsRef, ...props }) {
+function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
   const [params] = useSearchParams();
   const [open, setOpen] = useState(() => Boolean(params.get("history_cursor")));
   const [loaded, setLoaded] = useState(open);
-  return <details ref={detailsRef} hidden={!visible} className="bv-workspace-history" open={open} onToggle={event => {
+  return <details hidden={!visible} className="bv-workspace-history" open={open} onToggle={event => {
     const value = event.currentTarget.open;
     setOpen(value); if (value) setLoaded(true);
   }}><summary>Reading history</summary>
@@ -117,7 +117,6 @@ export function ReadingWorkspacePage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [removal, setRemoval] = useState(null);
   const [reread, setReread] = useState(null);
-  const historyRef = useRef(null);
   const [finishNotice, setFinishNotice] = useState(null);
   const [nextDismissed, setNextDismissed] = useState(false);
   const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
@@ -239,11 +238,6 @@ export function ReadingWorkspacePage() {
                 if (state === "finished" && library.nextRead) { setNextDismissed(false); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration }); }
               })}>{label}</Button>)}</div>}
               {attempt?.state === "paused" ? progressAction : null}
-              {attempt && <Button variant="quiet" disabled={command.pending} onClick={() => {
-                if (!historyRef.current) return;
-                historyRef.current.open = true;
-                historyRef.current.querySelector("summary")?.focus();
-              }}>Reading history &amp; corrections</Button>}
             </div>
             {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" onClick={request.retry}>Reload current reading</Button></p>}
             {editing?.kind === "progress" && editor}
@@ -262,7 +256,7 @@ export function ReadingWorkspacePage() {
         </details>
       </>}</section>}
       {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} />}
-      <ReadingHistoryDisclosure detailsRef={historyRef} entryId={entryId} visible={loaded} activeAttempt={attempt && !terminal ? attempt : null} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal) || Boolean(reread)} />
+      <ReadingHistoryDisclosure entryId={entryId} visible={loaded} activeAttempt={attempt && !terminal ? attempt : null} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal) || Boolean(reread)} />
       {entry && workspace?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={workspace.imported_sources_count} /></div>}
       <details hidden={!loaded || library.readOnly} className="bv-workspace-manage" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary>Manage this book</summary>{loaded && !library.readOnly && <>
         {(!attempt || terminal) && workspace.editions.length > 0 && <div className="bv-field"><label htmlFor="reading-edition">Your copy for the new reading (optional)</label><select id="reading-edition" value={editionId} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">Catalogue preferred edition</option>{workspace.editions.map(edition => <option key={edition.id} value={edition.id}>{edition.physical_format || "Edition"}{edition.page_count ? ` · ${edition.page_count} pages` : ""} · {(edition.languages || []).join(", ") || "Language not listed"}</option>)}</select><p className="bv-help">Saved progress keeps this copy’s page total even if catalogue metadata changes.</p></div>}

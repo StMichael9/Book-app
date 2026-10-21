@@ -9,7 +9,7 @@ const appEntry = state => state.cover ? { ...entry, private_catalogue: { ...entr
 
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
-    const state = { requests: [], errors: [], enabled: true, localItems: [{ id: 1, title: "Existing Neon choice", authors: [], tags: [] }], items: [external] };
+    const state = { requests: [], errors: [], enabled: true, authenticated: true, localItems: [{ id: 1, title: "Existing Neon choice", authors: [], tags: [] }], items: [external] };
     page.on('pageerror', error => state.errors.push(error.message));
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -20,14 +20,14 @@ const test = base.extend({
       state.requests.push({ path, method: request.method(), body: request.method()==='POST' ? request.postDataJSON() : null });
       const reply = json => route.fulfill({ status: 200, json });
       const currentEntry = appEntry(state);
-      if (path === '/auth/refresh') return reply({});
-      if (path === '/me/reading-capabilities') return reply({ enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } });
+      if (path === '/auth/refresh') return state.authenticated ? reply({}) : route.fulfill({ status: 401, json: {} });
+      if (path === '/me/reading-capabilities') { if (state.holdCapabilities) await state.holdCapabilities; if (state.failCapabilities) return route.fulfill({ status: 503, json: {} }); return reply({ enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } }); }
       if (path === '/me/books' || path === '/me/preferences' || path.startsWith('/autocomplete/')) return reply([]);
       if (path === '/books') { if (state.holdLocal) await state.holdLocal; return reply({ items: state.localItems, total: state.localItems.length, page: 1, size: 20 }); }
       if (path === '/me/library/lookup') return reply({ items: request.postDataJSON().book_ids.map(id => ({ book_id: id, entry_id: null, is_owned: false, is_wanted: false, version: null })) });
       if (path === '/me/catalogue/search') { if (state.holdExtended) await state.holdExtended; return reply({ items: state.malformed ? 'wrong shape' : state.unavailable ? [] : state.items, available: !state.unavailable, more_available: false }); }
       if (path === '/me/catalogue/select') return state.failSelect ? route.fulfill({ status: 503, json: { detail: 'Could not save this selection.' } }) : reply(currentEntry);
-      if (path === '/auth/logout' || path === '/auth/login') return reply({});
+      if (path === '/auth/logout' || path === '/auth/login') { state.authenticated = path === '/auth/login'; return reply({}); }
       if (path === '/me/next-read') return reply({ items: url.searchParams.getAll('exclude').includes('entry:44') ? [] : [{ key: 'entry:44', entry_id: 44, version: 1, private_title: currentEntry.private_title, private_author: currentEntry.private_author, private_catalogue: currentEntry.private_catalogue, reasons: [{ code: 'want' }] }], eligible_count: 1, remaining_count: 1, interests: [], known_page_count: 0 });
       if (path === '/me/home') return reply({ current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === '/me/library-imports') return reply({ items: [] });
@@ -163,9 +163,9 @@ test('prefill is document-only and cannot survive an account switch', async ({ p
   await page.getByRole('link', { name: 'Add a private book' }).click();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Private query');
   const oldState = await page.evaluate(() => history.state);
-  await page.getByRole('link', { name: 'Your account', exact: true }).click();
-  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await page.getByRole('link', { name: 'Sign in', exact: true }).first().click();
+  app.authenticated = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('bookvane:session-expired')));
+  await expect(page).toHaveURL(/\/login/);
   await page.getByLabel('Email address', { exact: true }).fill('different@example.invalid');
   await page.getByLabel('Password', { exact: true }).fill('NotARealPassword123!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -190,11 +190,38 @@ test('selected private cover survives the integrated workspace, library and Next
   await expect(page.getByRole('region', { name: 'Choose your next read' }).getByRole('img', { name: `Cover of ${external.title}`, exact: true })).toHaveAttribute('src', '/fixture-cover.svg');
 });
 
-test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app }) => {
+test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app: _app }) => {
   await page.goto('/browse?book=An%20unsaved%20title');
   await page.getByRole('link', { name: 'Add a private book' }).click();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('An unsaved title');
   expect(await page.evaluate(() => JSON.stringify([localStorage,sessionStorage]))).not.toContain('An unsaved title');
   await page.reload();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('');
+});
+
+
+for (const enabled of [true, false]) test(`slow capabilities cannot show a premature final empty state; lookup=${enabled}`, async ({ page, app }) => {
+  let release;
+  app.enabled = enabled; app.localItems = [];
+  app.holdCapabilities = new Promise(resolve => { release = resolve; });
+  await page.goto('/browse?book=missing');
+  await expect(page.getByText('Finishing your search…')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
+  expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
+  release();
+  if (enabled) {
+    await expect(page.getByRole('heading', { name: external.title, exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
+  } else {
+    await expect(page.getByRole('heading', { name: 'No books found.' })).toBeVisible();
+    expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
+  }
+});
+
+test('failed capability check does not claim that an additional catalogue was searched', async ({ page, app }) => {
+  app.failCapabilities = true; app.localItems = [];
+  await page.goto('/browse?book=missing');
+  await expect(page.getByText('Additional books couldn’t be checked.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
+  expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
 });

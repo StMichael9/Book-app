@@ -216,7 +216,7 @@ test("UI refactor catalogue and private library titles open personal workspaces"
 
 test("UI refactor historical facet explains active rereads without changing the query", async ({ page, app }) => {
   await page.goto("/my-books?status=finished");
-  await expect(page.getByText("Books with a finished reading. Each card shows its current or latest recorded reading state.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Books you’ve finished at least once. Earlier readings stay in history, so a book here can also appear in Reading. Each card shows its current or latest reading.", { exact: true })).toBeVisible();
   await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
   expect(app.requests.filter(request => request.path === "/me/library").at(-1).body).toBeNull();
 });

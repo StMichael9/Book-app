@@ -37,7 +37,7 @@ const test = base.extend({
         if (body.expected_version !== state.entry.version) return route.fulfill({ status: 409, json: { detail: 'Your library changed. Reload before trying again.' } });
         if (method === 'PATCH') {
           if (body.state === 'reading' && state.attempts.some(x=>x.id!==id && ['reading','paused'].includes(x.state))) return route.fulfill({ status: 409, json: { detail: 'Another reading is active.' } });
-          const { expected_version, ...changes } = body;
+          const { expected_version: _version, ...changes } = body;
           Object.assign(selected, changes, body.state === 'reading' ? { ended_on: null } : {});
           state.entry.version++;
         } else if (method === 'PUT') {
@@ -61,6 +61,8 @@ for (const width of [390, 1440]) test(`Undo finish reopens the same record witho
   await page.setViewportSize({ width, height: 900 });
   const before = structuredClone(app.attempts);
   await page.goto('/my-books/101');
+  await expect(page.getByRole('button', { name: 'Undo finish', exact: true })).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: `/tmp/bookvane-reading-finished-${width}.png`, fullPage: true });
   await page.getByRole('button', { name: 'Undo finish', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
@@ -102,7 +104,7 @@ test('mistaken active reread can be explicitly removed, then previous finish und
   app.entry.reading_state = 'reading';
   await page.setViewportSize({ width: 320, height: 750 });
   await page.goto('/my-books/101');
-  await page.getByRole('button', { name: 'Reading history & corrections' }).click();
+  await page.locator('.bv-workspace-history > summary').click();
   await expect(page.getByText('Started a reread by mistake?', { exact: false })).toBeVisible();
   const rows = page.locator('.bv-reading-history > li');
   await rows.first().getByRole('button', { name: 'Delete this reading record' }).click();
@@ -153,7 +155,7 @@ test('read-only workspace cannot reopen, reread or delete', async ({ page, app }
   await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Undo finish', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Read it again', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Reading history & corrections' }).click();
+  await page.locator('.bv-workspace-history > summary').click();
   await expect(page.getByRole('button', { name: 'Delete this reading record' }).first()).toBeDisabled();
   expect(writes(app)).toHaveLength(0);
 });
@@ -163,7 +165,7 @@ test('a historical finished record cannot be reopened while another reading is a
   app.attempts.unshift({ ...finished('active', 2026), state: 'reading', ended_on: null });
   app.entry.reading_state = 'reading';
   await page.goto('/my-books/101');
-  await page.getByRole('button', { name: 'Reading history & corrections' }).click();
+  await page.locator('.bv-workspace-history > summary').click();
   await page.locator('.bv-reading-history > li').nth(1).getByRole('button', { name: 'Correct this reading' }).click();
   await expect(page.getByRole('heading', { name: 'Selected reading' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reopen selected reading' })).toHaveCount(0);
