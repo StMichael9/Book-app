@@ -184,7 +184,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
     const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
     await expect(first).toBeVisible();
     expect((await first.boundingBox()).y).toBeLessThan(750);
@@ -194,7 +194,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toBeVisible();
     await expect(page.locator(".bv-current-book")).toHaveCount(0);
     await expect(page.locator(".bv-personal-book")).toHaveCount(3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -621,10 +621,10 @@ test("read-only creation explains disabled controls and is not advertised upstre
   await expect(page.getByRole("status").filter({ hasText: "Changes are temporarily paused." })).toBeVisible();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
   await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Changes are temporarily paused." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
   expect(app.requests.some(request => ["PUT", "PATCH", "POST"].includes(request.method) && request.path !== "/auth/refresh")).toBe(false);
 });
 

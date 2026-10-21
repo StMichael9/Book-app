@@ -116,10 +116,11 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
   await openReadingSection(page, "Manage this book");
-  await page.getByRole("button", { name: "Reopen this reading", exact: true }).click();
+  await page.getByRole("button", { name: "Undo finish", exact: true }).click();
   await page.getByRole("button", { name: "Stop reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Stopped", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Start reading again", exact: true }).click();
+  await page.getByRole("button", { name: "Read it again", exact: true }).click();
+  await page.getByRole("button", { name: "Start a new reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   const history = (await (await page.request.get(`${api}/me/library/${entry.id}/attempts`)).json()).items;
   expect(history).toHaveLength(2);
@@ -250,7 +251,8 @@ test("M3 real private context persists, stays separate across rereads and is own
   }
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await openReadingSection(page, "Manage this book");
-  await page.getByRole("button", { name: "Start reading again", exact: true }).click();
+  await page.getByRole("button", { name: "Read it again", exact: true }).click();
+  await page.getByRole("button", { name: "Start a new reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   const current = (await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json()).current_attempt;
   expect(current.id).not.toBe(first.id); expect(current.note).toBeNull(); expect(current.reaction).toBeNull();

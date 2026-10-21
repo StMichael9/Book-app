@@ -147,6 +147,11 @@ function ImportSession() {
   async function selectFile(selected) {
     setInspection(null); setMapping({}); setNotice(""); setFile(selected);
     if (!selected) return;
+    if (/\.xlsx?$/i.test(selected.name)) {
+      setFile(null);
+      setNotice("Save or export your spreadsheet as CSV or TSV first. Excel (.xls / .xlsx) files cannot be imported directly.");
+      return;
+    }
     command.run(async assertCurrent => {
       const activeSignal = signal();
       const headers = await fileHeaders(selected, encoding, activeSignal);
@@ -202,7 +207,7 @@ function ImportSession() {
   const progress = run?.phase === "analyzing" ? run.analyze_cursor : run?.phase === "grouping" && !run.rechecking ? run.group_cursor : run?.phase === "uploading" ? run.row_count : null;
   return <section className="bv-container bv-import-page"><div className="bv-narrow">
     <TextLink to="/my-books">Back to My Books</TextLink>
-    <PageHeading eyebrow="Your books belong here" title="Bring Your Library">Bring your saved books and supported reading history with you. Preview everything before changing your library.</PageHeading>
+    <PageHeading eyebrow="Your books belong here" title="Bring Your Library">Import many books from a CSV or TSV file, including supported reading history. Preview everything before changing your library.</PageHeading>
     <ImportJourney run={run} />
     <p className="bv-help">Private to you. We’ll ask before adding anything to your library.</p>
     {notice && <p role="status">{notice}</p>}

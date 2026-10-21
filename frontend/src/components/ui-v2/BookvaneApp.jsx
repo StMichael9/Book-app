@@ -155,7 +155,7 @@ function Shell() {
         <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />
         <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/privacy" element={<ReadingPrivacyPage />} />
-        <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/:entryId" element={<RequireAccount><ReadingGate><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
