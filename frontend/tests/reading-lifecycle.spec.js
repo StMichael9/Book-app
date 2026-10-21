@@ -77,7 +77,9 @@ const test = base.extend({
         const counts = { all: entries.length, owned: entries.filter(entry => entry.is_owned).length,
           want: entries.filter(entry => entry.is_wanted).length };
         for (const status of ["reading", "paused", "finished", "dnf"]) counts[status] = entries.filter(entry => entry.reading_state === status).length;
-        return reply(200, { items: entries, counts, total: entries.length, next_cursor: null });
+        const facet = url.searchParams.get("facet") || "all";
+        const items = entries.filter(entry => facet === "all" || (facet === "owned" ? entry.is_owned : facet === "want" ? entry.is_wanted : entry.reading_state === facet));
+        return reply(200, { items, counts, total: counts[facet] || 0, next_cursor: null });
       }
       const workspace = path.match(/^\/me\/library\/(\d+)\/reading$/);
       if (workspace) {
@@ -214,10 +216,14 @@ test("UI refactor catalogue and private library titles open personal workspaces"
   expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
 });
 
-test("UI refactor historical facet explains active rereads without changing the query", async ({ page, app }) => {
+test("UI current-state facets keep past readings inside the book without overlap badges", async ({ page, app }) => {
   await page.goto("/my-books?status=finished");
-  await expect(page.getByText("Books you’ve finished at least once. Earlier readings stay in history, so a book here can also appear in Reading. Each card shows its current or latest reading.", { exact: true })).toBeVisible();
+  await expect(page.getByText("Earlier readings are kept in each book’s Reading history.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No saved books match this view.", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-personal-book")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Reading/ }).click();
   await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
+  await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   expect(app.requests.filter(request => request.path === "/me/library").at(-1).body).toBeNull();
 });
 
@@ -605,10 +611,10 @@ for (const theme of ["light", "dark"]) {
     await page.goto("/my-books");
     const cards = page.locator(".bv-book-grid > *");
     await expect(cards).toHaveCount(5);
-    for (const [index, label] of [[0, "Reading now"], [1, "Paused"], [2, "Finished"], [3, "Stopped"]]) {
+    for (const [index, label] of [[0, "Reading"], [1, "Paused"], [2, "Finished"], [3, "Stopped"]]) {
       await expect(cards.nth(index).getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(cards.nth(4).getByText(/^(Reading now|Paused|Finished|Stopped)$/)).toHaveCount(0);
+    await expect(cards.nth(4).getByText(/^(Reading|Paused|Finished|Stopped)$/)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(app.requests.some(request => request.path.endsWith("/attempts"))).toBe(false);
   });

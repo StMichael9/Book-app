@@ -1,0 +1,90 @@
+[WebServer] (node:104526) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:104546) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+
+[WebServer] (node:104579) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:104592) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 23 tests using 1 worker
+
+(node:104611) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/23] tests/reading-corrections.spec.js:66:34 › Mark as reading reopens the same record without creating a reread at 390px
+[2/23] tests/reading-corrections.spec.js:66:34 › Mark as reading reopens the same record without creating a reread at 1440px
+[3/23] tests/reading-corrections.spec.js:86:1 › reread requires explicit confirmation; Cancel and Escape make no writes and restore focus
+[4/23] tests/reading-corrections.spec.js:108:1 › mistaken active reread can be explicitly removed, then previous reading continued without losing older history
+[5/23] tests/reading-corrections.spec.js:135:1 › current Reading entry is absent from Finished while earlier finishes remain inside the book
+[6/23] tests/reading-corrections.spec.js:156:1 › failed or stale reread retains visible history and captured version rather than rebasing
+[7/23] tests/reading-corrections.spec.js:169:1 › read-only workspace cannot reopen, reread or delete
+[8/23] tests/reading-corrections.spec.js:181:1 › a historical finished record cannot be reopened while another reading is active
+[9/23] tests/reading-corrections.spec.js:192:1 › failed Mark as reading retains the finished record, flags and full history
+[10/23] tests/reading-corrections.spec.js:204:1 › pending reread cannot be dismissed or sent twice
+[11/23] tests/reading-corrections.spec.js:221:34 › same book Finish → Mark as reading updates status views without another record at 390px
+[12/23] tests/reading-corrections.spec.js:221:34 › same book Finish → Mark as reading updates status views without another record at 1440px
+[13/23] tests/reading-corrections.spec.js:263:1 › latest stopped reading uses the same primary action without reviving Finished membership
+[14/23] tests/reading-corrections.spec.js:281:1 › stale Mark as reading does not retry or silently create a reread
+[15/23] tests/reading-lifecycle.spec.js:219:1 › UI current-state facets keep past readings inside the book without overlap badges
+[16/23] tests/reading-lifecycle.spec.js:230:40 › editorial workspace is book-first without an extra navbar; light
+[17/23] tests/reading-lifecycle.spec.js:230:40 › editorial workspace is book-first without an extra navbar; dark
+[18/23] tests/reading-lifecycle.spec.js:264:40 › editorial workspace phone text enlargement and keyboard order; light
+[19/23] tests/reading-lifecycle.spec.js:264:40 › editorial workspace phone text enlargement and keyboard order; dark
+[20/23] tests/reading-lifecycle.spec.js:606:3 › library cards display supplied active/latest states for public/private entries in light
+[21/23] tests/reading-lifecycle.spec.js:606:3 › library cards display supplied active/latest states for public/private entries in dark
+[22/23] tests/reading-lifecycle.spec.js:815:40 › zero-friction active reader journey and responsive evidence; light
+[23/23] tests/reading-lifecycle.spec.js:815:40 › zero-friction active reader journey and responsive evidence; dark
+  1) tests/reading-lifecycle.spec.js:815:40 › zero-friction active reader journey and responsive evidence; dark 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  locator('.bv-personal-book')
+    Expected: 3
+    Received: 0
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for locator('.bv-personal-book')
+
+
+      821 |     await page.goto("/my-books");
+      822 |     const cards = page.locator(".bv-personal-book");
+    > 823 |     await expect(cards).toHaveCount(3);
+          |                         ^
+      824 |     await expect(cards.getByRole("button")).toHaveCount(0);
+      825 |     await expect(page.getByRole("link", { name: /^Open your reading:/ })).toHaveCount(0);
+      826 |     await expect(page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button")).toHaveCount(4);
+        at /workspace/Book-app-reading-status-ui/frontend/tests/reading-lifecycle.spec.js:823:25
+
+    Error Context: test-results/tests-reading-lifecycle-ze-c09af-nd-responsive-evidence-dark/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-lifecycle-ze-c09af-nd-responsive-evidence-dark/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-lifecycle-ze-c09af-nd-responsive-evidence-dark/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  1 failed
+    tests/reading-lifecycle.spec.js:815:40 › zero-friction active reader journey and responsive evidence; dark 
+  22 passed (2.3m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
