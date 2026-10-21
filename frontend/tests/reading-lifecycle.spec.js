@@ -360,8 +360,9 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   app.attempt.state = "paused"; app.entries.get(101).reading_state = "paused";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/101");
+  await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const label of ["Resume reading", "Finish book", "Stop reading", "Update progress"]) {
+  for (const label of ["Own", "Want", "Resume reading", "Finish book", "Stop reading", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
   }
@@ -637,7 +638,7 @@ for (const mode of ["disabled", "oldBackend"]) {
   });
 }
 
-test("drafts clear on route or account departure, not on workspace refresh", async ({ page, app }) => {
+test("drafts survive internal route/back navigation and clear on account departure", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
   await openDisclosure(page, "Format, copy & dates");
@@ -648,7 +649,7 @@ test("drafts clear on route or account departure, not on workspace refresh", asy
   await page.goBack();
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
   await openDisclosure(page, "Format, copy & dates");
-  await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
+  await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
   app.authenticated = false;
   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
   await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
@@ -1040,6 +1041,7 @@ test("minimalist closed stale note keeps its version and requires explicit saved
   expect(app.requests.filter(item => item.method === "PATCH" && item.path.includes("reading-attempts")).at(-1).body.expected_version).toBe(2);
   await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue("Retain original version");
   await page.getByRole("button", { name: "Load saved version", exact: true }).click();
+  await expect.poll(() => page.locator(".bv-workspace-memory").evaluate(node => node.contains(document.activeElement))).toBe(true);
   await page.getByRole("button", { name: "Add a note", exact: true }).click();
   await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue("");
   expect(app.attempt.note ?? null).toBeNull();
@@ -1149,4 +1151,42 @@ test("minimalist deleting one reading clears its drafts and retains the book's s
   await page.getByRole("button", { name: "Load saved version", exact: true }).click();
   await expect(page.locator(".bv-reading-draft")).toHaveCount(0);
   await reloadWithoutDraftWarning(page);
+});
+
+test("minimalist Finish keeps its focus even when an older editor-close frame runs afterwards", async ({ page, app }) => {
+  app.privateContext = true; app.nextRead = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
+  // Hold actual frame callbacks to exercise a valid adverse ordering: Close
+  // commits, Finish completes, then the older Close callback becomes runnable.
+  await page.evaluate(() => {
+    window.closeFrames = [];
+    window.nativeFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = callback => { window.closeFrames.push(callback); return window.closeFrames.length; };
+  });
+  try {
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Finish book", exact: true }).click();
+    const saved = page.getByRole("heading", { name: "Reading saved.", exact: true });
+    await expect(saved).toBeFocused();
+    await page.evaluate(() => { for (const callback of window.closeFrames.splice(0)) callback(performance.now()); });
+    await expect(saved).toBeFocused();
+    expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
+  } finally { await page.evaluate(() => { window.requestAnimationFrame = window.nativeFrame; }); }
+});
+
+test("minimalist note save preserves focus deliberately moved outside its pending editor", async ({ page, app }) => {
+  app.privateContext = true;
+  let release;
+  app.holdSave = new Promise(resolve => { release = resolve; });
+  try {
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Add a note", exact: true }).click();
+    await page.getByLabel("Note (optional)", { exact: true }).fill("Save without taking focus");
+    await page.getByRole("button", { name: "Save note", exact: true }).click();
+    const back = page.getByRole("link", { name: "Back to My Books", exact: true });
+    await back.focus(); release();
+    await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText("Save without taking focus");
+    await expect(back).toBeFocused();
+  } finally { release(); }
 });

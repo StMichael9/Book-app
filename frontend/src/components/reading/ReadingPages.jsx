@@ -112,11 +112,13 @@ export function ReadingWorkspacePage() {
   }, [completeFocus]);
   const statusHeading = useRef(null);
   const [editionId, setEditionId] = useState("");
-  function closeEditor() {
-    const kind = editing?.kind;
+  function closeEditor(restore = true) {
+    if (!editing) return;
+    const kind = editing.kind, previousFocus = document.activeElement;
     setEditing(null);
+    if (!restore) return;
     requestAnimationFrame(() => {
-      if (!workspaceRoot.current) return;
+      if (!workspaceRoot.current || (document.activeElement !== document.body && document.activeElement !== previousFocus)) return;
       const trigger = editorTrigger.current?.isConnected && !editorTrigger.current.disabled ? editorTrigger.current
         : workspaceRoot.current.querySelector(`[data-draft-trigger="${kind}"]:not(:disabled)`);
       const fallback = workspaceRoot.current.querySelector(kind === "progress" ? ".bv-workspace-progress h2" : ".bv-workspace-memory h2");
@@ -129,7 +131,9 @@ export function ReadingWorkspacePage() {
       changeDraft(editing.key, null);
       reader.announce(result.attempt?.state !== editing.attempt?.state ? "Reading updated." : editing.kind === "progress" ? "Progress saved." : editing.kind === "save_note" ? "Save reason saved." : "Note saved.");
     }
-    library.readingChanged(result.entry); closeEditor(); intent.current = null;
+    const focused = document.activeElement;
+    const restore = Boolean(focused === document.body || workspaceRoot.current?.querySelector(".bv-reading-draft")?.contains(focused));
+    library.readingChanged(result.entry); closeEditor(restore); intent.current = null;
     if (result.attempt && result.attempt.state !== "finished") { setFinishNotice(null); setNextDismissed(false); }
   }
   function create(entry, state = "reading") {
@@ -158,12 +162,14 @@ export function ReadingWorkspacePage() {
   }
   const editor = editing && <ReadingEditor key={editing.key} draft={editing} historical={selected && (selected.id !== attempt?.id || terminal)}
     canReopen={editing.kind === "progress" && ["finished", "dnf"].includes(selected.state) && selected.id !== attempt?.id}
-    readOnly={library.readOnly || command.pending} onChange={value => changeDraft(editing.key, value)} onSaved={accept} onClose={closeEditor}
+    readOnly={library.readOnly || command.pending} onChange={value => changeDraft(editing.key, value)} onSaved={accept} onClose={() => closeEditor()}
     onReload={() => {
       // Only this explicit recovery action replaces a stale draft/version.
       const key = editing.key, kind = editing.kind;
       command.run(() => kind === "save_note" ? getReadingWorkspace(entryId) : getReadingAttempt(selected.id), result => {
-        changeDraft(key, null); setEditing(null);
+        const focused = document.activeElement;
+        changeDraft(key, null);
+        closeEditor(Boolean(focused === document.body || workspaceRoot.current?.querySelector(".bv-reading-draft")?.contains(focused)));
         library.readingChanged(result.entry);
       });
     }} />;
