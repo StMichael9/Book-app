@@ -1,0 +1,16 @@
+{
+  "application_sha": "48acfa767dcec8c385724ca7e8556b2e5fbd2233",
+  "scope": "Two stale Reading label assertions; retained raw traces outside the repository. Not a new application failure.",
+  "traces": [
+    {
+      "path": "/workspace/Book-app-ui-journey-qa-evidence/2026-10-21/48acfa7-label-expectations/tests-reading-lifecycle-li-cb642-lic-private-entries-in-dark.zip",
+      "sha256": "1aa8b1f6c2f377d67f665e283a1ab16e288b49fbc8b9de306aa47936390ed2fa",
+      "bytes": 768857
+    },
+    {
+      "path": "/workspace/Book-app-ui-journey-qa-evidence/2026-10-21/48acfa7-label-expectations/tests-reading-lifecycle-li-83aba-ic-private-entries-in-light.zip",
+      "sha256": "465c160ae8d58d60b2fe5000faf70a4372bc88b93c22e45fae1e0eb84c969cfd",
+      "bytes": 764581
+    }
+  ]
+}
