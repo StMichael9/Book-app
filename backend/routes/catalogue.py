@@ -4,16 +4,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import or_, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from database import get_db, settings
-from models import Book, User, UserBook
+from models import Book, User, UserBook, UserBookStatus
 from rate_limit import limiter
 from routes.library import reading_user, writing_user
 from reading_schemas import PrivateEntryCreate, EntryDetail
 from services.external_catalogue import catalogue, CatalogueUnavailable
 from services.library import LibraryService
-from services.reading import ReadingService
+from services.reading import ReadingService, fingerprint
 
 router = APIRouter(prefix='/me/catalogue')
 
@@ -38,7 +39,8 @@ def search(request: Request, title: str = Query(default='',max_length=200), auth
         return {'items':[], 'available':False, 'more_available':False}
     # Prefer existing Neon identities, regardless of which Neon page is visible.
     existing = set(db.scalars(select(Book.source_id).where(Book.source_id.in_([x['source_id'] for x in items])))) if items else set()
-    return {'items':[x for x in items[:30] if x['source_id'] not in existing], 'available':True, 'more_available':len(items)>30}
+    filtered = [x for x in items if x['source_id'] not in existing]
+    return {'items':filtered[:30], 'available':True, 'more_available':len(filtered)>30}
 
 
 class Selection(BaseModel):
@@ -61,7 +63,8 @@ def select_work(request: Request, data: Selection, current_user: User = Depends(
     replay = db.scalar(select(UserBook).where(UserBook.user_id==current_user.id,UserBook.create_request_id==data.request_id))
     if replay:
         metadata = replay.private_catalogue or {}
-        if data.source_id not in (metadata.get('work_id'),metadata.get('requested_work_id')):
+        saved_source = db.scalar(select(Book.source_id).where(Book.id==replay.book_id)) if replay.book_id else None
+        if data.source_id not in (metadata.get('work_id'),metadata.get('requested_work_id'),saved_source):
             raise HTTPException(409,detail='This request identifier already represents a different book.')
         return LibraryService(db).detail(current_user.id,replay.id)
 
@@ -78,8 +81,18 @@ def select_work(request: Request, data: Selection, current_user: User = Depends(
             existing = db.scalar(select(UserBook).where(UserBook.user_id==current_user.id,UserBook.book_id==book_id))
             if existing:
                 return LibraryService(db).detail(current_user.id,existing.id)
-            from reading_schemas import FlagUpdate
-            return LibraryService(db).ensure(current_user.id,book_id,FlagUpdate(is_wanted=True))
+            # Bind the selection UUID atomically on new shared-book entries too.
+            # Native concurrent creation wins without having its flags changed.
+            db.execute(insert(UserBook).values(user_id=current_user.id,book_id=book_id,
+                is_owned=False,is_wanted=True,status=UserBookStatus.want,version=1,
+                create_request_id=data.request_id,creation_fingerprint=fingerprint({'catalogue_source_id':source_id}))
+                .on_conflict_do_nothing())
+            saved = db.scalar(select(UserBook).where(UserBook.user_id==current_user.id,UserBook.book_id==book_id))
+            if saved is None:
+                db.rollback()
+                raise HTTPException(409,detail='This request identifier already represents a different book.')
+            db.commit()
+            return LibraryService(db).detail(current_user.id,saved.id)
         return None
 
     local = existing_identity(data.source_id)
