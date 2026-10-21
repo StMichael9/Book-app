@@ -102,6 +102,23 @@ test("M4 finish skip cannot hide a committed pending start and completion remain
   } finally { release(); }
 });
 
+for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books/1");
+  await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  const finished = page.getByRole("heading", { name: "Reading saved.", exact: true });
+  await expect(finished).toBeFocused();
+  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
+  expect(await page.locator(".bv-finish-choices").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`v3-ui-finish-${theme}-${width}.png`), fullPage: true });
+  }
+  expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
+});
+
 test("M4 Home is shelf-first, short and private; viewing and switching modes never writes", async ({ page, app }) => {
   await page.goto("/home");
   const choices = page.getByRole("region", { name: "Choose your next read" });
@@ -113,6 +130,30 @@ test("M4 Home is shelf-first, short and private; viewing and switching modes nev
   await expect(choices.getByRole("button", { name: "Explore something new", exact: true })).toHaveAttribute("aria-pressed", "true");
   await choices.getByRole("button", { name: "My Want books", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(2);
+  expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
+});
+
+for (const theme of ["light", "dark"]) test(`Home reading desk and compact next choices remain distinct from the collection; theme=${theme}`, async ({ page, app }) => {
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    const desk = page.getByRole("region", { name: "Your current reading", exact: true });
+    const next = page.getByRole("region", { name: "Choose your next read", exact: true });
+    await expect(desk.getByRole("link", { name: "Continue your reading: M4 fixture 1" })).toBeVisible();
+    await expect(next.getByRole("article")).toHaveCount(2);
+    await expect(next.getByRole("button", { name: "Start reading Private queued reading", exact: true })).toBeEnabled();
+    const currentBox = await desk.boundingBox(), nextBox = await next.boundingBox();
+    if (width === 1440) expect(nextBox.x).toBeGreaterThan(currentBox.x + currentBox.width);
+    else expect(nextBox.y).toBeGreaterThan(currentBox.y + currentBox.height);
+    await expect(page.locator(".bv-book-grid")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`home-with-choices-${theme}-${width}.png`), fullPage: true });
+  }
+  const continueReading = page.getByRole("link", { name: "Continue your reading: M4 fixture 1", exact: true });
+  await continueReading.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/my-books\/1$/);
   expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
 });
 

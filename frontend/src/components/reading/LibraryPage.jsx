@@ -6,7 +6,9 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getLibraryPage } from "../../api/reading.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useRequest } from "../ui-v2/data.js";
-import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
+
+import { LibraryEntryCard } from "./ReadingCards.jsx";
 
 function LibrarySearch({ query, onSearch }) {
   const [draft, setDraft] = useState(query);
@@ -43,22 +45,19 @@ export default function LibraryPage() {
   const facets = [["all", "All"], ["want", "Want"], ["owned", "Own"],
     ...[["reading", "Reading"], ["paused", "Paused"], ["finished", "Finished"], ["dnf", "Stopped"]].filter(([key]) => counts?.[key] || facet === key)];
   const affiliateLinks = facet === "want" && request.data?.items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
-  const readingLabels = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
+
   return <section className="bv-container bv-reading-library">
-    <div className="bv-library-heading"><PageHeading eyebrow="Your personal library" title="My Books">Books you own, books you want, and room for your reading history.</PageHeading><ActionLink to="/browse" variant="secondary">Find more books</ActionLink></div>
+    <div className="bv-library-heading"><PageHeading eyebrow="Your complete collection" title="My Books">Find, organize and revisit your books, from Want to past readings.</PageHeading>{library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary">Bring Your Library</ActionLink>}</div>
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
     {label && <p className="bv-notice">Imported label: {label} <Button variant="quiet" onClick={() => { const next = new URLSearchParams(params); next.delete("label"); next.delete("cursor"); setParams(next); }}>Clear label filter</Button></p>}
-    <div className="bv-library-facets" role="group" aria-label="Filter your library">{facets.map(([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>)}</div>
-    <p className="bv-help">Own and Want are independent. A book can belong to both.</p>
-    {library.readingActions && <div className="bv-form-actions"><TextLink to="/home">Your reading home</TextLink>{!library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}{library.libraryImport && !library.readOnly && <TextLink to="/my-books/import">Bring Your Library</TextLink>}</div>}
+    <div className="bv-filter-groups">{[["Your books", facets.slice(0, 3)], ["Readings", facets.slice(3)]].filter(([, items]) => items.length).map(([group, items]) => <div key={group} className="bv-library-facets" role="group" aria-label={group === "Your books" ? "Filter your library" : "Filter reading history"}><span className="bv-filter-label">{group}</span>{items.map(([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>)}</div>)}</div>
+    <p className="bv-help">{facet === "finished" || facet === "dnf" ? `Books with a ${facet === "finished" ? "finished" : "stopped"} reading. Each card shows its current or latest recorded reading state.` : "Own and Want are independent. A book can belong to both."}</p>
+    <div className="bv-library-tools">{library.readingActions && <TextLink to="/home">Your reading home</TextLink>}<TextLink to="/browse">Find more books</TextLink>{library.readingActions && !library.readOnly && <TextLink to="/my-books/private">Add a missing book</TextLink>}</div>
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
     {request.loading ? <BookSkeletons /> : request.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<><Button onClick={request.retry}>Try again</Button>{cursor && <Button variant="quiet" onClick={() => navigate(facet, q)}>Return to first page</Button>}</>}>Your saved books haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <>
       <p className="bv-library-caption bv-muted" role="status">{request.data.total} {request.data.total === 1 ? "book" : "books"}{q ? ` matching “${q}”` : " in this view"}. Newest saved first.</p>
-      <div className="bv-book-grid">{request.data.items.map((entry, index) => entry.book ?
-        <div key={entry.id}><BookCard book={entry.book} priority={index < 5} buyUrl={facet === "want" ? bookshopAffiliateUrl(entry.book) : null} />{readingLabels[entry.reading_state] && <p className="bv-help">{readingLabels[entry.reading_state]}</p>}{library.readingActions && <TextLink to={`/my-books/${entry.id}`}>Open your reading</TextLink>}</div> :
-        <article className="bv-book-card" key={entry.id}><BookCover book={{ title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] }} /><h3>{entry.private_title}</h3><p className="bv-author">{entry.private_author || "Author not listed"}</p><p className="bv-help">Private library entry</p>{readingLabels[entry.reading_state] && <p className="bv-help">{readingLabels[entry.reading_state]}</p>}{library.readingActions && <TextLink to={`/my-books/${entry.id}`}>Open your reading</TextLink>}</article>
-      )}</div>
+      <div className="bv-book-grid">{request.data.items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} buyUrl={facet === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : null} />)}</div>
       {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
       </> : <EmptyState icon={BookOpen} title={cursor ? "No books on this page." : q || facet !== "all" ? "No saved books match this view." : "Give your books a home."} action={!cursor && <ActionLink to="/browse">Discover books</ActionLink>}>
         {cursor ? "Your library may have changed. Return to an earlier page or start again at the first page." : q || facet !== "all" ? "Try another title or author, or change the library filter." : "Save a book with Own or Want to keep it here."}

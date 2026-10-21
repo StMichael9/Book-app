@@ -1,5 +1,12 @@
 import { test, expect } from "@playwright/test";
 
+async function openReadingSection(page, label) {
+  const section = page.locator("details").filter({ has: page.getByText(label, { exact: true }) });
+  await expect(section.locator(":scope > summary")).toBeVisible();
+  if (!(await section.evaluate(node => node.open))) await section.locator(":scope > summary").click();
+}
+
+
 async function registerReadingAccount(page, email, returnTo) {
   await page.goto(`/register?returnTo=${encodeURIComponent(returnTo)}`);
   await page.getByLabel("Email address", { exact: true }).fill(email);
@@ -119,7 +126,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await nav.getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your reading couldn’t load.", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(page.getByRole("link", { name: "Continue your reading", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Continue your reading:/ })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "../backend/.v3-test-runtime/m2-home-phone.png", fullPage: true });
   await nav.getByRole("link", { name: "You", exact: true }).click();
@@ -129,7 +136,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   for (const width of [320, 390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await expect(page.getByRole("link", { name: "Continue your reading", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Continue your reading:/ })).toBeVisible();
   }
   expect(errors).toEqual([]);
 });
@@ -207,10 +214,12 @@ test("M3 real private context persists, stays separate across rereads and is own
   test.setTimeout(180_000);
   await registerReadingAccount(page, "m3-context@example.com", "/my-books/start/1");
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+  await openReadingSection(page, "Only for you");
   await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("A trusted recommendation");
   await page.getByRole("button", { name: "Save reason", exact: true }).click();
   await expect(page.getByText("A trusted recommendation", { exact: true })).toBeVisible();
+  await openReadingSection(page, "Only for you");
   await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
   const memory = '<img src=x onerror="window.noteExecuted=true">\nRemember this reading 読書';
   await page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true }).fill(memory);
@@ -291,6 +300,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   const preserved = await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json();
   expect(preserved.entry.save_note).toBe("A trusted recommendation");
   expect(preserved.current_attempt.id).toBe(current.id);
+  await openReadingSection(page, "Your data, your choice");
   await page.getByRole("button", { name: "Forget this book", exact: true }).click();
   await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
   await expect(page).toHaveURL(/\/my-books$/);

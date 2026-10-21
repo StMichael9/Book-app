@@ -11,6 +11,12 @@ const makeEntry = (id, state = "reading", privateBook = false) => ({
   created_at: stamp, updated_at: stamp,
 });
 
+async function openDisclosure(page, label) {
+  const section = page.locator("details").filter({ has: page.getByText(label, { exact: true }) });
+  await expect(section.locator(":scope > summary")).toBeVisible();
+  if (!(await section.evaluate(node => node.open))) await section.locator(":scope > summary").click();
+}
+
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
     const state = {
@@ -33,7 +39,7 @@ const test = base.extend({
       if (path === "/me/reading-capabilities") {
         if (state.oldBackend) return reply(404, {});
         return reply(200, { enabled: !state.disabled, writable: !state.readOnly, contract_version: 1,
-          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls) } });
+          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls), library_import: Boolean(state.libraryImport) } });
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/me/reading-export") {
@@ -41,7 +47,7 @@ const test = base.extend({
         if (state.exportFails) return reply(503, { detail: "Temporary failure" });
         return route.fulfill({ status: 200, contentType: "application/x-ndjson", body: state.exportTruncated ? '{"type":"metadata"}\n' : '{"type":"metadata","format_version":1}\n{"type":"complete","format_version":1,"counts":{"entry":2,"reading":1,"preference":0}}\n' });
       }
-      if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
+      if (path === "/me/home") return reply(200, { current_reads: state.currentReads || [], reading_count: state.readingCount ?? state.currentReads?.length ?? 0, paused_count: state.pausedCount || 0 });
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => {
         const entry = state.entries.get(id);
         return { book_id: id, entry_id: entry?.id ?? null, is_owned: entry?.is_owned ?? false,
@@ -110,6 +116,90 @@ const test = base.extend({
   },
 });
 
+test("UI refactor current reading leads Home on desktop and phone", async ({ page, app }) => {
+  app.currentReads = [{ entry: app.entries.get(101), attempt: app.attempt }];
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: width <= 390 ? 844 : 1000 });
+    await page.goto("/home");
+    const current = page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
+    await expect(current).toBeVisible();
+    expect((await current.boundingBox()).y).toBeLessThan(width === 390 ? 650 : 750);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`v3-ui-home-${width}.png`), fullPage: true });
+  }
+  await page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/101$/);
+  expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
+});
+
+test("UI refactor paused Home has a truthful empty-current state", async ({ page, app }) => {
+  app.pausedCount = 2;
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "A book can wait for you.", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open paused books", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
+  await expect(page.getByText("Progress is optional.", { exact: true })).toHaveCount(0);
+});
+
+for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tasks and layouts; theme=${theme}`, async ({ page, app }) => {
+  app.libraryImport = true;
+  app.entries.set(103, makeEntry(103, "reading", true));
+  app.currentReads = [
+    { entry: app.entries.get(101), attempt: app.attempt },
+    { entry: app.entries.get(103), attempt: { ...app.attempt, progress_unit: "pages", progress_value: 12, total_pages: null } },
+    { entry: app.entries.get(102), attempt: { ...app.attempt, progress_value: null } },
+  ];
+  app.readingCount = 8; app.pausedCount = 2;
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    const desk = page.getByRole("region", { name: "Your current reading", exact: true });
+    await expect(desk.getByRole("article")).toHaveCount(3);
+    await expect(desk.getByRole("progressbar", { name: "Reading progress for Reading fixture 101" })).toHaveAttribute("value", "40");
+    await expect(desk.getByRole("progressbar")).toHaveCount(1);
+    await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
+    await expect(page.getByRole("link", { name: "Paused books (2)", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
+    await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toHaveCount(0);
+    const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
+    await expect(first).toBeVisible();
+    expect((await first.boundingBox()).y).toBeLessThan(750);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`reading-desk-${theme}-${width}.png`), fullPage: true });
+    await page.getByRole("link", { name: "Open My Books", exact: true }).click();
+    await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Add a missing book", exact: true })).toBeVisible();
+    await expect(page.locator(".bv-current-book")).toHaveCount(0);
+    await expect(page.locator(".bv-personal-book")).toHaveCount(3);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`collection-${theme}-${width}.png`), fullPage: true });
+  }
+  expect(app.requests.filter(request => ["PUT", "PATCH", "DELETE"].includes(request.method))).toHaveLength(0);
+});
+
+test("UI refactor catalogue and private library titles open personal workspaces", async ({ page, app }) => {
+  app.entries.set(103, makeEntry(103, "paused", true));
+  await page.goto("/my-books");
+  await expect(page.getByRole("link", { name: "Reading fixture 101", exact: true })).toHaveAttribute("href", "/my-books/101");
+  await expect(page.getByRole("link", { name: "Private fixture 103", exact: true })).toHaveAttribute("href", "/my-books/103");
+  await expect(page.getByRole("link", { name: "About this book: Reading fixture 101", exact: true })).toHaveAttribute("href", "/book/101");
+  await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible();
+  expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
+});
+
+test("UI refactor historical facet explains active rereads without changing the query", async ({ page, app }) => {
+  await page.goto("/my-books?status=finished");
+  await expect(page.getByText("Books with a finished reading. Each card shows its current or latest recorded reading state.", { exact: true })).toBeVisible();
+  await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
+  expect(app.requests.filter(request => request.path === "/me/library").at(-1).body).toBeNull();
+});
+
 test("M3 confirmed removal distinguishes a reading from the whole book; failure and Cancel preserve data", async ({ page, app }) => {
   app.dataControls = true;
   await page.goto("/my-books/101");
@@ -131,10 +221,12 @@ test("M3 confirmed removal distinguishes a reading from the whole book; failure 
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "A new beginning", exact: true })).toBeVisible();
   expect(app.entries.get(101).is_owned).toBe(true);
+  await openDisclosure(page, "Your data, your choice");
   await page.getByRole("button", { name: "Forget this book", exact: true }).click();
   await expect(dialog).toContainText("every reading, note and reaction");
   await dialog.getByRole("button", { name: "Keep it", exact: true }).click();
   expect(app.entries.has(101)).toBe(true);
+  await openDisclosure(page, "Your data, your choice");
   await page.getByRole("button", { name: "Forget this book", exact: true }).click();
   await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
   await expect(page).toHaveURL(/\/my-books$/);
@@ -146,6 +238,7 @@ test("M3 confirmed removal distinguishes a reading from the whole book; failure 
 test("M3 stale confirmation refuses deletion and keeps the captured version", async ({ page, app }) => {
   app.dataControls = true;
   await page.goto("/my-books/101");
+  await openDisclosure(page, "Your data, your choice");
   await page.getByRole("button", { name: "Forget this book", exact: true }).click();
   app.entries.get(101).version = 3;
   await page.getByRole("dialog").getByRole("button", { name: "Forget book and history", exact: true }).click();
@@ -158,6 +251,7 @@ test("M3 stale confirmation refuses deletion and keeps the captured version", as
 test("M3 forget retry checks actual absence rather than trusting any DELETE 404", async ({ page, app }) => {
   app.dataControls = true; app.removalMissingRoute = true;
   await page.goto("/my-books/101");
+  await openDisclosure(page, "Your data, your choice");
   await page.getByRole("button", { name: "Forget this book", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Forget book and history", exact: true }).click();
@@ -325,6 +419,7 @@ test("drafts clear on route or account departure, not on workspace refresh", asy
 test("M3 private memory retains failed drafts, renders plain text and can be cleared", async ({ page, app }) => {
   app.privateContext = true;
   await page.goto("/my-books/101");
+  await openDisclosure(page, "Only for you");
   await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
   const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   const note = '<img src=x onerror="window.noteExecuted=true">\nMy private memory 読書';
@@ -347,6 +442,7 @@ test("M3 private memory retains failed drafts, renders plain text and can be cle
   await field.fill("");
   await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("");
   await page.getByRole("button", { name: "Save reading memory", exact: true }).click();
+  await openDisclosure(page, "Only for you");
   await expect(page.getByRole("button", { name: "Add note and reaction (optional)", exact: true })).toBeVisible();
   expect(app.attempt.note).toBeNull(); expect(app.attempt.reaction).toBeNull();
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("My private memory");
@@ -370,6 +466,7 @@ test("M3 save reason is independent from reading memory and flags", async ({ pag
 test("M3 stale memory draft survives flag updates without rebasing", async ({ page, app }) => {
   app.privateContext = true;
   await page.goto("/my-books/101");
+  await openDisclosure(page, "Only for you");
   await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
   const field = page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true });
   await field.fill("Unsaved reader context");
@@ -444,6 +541,7 @@ test("M3 late context response cannot reopen a departed account's draft", async 
   app.holdMemory = new Promise(resolve => { release = resolve; });
   try {
     await page.goto("/my-books/101");
+    await openDisclosure(page, "Only for you");
     await page.getByRole("button", { name: "Add note and reaction (optional)", exact: true }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "GET" && request.path.includes("reading-attempts")).length).toBe(1);
     app.authenticated = false;
