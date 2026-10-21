@@ -434,6 +434,7 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
     for (const fallback of await page.locator(".bv-personal-book .bv-cover-fallback strong").all()) await expect(fallback).toBeHidden();
     const controls = page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button");
     const normalControlWidth = (await controls.first().boundingBox()).width;
+    const normalSearchWidth = (await page.getByLabel("Search title or author").boundingBox()).width;
     for (const control of await controls.all()) {
       const box = await control.boundingBox();
       expect(box.height).toBeGreaterThanOrEqual(44);
@@ -455,7 +456,24 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
     });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.getByLabel("Search title or author")).toBeVisible();
-    if (width <= 390) expect((await controls.first().boundingBox()).width).toBeGreaterThan(normalControlWidth);
+    if (width <= 390) {
+      expect((await controls.first().boundingBox()).width).toBeGreaterThan(normalControlWidth);
+      expect((await page.getByLabel("Search title or author").boundingBox()).width).toBeGreaterThan(normalSearchWidth);
+      const nav = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
+      const discover = nav.getByRole("link", { name: "Discover", exact: true });
+      const textLines = await discover.locator("span").evaluate(node => {
+        const range = document.createRange(); range.selectNodeContents(node);
+        return range.getClientRects().length;
+      });
+      expect(textLines).toBe(1);
+      const box = await discover.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      await expect.poll(async () => {
+        const clearance = await page.locator(".bv-root").evaluate(node => parseFloat(getComputedStyle(node).paddingBottom));
+        return clearance >= (await nav.boundingBox()).height;
+      }).toBe(true);
+    }
     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
     const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
     await importLink.focus();

@@ -84,10 +84,16 @@
   .bv-root .bv-reading-library .bv-library-search { margin: 0 0 12px; }
   .bv-root .bv-reading-library .bv-library-search label { margin-bottom: 6px; }
   .bv-root .bv-reading-library .bv-library-search-row { gap: 8px; }
+  .bv-root .bv-reading-library .bv-library-search-row { flex-wrap: wrap; }
+  .bv-root .bv-reading-library .bv-library-search-row input { flex-basis: min(100%, 10em); }
   .bv-root .bv-reading-library .bv-library-search-row .bv-button { padding-inline: 14px; }
   .bv-root .bv-reading-library .bv-filter-groups { gap: 4px; margin-bottom: 8px; }
   .bv-root .bv-reading-library .bv-library-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.2em), 1fr)); gap: 6px; font-size: 15px; }
   .bv-root .bv-reading-library .bv-library-facets .bv-button { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 15px; min-height: 52px; }
   .bv-root .bv-reading-library .bv-library-facets .bv-button span { font-size: 13px; font-weight: 400; }
   .bv-root .bv-reading-library .bv-library-caption { margin-bottom: 12px; }
+  /* Enlarged text may need a second row; never split a navigation word. */
+  .bv-root:not(.bv-root--landing) { padding-bottom: var(--bv-mobile-nav-clearance, calc(4em + 24px + env(safe-area-inset-bottom))); }
+  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 5em), 1fr)); font-size: 12px; gap: 8px 12px; }
+  .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 4px; overflow-wrap: normal; }
 }
