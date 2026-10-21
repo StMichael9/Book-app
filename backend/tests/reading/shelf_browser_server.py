@@ -22,7 +22,7 @@ with engine.connect() as connection:
 with SessionLocal.begin() as session:
     if session.scalar(select(func.count()).select_from(Book)) or session.scalar(select(func.count()).select_from(User)):
         raise RuntimeError('Fresh synthetic database required; existing records will not be changed')
-    session.add(Book(title='Shelf transition regression book'))
+    session.add(Book(title='The Psychology of Money'))
 
 if __name__ == '__main__':
     import uvicorn

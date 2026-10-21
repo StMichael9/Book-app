@@ -13,7 +13,9 @@ for (const width of [390, 1440]) test(`same book Finished to Reading without dup
   await expect(page).toHaveURL(/\/my-books$/);
   const catalogue = await (await page.request.get(`${api}/books`)).json();
   const book = catalogue.items[0];
-  const savedResponse = await page.request.put(`${api}/me/library/books/${book.id}`, { data: { is_owned: true } });
+  const savedResponse = width === 390
+    ? await page.request.post(`${api}/me/library/private`, { data: { request_id: crypto.randomUUID(), title: 'The Psychology of Money', is_owned: true } })
+    : await page.request.put(`${api}/me/library/books/${book.id}`, { data: { is_owned: true } });
   expect(savedResponse.status()).toBe(200);
   const saved = await savedResponse.json();
   const workspace = `${api}/me/library/${saved.id}/reading`;
