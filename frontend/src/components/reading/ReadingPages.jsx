@@ -13,6 +13,7 @@ import { CurrentReadingCard, SlowReadingNotice } from "./ReadingCards.jsx";
 import { ReadingBookDetails, ReadingBookIdentity, ReadingProgress } from "./ReadingBookContext.jsx";
 import ReadingEditor from "./ReadingEditors.jsx";
 import { draftKey, useReadingDrafts } from "./readingDraftState.js";
+import { useReader } from "../ui-v2/readerState.js";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -76,6 +77,7 @@ function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
 export function ReadingWorkspacePage() {
   const { entryId } = useParams();
   const auth = useAuth(), library = useUserBooks();
+  const reader = useReader();
   const request = useRequest(() => getReadingWorkspace(entryId), `workspace:${auth.sessionGeneration}:${entryId}:${library.revision}`);
   const command = useReadingCommand();
   const intent = useRef(null);
@@ -123,7 +125,10 @@ export function ReadingWorkspacePage() {
     });
   }
   function accept(result) {
-    if (editing) changeDraft(editing.key, null);
+    if (editing) {
+      changeDraft(editing.key, null);
+      reader.announce(result.attempt?.state !== editing.attempt?.state ? "Reading updated." : editing.kind === "progress" ? "Progress saved." : editing.kind === "save_note" ? "Save reason saved." : "Note saved.");
+    }
     library.readingChanged(result.entry); closeEditor(); intent.current = null;
     if (result.attempt && result.attempt.state !== "finished") { setFinishNotice(null); setNextDismissed(false); }
   }

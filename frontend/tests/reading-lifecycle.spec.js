@@ -1072,10 +1072,10 @@ for (const theme of ["light", "dark"]) test(`minimalist point-of-use editors, en
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("minimalist pending save cannot be hidden by Close and commits exactly once", async ({ page, app }) => {
+test("minimalist pending save cannot be hidden and acknowledged success does not wait for a refetch", async ({ page, app }) => {
   app.privateContext = true;
-  let release;
-  app.holdSave = new Promise(resolve => { release = resolve; });
+  let releaseSave, releaseWorkspace;
+  app.holdSave = new Promise(resolve => { releaseSave = resolve; });
   try {
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: "Add a note", exact: true }).click();
@@ -1084,10 +1084,69 @@ test("minimalist pending save cannot be hidden by Close and commits exactly once
     await expect(page.getByRole("button", { name: "Close", exact: true })).toBeDisabled();
     await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue("Explicit save only");
     expect(app.attempt.note ?? null).toBeNull();
-    release();
-    await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText("Explicit save only");
+    app.holdWorkspace = new Promise(resolve => { releaseWorkspace = resolve; });
+    releaseSave();
+    await expect(page.getByText("Note saved.", { exact: true })).toBeVisible();
     expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(1);
+    releaseWorkspace();
+    await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText("Explicit save only");
     await expect(page.getByRole("button", { name: "Edit note", exact: true })).toBeVisible();
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain("Explicit save only");
-  } finally { release(); }
+  } finally { releaseSave(); releaseWorkspace?.(); }
+});
+
+async function reloadWithoutDraftWarning(page) {
+  let warned = false;
+  page.once("dialog", async dialog => { warned = true; await dialog.accept(); });
+  await page.reload();
+  await expect(page.locator("h1")).toBeVisible();
+  expect(warned).toBe(false);
+}
+
+test("minimalist failed forget keeps the draft; confirmed forget clears it without an orphan exit warning", async ({ page, app }) => {
+  app.privateContext = true; app.dataControls = true; app.removeFails = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
+  await page.getByLabel("Note (optional)", { exact: true }).fill("Retain unless removal is confirmed");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await openDisclosure(page, "Manage this book");
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  await page.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Keep it", exact: true }).click();
+  await page.getByRole("button", { name: "Continue draft", exact: true }).click();
+  await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue("Retain unless removal is confirmed");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  app.removeFails = false;
+  await page.getByRole("button", { name: "Forget this book", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Unsaved drafts for this book will be removed too.");
+  await page.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.entries.has(101)).toBe(false);
+  await reloadWithoutDraftWarning(page);
+});
+
+test("minimalist deleting one reading clears its drafts and retains the book's separate save-reason draft", async ({ page, app }) => {
+  app.privateContext = true; app.dataControls = true;
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Update progress", exact: true }).click();
+  await page.getByLabel("Percent complete", { exact: true }).fill("26");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("button", { name: "Add a note", exact: true }).click();
+  await page.getByLabel("Note (optional)", { exact: true }).fill("Only this reading");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await openDisclosure(page, "Why I saved this book");
+  await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
+  await page.getByLabel("Save reason (optional)", { exact: true }).fill("Keep this separate book-level thought");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await openDisclosure(page, "Reading history");
+  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await page.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await page.getByRole("button", { name: "Continue save-reason draft", exact: true }).click();
+  await expect(page.getByLabel("Save reason (optional)", { exact: true })).toHaveValue("Keep this separate book-level thought");
+  await page.getByRole("button", { name: "Save reason", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Your draft is still here");
+  await page.getByRole("button", { name: "Load saved version", exact: true }).click();
+  await expect(page.locator(".bv-reading-draft")).toHaveCount(0);
+  await reloadWithoutDraftWarning(page);
 });

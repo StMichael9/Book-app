@@ -411,13 +411,13 @@ test("science-fiction landing links and discovery requests use the actual catalo
   expect(app.requests.some((request) => request.query.get("tag") === "science fiction")).toBe(false);
 });
 
-test("signed-out phone visitors can reach sign in and registration from navigation", async ({ page, app }) => {
+test("signed-out phone visitors can reach sign in and registration directly from the landing", async ({ page, app }) => {
   app.authenticated = false;
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
-  await expect(page.getByRole("main").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
-  await page.getByRole("main").getByRole("link", { name: "Create account", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toHaveCount(0);
+  await expect(page.getByRole("banner").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  await page.locator(".bv-hero-actions").getByRole("link", { name: "Create your library", exact: true }).click();
   await expect(page).toHaveURL(/\/register$/);
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/);
