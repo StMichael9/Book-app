@@ -1,0 +1,170 @@
+[
+  {
+    "file": "simplified-workspace-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "98fac8923de985b57a3248bd19c70cd9dd8fe57b480f8e9f3533f4bdc6e3f460"
+  },
+  {
+    "file": "simplified-library-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "39b74dfadda7b028a4a544333e9b1fc060433b04dff3f32e99dc86a7b256308e"
+  },
+  {
+    "file": "quick-progress-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "6e4cebd0d5f12d0dfd77e2cc5acfd48aa81b64ff437f6bb24e1a8a9123448f51"
+  },
+  {
+    "file": "polish-landing-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "25239f83cbbf8eebb5e5a49fc567ac16931d6492bfd65c798b70db950b50a139"
+  },
+  {
+    "file": "simplified-workspace-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "5e3fac5fa051664fa6abf67c27f79baca10c4802c8825c60aeb6662a501a1e52"
+  },
+  {
+    "file": "simplified-library-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "8a6c27831f245289e3b28f909092401d7e92c723a3672e4238f32153f05fead1"
+  },
+  {
+    "file": "quick-progress-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "f3e9c1e77ca1f20cf079a1a4124263c4d36f32e73b6f437630b014a1e4a00d23"
+  },
+  {
+    "file": "polish-landing-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "d29d114baf95324a827289031e4f3ce83921992354581679d7cbd85487cdb554"
+  },
+  {
+    "file": "simplified-workspace-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "3934174efaf292dad68ede35c575b806bed19943328c1393603a78571f346a6e"
+  },
+  {
+    "file": "simplified-library-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "cd94be32337235a58ff25e6f804bd37654914cfa50853401efde0ae5f3116de8"
+  },
+  {
+    "file": "quick-progress-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "436d08afb297a33602bbb1a6a39ad821a4f24727963be1f413383291137dbdc0"
+  },
+  {
+    "file": "polish-landing-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "caccdf45d846d25d1c82767a0f4d886857f6222792f926a674900f1fcaaca18d"
+  },
+  {
+    "file": "simplified-workspace-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "f62fe4bc24bc15624bd6e0e4ddbef41b6c0c7bd297670b6115e6aa7ad19cb67e"
+  },
+  {
+    "file": "simplified-library-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "4036670fa221381af4be0fb2ec1ab3d02f3c83e8256ff43e14bec8f266b3f554"
+  },
+  {
+    "file": "quick-progress-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "58a2f10fb2de713d7f977977bb990e15371a39c66aa586f3e9240ede777abe08"
+  },
+  {
+    "file": "polish-landing-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "full page; fixed chrome may appear at viewport boundary",
+    "sha256": "2cf646bbefa6591d018b2bac0954a1bc258a39cec501c93e914f04a9679ec3fb"
+  },
+  {
+    "file": "note-editor-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "511da5b285254369180d440fab49bd25846e0a7d20f80f2c67937f2ae8725e11"
+  },
+  {
+    "file": "progress-editor-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "64defea922599f9bafe1432c73fe78786c8231330c2b77fa6f52a5bcc17417e0"
+  },
+  {
+    "file": "note-editor-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "b13368aca4983af241c8f38d77325f69323a05274247f2133535e22422b24b5e"
+  },
+  {
+    "file": "progress-editor-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "e6b6a662e171e0e2be2da0e69499ed30f58f4e91deb342bf4c0149c41f24428b"
+  },
+  {
+    "file": "progress-editor-light-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "6d5b5ec811706089987475bd8602eb411c9975669c14e132c4347c8408090aee"
+  },
+  {
+    "file": "note-editor-dark-1440.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "26d59f7ce7ff14610a09a007d96171f0abc7b82ee7c6b9d75b6bc0e364e1a39d"
+  },
+  {
+    "file": "progress-editor-dark-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "9ae1aeb774ad2923461e2a57f80a136f8d1a8721a5b97050fa1cf27e1b5f8018"
+  },
+  {
+    "file": "note-editor-light-390.png",
+    "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+    "fixture": "synthetic, in-memory API responses",
+    "capture": "viewport; supplemental capture-only fixture against final compiled build",
+    "sha256": "bc70ec76a05fbd28c7b38c501f51552764aed8723e5ebb546df0e374c055cc91"
+  }
+]

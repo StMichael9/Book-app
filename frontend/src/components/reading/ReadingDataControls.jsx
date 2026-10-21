@@ -4,9 +4,11 @@ import { deleteReadingAttempt, forgetLibraryEntry, getReadingAttempt, getReading
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { Button, NativeDialog, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
+import { useReadingDrafts } from "./readingDraftState.js";
 
 export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
   const command = useReadingCommand("We couldn’t confirm the removal. Please try again or reload to check."), library = useUserBooks(), go = useNavigate();
+  const memory = useReadingDrafts();
   const title = entry.book?.title || entry.private_title;
   const state = attempt && ({ reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" })[attempt.state];
   const record = attempt ? `${state} · ${attempt.started_on || "Start date unknown"}${attempt.ended_on ? ` → ${attempt.ended_on}` : ""}` : null;
@@ -48,7 +50,13 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
     <p><strong>{title}</strong></p>{record && <p>{record}</p>}
     <p>{attempt ? "Delete only this reading’s dates, progress, note and reaction. Your saved book, Own/Want flags, save reason and other readings will stay." : "Remove this book from your library, including Own/Want flags, save reason and every reading, note and reaction for it. Other readers, the shared catalogue and your discovery subjects will not change."}</p>
     <p>This cannot be undone. A download you already saved will not be changed.</p>
+    <p>Unsaved drafts for {attempt ? "this reading" : "this book"} will be removed too.</p>
     <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Keep it</Button><Button disabled={command.pending || library.readOnly} onClick={() => command.run(remove, saved => {
+      // Clear only after the existing command confirms removal (or verifies
+      // absence). Failures must preserve the same session's private drafts.
+      for (const key of Object.keys(memory.drafts)) {
+        if (key.startsWith(`${entry.id}:`) && (!attempt || key.endsWith(`:${attempt.id}`))) memory.change(key, null);
+      }
       if (attempt) { library.readingChanged(saved); onRemoved(); }
       else { library.readingRemoved(entry.book_id); go("/my-books", { replace: true }); }
     })}>{command.pending ? "Removing…" : attempt ? "Delete reading record" : "Forget book and history"}</Button></div>

@@ -1,0 +1,38 @@
+[WebServer] (node:32693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:32706) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:32730) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:32743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 13 tests using 1 worker
+
+(node:32762) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/reading-lifecycle.spec.js:471:1 › M3 stale confirmation refuses deletion and keeps the captured version (4.5s)
+  ✓   2 tests/reading-lifecycle.spec.js:543:3 › Own success preserves progress/date drafts across refresh without silently rebasing (4.7s)
+  ✓   3 tests/reading-lifecycle.spec.js:543:3 › Want success preserves progress/date drafts across refresh without silently rebasing (4.6s)
+  ✓   4 tests/reading-lifecycle.spec.js:658:1 › M3 private memory retains failed drafts, renders plain text and can be cleared (5.4s)
+  ✓   5 tests/reading-lifecycle.spec.js:709:1 › M3 stale memory draft survives flag updates without rebasing (3.8s)
+  ✓   6 tests/reading-lifecycle.spec.js:740:1 › M3 historical memory and correction identify the selected record and receive keyboard focus once (3.8s)
+  ✓   7 tests/reading-lifecycle.spec.js:807:40 › zero-friction active reader journey and responsive evidence; light (24.9s)
+  ✓   8 tests/reading-lifecycle.spec.js:807:40 › zero-friction active reader journey and responsive evidence; dark (12.9s)
+  ✓   9 tests/reading-lifecycle.spec.js:864:1 › session draft survives internal navigation without prompts or writes (3.1s)
+  ✓  10 tests/reading-lifecycle.spec.js:881:1 › zero-friction first progress setup and zero/full values never invent dates, totals or a finish (4.5s)
+  ✓  11 tests/reading-lifecycle.spec.js:904:1 › zero-friction note-only edits preserve an unopened reaction and read-only copy stays truthful (3.9s)
+  ✓  12 tests/reading-lifecycle.spec.js:921:1 › zero-friction manage disclosure remains open after each independent flag acknowledgement (3.0s)
+  ✓  13 tests/reading-lifecycle.spec.js:933:1 › zero-friction dirty progress can cancel native reload without losing its value (2.5s)
+
+  13 passed (1.5m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

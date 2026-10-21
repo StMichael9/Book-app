@@ -40,6 +40,7 @@ export function ReaderProvider({ children }) {
     setReadiness({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
     setSaveErrors({});
     setGate(null);
+    setMessage("");
   }
   const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.generation === auth.sessionGeneration && readiness.ready;
 

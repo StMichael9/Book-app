@@ -1,5 +1,5 @@
-const stages = ["Choose file", "Check library", "Review", "Add books", "Results"];
-const stageFor = phase => ({ uploading: 0, analyzing: 1, grouping: 1, preview_ready: 2, applying: 3, completed: 4, completed_with_issues: 4, cancelled: 4, expired: 4, failed: 1 })[phase] ?? 0;
+const stages = ["Choose file", "Review", "Import", "Results"];
+const stageFor = phase => ({ uploading: 0, analyzing: 1, grouping: 1, preview_ready: 1, applying: 2, completed: 3, completed_with_issues: 3, cancelled: 3, expired: 3, failed: 1 })[phase] ?? 0;
 
 export default function ImportJourney({ run }) {
   const current = stageFor(run?.phase);

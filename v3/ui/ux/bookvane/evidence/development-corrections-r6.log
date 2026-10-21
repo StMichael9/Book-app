@@ -1,0 +1,31 @@
+[WebServer] (node:41668) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:41681) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:41705) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:41718) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:41737) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 frontend/src/components/ui-v2/tests/reader-flows.spec.js:211:44 › responsive routes and themes at 1440px (13.5s)
+  ✓  2 frontend/tests/critical-flows.spec.js:404:1 › science-fiction landing links and discovery requests use the actual catalogue tag (2.4s)
+  ✓  3 frontend/tests/critical-flows.spec.js:414:1 › signed-out phone visitors can reach sign in and registration directly from the landing (2.4s)
+  ✓  4 frontend/tests/reading-lifecycle.spec.js:1075:1 › minimalist pending save cannot be hidden and acknowledged success does not wait for a refetch (2.5s)
+  ✓  5 frontend/tests/reading-lifecycle.spec.js:1106:1 › minimalist failed forget keeps the draft; confirmed forget clears it without an orphan exit warning (4.8s)
+  ✓  6 frontend/tests/reading-lifecycle.spec.js:1129:1 › minimalist deleting one reading clears its drafts and retains the book's separate save-reason draft (5.3s)
+
+  6 passed (40.9s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
