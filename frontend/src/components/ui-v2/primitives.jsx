@@ -93,21 +93,21 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   </div>;
 }
 
-export function BookCard({ book, priority, buyUrl }) {
+export function BookCard({ book, priority, buyUrl, preview = false }) {
   const location = useLocation();
   const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse" };
   return <article className="bv-book-card">
     <Link className="bv-book-link" to={`/book/${book.id}`} state={state} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>
     <p className="bv-author">{authorLabel(book)}</p>
-    <ShelfActions book={book} compact />
+    {!preview && <ShelfActions book={book} compact />}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop <ArrowRight aria-hidden="true" /></a>}
   </article>;
 }
 
-export function BookGrid({ books, bookshop = false }) {
+export function BookGrid({ books, bookshop = false, preview = false }) {
   const hasAffiliate = bookshop && books.some((book) => bookshopAffiliateUrl(book));
-  return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
+  return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} preview={preview} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
     {hasAffiliate && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}</>;
 }
 

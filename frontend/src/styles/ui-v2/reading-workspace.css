@@ -94,3 +94,30 @@
   .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { order: 10; }
   .bv-root .bv-editorial-workspace :is(button, a, summary, input, select, textarea, [tabindex]) { scroll-margin-bottom: 100px; }
 }
+
+/* Editors remain mounted at their point of use, including during refetch. */
+.bv-root .bv-workspace-reading { grid-column: 2; grid-row: 1; min-width: 0; }
+.bv-root .bv-workspace-reading .bv-workspace-progress { padding: 24px; }
+.bv-root .bv-workspace-memory { grid-row: 2; }
+.bv-root .bv-workspace-about { grid-row: 3; }
+.bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { grid-row: 2 / span 5; }
+.bv-root .bv-workspace-layout > .bv-finish-choices { grid-row: 2; }
+.bv-root .bv-workspace-layout--finished .bv-workspace-memory { grid-row: 3; }
+.bv-root .bv-workspace-layout--finished .bv-workspace-about { grid-row: 4; }
+.bv-root .bv-workspace-editor { padding: 0; margin-top: 18px; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; background: transparent; }
+.bv-root .bv-workspace-memory > .bv-workspace-editor { margin-top: 0; border-top: 0; }
+.bv-root .bv-workspace-editor .bv-reading-form { margin: 18px 0 0; }
+.bv-root .bv-workspace-editor h2 { font-size: 24px; margin-bottom: 12px; }
+.bv-root .bv-workspace-editor .bv-reading-form fieldset { padding: 0; gap: 12px; }
+.bv-root .bv-workspace-editor .bv-form-actions { gap: 10px; }
+.bv-root .bv-editor-caption { color: var(--bv-muted); }
+.bv-root .bv-workspace-memory .bv-reading-draft { border: 0; }
+.bv-root .bv-home-next .bv-workspace-next { padding: 0; }
+.bv-root .bv-home-next .bv-workspace-next h2 { font-size: 28px; }
+@media (max-width: 760px) {
+  .bv-root .bv-workspace-layout > * { order: initial; }
+  .bv-root .bv-workspace-layout > :is(.bv-finish-choices, .bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { order: initial; }
+  .bv-root .bv-workspace-reading .bv-workspace-progress { padding: 20px; }
+  .bv-root .bv-workspace-memory { padding: 20px 0; }
+  .bv-root .bv-workspace-editor { padding: 0; }
+}

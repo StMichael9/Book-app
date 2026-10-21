@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 async function openReadingSection(page, label) {
-  if (label === "My reading memory") { await expect(page.getByRole("region", { name: label, exact: true })).toBeVisible(); label = "Why I saved this book"; }
+  if (label === "My note") { await expect(page.getByRole("region", { name: label, exact: true })).toBeVisible(); label = "Why I saved this book"; }
   const section = page.locator("details").filter({ has: page.getByText(label, { exact: true }) });
   await expect(section.locator(":scope > summary")).toBeVisible();
   if (!(await section.evaluate(node => node.open))) await section.locator(":scope > summary").click();
@@ -90,7 +90,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   expect(entry.is_owned).toBe(true); expect(entry.is_wanted).toBe(false);
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
-  await page.getByLabel("Progress", { exact: true }).selectOption("percent");
+  await page.getByLabel("Track by", { exact: true }).selectOption("percent");
   await page.getByLabel("Percent complete", { exact: true }).fill("40");
   await page.getByRole("button", { name: "Save progress", exact: true }).click();
   await expect(page.getByText("40%", { exact: true })).toBeVisible();
@@ -102,7 +102,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await page.getByRole("button", { name: "Save progress", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
-  await page.getByRole("button", { name: "Close editor and reload", exact: true }).click();
+  await page.getByRole("button", { name: "Load saved version", exact: true }).click();
   await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
@@ -221,15 +221,15 @@ test("M3 real private context persists, stays separate across rereads and is own
   test.setTimeout(180_000);
   await registerReadingAccount(page, "m3-context@example.com", "/my-books/start/1");
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
-  await openReadingSection(page, "My reading memory");
+  await openReadingSection(page, "My note");
   await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("A trusted recommendation");
   await page.getByRole("button", { name: "Save reason", exact: true }).click();
   await expect(page.getByText("A trusted recommendation", { exact: true })).toBeVisible();
-  await openReadingSection(page, "My reading memory");
+  await openReadingSection(page, "My note");
   await page.getByRole("button", { name: "Add a note", exact: true }).click();
   const memory = '<img src=x onerror="window.noteExecuted=true">\nRemember this reading 読書';
-  await page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true }).fill(memory);
+  await page.getByLabel("Note (optional)", { exact: true }).fill(memory);
   await openReadingSection(page, "Reaction (optional)");
   await page.getByLabel("Reaction (optional)", { exact: true }).selectOption("loved");
   await page.route("**/me/reading-attempts/*", route => route.fulfill({ status: 503, json: {} }), { times: 1 });
@@ -240,7 +240,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   expect(await page.evaluate(() => window.noteExecuted)).toBeUndefined();
   await expect(page.locator(".bv-private-text img")).toHaveCount(0);
   await page.reload();
-  await openReadingSection(page, "My reading memory");
+  await openReadingSection(page, "My note");
   await expect(page.getByText(memory, { exact: true })).toBeVisible();
   const api = "http://127.0.0.1:8005";
   const entry = (await (await page.request.get(`${api}/me/library`)).json()).items[0];
@@ -256,8 +256,8 @@ test("M3 real private context persists, stays separate across rereads and is own
   expect(current.id).not.toBe(first.id); expect(current.note).toBeNull(); expect(current.reaction).toBeNull();
   await openReadingSection(page, "Reading history");
   await page.locator(".bv-reading-history").getByRole("button", { name: "Note and reaction", exact: true }).last().click();
-  await expect(page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true })).toHaveValue(memory);
-  await page.getByLabel("Where I left off / what I want to remember (optional)", { exact: true }).fill("Corrected first-read memory");
+  await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue(memory);
+  await page.getByLabel("Note (optional)", { exact: true }).fill("Corrected first-read memory");
   await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   await expect.poll(async () => (await (await page.request.get(`${api}/me/reading-attempts/${first.id}`)).json()).attempt.note).toBe("Corrected first-read memory");

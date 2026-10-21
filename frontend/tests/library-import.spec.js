@@ -125,7 +125,7 @@ test("paused file resumes after reload by verifying acknowledged batches without
   await page.getByRole("button", { name: "Check my library", exact: true }).click();
   await expect.poll(() => app.rows.length, { intervals: [25, 50, 100] }).toBeGreaterThanOrEqual(100);
   await page.getByRole("button", { name: "Pause", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Cancel future work", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Cancel import", exact: true })).toBeEnabled();
   expect(app.run.phase).toBe("uploading");
   expect(app.rows.length).toBeLessThan(1000);
   const runId = app.run.id;

@@ -27,7 +27,8 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       state.requests.push({ path, method, body, query: url.searchParams });
       const reply = (status, json) => route.fulfill({ status, json });
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: false, contract_version: 1 });
+      if (path === "/me/reading-capabilities") { if (state.holdCapabilities) await state.holdCapabilities; return reply(200, { enabled: Boolean(state.v3), contract_version: 1, writable: true, features: { reading_actions: true } }); }
+      if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/auth/refresh") { if (state.holdRefresh) await state.holdRefresh; return state.authenticated ? reply(200, {}) : reply(401, { detail: "Session expired" }); }
       if (path === "/auth/register") return reply(201, {});
       if (path === "/auth/login") { if (state.loginFails) return reply(401, { detail: "Invalid email or password" }); state.authenticated = true; return reply(200, {}); }
@@ -326,4 +327,61 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?tag=romance");
   expect(app.saved[0].status).toBe("owned");
   expect(mutations(app)).toHaveLength(2);
+});
+
+for (const theme of ["light", "dark"]) test(`minimalist landing is clear, responsive and account-free; ${theme}`, async ({ page, app }) => {
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
+    await expect(page.locator(".bv-book-card")).toHaveCount(5);
+    const explore = page.getByRole("link", { name: "Explore books", exact: true });
+    await expect(explore).toHaveAttribute("href", "/browse");
+    expect((await explore.boundingBox()).y).toBeLessThan(650);
+    await expect(page.getByText("No account needed to explore.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true })).toHaveCount(0);
+    await expect(page.locator(".bv-hero-actions").getByRole("link", { name: "Create your library", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`polish-landing-${theme}-${width}.png`), fullPage: true });
+  }
+  await page.getByRole("link", { name: "Explore books", exact: true }).click();
+  await expect(page).toHaveURL(/\/browse$/);
+  expect(app.requests.filter(item => item.path === "/auth/register")).toHaveLength(0);
+});
+
+test("minimalist root does not flash marketing during auth/capability checks and returns V3 readers Home", async ({ page, app }) => {
+  app.authenticated = true; app.v3 = true;
+  let releaseAuth, releaseCapabilities;
+  app.holdRefresh = new Promise(resolve => { releaseAuth = resolve; });
+  app.holdCapabilities = new Promise(resolve => { releaseCapabilities = resolve; });
+  await page.addInitScript(() => {
+    window.marketingSeen = false;
+    new MutationObserver(() => { if (document.querySelector(".bv-hero")) window.marketingSeen = true; }).observe(document, { childList: true, subtree: true });
+  });
+  try {
+    await page.goto("/");
+    await expect(page.getByText("Opening Bookvane…", { exact: true })).toBeVisible();
+    await expect(page.locator(".bv-hero")).toHaveCount(0);
+    releaseAuth();
+    await expect.poll(() => app.requests.filter(item => item.path === "/me/reading-capabilities").length).toBe(1);
+    await expect(page.locator(".bv-hero")).toHaveCount(0);
+    releaseCapabilities();
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(page.getByRole("heading", { name: "Pick up where you left off.", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => window.marketingSeen)).toBe(false);
+    expect(app.requests.filter(item => item.path === "/books")).toHaveLength(0);
+  } finally { releaseAuth(); releaseCapabilities(); }
+});
+
+test("minimalist landing retains existing legacy fallback and scoped catalogue recovery", async ({ page, app }) => {
+  app.authenticated = true; app.catalogueFails = true;
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to your library", exact: true })).toHaveAttribute("href", "/my-books");
+  await expect(page.getByRole("link", { name: "Explore books", exact: true })).toBeVisible();
+  app.catalogueFails = false;
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
 });

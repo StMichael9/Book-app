@@ -42,8 +42,8 @@ export default function LibraryPage() {
       { state: pagination ? { libraryPagination: true } : null });
   }
   const counts = request.data?.counts;
-  const commonFacets = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want"]];
-  const otherFacets = [["owned", "Own"], ...(library.readingActions ? [["paused", "Paused"], ["finished", "Finished"], ["dnf", "Stopped"]] : [])];
+  const commonFacets = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want"], ...(library.readingActions ? [["finished", "Finished"]] : [])];
+  const otherFacets = [["owned", "Own"], ...(library.readingActions ? [["paused", "Paused"], ["dnf", "Stopped"]] : [])];
   const activeOther = otherFacets.find(([key]) => key === facet);
   const filterButton = ([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>;
   const affiliateLinks = facet === "want" && request.data?.items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
