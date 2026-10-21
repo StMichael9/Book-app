@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingHistory, getReadingHome, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
@@ -14,6 +14,7 @@ import { ReadingBookDetails, ReadingBookIdentity, ReadingProgress } from "./Read
 import ReadingEditor from "./ReadingEditors.jsx";
 import { draftKey, useReadingDrafts } from "./readingDraftState.js";
 import { useReader } from "../ui-v2/readerState.js";
+import { useLibraryNavigation } from "./libraryNavigationState.js";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -51,13 +52,19 @@ export function ReadingHomePage() {
 
 function ReadingHistory({ entryId, enabled, onCorrect, onMemory, onRemove, editing }) {
   const auth = useAuth(), library = useUserBooks();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const cursor = params.get("history_cursor") || "";
+  function showHistory(nextCursor = "") {
+    const next = new URLSearchParams(params);
+    if (nextCursor) next.set("history_cursor", nextCursor); else next.delete("history_cursor");
+    setParams(next, { state: location.state });
+  }
   const request = useRequest(() => getReadingHistory(entryId, cursor), `history:${auth.sessionGeneration}:${entryId}:${cursor}:${library.revision}`, enabled);
   return <section className="bv-reading-history-content" aria-label="Your reading history">
-    {request.loading ? <p role="status">Loading reading history…</p> : request.error ? <EmptyState error title="Your history couldn’t load." action={<><Button onClick={request.retry}>Try again</Button><Button onClick={() => setParams({})} variant="secondary">First readings</Button></>}>Your records haven’t changed.</EmptyState> : <>
+    {request.loading ? <p role="status">Loading reading history…</p> : request.error ? <EmptyState error title="Your history couldn’t load." action={<><Button onClick={request.retry}>Try again</Button><Button onClick={() => showHistory()} variant="secondary">First readings</Button></>}>Your records haven’t changed.</EmptyState> : <>
       {request.data.items.length ? <ul className="bv-reading-history">{request.data.items.map(attempt => <li key={attempt.id}><strong>{stateLabel[attempt.state]}</strong><span>{attempt.started_on || "Start date unknown"}{attempt.ended_on ? ` → ${attempt.ended_on}` : ""}</span><Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onCorrect(attempt)}>Correct this reading</Button>{library.privateContext && <Button variant="quiet" disabled={editing} onClick={() => onMemory(attempt)}>{library.readOnly ? "View reading memory" : "Note and reaction"}</Button>}{library.privacyControls && <Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onRemove(attempt)}>Delete this reading record</Button>}</li>)}</ul> : <p>No reading records on this page.</p>}
-      <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => setParams({})}>First readings</Button>}{request.data.next_cursor && <Button variant="secondary" onClick={() => setParams({ history_cursor: request.data.next_cursor })}>Older readings</Button>}</div>
+      <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => showHistory()}>First readings</Button>}{request.data.next_cursor && <Button variant="secondary" onClick={() => showHistory(request.data.next_cursor)}>Older readings</Button>}</div>
     </>}
   </section>;
 }
@@ -76,6 +83,9 @@ function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
 
 export function ReadingWorkspacePage() {
   const { entryId } = useParams();
+  const location = useLocation();
+  const navigation = useLibraryNavigation();
+  const libraryView = navigation.get(location.state?.libraryReturn);
   const auth = useAuth(), library = useUserBooks();
   const reader = useReader();
   const request = useRequest(() => getReadingWorkspace(entryId), `workspace:${auth.sessionGeneration}:${entryId}:${library.revision}`);
@@ -184,7 +194,7 @@ export function ReadingWorkspacePage() {
     enabled={loaded || Boolean(finished)} hidden={nextDismissed && !finished} finishId={finished?.id} finishedTitle={finished?.title}
     onSkip={finished ? () => { setFinishNotice(null); setNextDismissed(true); (statusHeading.current || document.getElementById("bv-main"))?.focus(); } : undefined} />;
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-editorial-workspace">
-    <div className="bv-breadcrumb"><TextLink to="/my-books">Back to My Books</TextLink></div>
+    <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous } : null}>Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
     <div className={`bv-workspace-layout${finished ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
       {!entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>

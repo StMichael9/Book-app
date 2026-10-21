@@ -12,6 +12,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
 import ReadingDraftProvider from "../reading/ReadingDraftProvider.jsx";
+import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 
@@ -150,4 +151,4 @@ function Shell() {
 }
 
 // Uses the existing Router, AuthProvider and UserBooksProvider supplied by main.
-export default function BookvaneApp() { return <ReaderProvider><ReadingDraftProvider><Shell /></ReadingDraftProvider></ReaderProvider>; }
+export default function BookvaneApp() { return <ReaderProvider><ReadingDraftProvider><LibraryNavigationProvider><Shell /></LibraryNavigationProvider></ReadingDraftProvider></ReaderProvider>; }

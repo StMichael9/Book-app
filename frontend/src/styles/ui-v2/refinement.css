@@ -66,3 +66,28 @@
   .bv-root .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
 }
 .bv-root .bv-landing-subjects { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-top: 20px; }
+
+/* A collection starts with its books, without another introductory block. */
+.bv-root .bv-reading-library .bv-library-heading .bv-page-heading { padding: 28px 0 16px; }
+.bv-root .bv-reading-library .bv-library-search { margin: 0 0 16px; }
+.bv-root .bv-reading-library .bv-library-caption { margin-bottom: 16px; }
+.bv-root .bv-library-pagination { flex-wrap: wrap; }
+/* Keep one readable title/author below the card even when artwork is missing. */
+.bv-root .bv-personal-book .bv-cover-fallback { justify-content: center; align-items: center; text-align: center; }
+.bv-root .bv-personal-book .bv-cover-fallback :is(strong, span) { display: none; }
+.bv-root .bv-personal-book .bv-cover-fallback small { margin-top: 0; }
+@media (max-width: 700px) {
+  .bv-root .bv-reading-library .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .bv-root .bv-reading-library .bv-library-heading .bv-page-heading { flex: 1; padding: 18px 0 12px; }
+  .bv-root .bv-reading-library .bv-library-heading h1 { margin-bottom: 0; }
+  .bv-root .bv-reading-library .bv-library-heading > .bv-button { margin: 0; min-height: 44px; padding: 8px 10px; font-size: 14px; white-space: normal; }
+  .bv-root .bv-reading-library .bv-library-search { margin: 0 0 12px; }
+  .bv-root .bv-reading-library .bv-library-search label { margin-bottom: 6px; }
+  .bv-root .bv-reading-library .bv-library-search-row { gap: 8px; }
+  .bv-root .bv-reading-library .bv-library-search-row .bv-button { padding-inline: 14px; }
+  .bv-root .bv-reading-library .bv-filter-groups { gap: 4px; margin-bottom: 8px; }
+  .bv-root .bv-reading-library .bv-library-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.2em), 1fr)); gap: 6px; font-size: 15px; }
+  .bv-root .bv-reading-library .bv-library-facets .bv-button { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 15px; min-height: 52px; }
+  .bv-root .bv-reading-library .bv-library-facets .bv-button span { font-size: 13px; font-weight: 400; }
+  .bv-root .bv-reading-library .bv-library-caption { margin-bottom: 12px; }
+}
