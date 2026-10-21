@@ -1,0 +1,61 @@
+[WebServer] (node:35036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35049) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:35073) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35086) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 6 tests using 1 worker
+
+(node:35142) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar (4.1s)
+(node:35273) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 tests/reading-lifecycle.spec.js:543:3 › Own success preserves progress/date drafts across refresh without silently rebasing (12.9s)
+  ✓  3 tests/reading-lifecycle.spec.js:543:3 › Want success preserves progress/date drafts across refresh without silently rebasing (7.9s)
+  ✓  4 tests/reading-lifecycle.spec.js:740:1 › M3 historical memory and correction identify the selected record and receive keyboard focus once (3.8s)
+  ✓  5 tests/reading-lifecycle.spec.js:1047:40 › minimalist point-of-use editors, enlarged text and reduced motion; light (9.4s)
+  ✓  6 tests/reading-lifecycle.spec.js:1047:40 › minimalist point-of-use editors, enlarged text and reduced motion; dark (36.4s)
+
+
+  1) tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar 
+
+    Error: expect(received).toBeLessThan(expected)
+
+    Expected: < 180
+    Received:   195
+
+      104 |   await expect(heading).toHaveText(books[0].title);
+      105 |   await expect(heading).toBeInViewport();
+    > 106 |   expect(await page.evaluate(() => window.scrollY)).toBeLessThan(180);
+          |                                                     ^
+      107 | });
+      108 |
+        at /workspace/Book-app-ux-final/frontend/tests/mobile-navigation.spec.js:106:53
+
+    Error Context: test-results/tests-mobile-navigation-la-3886b-without-a-guest-app-toolbar/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-mobile-navigation-la-3886b-without-a-guest-app-toolbar/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-mobile-navigation-la-3886b-without-a-guest-app-toolbar/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar 
+  5 passed (1.5m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

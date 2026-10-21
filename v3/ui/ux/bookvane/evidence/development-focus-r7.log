@@ -1,0 +1,42 @@
+[WebServer] (node:52458) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:52475) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [PLUGIN_TIMINGS] Your build spent 87% of 4.1s inside plugin hooks (3.6s).
+[WebServer] Measured inside the callback, so queue time is excluded and time the callback itself awaited is not:
+[WebServer]   - vite:css transform (59%, 2.4s, 6 calls)
+[WebServer] Those rows are 59% of the build; the rest of the 87% is below.
+[WebServer] Not measurable — 1 hook whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+[WebServer]   - @tailwindcss/vite:generate:build transform (6 calls)
+[WebServer] See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[WebServer] 
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:52503) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:52517) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:52543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 frontend/tests/reading-lifecycle.spec.js:359:1 › editorial workspace paused actions put Resume first visually and by keyboard (7.4s)
+  ✓  2 frontend/tests/reading-lifecycle.spec.js:641:1 › drafts survive internal route/back navigation and clear on account departure (6.7s)
+  ✓  3 frontend/tests/reading-lifecycle.spec.js:809:40 › zero-friction active reader journey and responsive evidence; light (12.8s)
+  ✓  4 frontend/tests/reading-lifecycle.spec.js:809:40 › zero-friction active reader journey and responsive evidence; dark (15.8s)
+  ✓  5 frontend/tests/reading-lifecycle.spec.js:950:1 › minimalist Close retains a note without requests, dialogs, scroll or lost focus (8.7s)
+  ✓  6 frontend/tests/reading-lifecycle.spec.js:997:1 › minimalist closed drafts warn only on document exit and clear after accepted refresh (6.1s)
+  ✓  7 frontend/tests/reading-lifecycle.spec.js:1031:1 › minimalist closed stale note keeps its version and requires explicit saved-version recovery (3.5s)
+  ✓  8 frontend/tests/reading-lifecycle.spec.js:1155:1 › minimalist Finish keeps its focus even when an older editor-close frame runs afterwards (2.7s)
+  ✓  9 frontend/tests/reading-lifecycle.spec.js:1177:1 › minimalist note save preserves focus deliberately moved outside its pending editor (3.3s)
+
+  9 passed (1.4m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

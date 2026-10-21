@@ -1,0 +1,34 @@
+[WebServer] (node:35621) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35634) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:35658) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:35671) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 9 tests using 1 worker
+
+(node:35699) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 frontend/tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=false (3.7s)
+  ✓  2 frontend/tests/critical-flows.spec.js:248:40 › M6 delayed book focus preserves keyboard intent; moved focus=true (4.0s)
+  ✓  3 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via cover with real cover (4.9s)
+  ✓  4 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 1 via title with missing cover (7.2s)
+  ✓  5 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via cover with missing cover (7.0s)
+  ✓  6 frontend/tests/mobile-navigation.spec.js:52:3 › first touch opens book 12 via title with real cover (3.6s)
+  ✓  7 frontend/tests/mobile-navigation.spec.js:95:1 › landing first touch opens a real book at the top without a guest app toolbar (3.5s)
+  ✓  8 frontend/tests/reading-lifecycle.spec.js:401:40 › editorial workspace delayed identity respects keyboard focus; moved=false (2.6s)
+  ✓  9 frontend/tests/reading-lifecycle.spec.js:401:40 › editorial workspace delayed identity respects keyboard focus; moved=true (2.5s)
+
+  9 passed (49.5s)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
