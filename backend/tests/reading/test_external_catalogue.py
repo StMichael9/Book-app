@@ -125,3 +125,28 @@ def test_concurrent_selections_are_one_entry(external,reader,app_modules,db_sess
     assert ids[0]==ids[1]
     model=app_modules['models'].UserBook
     assert db_session.scalar(select(func.count()).select_from(model).where(model.user_id==owner))==1
+
+
+def test_committed_selection_retries_without_remote_or_token(client,external,app_modules,monkeypatch):
+    from services.external_catalogue import catalogue
+    request_id=str(uuid.uuid4())
+    saved=select_book(client,external,request_id).json()
+    monkeypatch.setattr(app_modules['database'].settings,'external_catalogue_token',None)
+    def forbidden(*args): raise AssertionError('Committed retry must not contact the provider')
+    monkeypatch.setattr(catalogue,'work',forbidden)
+    assert select_book(client,external,request_id).json()['id']==saved['id']
+    assert select_book(client,external).json()['id']==saved['id']
+    assert select_book(client,external,request_id,source_id='/works/OL2W').status_code==409
+
+
+def test_later_shared_identity_does_not_duplicate_private_history(client,external,reader,app_modules,db_session,monkeypatch):
+    from services.external_catalogue import catalogue
+    saved=select_book(client,external).json()
+    db_session.add(app_modules['models'].Book(title=external['title'],source_id=external['source_id']))
+    db_session.commit()
+    def forbidden(*args): raise AssertionError('Local identity must win')
+    monkeypatch.setattr(catalogue,'work',forbidden)
+    result=select_book(client,external).json()
+    assert result['id']==saved['id'] and result['book_id'] is None
+    model=app_modules['models'].UserBook
+    assert db_session.scalar(select(func.count()).select_from(model).where(model.user_id==reader.id))==1
