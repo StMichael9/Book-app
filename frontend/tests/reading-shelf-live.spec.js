@@ -33,6 +33,7 @@ for (const width of [390, 1440]) test(`same book Finished to Reading without dup
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath(`reading-after-reopen-${width}.png`), fullPage: true });
   const current = await (await page.request.get(workspace)).json();
   expect(current.entry.id).toBe(saved.id);
   expect(current.entry.is_owned).toBe(true);
