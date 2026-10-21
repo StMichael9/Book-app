@@ -46,6 +46,20 @@ for (const width of [390, 1440]) test(`same book Finished to Reading without dup
   expect(all.total).toBe(1);
   expect(all.counts.reading).toBe(1);
   expect(all.counts.finished).toBe(0);
+  // Reproduce the original overlap too: a real reread must retain the old
+  // finish in history, but never keep a second card in the Finished shelf.
+  await page.getByRole('button', { name: 'Finish book', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Read it again', exact: true }).click();
+  await page.getByRole('button', { name: 'Start a new reading', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
+  const history = (await (await page.request.get(`${api}/me/library/${saved.id}/attempts`)).json()).items;
+  expect(history).toHaveLength(2);
+  expect(history.find(row => row.id === first.id).state).toBe('finished');
+  expect((await (await page.request.get(workspace)).json()).current_attempt.id).not.toBe(first.id);
+  expect((await (await page.request.get(`${api}/me/library`)).json()).total).toBe(1);
   await page.goto('/my-books?status=reading');
   await expect(page.locator('.bv-personal-book')).toHaveCount(1);
   await page.goto('/my-books?status=finished');
