@@ -605,10 +605,10 @@ for (const theme of ["light", "dark"]) {
     await page.goto("/my-books");
     const cards = page.locator(".bv-book-grid > *");
     await expect(cards).toHaveCount(5);
-    for (const [index, label] of [[0, "Reading"], [1, "Paused"], [2, "Finished"], [3, "Stopped"]]) {
+    for (const [index, label] of [[0, "Reading now"], [1, "Paused"], [2, "Finished"], [3, "Stopped"]]) {
       await expect(cards.nth(index).getByText(label, { exact: true })).toBeVisible();
     }
-    await expect(cards.nth(4).getByText(/^(Reading|Paused|Finished|Stopped)$/)).toHaveCount(0);
+    await expect(cards.nth(4).getByText(/^(Reading now|Paused|Finished|Stopped)$/)).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(app.requests.some(request => request.path.endsWith("/attempts"))).toBe(false);
   });
