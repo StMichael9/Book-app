@@ -26,6 +26,7 @@ export function UserBooksProvider({ children }) {
   const [readingExport, setReadingExport] = useState(false);
   const [nextRead, setNextRead] = useState(false);
   const [libraryImport, setLibraryImport] = useState(false);
+  const [extendedCatalogue, setExtendedCatalogue] = useState(false);
   const [revision, setRevision] = useState(0);
   const [lookupErrors, setLookupErrors] = useState({});
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -74,6 +75,7 @@ export function UserBooksProvider({ children }) {
     setPrivacyControls(false); setReadingExport(false);
     setNextRead(false);
     setLibraryImport(false);
+    setExtendedCatalogue(false);
     for (const controller of requests.current) controller.abort();
     for (const waiters of queued.current.values()) for (const waiter of waiters) waiter.reject(new Error("Account changed"));
     queued.current.clear(); pipeline.current = null;
@@ -95,6 +97,7 @@ export function UserBooksProvider({ children }) {
         setReadingExport(capabilities.features?.reading_export === true);
         setNextRead(capabilities.features?.next_read === true);
         setLibraryImport(capabilities.features?.library_import === true);
+        setExtendedCatalogue(capabilities.features?.extended_catalogue === true);
         setMode("v3");
       } else {
         const items = await getMyBooks();
@@ -214,6 +217,7 @@ export function UserBooksProvider({ children }) {
     readingExport: loadedSession === sessionKey && readingExport,
     nextRead: loadedSession === sessionKey && nextRead,
     libraryImport: loadedSession === sessionKey && libraryImport,
+    extendedCatalogue: loadedSession === sessionKey && extendedCatalogue,
     readingChanged(entry) { if (entry) rememberEntries([entry]); setRevision(number => number + 1); },
     importChanged() {
       invalidateLookups();
@@ -247,7 +251,7 @@ export function UserBooksProvider({ children }) {
       setBooksById(current => { const next = { ...current }; delete next[bookId]; return next; });
       setRevision(number => number + 1);
     },
-  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, libraryImport, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag, invalidateLookups, waitForBookWrites]);
+  }), [booksById, loading, error, mode, revision, readOnly, readingActions, privateContext, privacyControls, readingExport, nextRead, libraryImport, extendedCatalogue, lookupErrors, loadedSession, sessionKey, loadVisibleBooks, rememberEntries, setFlag, invalidateLookups, waitForBookWrites]);
 
   return <UserBooksContext.Provider value={value}>{children}</UserBooksContext.Provider>;
 }

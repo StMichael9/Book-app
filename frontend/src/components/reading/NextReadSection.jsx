@@ -42,7 +42,7 @@ async function startChoice(choice, source, identity, assertCurrent) {
 }
 
 function NextReadCard({ choice, disabled, pending, onStart }) {
-  const book = choice.book || { title: choice.private_title, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
+  const book = choice.book || { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
   return <article className="bv-book-card"><BookCover book={book} /><h3>{book.title}</h3>
     <p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>
     <p className="bv-help">{choice.reasons.slice(0, 2).map(reasonText).join(" ")}</p>

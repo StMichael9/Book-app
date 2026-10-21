@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Generator, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     reading_v3_enabled: bool = Field(default=False, alias="READING_V3_ENABLED")
     reading_v3_user_ids: str = Field(default="", alias="READING_V3_USER_IDS")
     library_import_enabled: bool = Field(default=False, alias="LIBRARY_IMPORT_ENABLED")
+    external_catalogue_enabled: bool = Field(default=False, alias="EXTERNAL_CATALOGUE_ENABLED")
+    external_catalogue_token: SecretStr | None = Field(default=None, alias="EXTERNAL_CATALOGUE_TOKEN")
     library_import_max_database_mb: int = Field(default=800, ge=100, le=800, alias="LIBRARY_IMPORT_MAX_DATABASE_MB")
 
     @field_validator("reading_v3_user_ids")

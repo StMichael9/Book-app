@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
 import { getBooks, getBookById } from "../../api/books.js";
+import ExtendedCatalogue from "../reading/ExtendedCatalogue.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -139,6 +140,7 @@ export function BrowsePage() {
         {pages > 1 && <nav aria-label="Results pages"><Button variant="secondary" disabled={page <= 1} onClick={() => movePage(page - 1)}><ArrowLeft aria-hidden="true" /><span>Previous</span></Button><span aria-current="page">Page {page} of {pages.toLocaleString()}</span><Button variant="secondary" disabled={page >= pages} onClick={() => movePage(page + 1)}><span>Next</span><ArrowRight aria-hidden="true" /></Button></nav>}
       </div>
     </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.</EmptyState>}
+    {page === 1 && !tags.length && !exclude && !shelf && <ExtendedCatalogue key={`${auth.sessionGeneration}:${book}:${author}`} title={book} author={author} />}
     {filterOpen && <FilterDialog onClose={() => setFilterOpen(false)} onApply={applyFilters} initial={{ tags, exclude, shelf }} authenticated={auth.isAuthenticated} />}
   </section>;
 }

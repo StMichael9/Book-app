@@ -12,7 +12,7 @@ import ImportedSources from "./imports/ImportedSources.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
-const displayBook = entry => entry.book || { title: entry.private_title, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
+const displayBook = entry => entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
 const progressLabel = attempt => attempt.progress_value == null ? "Progress is optional." : attempt.progress_unit === "percent" ? `${attempt.progress_value}%` : `Page ${attempt.progress_value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
 
 export function ReadingGate({ children }) {
