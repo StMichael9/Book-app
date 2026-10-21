@@ -19,3 +19,14 @@ New real API/database regressions cover shared and private entries, same-attempt
 A separate fresh migrated localhost database and browser regression exercise registration, the same catalogue book, Finish, Mark as reading, reload and both shelf views at phone/desktop widths without API mocks. Execution outcomes are recorded separately; test definitions alone are not evidence of passing.
 
 Production deployment, real-user record changes, external catalogue activation and caching are outside this correction.
+
+## Executed results
+
+- Full backend suite: **288 passed, 3 skipped, 14 warnings**, 721.31s, fully migrated disposable local PostgreSQL. The three skips require separate fresh migration/restore targets or opt-in import-scale configuration; they were not executed or counted as passes. Focused library/lifecycle run separately passed 32 tests, including 10K entries/12K attempts.
+- Combined correction/lifecycle Chromium UI suite: **80 passed**, 4.8m, synthetic API fixtures, both themes and phone/desktop cases. Production frontend build completed for the run.
+- Real browser → FastAPI → freshly migrated disposable PostgreSQL: **2 passed**, 28.2s. Synthetic private phone and shared desktop copies of The Psychology of Money exercised Finish → Mark as reading → reload, same entry and attempt IDs, one history item, preserved ownership, Finished zero / Reading one / All one. A subsequent genuine reread retained the original finished attempt and a second active reading without returning the book to Finished. No API route mocks.
+- Independent backend QA source review found no blocker. UI lead independently executed 14 correction cases; its larger scoped run initially had one timeout, which passed unchanged on rerun. That original result remains in the UI evidence; the lead's final combined 80-case run above passed in full.
+
+Two initial real-browser runs failed during setup with 401 responses before feature actions. Trace inspection established the cause: a loose URL regex matched `/register?returnTo=/my-books` before login completed. The second attempt changing request transport did not fix it. The final harness instead waits for the exact pathname and authenticated My Books heading, and uses the original request client. No authentication application change was needed. Failed-run databases and traces are retained locally, not erased or represented as passing.
+
+Fresh browser databases were migrated through existing Alembic head a17d09c25ef1; no new migration is part of this fix. A read-only check on the previously verified development target confirmed the reported failure pattern is a single saved entry with finished and active history, not duplicate saved rows. No real-user records were mutated. Browser captures were inspected for the reopened phone workspace.

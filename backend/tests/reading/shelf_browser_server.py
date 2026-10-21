@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 url = make_url(os.environ['DATABASE_URL'])
 if (os.getenv('BOOKVANE_TEST_DB_ISOLATED') != 'yes' or url.host != '127.0.0.1'
         or url.port != 55437 or url.username != 'bookvane_v3_test'
-        or url.database != 'bookvane_shelf_browser_test'):
+        or url.database not in {'bookvane_shelf_browser_test', 'bookvane_shelf_r2_browser_test', 'bookvane_shelf_r3_browser_test'}):
     raise RuntimeError('Requires the fresh, disposable local shelf browser database')
 
 from database import SessionLocal, engine
