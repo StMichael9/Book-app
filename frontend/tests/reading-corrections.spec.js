@@ -25,8 +25,13 @@ const test = base.extend({
       if (path === '/me/reading-capabilities') return reply({ enabled: true, writable: !state.readOnly, contract_version: 1,
         features: { reading_actions: true, private_context: true, privacy_controls: true, library_import: true } });
       if (path === '/me/books' || path === '/me/preferences') return reply([]);
-      if (path === '/me/library') return reply({ items: [state.entry], total: 1, next_cursor: null,
-        counts: { all: 1, reading: current()?.state === 'reading' ? 1 : 0, finished: state.attempts.some(x=>x.state==='finished') ? 1 : 0, want: state.entry.is_wanted ? 1 : 0 } });
+      if (path === '/me/library') {
+        // Model the lead's current/latest-state contract, not historical membership.
+        const readingState = current()?.state || null, facet = url.searchParams.get('facet') || 'all';
+        const counts = { all: 1, owned: Number(state.entry.is_owned), want: Number(state.entry.is_wanted) };
+        for (const value of ['reading', 'paused', 'finished', 'dnf']) counts[value] = Number(readingState === value);
+        return reply({ items: counts[facet] ? [{ ...state.entry, reading_state: readingState }] : [], total: counts[facet] || 0, counts, next_cursor: null });
+      }
       if (path === '/me/library/101/reading') return reply({ entry: state.entry, current_attempt: current(), editions: [], imported_sources_count: 0 });
       if (path === '/me/library/101/attempts') return reply({ items: state.attempts, next_cursor: null });
       if (path.startsWith('/me/reading-attempts/')) {
@@ -38,6 +43,7 @@ const test = base.extend({
         if (method === 'PATCH') {
           if (body.state === 'reading' && state.attempts.some(x=>x.id!==id && ['reading','paused'].includes(x.state))) return route.fulfill({ status: 409, json: { detail: 'Another reading is active.' } });
           const { expected_version: _version, ...changes } = body;
+          if (['finished', 'dnf'].includes(body.state)) changes.ended_on = selected.ended_on || '2026-10-21';
           Object.assign(selected, changes, body.state === 'reading' ? { ended_on: null } : {});
           state.entry.version++;
         } else if (method === 'PUT') {
@@ -57,14 +63,16 @@ const test = base.extend({
 });
 const writes = app => app.requests.filter(x => ['PUT','PATCH','DELETE'].includes(x.method));
 
-for (const width of [390, 1440]) test(`Undo finish reopens the same record without creating a reread at ${width}px`, async ({ page, app }) => {
+for (const width of [390, 1440]) test(`Mark as reading reopens the same record without creating a reread at ${width}px`, async ({ page, app }) => {
   await page.setViewportSize({ width, height: 900 });
   const before = structuredClone(app.attempts);
   await page.goto('/my-books/101');
-  await expect(page.getByRole('button', { name: 'Undo finish', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: `/tmp/bookvane-reading-finished-${width}.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Undo finish', exact: true }).click();
+  await page.screenshot({ path: `/tmp/bookvane-current-status-finished-${width}.png`, fullPage: true });
+  const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
+  await expect(mark).toHaveClass(/bv-button--primary/);
+  await mark.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeFocused();
   expect(writes(app)).toEqual([{ path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'reading' } }]);
@@ -97,7 +105,7 @@ test('reread requires explicit confirmation; Cancel and Escape make no writes an
   expect(app.entry).toMatchObject({ id: 101, is_owned: true, is_wanted: false });
 });
 
-test('mistaken active reread can be explicitly removed, then previous finish undone without losing older history', async ({ page, app }) => {
+test('mistaken active reread can be explicitly removed, then previous reading continued without losing older history', async ({ page, app }) => {
   const activeId = '33333333-3333-4333-8333-333333333333';
   const previous = structuredClone(app.attempts);
   app.attempts.unshift({ ...finished(activeId, 2026), state: 'reading', ended_on: null });
@@ -105,17 +113,17 @@ test('mistaken active reread can be explicitly removed, then previous finish und
   await page.setViewportSize({ width: 320, height: 750 });
   await page.goto('/my-books/101');
   await page.locator('.bv-workspace-history > summary').click();
-  await expect(page.getByText('Started a reread by mistake?', { exact: false })).toBeVisible();
   const rows = page.locator('.bv-reading-history > li');
+  await expect(rows.first()).toContainText('Current reading');
   await rows.first().getByRole('button', { name: 'Delete this reading record' }).click();
   await expect(page.getByRole('dialog')).toContainText('Your saved book, Own/Want flags, save reason and other readings will stay.');
   await page.getByRole('button', { name: 'Keep it', exact: true }).click();
   expect(writes(app)).toHaveLength(0);
   await rows.first().getByRole('button', { name: 'Delete this reading record' }).click();
   await page.getByRole('button', { name: 'Delete reading record', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Undo finish', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toBeVisible();
   expect(app.attempts).toEqual(previous);
-  await page.getByRole('button', { name: 'Undo finish', exact: true }).click();
+  await page.getByRole('button', { name: 'Mark as reading', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
   expect(writes(app).map(x=>[x.method,x.path])).toEqual([['DELETE',`/me/reading-attempts/${activeId}`],['PATCH',`/me/reading-attempts/${originalId}`]]);
   expect(app.attempts).toHaveLength(2);
@@ -124,16 +132,25 @@ test('mistaken active reread can be explicitly removed, then previous finish und
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test('Finished facet honestly explains an active reread without duplicating library entries', async ({ page, app }) => {
+test('current Reading entry is absent from Finished while earlier finishes remain inside the book', async ({ page, app }) => {
   app.entry.reading_state = 'reading';
   app.attempts.unshift({ ...finished('active', 2026), state: 'reading', ended_on: null });
   await page.goto('/my-books?status=finished');
-  await expect(page.getByText('Earlier readings stay in history', { exact: false })).toBeVisible();
+  await expect(page.getByText('Earlier readings are kept in each book’s Reading history.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No saved books match this view.' })).toBeVisible();
+  await expect(page.locator('.bv-personal-book')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
+  await page.getByRole('button', { name: /^Reading/ }).click();
   await expect(page.locator('.bv-personal-book')).toHaveCount(1);
-  await expect(page.locator('.bv-personal-book-state')).toContainText('Reading now');
-  await expect(page.locator('.bv-personal-book-state')).toContainText('Finished before');
+  await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Bring Your Library', exact: true })).toBeVisible();
   await expect(page.getByText('CSV / TSV import', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'A book with history', exact: true }).click();
+  await page.locator('.bv-workspace-history > summary').click();
+  await expect(page.locator('.bv-reading-history > li')).toHaveCount(3);
+  await expect(page.locator('.bv-reading-history')).toContainText('2020-01-02');
+  expect(writes(app)).toHaveLength(0);
 });
 
 test('failed or stale reread retains visible history and captured version rather than rebasing', async ({ page, app }) => {
@@ -153,7 +170,7 @@ test('read-only workspace cannot reopen, reread or delete', async ({ page, app }
   app.readOnly = true;
   await page.goto('/my-books/101');
   await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Undo finish', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Read it again', exact: true })).toHaveCount(0);
   await page.locator('.bv-workspace-history > summary').click();
   await expect(page.getByRole('button', { name: 'Delete this reading record' }).first()).toBeDisabled();
@@ -172,11 +189,11 @@ test('a historical finished record cannot be reopened while another reading is a
   expect(writes(app)).toHaveLength(0);
 });
 
-test('failed undo retains the finished record, flags and full history', async ({ page, app }) => {
+test('failed Mark as reading retains the finished record, flags and full history', async ({ page, app }) => {
   app.failWrite = true;
   const before = structuredClone(app.attempts);
   await page.goto('/my-books/101');
-  await page.getByRole('button', { name: 'Undo finish', exact: true }).click();
+  await page.getByRole('button', { name: 'Mark as reading', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
   expect(app.attempts).toEqual(before);
@@ -199,4 +216,77 @@ test('pending reread cannot be dismissed or sent twice', async ({ page, app }) =
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(writes(app)).toHaveLength(1);
   expect(app.attempts).toHaveLength(3);
+});
+
+for (const width of [390, 1440]) test(`same book Finish → Mark as reading updates status views without another record at ${width}px`, async ({ page, app }) => {
+  await page.setViewportSize({ width, height: 900 });
+  app.attempts[0].state = 'reading'; app.attempts[0].ended_on = null;
+  app.entry.reading_state = 'reading';
+  const original = structuredClone(app.attempts);
+  await page.goto('/my-books/101');
+  await page.getByRole('button', { name: 'Finish book', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Back to My Books', exact: true }).click();
+  await page.getByRole('button', { name: /^Finished/ }).click();
+  await expect(page.locator('.bv-personal-book')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*1/);
+  await expect(page.getByRole('button', { name: /^Reading/ })).toHaveText(/Reading\s*0/);
+  await page.getByRole('link', { name: 'A book with history', exact: true }).click();
+  const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
+  await expect(mark).toHaveClass(/bv-button--primary/);
+  await mark.focus(); await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
+  await page.getByRole('link', { name: 'Back to My Books', exact: true }).click();
+  await expect(page).toHaveURL(/status=finished/);
+  await expect(page.getByRole('heading', { name: 'No saved books match this view.' })).toBeVisible();
+  await expect(page.locator('.bv-personal-book')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
+  await expect(page.getByRole('button', { name: /^Reading/ })).toHaveText(/Reading\s*1/);
+  await page.getByRole('button', { name: /^Reading/ }).click();
+  await expect(page.locator('.bv-personal-book')).toHaveCount(1);
+  await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
+  await page.getByRole('link', { name: 'A book with history', exact: true }).click();
+  await page.locator('.bv-workspace-history > summary').click();
+  await expect(page.locator('.bv-reading-history > li')).toHaveCount(2);
+  expect(app.attempts[0]).toEqual(original[0]);
+  expect(app.attempts[1]).toEqual(original[1]);
+  expect(app.entry).toMatchObject({ id: 101, is_owned: true, is_wanted: true });
+  expect(writes(app)).toEqual([
+    { path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'finished' } },
+    { path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 5, state: 'reading' } },
+  ]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('latest stopped reading uses the same primary action without reviving Finished membership', async ({ page, app }) => {
+  app.attempts[0].state = 'dnf'; app.entry.reading_state = 'dnf';
+  const original = structuredClone(app.attempts);
+  await page.goto('/my-books?status=dnf');
+  await expect(page.locator('.bv-personal-book')).toHaveCount(1);
+  await expect(page.locator('.bv-personal-book-state').getByText('Stopped', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
+  await page.getByRole('link', { name: 'A book with history', exact: true }).click();
+  const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
+  await expect(mark).toHaveClass(/bv-button--primary/);
+  await mark.click();
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
+  expect(app.attempts).toHaveLength(2);
+  expect(app.attempts[0]).toEqual({ ...original[0], state: 'reading', ended_on: null });
+  expect(app.attempts[1]).toEqual(original[1]);
+  expect(writes(app)).toEqual([{ path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'reading' } }]);
+});
+
+test('stale Mark as reading does not retry or silently create a reread', async ({ page, app }) => {
+  await page.goto('/my-books/101');
+  const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
+  await expect(mark).toBeVisible();
+  app.entry.version++;
+  await mark.click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
+  expect(app.attempts).toHaveLength(2);
+  expect(app.attempts[0].state).toBe('finished');
+  expect(writes(app)).toEqual([{ path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'reading' } }]);
 });
