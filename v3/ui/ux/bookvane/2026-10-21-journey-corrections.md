@@ -87,6 +87,16 @@ All new executions use synthetic, in-memory API responses and local preview. No 
 Independent QA, current native exports, physical-phone/hosted acceptance, migrations/feature rollout and broader public-release gates remain separate. No merge/deployment/public GO is supplied by these browser fixtures.
 
 
+## Reported local library-load failure: investigation open
+
+After the UI handoff, Michael reported that `http://localhost:5173/my-books` does not load. This is an unresolved local-runtime report; no failing response/status or backend traceback has been supplied yet. Browser fixture passes do not diagnose this real account/environment.
+
+The combined branch includes the catalogue backend's migration **`a17d09c25ef1`**, after **`f5c12a608de3`**. It adds `user_books.private_catalogue`; the current ORM and library DTO read that column unconditionally. If the backend is running these models against the earlier schema, library queries can fail with an undefined-column error even with external lookup disabled. A backend running with automatic reload from the same checkout may pick up those models when switching branches. This is a confirmed source dependency, not a confirmed cause of Michael's failure.
+
+The local-test instructions should have called out this prerequisite more clearly. Confirm the actual frontend/backend refs, API target, database revision and failing `/me/reading-capabilities` / `/me/library` response first. Do not infer a backend logic defect, data loss or migration permission from this hypothesis. The existing compatible V3 backend can serve the refreshed frontend while the catalogue backend rollout remains separately gated; new lookup UI stays hidden when its capability is off.
+
+The lead was updated through PR #23 comments [handoff](https://github.com/StMichael9/Book-app/pull/23#issuecomment-6326567815) and [local URL/schema dependency](https://github.com/StMichael9/Book-app/pull/23#issuecomment-6326584418). No direct chat-send capability or response from the lead is available in this review. No database command, migration, reset, live account request, application edit or deployment was performed for this investigation. Await sanitized runtime evidence and lead coordination before changing the environment.
+
 ## Test branch
 
 ```sh
