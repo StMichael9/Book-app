@@ -63,7 +63,6 @@ function ReadingHistory({ entryId, enabled, onCorrect, onMemory, onRemove, editi
   const request = useRequest(() => getReadingHistory(entryId, cursor), `history:${auth.sessionGeneration}:${entryId}:${cursor}:${library.revision}`, enabled);
   return <section className="bv-reading-history-content" aria-label="Your reading history">
     {request.loading ? <p role="status">Loading reading history…</p> : request.error ? <EmptyState error title="Your history couldn’t load." action={<><Button onClick={request.retry}>Try again</Button><Button onClick={() => showHistory()} variant="secondary">First readings</Button></>}>Your records haven’t changed.</EmptyState> : <>
-      {activeAttempt && library.privacyControls && !library.readOnly && request.data.items.some(item => ["finished", "dnf"].includes(item.state)) && <p className="bv-help">A new reading keeps your earlier history. Started a reread by mistake? Delete only the mistaken reading record below, then reopen the earlier reading. Review its dates before deleting; that record’s notes and progress will be removed too.</p>}
       {request.data.items.length ? <ul className="bv-reading-history">{request.data.items.map(attempt => <li key={attempt.id}><strong>{stateLabel[attempt.state]}{attempt.id === activeAttempt?.id ? " · Current reading" : ""}</strong><span>{attempt.started_on || "Start date unknown"}{attempt.ended_on ? ` → ${attempt.ended_on}` : ""}</span><Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onCorrect(attempt)}>Correct this reading</Button>{library.privateContext && <Button variant="quiet" disabled={editing} onClick={() => onMemory(attempt)}>{library.readOnly ? "View reading memory" : "Note and reaction"}</Button>}{library.privacyControls && <Button variant="quiet" disabled={library.readOnly || editing} onClick={() => onRemove(attempt)}>Delete this reading record</Button>}</li>)}</ul> : <p>No reading records on this page.</p>}
       <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => showHistory()}>First readings</Button>}{request.data.next_cursor && <Button variant="secondary" onClick={() => showHistory(request.data.next_cursor)}>Older readings</Button>}</div>
     </>}
@@ -87,7 +86,7 @@ function RereadDialog({ entry, editionId, onClose, onSaved }) {
   const identity = useRef(crypto.randomUUID());
   return <NativeDialog open title="Start a new reading?" onClose={() => { if (!command.pending) onClose(); }}>
     <p><strong>{displayBook(entry).title}</strong></p><p>This creates a new reading record for this book. Your earlier dates, notes and progress stay in history.</p>
-    <p>If you ended it by mistake, cancel and reopen the same reading instead.</p>
+    <p>To continue the same reading, cancel and choose Mark as reading instead.</p>
     {command.error && <p role="alert">{command.error}</p>}
     <div className="bv-dialog-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Cancel</Button><Button disabled={command.pending || library.readOnly} onClick={() => command.run(() => createReadingAttempt(identity.current, {
       entry_id: entry.id, expected_version: entry.version, state: "reading", ...(editionId ? { edition_id: Number(editionId) } : {}),
@@ -228,9 +227,9 @@ export function ReadingWorkspacePage() {
             <div className="bv-workspace-primary-actions" role="group" aria-label="Reading actions">
               {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
               {terminal && !library.readOnly && <>
-                <Button variant="secondary" disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "This same reading is open again. Its end date is cleared."))}>{attempt.state === "finished" ? "Undo finish" : "Reopen this reading"}</Button>
+                <Button disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."))}>Mark as reading</Button>
                 <Button variant="quiet" disabled={readingUnavailable} onClick={() => setReread({ entry, editionId })}>Read it again</Button>
-                <p className="bv-help">{attempt.state === "finished" ? "Undo finish" : "Reopen"} continues this same reading and clears its end date. Read it again starts a separate reading and keeps this history.</p>
+                <p className="bv-help">Continue this reading. Earlier readings stay in Reading history.</p>
               </>}
               {attempt?.state !== "paused" ? progressAction : null}
               {attempt && !terminal && !library.readOnly && <div className="bv-workspace-state-actions">{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : [["reading", "Resume reading"]]), ["finished", "Finish book"], ["dnf", "Stop reading"]].map(([state, label]) => <Button key={label} variant={state === "reading" ? "primary" : state === "dnf" ? "quiet" : "secondary"} disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {

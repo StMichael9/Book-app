@@ -241,7 +241,7 @@ def test_10k_library_is_bounded_and_searchable(reader, app_modules, db_session):
         event.remove(app_modules["database"].engine, "after_cursor_execute", after)
     duration = time.perf_counter() - start
     assert len(page.items) == 25 and page.total == 10000
-    assert page.counts["finished"] == 10000 and page.counts["reading"] == 2000
+    assert page.counts["finished"] == 8000 and page.counts["reading"] == 2000
     assert len(statements) <= 6
     assert all("description" not in row.model_dump().get("book", {}) for row in page.items)
     next_start = time.perf_counter()
