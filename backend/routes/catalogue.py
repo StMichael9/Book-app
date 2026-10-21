@@ -64,7 +64,8 @@ def select_work(request: Request, data: Selection, current_user: User = Depends(
     if replay:
         metadata = replay.private_catalogue or {}
         saved_source = db.scalar(select(Book.source_id).where(Book.id==replay.book_id)) if replay.book_id else None
-        if data.source_id not in (metadata.get('work_id'),metadata.get('requested_work_id'),saved_source):
+        shared_receipt = replay.book_id is not None and replay.creation_fingerprint == fingerprint({'catalogue_source_id':data.source_id})
+        if data.source_id not in (metadata.get('work_id'),metadata.get('requested_work_id'),saved_source) and not shared_receipt:
             raise HTTPException(409,detail='This request identifier already represents a different book.')
         return LibraryService(db).detail(current_user.id,replay.id)
 
@@ -85,7 +86,7 @@ def select_work(request: Request, data: Selection, current_user: User = Depends(
             # Native concurrent creation wins without having its flags changed.
             db.execute(insert(UserBook).values(user_id=current_user.id,book_id=book_id,
                 is_owned=False,is_wanted=True,status=UserBookStatus.want,version=1,
-                create_request_id=data.request_id,creation_fingerprint=fingerprint({'catalogue_source_id':source_id}))
+                create_request_id=data.request_id,creation_fingerprint=fingerprint({'catalogue_source_id':data.source_id}))
                 .on_conflict_do_nothing())
             saved = db.scalar(select(UserBook).where(UserBook.user_id==current_user.id,UserBook.book_id==book_id))
             if saved is None:

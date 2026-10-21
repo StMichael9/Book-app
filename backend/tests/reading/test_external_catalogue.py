@@ -168,6 +168,32 @@ def test_new_shared_entry_binds_uuid_and_reconciles_offline(client,external,read
     assert select_book(client,external,request_id,source_id='/works/OL2W').status_code==409
 
 
+def test_alias_shared_entry_replays_offline_without_overwriting(client,external,reader,app_modules,db_session,monkeypatch):
+    from services.external_catalogue import catalogue
+    alias='/works/OL2W'
+    shared=app_modules['models'].Book(title=external['title'],source_id=external['source_id'])
+    db_session.add(shared); db_session.commit()
+    request_id=str(uuid.uuid4())
+    first=select_book(client,external,request_id,source_id=alias)
+    assert first.status_code==200,first.text
+    saved=first.json()
+    assert saved['book_id']==shared.id
+    row=db_session.get(app_modules['models'].UserBook,saved['id'])
+    row.save_note='Preserve my context'; row.is_owned=True; row.is_wanted=False; row.status=app_modules['models'].UserBookStatus.owned
+    db_session.commit()
+    monkeypatch.setattr(app_modules['database'].settings,'external_catalogue_token',None)
+    def forbidden(*args): raise AssertionError('Alias retry must use the committed receipt')
+    monkeypatch.setattr(catalogue,'work',forbidden)
+    replay=select_book(client,external,request_id,source_id=alias)
+    assert replay.status_code==200,replay.text
+    assert replay.json()['id']==saved['id']
+    assert replay.json()['save_note']=='Preserve my context'
+    assert replay.json()['is_owned'] and not replay.json()['is_wanted']
+    assert select_book(client,external,request_id,source_id='/works/OL3W').status_code==409
+    model=app_modules['models'].UserBook
+    assert db_session.scalar(select(func.count()).select_from(model).where(model.user_id==reader.id))==1
+
+
 def test_dedup_happens_before_visible_limit(client,external,app_modules,db_session,monkeypatch):
     from services.external_catalogue import catalogue
     db_session.add(app_modules['models'].Book(title='Already shared',source_id='/works/OL1W'))
