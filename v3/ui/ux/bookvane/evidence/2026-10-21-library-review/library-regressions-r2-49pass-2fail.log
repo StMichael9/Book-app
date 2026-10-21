@@ -1,0 +1,140 @@
+[WebServer] (node:75687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:75702) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:75735) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:75751) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 51 tests using 1 worker
+
+(node:75777) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 frontend/tests/reading-library.spec.js:95:41 › M6 Start waits for a same-book Want save; failed save=false (9.4s)
+  ✓   2 frontend/tests/reading-library.spec.js:95:41 › M6 Start waits for a same-book Want save; failed save=true (5.0s)
+  ✓   3 frontend/tests/reading-library.spec.js:120:1 › M6 genuine Start conflict has truthful copy and explicit idempotent retry (2.8s)
+  ✓   4 frontend/tests/reading-library.spec.js:137:1 › V3 discovery batches visible state and never loads the complete shelf (2.9s)
+  ✓   5 frontend/tests/reading-library.spec.js:146:1 › Own and Want coexist, removing one preserves the other and survives reload (3.9s)
+  ✓   6 frontend/tests/reading-library.spec.js:160:1 › failed and malformed lookups block writes and offer a real retry (2.6s)
+  ✓   7 frontend/tests/reading-library.spec.js:171:1 › a stale update shows current state without overwriting it (3.1s)
+  ✓   8 frontend/tests/reading-library.spec.js:182:1 › large library pagination, search and both facets use bounded server queries (7.1s)
+  ✓   9 frontend/tests/reading-library.spec.js:204:1 › capability failure stays gated instead of falling back to unsafe legacy writes (2.7s)
+  ✓  10 frontend/tests/reading-library.spec.js:214:1 › pilot library stays usable on a phone in both themes (3.4s)
+  ✓  11 frontend/tests/reading-library.spec.js:231:1 › disabling writes preserves the richer library in read-only mode (2.3s)
+  ✓  12 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=want, late 200 (3.5s)
+  ✓  13 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=want, late 503 (3.9s)
+  ✓  14 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=want, late 401 (4.0s)
+  ✓  15 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=owned, late 200 (5.4s)
+  ✓  16 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=owned, late 503 (3.9s)
+  ✓  17 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, shelf_status=owned, late 401 (4.6s)
+  ✘  18 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 200 (23.1s)
+(node:76529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  19 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 503 (8.8s)
+  ✓  20 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 401 (4.3s)
+  ✓  21 frontend/tests/reading-library.spec.js:293:3 › Welcome isolates pending personalized results across V2 sessions (5.8s)
+  ✓  22 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=want, late 200 (4.6s)
+  ✓  23 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=want, late 503 (4.9s)
+  ✓  24 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=want, late 401 (3.7s)
+  ✓  25 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=owned, late 200 (4.4s)
+  ✓  26 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=owned, late 503 (4.4s)
+  ✓  27 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, shelf_status=owned, late 401 (5.8s)
+  ✓  28 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, exclude_owned=true, late 200 (3.8s)
+  ✓  29 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, exclude_owned=true, late 503 (4.1s)
+  ✓  30 frontend/tests/reading-library.spec.js:266:7 › session isolation: V3, exclude_owned=true, late 401 (6.2s)
+  ✓  31 frontend/tests/reading-library.spec.js:293:3 › Welcome isolates pending personalized results across V3 sessions (5.7s)
+  ✓  32 frontend/tests/reading-library.spec.js:313:3 › empty later library page retains recovery after mutation (light) (5.1s)
+  ✓  33 frontend/tests/reading-library.spec.js:338:3 › direct empty cursor recovers in read-only mode (light) (4.7s)
+  ✓  34 frontend/tests/reading-library.spec.js:313:3 › empty later library page retains recovery after mutation (dark) (4.8s)
+  ✓  35 frontend/tests/reading-library.spec.js:338:3 › direct empty cursor recovers in read-only mode (dark) (4.3s)
+  ✓  36 frontend/tests/reading-library.spec.js:352:1 › an empty first-page facet does not claim the entire library is empty (3.6s)
+  ✓  37 frontend/tests/reading-library.spec.js:360:1 › a concurrent change on page three preserves history and first-page recovery (7.0s)
+  ✓  38 frontend/tests/reading-library.spec.js:386:1 › independent review: mobile collection reaches books without a wall of controls (4.2s)
+  ✓  39 frontend/tests/reading-library.spec.js:399:1 › independent review: workspace returns to the searched filtered library page (5.2s)
+  ✓  40 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers light 320 (5.1s)
+  ✓  41 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers light 390 (3.5s)
+  ✓  42 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers light 768 (3.3s)
+  ✓  43 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers light 1440 (3.9s)
+  ✓  44 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers dark 320 (4.0s)
+  ✓  45 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers dark 390 (3.7s)
+  ✓  46 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers dark 768 (3.4s)
+  ✓  47 frontend/tests/reading-library.spec.js:419:3 › independent review: library controls and missing covers dark 1440 (16.0s)
+  ✓  48 frontend/tests/reading-library.spec.js:462:1 › independent review: known previous page survives book return and browser navigation (6.2s)
+  ✓  49 frontend/tests/reading-library.spec.js:492:37 › independent review: refreshed later page has truthful bounded recovery (4.8s)
+  ✓  50 frontend/tests/reading-library.spec.js:492:37 › independent review: direct later page has truthful bounded recovery (3.2s)
+  ✘  51 frontend/tests/reading-library.spec.js:512:1 › independent review: another account cannot recover old library navigation metadata (1.0m)
+
+
+  1) frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 200 
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: true
+    Received: undefined
+
+    Call Log:
+    - Timeout 5000ms exceeded while waiting on the predicate
+
+      270 |         try {
+      271 |           await page.goto(`/browse?${filter}`);
+    > 272 |           await expect.poll(() => app.heldStarted).toBe(true);
+          |                                                    ^
+      273 |           await expireAndSignInAsB(page, app, `/browse?${filter}`);
+      274 |           // B must finish its OWN request before A is allowed to complete.
+      275 |           await expect.poll(() => app.requests.filter(r => r.path === "/books" && r.account === "B" && r.query.toString().includes(filter)).length).toBe(1);
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:272:52
+
+    Error Context: frontend/test-results/tests-reading-library-sess-0f511-exclude-owned-true-late-200/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-sess-0f511-exclude-owned-true-late-200/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-sess-0f511-exclude-owned-true-late-200/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) frontend/tests/reading-library.spec.js:512:1 › independent review: another account cannot recover old library navigation metadata 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: 'Sign in', exact: true })
+
+
+      242 |   app.authenticated = false;
+      243 |   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+    > 244 |   await page.getByRole("link", { name: "Sign in", exact: true }).click();
+          |                                                                  ^
+      245 |   await expect(page).toHaveURL(/\/login(?:\?|$)/);
+      246 |   await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
+      247 |   // Keep this entirely within the SPA: a full navigation would clear the
+        at expireAndSignInAsB (/workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:244:66)
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:521:3
+
+    Error Context: frontend/test-results/tests-reading-library-inde-60088-library-navigation-metadata/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-60088-library-navigation-metadata/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-60088-library-navigation-metadata/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 200 
+    frontend/tests/reading-library.spec.js:512:1 › independent review: another account cannot recover old library navigation metadata 
+  49 passed (5.9m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

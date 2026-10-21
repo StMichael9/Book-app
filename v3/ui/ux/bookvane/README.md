@@ -2,6 +2,8 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [October 21 independent review and bounded follow-up](2026-10-21-independent-review-response.md)
+- [Supplied independent review](2026-10-21-independent-review-input.md)
 - [Approved scope and implementation decisions](2026-10-20-approved-minimalist-scope.md)
 - [Implementation and verification report](2026-10-20-minimalist-implementation-report.md)
 - [Manual review guide](2026-10-20-manual-review-guide.md)

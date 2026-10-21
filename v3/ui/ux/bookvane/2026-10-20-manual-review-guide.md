@@ -12,3 +12,14 @@ Use `codex/v3-ux-simplification` / draft PR #22 against an isolated development 
 8. **Comfort and accessibility:** try 320/390/768/1440 widths, enlarged text and OS Reduce Motion. Navigate with Tab/Shift+Tab/Enter/Escape. Inputs, Close/Save, dialogs and navigation must stay visible and understandable. Check a missing cover, long title, empty library, failed catalogue request and slow startup.
 
 Collect what the reader attempted, where they hesitated, whether they completed it unassisted, and their actual words. Do not coach before observing. This is reader feedback, not a conversion-rate experiment or a release certification.
+
+## October 21 collection follow-up
+
+- On a phone, find the first saved book without scrolling past a large introduction. Search and import should remain easy to find; the four primary filters share a row at normal text size and reflow to wider controls at enlarged text size.
+- Search/filter an existing library, move to a later page, open a title or cover and use Back to My Books. Expect the same query/filter/label/page. Open older reading history and verify the return still works.
+- Previous page selects a known library page, rather than sending you into the workspace. Direct or refreshed later-page URLs have Return to first page; they cannot reconstruct an unknown previous cursor. Search/filter context must remain when returning to the first page.
+- Click Next from the bottom of a long library: expect the collection heading and the new books to be visible, rather than the footer. Move focus while a response is pending; completion must not steal it.
+- Check missing/broken covers and private entries: one visible title/author, understandable cover-unavailable label, unchanged access to the workspace.
+- Sign out/expire the session and sign into a different test account: old navigation metadata must not recover the former account's query/cursor.
+
+The grid and filter names remain available for comparative reader testing; no row-layout preference is imposed by this patch.

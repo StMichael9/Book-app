@@ -1,0 +1,112 @@
+[WebServer] (node:77842) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:77855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [PLUGIN_TIMINGS] Your build spent 49% of 7.7s inside plugin hooks (3.8s).
+[WebServer] Measured inside the callback, so queue time is excluded and time the callback itself awaited is not:
+[WebServer]   - vite:css transform (18%, 1.4s, 6 calls)
+[WebServer] Those rows are 18% of the build; the rest of the 49% is below.
+[WebServer] Not measurable — 1 hook whose calls overlap, so elapsed time covers work other calls were doing. Profile with `node --cpu-prof`:
+[WebServer]   - @tailwindcss/vite:generate:build transform (6 calls)
+[WebServer] See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+[WebServer] 
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:77879) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:77892) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 4 tests using 1 worker
+
+(node:77919) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 frontend/tests/reading-library.spec.js:266:7 › session isolation: V2, exclude_owned=true, late 200 (5.7s)
+  ✓  2 frontend/tests/reading-library.spec.js:513:1 › independent review: another account cannot recover old library navigation metadata (6.5s)
+  ✘  3 frontend/tests/reading-library.spec.js:532:1 › independent review: paging from the bottom reveals the new page instead of its footer (9.5s)
+(node:78117) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  4 frontend/tests/reading-library.spec.js:545:1 › independent review: workspace history pagination retains the collection return context (10.3s)
+
+
+  1) frontend/tests/reading-library.spec.js:532:1 › independent review: paging from the bottom reveals the new page instead of its footer 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  getByRole('heading', { name: 'My Books', exact: true })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'My Books', exact: true })
+        14 × locator resolved to <h1>My Books</h1>
+           - unexpected value "inactive"
+
+
+      537 |   await page.getByRole("button", { name: "Next page", exact: true }).click();
+      538 |   await expect(page.locator(".bv-personal-book")).toHaveCount(5);
+    > 539 |   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeFocused();
+          |                                                                              ^
+      540 |   const top = await page.locator(".bv-personal-book").first().evaluate(el => el.getBoundingClientRect().top);
+      541 |   expect(top).toBeGreaterThanOrEqual(0);
+      542 |   expect(top).toBeLessThan(420);
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:539:78
+
+    Error Context: frontend/test-results/tests-reading-library-inde-d9e2e--page-instead-of-its-footer/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-d9e2e--page-instead-of-its-footer/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-d9e2e--page-instead-of-its-footer/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) frontend/tests/reading-library.spec.js:545:1 › independent review: workspace history pagination retains the collection return context 
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByRole('link', { name: 'Back to My Books', exact: true })
+    Expected: "/my-books?status=want&q=Library"
+    Received: "/my-books"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 5000ms
+      - waiting for getByRole('link', { name: 'Back to My Books', exact: true })
+        14 × locator resolved to <a href="/my-books" class="bv-text-link" data-discover="true">Back to My Books</a>
+           - unexpected value "/my-books"
+
+
+      552 |   await page.getByRole("button", { name: "Older readings", exact: true }).click();
+      553 |   await expect(page).toHaveURL(/history_cursor=older-reading/);
+    > 554 |   await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toHaveAttribute("href", "/my-books?status=want&q=Library");
+          |                                                                                   ^
+      555 | });
+      556 |
+        at /workspace/Book-app-ux-final/frontend/tests/reading-library.spec.js:554:83
+
+    Error Context: frontend/test-results/tests-reading-library-inde-7fa95-e-collection-return-context/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    frontend/test-results/tests-reading-library-inde-7fa95-e-collection-return-context/trace.zip
+    Usage:
+
+        npx playwright show-trace frontend/test-results/tests-reading-library-inde-7fa95-e-collection-return-context/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    frontend/tests/reading-library.spec.js:532:1 › independent review: paging from the bottom reveals the new page instead of its footer 
+    frontend/tests/reading-library.spec.js:545:1 › independent review: workspace history pagination retains the collection return context 
+  2 passed (1.0m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

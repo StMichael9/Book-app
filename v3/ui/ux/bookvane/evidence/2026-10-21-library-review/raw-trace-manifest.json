@@ -1,0 +1,57 @@
+[
+  {
+    "file": "r6-failures/tests-reading-library-inde-5742a-nd-missing-covers-light-390/trace.zip",
+    "sha256": "eafd52e6b81737555ce1ab150fa626ce4a5fa86e58b0a47c844a400cc2509623",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r6-failures/tests-reading-library-inde-5742a-nd-missing-covers-light-390/trace.zip"
+  },
+  {
+    "file": "r6-failures/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip",
+    "sha256": "17a0d951012eaf556ec4ac849620c80556b6e76aec298c5697e222d8d4624f7f",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r6-failures/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip"
+  },
+  {
+    "file": "r6-failures/tests-reading-library-inde-e73e6-and-missing-covers-dark-320/trace.zip",
+    "sha256": "4ed5e4c076290d4ae45a592951f00a28d8a1fdc68c94a5975070b621352ac78e",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r6-failures/tests-reading-library-inde-e73e6-and-missing-covers-dark-320/trace.zip"
+  },
+  {
+    "file": "r6-failures/tests-reading-library-inde-aa4f2-nd-missing-covers-light-320/trace.zip",
+    "sha256": "fbc38734f432f74d3748fff768eb5e3bcbf3c0c4a9c4553276e4af3672a9d5ad",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r6-failures/tests-reading-library-inde-aa4f2-nd-missing-covers-light-320/trace.zip"
+  },
+  {
+    "file": "full-failures/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip",
+    "sha256": "be2991d59e482e51c6e3f78220f4aef9faae6cc9082b9824efd21ebf14b9c77c",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/full-failures/tests-reading-library-inde-98284-and-missing-covers-dark-390/trace.zip"
+  },
+  {
+    "file": "full-failures/src-components-ui-v2-tests-f733e--routes-and-themes-at-390px/trace.zip",
+    "sha256": "f6a0cd06928fb80498e8a0a5bab5087c15beb40d1d9006cab04860717ac8f336",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/full-failures/src-components-ui-v2-tests-f733e--routes-and-themes-at-390px/trace.zip"
+  },
+  {
+    "file": "full-failures/tests-reading-lifecycle-ed-fdf1a-st-visually-and-by-keyboard/trace.zip",
+    "sha256": "04fcf8ba365bda4716f482f4b4bbf939cf184d7e0a01aec37824a51eb720b916",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/full-failures/tests-reading-lifecycle-ed-fdf1a-st-visually-and-by-keyboard/trace.zip"
+  },
+  {
+    "file": "r2-failures/tests-reading-library-inde-60088-library-navigation-metadata/trace.zip",
+    "sha256": "513164a120efe94185becdd09ce68d04173f0a9304a729fcfc1c0d1a2f9fa472",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r2-failures/tests-reading-library-inde-60088-library-navigation-metadata/trace.zip"
+  },
+  {
+    "file": "r2-failures/tests-reading-library-sess-0f511-exclude-owned-true-late-200/trace.zip",
+    "sha256": "a0fb58d7c7bfa24985d3cbf1191230dfd45cf1f7a307a83f89e46d6f405974f9",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r2-failures/tests-reading-library-sess-0f511-exclude-owned-true-late-200/trace.zip"
+  },
+  {
+    "file": "r3-failures/tests-reading-library-inde-d9e2e--page-instead-of-its-footer/trace.zip",
+    "sha256": "eec4a56ce5c790bb8ccef2605cb852764e3ba9ac2f627efffc6d8221ba99d9f2",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r3-failures/tests-reading-library-inde-d9e2e--page-instead-of-its-footer/trace.zip"
+  },
+  {
+    "file": "r3-failures/tests-reading-library-inde-7fa95-e-collection-return-context/trace.zip",
+    "sha256": "8a881593acc52398a3426a5a788d41b37ca4201c0dd90eee1df80b4880c35ff4",
+    "local_path": "/workspace/deliverables/bookvane-ui-review-2026-10-21/raw-traces/r3-failures/tests-reading-library-inde-7fa95-e-collection-return-context/trace.zip"
+  }
+]
