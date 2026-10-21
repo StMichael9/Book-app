@@ -186,7 +186,7 @@ export function ReadingWorkspacePage() {
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-editorial-workspace">
     <div className="bv-breadcrumb"><TextLink to="/my-books">Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
-    <div className={`bv-workspace-layout${finished ? " bv-workspace-layout--finished" : ""}`}>
+    <div className={`bv-workspace-layout${finished ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
       {!entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
         : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
         : <>

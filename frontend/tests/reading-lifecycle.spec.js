@@ -1056,6 +1056,14 @@ for (const theme of ["light", "dark"]) test(`minimalist point-of-use editors, en
     await page.setViewportSize({ width, height: 900 });
     await page.getByRole("button", { name: "Update progress", exact: true }).click();
     await expect(page.locator(".bv-workspace-progress .bv-reading-draft")).toBeVisible();
+    if (width >= 768) {
+      const book = await page.locator(".bv-workspace-book").boundingBox();
+      const note = await page.locator(".bv-workspace-memory").boundingBox();
+      expect(note.y - (book.y + book.height)).toBeLessThan(80);
+      const reading = await page.locator(".bv-workspace-reading").boundingBox();
+      const next = await page.getByRole("region", { name: "Next after this", exact: true }).boundingBox();
+      expect(next.y).toBeGreaterThanOrEqual(reading.y + reading.height);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`polish-progress-${theme}-${width}.png`), fullPage: true });
     await page.getByRole("button", { name: "Close", exact: true }).click();

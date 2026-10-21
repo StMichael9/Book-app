@@ -114,6 +114,12 @@
 .bv-root .bv-workspace-memory .bv-reading-draft { border: 0; }
 .bv-root .bv-home-next .bv-workspace-next { padding: 0; }
 .bv-root .bv-home-next .bv-workspace-next h2 { font-size: 28px; }
+@media (min-width: 761px) {
+  /* A taller progress form must not make the book's whole left column wait.
+     Span the existing content rows while keeping the same mounted editor. */
+  .bv-root .bv-workspace-layout--progress-open:not(.bv-workspace-layout--finished) .bv-workspace-reading { grid-row: 1 / span 3; }
+  .bv-root .bv-workspace-layout--progress-open:not(.bv-workspace-layout--finished) > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { grid-row: 4 / span 3; }
+}
 @media (max-width: 760px) {
   .bv-root .bv-workspace-layout > * { order: initial; }
   .bv-root .bv-workspace-layout > :is(.bv-finish-choices, .bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { order: initial; }
