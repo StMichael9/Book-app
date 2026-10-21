@@ -1,111 +1,111 @@
 [
   {
-    "file": "assets/before-426667e/simplified-workspace-light-390.png",
+    "file": "simplified-workspace-light-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "1d1b4cf1ea10b34faaff3f8f303fe468f4ceb06a38521c003cebf8ee754f705b",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-library-light-390.png",
+    "file": "simplified-library-light-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "0858f3c873d0bc587d4cc10ad08ca3efdd51cf66442f11cf1f5adabad9d58206",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-workspace-light-1440.png",
+    "file": "simplified-workspace-light-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "75fdd97a4ad655c14673466cf40f1d1b2a8de617c3b60fa147bd3a6a153d19df",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-library-light-1440.png",
+    "file": "simplified-library-light-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "ae2a1d9cbe0804a583ead68d70324e84dfcd3ab73af16f0117b66d858b313919",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-workspace-dark-390.png",
+    "file": "simplified-workspace-dark-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "cc9d4e154d9dc21b9d253eb0260b58b32ab3a6d411b489b9e9d924cc23377b3b",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-library-dark-390.png",
+    "file": "simplified-library-dark-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "ea1cc91d546c38ae222b639ab061383c480a86b93e62ab3f77a7a08a8d9f3b8e",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-workspace-dark-1440.png",
+    "file": "simplified-workspace-dark-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "c80e3b8b14e37965c1ed11ba3df6d5a90ce27616c99544187a0b452a922d134b",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/simplified-library-dark-1440.png",
+    "file": "simplified-library-dark-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "1493d41d9082777363d8a01203bb716c6f342f85fe6cd7efba4c52ee68d61957",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/quick-progress-light-390.png",
+    "file": "quick-progress-light-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "ff47da7f4ce94d5b25621555da624bc5c25f18c389ed79b6abe0ba7632b8b47f",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/quick-progress-light-1440.png",
+    "file": "quick-progress-light-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "45c0be7572568b7cc4070732c925a0959eaa4ecb4beac97a3d7d246929d27a18",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/quick-progress-dark-390.png",
+    "file": "quick-progress-dark-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "ac496d95dbb3c04e42124e11416b99e83b4a9bc41d31ac5436d71bb5fcc0be25",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/quick-progress-dark-1440.png",
+    "file": "quick-progress-dark-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "d2f3b459a3cfd797e8a155a2ef67b159f23543b5957b307960d2bb5104d1e84c",
     "fixture": "synthetic in-memory API",
     "capture": "full page; fixed chrome may appear at viewport boundary"
   },
   {
-    "file": "assets/before-426667e/note-editor-dark-390.png",
+    "file": "note-editor-dark-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "4bda633e63a249aa2f70536424fe4c05a7f96d6cdd1cb6b0b51acfdfdb158613",
     "fixture": "synthetic in-memory API",
     "capture": "viewport; source from archived note-editor diagnostic"
   },
   {
-    "file": "assets/before-426667e/note-editor-dark-1440.png",
+    "file": "note-editor-dark-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "b9cbf787a55537296073da38f413eb4abfd7583bcf4e3b3d588106a37b1eac66",
     "fixture": "synthetic in-memory API",
     "capture": "viewport; source from archived note-editor diagnostic"
   },
   {
-    "file": "assets/before-426667e/note-editor-light-1440.png",
+    "file": "note-editor-light-1440.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "cea1b8a78e7ae6ee3a061cf994336d714a4aafbcaaa8de57a4a4bcedd67cd4d0",
     "fixture": "synthetic in-memory API",
     "capture": "viewport; source from archived note-editor diagnostic"
   },
   {
-    "file": "assets/before-426667e/note-editor-light-390.png",
+    "file": "note-editor-light-390.png",
     "source_commit": "426667e81eb4b2d0c2c8dd19515f6581a25fb1e9",
     "sha256": "462e5143c33bf6a51d5459a63139120fa9e7a5ee91eb406a99bc81bc1efcbf15",
     "fixture": "synthetic in-memory API",
