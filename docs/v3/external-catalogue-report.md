@@ -1,4 +1,55 @@
-# Bookvane Catalogue — implementation handoff (21 October 2026)
+# Bookvane Catalogue — implementation and verification handoff
+
+## Current verification — 22 October 2026
+
+The application integration and UI corrections are already in `v3` at
+`64abc8fa784639724ff89a19b6c3f7a30d4e4bf7` (PRs #24 and #26). The older
+branch/review statements below are retained as dated implementation history,
+not the current merge status.
+
+- After the owner disclosed the initial local token, approved database-token
+  invalidation was completed. The previous unexpired credential returned HTTP
+  401. All older database tokens must be considered unusable, including importer
+  credentials. Books, billing and the separate organization token were unchanged.
+- A replacement 30-day read-only credential was saved only in Git-ignored local
+  `backend/.env.catalogue`. It expires 21 November 2026, 18:24:43 UTC. No token
+  value belongs in this report, frontend, command arguments, Git or Render.
+- The new opt-in real-provider browser test passed: **1 passed in 45.7s**
+  (journey 7.2s), using Chrome at a 390px viewport, local FastAPI and the fresh
+  restricted-role database `bookvane_external_catalogue_live_browser_test` on
+  localhost port 55437, migrated to `a17d09c25ef1`.
+- No API mocks in that journey: automatic search returned bounded live Turso
+  results; review/cancel created no entry; confirmation created one private
+  Want entry with provenance; reload retained it; starting reading then replaying
+  the same confirmation preserved the entry, current attempt and changed Want
+  flag. No browser request to `turso.io` or page error was observed. This is not
+  an exhaustive token-leak audit or comprehensive catalogue-quality measurement.
+- This execution used public metadata SELECTs only, with synthetic local users.
+  No Neon writes, production migration, Render change, importer restart or
+  public enablement was performed. Owner-local runtime activation is separate
+  from this successful isolated test.
+- Existing mocked catalogue browser regression rerun: **16 passed in 44.4s**.
+  Covers outage/manual fallback, feature-off behavior, filter boundaries,
+  malformed responses, keyboard/phone confirmation, loading/empty states,
+  selection-error reset, private draft/account switching and cover preservation.
+- Independent QA reviewed the source, successful run marker and final private
+  Reading screenshot; no blocking defect identified for this bounded evidence.
+  QA did not independently rerun the test, inspect credentials or query Turso.
+  Final commit binding is recorded separately in the coordination handoff.
+- The same candidate's focused backend catalogue API/unit execution was
+  **23 passed, one warning in 12.21s**; provider transport mocked. No application
+  code changed afterward. The entire backend suite was not rerun for this
+  test/documentation-only delta; historical full-suite results below remain
+  explicitly historical.
+
+The bounded verification harness is in `backend/tests/reading/catalogue_browser_server.py`
+and `frontend/playwright.catalogue-live.config.js`. It refuses nonlocal targets,
+missing opt-ins, superuser roles, wrong schema revision or populated Book/User
+tables; it does not reset a used database. A rerun requires a newly authorized
+fresh isolated target, not deleting failed-run evidence. Email delivery is
+explicitly disabled in this harness.
+
+## Historical implementation handoff — 21 October 2026
 
 ## Delivered on the feature branch
 

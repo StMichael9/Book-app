@@ -77,6 +77,13 @@ samples, not a latency guarantee). Provider dashboard after checks: 511.26 MB,
 
 ## Enablement checklist — approval required
 
+Local verification on 22 October passed the real browser/API/provider/private-save
+journey; see `external-catalogue-report.md`. The integration and UI are already
+merged into `v3` at `64abc8f`. This does not activate hosted lookup. The
+replacement local credential expires 21 November 2026 at 18:24:43 UTC; all older
+database tokens were invalidated with owner approval. Do not revive old importer
+credentials or use the owner-deferred organization token in this application.
+
 1. Review/merge the feature PR into `v3`; no direct production push.
 2. Rehearse on the intended isolated development target and complete QA review.
 3. Verify current Free/overages-disabled account settings and lookup read budget.
