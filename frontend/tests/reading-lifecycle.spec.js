@@ -272,17 +272,15 @@ for (const theme of ["light", "dark"]) test(`editorial workspace phone text enla
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.goto("/my-books/101");
   await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
-  const stop = page.getByRole("button", { name: "Stop reading", exact: true });
-  await stop.focus(); await page.keyboard.press("Tab");
+  // Phone reading order: reading actions, My note, the quiet Next preview, then the secondary group.
+  const finish = page.getByRole("button", { name: "Finish book", exact: true });
+  await finish.focus(); await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.locator(".bv-save-reason > summary")).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.locator(".bv-workspace-history > summary")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.locator(".bv-workspace-manage > summary")).toBeFocused();
-  await page.keyboard.press("Tab");
   await expect(page.getByRole("region", { name: "Next after this" }).getByRole("link", { name: "Open your book", exact: true })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Stop reading", exact: true })).toHaveCount(0);
   // Exercise a user text override without resizing or inventing metadata.
   await page.locator(".bv-editorial-workspace").evaluate(root => {
     const sizes = [...root.querySelectorAll("h1,h2,h3,p,button,a,summary")].map(node => [node, parseFloat(getComputedStyle(node).fontSize)]);
@@ -368,7 +366,7 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   await page.goto("/my-books/101");
   await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const label of ["I own it", "Want to read", "Resume reading", "Finish book", "Stop reading", "Update progress"]) {
+  for (const label of ["I own it", "Want to read", "Resume reading", "Finish book", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
   }
@@ -443,7 +441,7 @@ test("M3 confirmed removal distinguishes a reading from the whole book; failure 
   app.dataControls = true;
   await page.goto("/my-books/101");
   await openDisclosure(page, "Reading history");
-  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await page.getByRole("button", { name: /^Delete this reading: / }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Reading fixture 101");
   await expect(dialog).toContainText("Start date unknown");
@@ -452,7 +450,7 @@ test("M3 confirmed removal distinguishes a reading from the whole book; failure 
   await expect(dialog).not.toBeVisible();
   expect(app.requests.filter(request => request.method === "DELETE")).toHaveLength(0);
   await openDisclosure(page, "Reading history");
-  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await page.getByRole("button", { name: /^Delete this reading: / }).click();
   app.removeFails = true;
   await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("couldn’t confirm the removal");
@@ -550,7 +548,7 @@ test("M3 late download never leaves a departed account", async ({ page, app }) =
 for (const flag of ["I own it", "Want to read"]) {
   test(`${flag} success preserves progress/date drafts across refresh without silently rebasing`, async ({ page, app }) => {
     await page.goto("/my-books/101");
-    await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+    await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
     await openDisclosure(page, "Format, copy & dates");
     await page.getByLabel("Percent complete", { exact: true }).fill("25");
     await page.getByLabel("Started on (optional)", { exact: true }).fill("2026-09-10");
@@ -574,7 +572,7 @@ for (const flag of ["I own it", "Want to read"]) {
       await expect(page.getByLabel("Started on (optional)", { exact: true })).toHaveValue("2026-09-10");
       await expect(page.getByRole("button", { name: "Finish book", exact: true })).toBeDisabled();
       await page.getByRole("button", { name: "Load saved version", exact: true }).click();
-      await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+      await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
       await openDisclosure(page, "Format, copy & dates");
       await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
       await page.getByLabel("Percent complete", { exact: true }).fill("25");
@@ -586,7 +584,7 @@ for (const flag of ["I own it", "Want to read"]) {
 
   test(`${flag} failure preserves the draft and still permits a version-safe save`, async ({ page, app }) => {
     await page.goto("/my-books/101");
-    await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+    await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
     await openDisclosure(page, "Format, copy & dates");
     await page.getByLabel("Percent complete", { exact: true }).fill("25");
     await page.getByLabel("Started on (optional)", { exact: true }).fill("2026-09-10");
@@ -646,14 +644,14 @@ for (const mode of ["disabled", "oldBackend"]) {
 
 test("drafts survive internal route/back navigation and clear on account departure", async ({ page, app }) => {
   await page.goto("/my-books/101");
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openDisclosure(page, "Format, copy & dates");
   await page.getByLabel("Percent complete", { exact: true }).fill("25");
   await page.evaluate(() => { history.pushState(null, "", "/my-books/102"); window.dispatchEvent(new PopStateEvent("popstate")); });
   await expect(page.getByRole("heading", { name: "Reading fixture 102", exact: true })).toBeVisible();
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveCount(0);
   await page.goBack();
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openDisclosure(page, "Format, copy & dates");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
   app.authenticated = false;
@@ -739,7 +737,7 @@ test("M3 read-only history can show private memory without allowing saves", asyn
   await openDisclosure(page, "My note");
   await expect(page.getByText("Preserved private memory", { exact: true })).toBeVisible();
   await openDisclosure(page, "Reading history");
-  await page.locator(".bv-reading-history").getByRole("button", { name: "View reading memory", exact: true }).click();
+  await page.locator(".bv-reading-history").getByRole("button", { name: /^View reading memory: / }).click();
   await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue("Preserved private memory");
   await expect(page.getByRole("button", { name: "Save note", exact: true })).toBeDisabled();
   expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
@@ -752,7 +750,7 @@ test("M3 historical memory and correction identify the selected record and recei
   await page.goto("/my-books/101");
   await openDisclosure(page, "Reading history");
   const older = page.locator(".bv-reading-history li").last();
-  const memory = older.getByRole("button", { name: "Note and reaction", exact: true });
+  const memory = older.getByRole("button", { name: /^Note and reaction: / });
   await memory.focus(); await memory.press("Enter");
   const identity = page.locator(".bv-reading-draft").getByRole("heading", { name: "Selected reading", exact: true });
   await expect(identity).toBeFocused();
@@ -768,7 +766,7 @@ test("M3 historical memory and correction identify the selected record and recei
   await expect(field).toHaveValue("Unsaved earlier memory");
   await expect(identity).not.toBeFocused();
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await older.getByRole("button", { name: "Correct this reading", exact: true }).click();
+  await older.getByRole("button", { name: /^Edit dates and progress: / }).click();
   await expect(identity).toBeFocused();
   await expect(page.locator(".bv-reading-draft")).toContainText("Finished · 2025-01-02 → 2025-02-03");
   await expect(page.getByLabel("Started on (optional)", { exact: true })).toHaveValue("2025-01-02");
@@ -789,7 +787,7 @@ test("M3 stopped reading deletion uses the familiar state label", async ({ page,
   app.dataControls = true; app.attempt.state = "dnf"; app.entries.get(101).reading_state = "dnf";
   await page.goto("/my-books/101");
   await openDisclosure(page, "Reading history");
-  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await page.getByRole("button", { name: /^Delete this reading: / }).click();
   await expect(page.getByRole("dialog")).toContainText("Stopped · Start date unknown");
   await expect(page.getByRole("dialog")).not.toContainText("dnf");
 });
@@ -802,7 +800,7 @@ test("M3 late context response cannot reopen a departed account's draft", async 
   try {
     await page.goto("/my-books/101");
     await openDisclosure(page, "Reading history");
-    await page.locator(".bv-reading-history li").last().getByRole("button", { name: "Note and reaction", exact: true }).click();
+    await page.locator(".bv-reading-history li").last().getByRole("button", { name: /^Note and reaction: / }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "GET" && request.path.includes("reading-attempts")).length).toBe(1);
     app.authenticated = false;
     await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
@@ -1156,7 +1154,7 @@ test("minimalist deleting one reading clears its drafts and retains the book's s
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("Keep this separate book-level thought");
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await openDisclosure(page, "Reading history");
-  await page.getByRole("button", { name: "Delete this reading record", exact: true }).click();
+  await page.getByRole("button", { name: /^Delete this reading: / }).click();
   await page.getByRole("button", { name: "Delete reading record", exact: true }).click();
   await page.getByRole("button", { name: "Continue save-reason draft", exact: true }).click();
   await expect(page.getByLabel("Save reason (optional)", { exact: true })).toHaveValue("Keep this separate book-level thought");
