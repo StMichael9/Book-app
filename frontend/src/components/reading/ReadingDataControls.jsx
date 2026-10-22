@@ -84,7 +84,7 @@ export function ReadingDataPage() {
     document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }
-  return <section className="bv-container"><div className="bv-narrow"><TextLink to="/account">Back to your account</TextLink><PageHeading eyebrow="Only for you" title="Your reading data">Your reading context is private, not a public review or social profile.</PageHeading>
+  return <section className="bv-container"><div className="bv-narrow"><TextLink to="/account">Back to your account</TextLink><PageHeading title="Your reading data">Your reading context is private, not a public review or social profile.</PageHeading>
     {library.readingExport && <section className="bv-section"><h2>Download my data</h2><p>Includes your saved catalogue and private books, Own/Want flags, save reasons, all reading records, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
       <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. This is a personal backup, not a CSV import format or an automatic restore. We stream it directly without keeping a server-side archive. Your browser holds the download; store it somewhere private.</p>
       <Button disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download my data"}</Button>

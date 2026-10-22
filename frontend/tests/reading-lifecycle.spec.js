@@ -185,7 +185,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("link", { name: "Paused books (2)", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
     const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
     await expect(first).toBeVisible();
@@ -195,7 +195,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "My Books", exact: true }).click();
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toBeVisible();
     await expect(page.locator(".bv-current-book")).toHaveCount(0);
     await expect(page.locator(".bv-personal-book")).toHaveCount(3);
@@ -337,7 +337,7 @@ test("editorial workspace late metadata preserves a dirty version-captured edito
     await page.getByRole("button", { name: "Update progress", exact: true }).click();
     const field = page.getByLabel("Percent complete", { exact: true }); await field.fill("25");
     await openDisclosure(page, "Manage this book");
-    const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
+    const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want to read", exact: true });
     await want.click(); await expect(want).toHaveAttribute("aria-pressed", "true");
     await expect(field).toHaveValue("25"); await field.focus();
     release();
@@ -368,7 +368,7 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   await page.goto("/my-books/101");
   await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const label of ["Own", "Want", "Resume reading", "Finish book", "Stop reading", "Update progress"]) {
+  for (const label of ["I own it", "Want to read", "Resume reading", "Finish book", "Stop reading", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
   }
@@ -547,7 +547,7 @@ test("M3 late download never leaves a departed account", async ({ page, app }) =
   expect(count).toBe(0);
 });
 
-for (const flag of ["Own", "Want"]) {
+for (const flag of ["I own it", "Want to read"]) {
   test(`${flag} success preserves progress/date drafts across refresh without silently rebasing`, async ({ page, app }) => {
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
@@ -722,9 +722,9 @@ test("M3 stale memory draft survives flag updates without rebasing", async ({ pa
   const field = page.getByLabel("Note (optional)", { exact: true });
   await field.fill("Unsaved reader context");
   await openDisclosure(page, "Manage this book");
-  await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true }).click();
+  await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want to read", exact: true }).click();
   await openDisclosure(page, "Manage this book");
-  await expect(page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want to read", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(field).toHaveValue("Unsaved reader context");
   await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");
@@ -762,7 +762,7 @@ test("M3 historical memory and correction identify the selected record and recei
   await expect(field).toHaveValue("Earlier reading memory");
   await field.fill("Unsaved earlier memory");
   await openDisclosure(page, "Manage this book");
-  const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true });
+  const want = page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want to read", exact: true });
   await want.click();
   await expect(want).toHaveAttribute("aria-pressed", "true");
   await expect(field).toHaveValue("Unsaved earlier memory");
@@ -930,10 +930,10 @@ test("zero-friction manage disclosure remains open after each independent flag a
   await page.goto("/my-books/101");
   await openDisclosure(page, "Manage this book");
   const flags = page.getByRole("group", { name: "Your book flags", exact: true });
-  await flags.getByRole("button", { name: "Want", exact: true }).click();
-  await expect(flags.getByRole("button", { name: "Want", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await flags.getByRole("button", { name: "Own", exact: true }).click();
-  await expect(flags.getByRole("button", { name: "Own", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await flags.getByRole("button", { name: "Want to read", exact: true }).click();
+  await expect(flags.getByRole("button", { name: "Want to read", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await flags.getByRole("button", { name: "I own it", exact: true }).click();
+  await expect(flags.getByRole("button", { name: "I own it", exact: true })).toHaveAttribute("aria-pressed", "false");
   expect(app.entries.get(101).is_wanted).toBe(true); expect(app.entries.get(101).is_owned).toBe(false);
   expect(app.attempt.state).toBe("reading");
 });
@@ -1040,7 +1040,7 @@ test("minimalist closed stale note keeps its version and requires explicit saved
   await page.getByRole("button", { name: "Add a note", exact: true }).click();
   await page.getByLabel("Note (optional)", { exact: true }).fill("Retain original version");
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want", exact: true }).click();
+  await page.getByRole("group", { name: "Your book flags" }).getByRole("button", { name: "Want to read", exact: true }).click();
   await page.getByRole("button", { name: "Continue draft", exact: true }).click();
   await page.getByRole("button", { name: "Save note", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");

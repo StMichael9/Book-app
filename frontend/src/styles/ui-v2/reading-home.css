@@ -38,7 +38,7 @@
 .bv-root .bv-current-book .bv-cover-fallback :is(strong, span) { display: none; }
 .bv-root .bv-current-book > div { min-width: 0; }
 .bv-root .bv-current-book h3 { margin: 0 0 8px; font-size: 20px; }
-.bv-root .bv-current-book .bv-eyebrow { margin-bottom: 8px; letter-spacing: 1px; }
+.bv-root .bv-current-book .bv-reading-state { margin-bottom: 6px; color: var(--bv-green); font-size: 14px; font-weight: 600; }
 .bv-root .bv-current-book .bv-author { margin: 0 0 12px; }
 .bv-root .bv-reading-progress { font-weight: 600; margin-bottom: 12px; }
 .bv-root .bv-home-support { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 12px 0 32px; }

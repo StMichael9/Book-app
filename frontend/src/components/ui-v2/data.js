@@ -87,3 +87,8 @@ export function loadSubjectOptions() {
   }
   return subjectOptionsPromise;
 }
+
+// Names the browser tab after the book once it is known; routes set a generic title first.
+export function useDocumentTitle(title) {
+  useEffect(() => { if (title) document.title = `${title} · Bookvane`; }, [title]);
+}

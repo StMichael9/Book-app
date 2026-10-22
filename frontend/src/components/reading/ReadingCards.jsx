@@ -24,7 +24,7 @@ export function CurrentReadingCard({ entry, attempt }) {
   const progressMax = attempt.progress_unit === "percent" ? 100 : attempt.total_pages;
   return <article className="bv-current-book">
     <Link to={`/my-books/${entry.id}`} tabIndex={-1} aria-hidden="true"><BookCover book={book} priority /></Link>
-    <div><p className="bv-eyebrow">Reading{!entry.book ? " · Private book" : ""}</p>
+    <div><p className="bv-reading-state">Reading{!entry.book ? " · Private book" : ""}</p>
       <h3><Link to={`/my-books/${entry.id}`}>{book.title}</Link></h3>
       <p className="bv-author">{authorLabel(book)}</p>
       {progress && <p className="bv-reading-progress">{progress}</p>}
@@ -38,7 +38,7 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   return <article className="bv-book-card bv-personal-book">
-    {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
+    {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} tabIndex={-1} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
     <div className="bv-personal-book-state">{readingLabels[entry.reading_state] && <span>{readingLabels[entry.reading_state]}</span>}{!entry.book && <span>Private book</span>}</div>
     <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3>
     <p className="bv-author">{authorLabel(book)}</p>

@@ -40,11 +40,11 @@ test("M1 real registration, independent flags, persistence and two-account isola
     await expect(tab.getByRole("heading", { name: book.title, exact: true })).toBeVisible();
   }
   await register(page, "m1-owner-a@example.com");
-  await page.getByRole("button", { name: `Add ${book.title} to Want`, exact: true }).click();
-  await page.getByRole("button", { name: `Add ${book.title} to Own`, exact: true }).click();
-  await expect(page.getByRole("button", { name: `Remove ${book.title} from Own`, exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: `Add ${book.title} to Want to read`, exact: true }).click();
+  await page.getByRole("button", { name: `Add ${book.title} to Owned`, exact: true }).click();
+  await expect(page.getByRole("button", { name: `Remove ${book.title} from Owned`, exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.reload();
-  await expect(page.getByRole("button", { name: `Remove ${book.title} from Want`, exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: `Remove ${book.title} from Want to read`, exact: true })).toHaveAttribute("aria-pressed", "true");
   const ownerPage = await page.request.get(`${api}/me/library`);
   expect(ownerPage.status()).toBe(200);
   const entry = (await ownerPage.json()).items[0];
@@ -52,13 +52,13 @@ test("M1 real registration, independent flags, persistence and two-account isola
   const second = await browser.newContext();
   const other = await second.newPage();
   await register(other, "m1-owner-b@example.com");
-  await expect(other.getByRole("button", { name: `Add ${book.title} to Own`, exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(other.getByRole("button", { name: `Add ${book.title} to Owned`, exact: true })).toHaveAttribute("aria-pressed", "false");
   expect((await other.request.get(`${api}/me/library/${entry.id}`)).status()).toBe(404);
-  await other.getByRole("button", { name: `Add ${book.title} to Want`, exact: true }).click();
-  await expect(other.getByRole("button", { name: `Remove ${book.title} from Want`, exact: true })).toBeVisible();
+  await other.getByRole("button", { name: `Add ${book.title} to Want to read`, exact: true }).click();
+  await expect(other.getByRole("button", { name: `Remove ${book.title} from Want to read`, exact: true })).toBeVisible();
   await page.goto(`${baseURL}/my-books`);
   await expect(page.getByLabel("Search title or author")).toBeVisible();
-  await expect(page.getByRole("button", { name: `Remove ${book.title} from Own`, exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: `Remove ${book.title} from Owned`, exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "../backend/.v3-test-runtime/m1-library-phone.png", fullPage: true });
@@ -78,11 +78,11 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await expect(page).toHaveURL(/\/home$/);
   await page.getByRole("link", { name: "Find a book", exact: true }).click();
   await page.getByRole("link", { name: "View Local library integration book", exact: true }).click();
-  await page.getByRole("button", { name: "Add Local library integration book to Own", exact: true }).click();
-  await page.getByRole("button", { name: "Add Local library integration book to Want", exact: true }).click();
+  await page.getByRole("button", { name: "Add Local library integration book to Owned", exact: true }).click();
+  await page.getByRole("button", { name: "Add Local library integration book to Want to read", exact: true }).click();
   // Start from the acknowledged shelf version, not an in-flight flag write.
   // Native optimistic concurrency deliberately refuses the latter as stale.
-  await expect(page.getByRole("button", { name: "Remove Local library integration book from Want", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Local library integration book from Want to read", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Open or start your reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   const api = "http://127.0.0.1:8005";

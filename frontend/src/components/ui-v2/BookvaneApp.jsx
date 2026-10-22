@@ -52,7 +52,7 @@ function Header() {
   }, [publicLanding]);
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home">Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse">Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books">My Books</Link>}{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
-    <div className="bv-header-actions"><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
+    <div className={`bv-header-actions${auth.isAuthenticated ? "" : " bv-header-actions--guest"}`}><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
       {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink>{!publicLanding && <ActionLink variant="secondary" to="/register">Join free</ActionLink>}</>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${readingActions ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
@@ -102,7 +102,7 @@ function AccountPrompt() {
   }).toString() : "";
   return <NativeDialog open={Boolean(gate)} onClose={() => reader.setGate(null)} title="Make room for this book." className="bv-account-prompt">
     {gate && <><div className="bv-medallion"><Bookmark aria-hidden="true" /></div><p className="bv-muted">Create a free account to save books you want and keep track of the ones you own.</p>
-      <div className="bv-pending-book"><BookCover book={gate.book} priority /><p><strong>{gate.book.title}</strong>Ready for your {gate.status === "owned" ? "Own" : "Want"} shelf.</p></div>
+      <div className="bv-pending-book"><BookCover book={gate.book} priority /><p><strong>{gate.book.title}</strong>Ready to save as {gate.status === "owned" ? "Owned" : "Want to read"}.</p></div>
       <ActionLink to={`/register?${query}`} onClick={() => reader.setGate(null)}>Create an account</ActionLink><p>Already here? <TextLink to={`/login?${query}`} onClick={() => reader.setGate(null)}>Sign in</TextLink></p>
       <Button variant="quiet" onClick={() => reader.setGate(null)}>Keep browsing</Button></>}
   </NativeDialog>;
@@ -119,7 +119,7 @@ function RouteEffects() {
     }
     first.current = false;
     const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
-    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring Your Library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
+    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {

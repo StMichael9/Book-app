@@ -8,9 +8,9 @@ export function ReadingBookIdentity({ entry, flags, headingRef }) {
   const book = entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
   return <article className="bv-workspace-book" aria-labelledby="bv-reading-book-title">
     <div className="bv-workspace-cover"><BookCover book={book} priority /></div>
-    <div className="bv-workspace-identity"><p className="bv-eyebrow">{entry.book ? "Your book, your reading" : "Private book · only you"}</p>
+    <div className="bv-workspace-identity">
       <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><p className="bv-detail-author">{authorLabel(book)}</p>
-      {!entry.book && <p className="bv-help">Only in your library. No description or edition details have been confirmed.</p>}
+      {!entry.book && <p className="bv-help">Private book, only in your library. No description or edition details have been confirmed.</p>}
       {flags}
     </div>
   </article>;

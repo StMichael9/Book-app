@@ -70,8 +70,8 @@ const test = base.extend({
 
 test("My Books entry and real local CSV parser preserve Unicode, quotes and embedded newlines", async ({ page, app }) => {
   await page.goto("/my-books");
-  await page.getByRole("link", { name: "Bring Your Library", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Bring Your Library", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Bring your library", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Bring your library", exact: true })).toBeVisible();
   const content = '\uFEFFtitle,author,review\r\n"夜の本, Part 2",É. Auteur,"A review\nwith ""quotes"""\r\nAnother Book,Another Author,=1+1\r\n';
   await page.getByLabel("Library file", { exact: false }).setInputFiles({ name: "engineering.csv", mimeType: "text/csv", buffer: Buffer.from(content) });
   await page.getByRole("button", { name: "Check my library", exact: true }).click();
@@ -171,14 +171,14 @@ test("feature off keeps V2/V3 My Books and blocks the direct import route", asyn
   await page.goto("/my-books/import");
   await expect(page).toHaveURL(/\/my-books$/);
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Bring Your Library", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toHaveCount(0);
   expect(app.requests.filter(request => request.path.startsWith(root))).toHaveLength(0);
 });
 
 test("phone import stays within My Books navigation and fits the viewport", async ({ page, app }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/import");
-  await expect(page.getByRole("heading", { name: "Bring Your Library", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bring your library", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "My Books" })).toHaveClass(/bv-active/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(app.requests.filter(request => request.path === root && request.method === "POST")).toHaveLength(0);

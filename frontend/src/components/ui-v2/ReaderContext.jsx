@@ -82,13 +82,13 @@ export function ReaderProvider({ children }) {
       const state = library.booksById[book.id];
       const selected = library.mode === "v3" ? state?.[status === "owned" ? "is_owned" : "is_wanted"] : state?.status === status;
       if (ensure && selected) {
-        announce(`Already on your ${status === "owned" ? "Own" : "Want"} shelf.`);
+        announce(`Already marked ${status === "owned" ? "Owned" : "Want to read"}.`);
       } else if (!ensure && selected) {
         await library.clearStatus(book.id, status);
-        if (generation === session.current && authenticated.current) announce(library.mode === "v3" ? `Removed from ${status === "owned" ? "Own" : "Want"}. Your other saved information is unchanged.` : "Removed from your library.");
+        if (generation === session.current && authenticated.current) announce(library.mode === "v3" ? `Removed from ${status === "owned" ? "Owned" : "Want to read"}. Your other saved information is unchanged.` : "Removed from your library.");
       } else {
         await library.updateStatus(book.id, status);
-        if (generation === session.current && authenticated.current) announce(`Added to your ${status === "owned" ? "Own" : "Want"} shelf.`);
+        if (generation === session.current && authenticated.current) announce(`Added to ${status === "owned" ? "Owned" : "Want to read"}.`);
       }
       return generation === session.current && authenticated.current;
     } catch (error) {

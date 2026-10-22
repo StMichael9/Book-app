@@ -18,11 +18,11 @@ test("M5 real file import, source privacy, replay, CSV and cross-account isolati
       await tab.waitForTimeout(61000);
       await tab.getByRole("button", { name: "Create account", exact: true }).click();
     } else expect(registered.status(), await registered.text()).toBe(201);
-    await expect(tab.getByRole("heading", { name: "Bring Your Library", exact: true })).toBeVisible();
+    await expect(tab.getByRole("heading", { name: "Bring your library", exact: true })).toBeVisible();
   }
   await register(page, "m5-live-owner@example.com");
   await page.goto(`/book/${book.id}`);
-  await expect(page.getByRole("button", { name: `Add ${book.title} to Own`, exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: `Add ${book.title} to Owned`, exact: true })).toBeEnabled();
   await page.goto("/my-books/import");
   const quote = value => `"${String(value).replaceAll('"', '""')}"`;
   const file = "Book Id,Title,Author,Exclusive Shelf,My Rating,My Review,Owned Copies,Date Read,Read Count\r\n" + [
@@ -41,7 +41,7 @@ test("M5 real file import, source privacy, replay, CSV and cross-account isolati
   }
   await upload();
   await page.goto(`/book/${book.id}`);
-  await expect(page.getByRole("button", { name: `Remove ${book.title} from Own`, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Remove ${book.title} from Owned`, exact: true })).toBeVisible();
   const first = await (await page.request.get(`${api}/me/library`)).json();
   expect(first.total).toBe(2);
   const catalogueEntry = first.items.find(entry => entry.book_id === book.id);

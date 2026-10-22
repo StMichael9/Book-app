@@ -73,19 +73,21 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
       {["want", "owned"].map((value) => {
         const selected = known && (library.mode === "v3" ? entry?.[value === "owned" ? "is_owned" : "is_wanted"] : status === value);
         const Icon = selected ? Check : value === "want" ? Bookmark : BookOpen;
+        // Compact cards are too narrow for the full wording; the accessible name always carries it.
+        const visible = busy ? "Saving…" : value === "want" ? compact ? "Want" : "Want to read" : selected ? "Owned" : compact ? "Own" : "I own it";
+        const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
           disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
-          aria-label={`${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Own" : "Want"}`}
+          aria-label={action.toLowerCase().includes(visible.toLowerCase()) ? action : `${visible}: ${action}`}
           onClick={() => saveToShelf(value)}>
-          <Icon aria-hidden="true" />
-          {busy ? "Saving…" : value === "want" ? selected ? "Wanted" : compact ? "Want" : "Want this" : selected ? "Owned" : compact ? "Own" : "I own this"}
+          <Icon aria-hidden="true" />{visible}
         </Button>;
       })}
     </div>
     <span id={helperId} className={compact ? "bv-sr-only" : "bv-help"}>
       {busy ? "Updating your shelf…" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
-        "Own and Want are separate. Changing one keeps the other unchanged." : status ?
+        "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
     {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
@@ -97,7 +99,8 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
   const location = useLocation();
   const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse" };
   return <article className="bv-book-card">
-    <Link className="bv-book-link" to={`/book/${book.id}`} state={state} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
+    {/* The title link is the keyboard stop; the cover stays a pointer shortcut. */}
+    <Link className="bv-book-link" to={`/book/${book.id}`} state={state} tabIndex={-1} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>
     <p className="bv-author">{authorLabel(book)}</p>
     {!preview && <ShelfActions book={book} compact />}

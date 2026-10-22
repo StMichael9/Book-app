@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Check } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingHistory, getReadingHome, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
 import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
-import { useRequest } from "../ui-v2/data.js";
+import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
@@ -32,7 +33,7 @@ export function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks();
   const request = useRequest(getReadingHome, `home:${auth.sessionGeneration}:${library.revision}`);
   return <section className="bv-container bv-reading-home">
-    <div className="bv-home-heading"><PageHeading eyebrow="Your reading home" title="Pick up where you left off.">A little space for what you’re reading now.</PageHeading></div>
+    <div className="bv-home-heading"><PageHeading title="Pick up where you left off.">A little space for what you’re reading now.</PageHeading></div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <SlowReadingNotice loading={request.loading} />
     <div className="bv-home-layout"><section className="bv-reading-desk" aria-labelledby="bv-current-reading-title">
@@ -42,7 +43,7 @@ export function ReadingHomePage() {
         <h2>{request.data.paused_count ? "A book can wait for you." : "Make this reading home your own."}</h2>
         <p className="bv-muted">{request.data.paused_count ? "Your paused books are here whenever you’re ready. Resume one, or choose something different." : "Choose a saved book or find something that catches your eye. Tracking pages and writing notes are always optional."}</p>
         <div className="bv-form-actions"><ActionLink to={request.data.paused_count ? "/my-books?status=paused" : "/my-books"}>{request.data.paused_count ? "Open paused books" : "Choose from My Books"}</ActionLink><ActionLink to="/browse" variant="secondary">Find a book</ActionLink></div>
-        {library.libraryImport && !library.readOnly && <p><TextLink to="/my-books/import">Bring Your Library</TextLink> · Import a CSV or TSV file of your books and history.</p>}
+        {library.libraryImport && !library.readOnly && <p><TextLink to="/my-books/import">Bring your library</TextLink> · Import a CSV or TSV file of your books and history.</p>}
       </div>}
       {(request.data.reading_count > request.data.current_reads.length || (request.data.paused_count > 0 && request.data.current_reads.length > 0)) && <div className="bv-home-support">{request.data.reading_count > request.data.current_reads.length && <TextLink to="/my-books?status=reading">See all current reads ({request.data.reading_count})</TextLink>}{request.data.paused_count > 0 && request.data.current_reads.length > 0 && <TextLink to="/my-books?status=paused">Paused books ({request.data.paused_count})</TextLink>}</div>}
     </>}
@@ -176,6 +177,7 @@ export function ReadingWorkspacePage() {
   const entry = workspace?.entry, attempt = workspace?.current_attempt;
   const book = entry ? displayBook(entry) : null, terminal = attempt && ["finished", "dnf"].includes(attempt.state);
   const selected = editing?.attempt;
+  useDocumentTitle(book?.title);
   function openDraft(kind, selectedAttempt, savedEntry = entry) {
     const key = draftKey(entryId, kind, selectedAttempt?.id);
     editorTrigger.current = document.activeElement;
@@ -222,9 +224,10 @@ export function ReadingWorkspacePage() {
       {!entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
         : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
         : <>
-          <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_owned", "Own"], ["is_wanted", "Want"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending || request.loading || Boolean(request.error)} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{label}</Button>)}</div>} />
+          <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_owned", "I own it"], ["is_wanted", "Want to read"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending || request.loading || Boolean(request.error)} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{entry[flag] && <Check aria-hidden="true" />}{label}</Button>)}</div>} />
           <div className="bv-workspace-reading"><ReadingProgress attempt={attempt} statusRef={statusHeading} readOnly={library.readOnly}>
-            <div className="bv-workspace-primary-actions" role="group" aria-label="Reading actions">
+            <div className="bv-workspace-primary-actions" role="group" aria-label="Reading actions" aria-describedby={editing ? "bv-reading-actions-paused" : undefined}>
+              {editing && <p id="bv-reading-actions-paused" className="bv-help">Save or close the open editor to use these actions.</p>}
               {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
               {terminal && !library.readOnly && <>
                 <Button disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."))}>Mark as reading</Button>
@@ -263,7 +266,7 @@ export function ReadingWorkspacePage() {
           {(!attempt || terminal) && <><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "finished")}>Record a past finish</Button><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "dnf")}>Record a past stop</Button></>}
           {library.privacyControls && <Button variant="quiet" disabled={command.pending || Boolean(editing) || Boolean(removal)} onClick={() => setRemoval({ entry })}>Forget this book</Button>}
         </div>
-        {library.privacyControls && <p className="bv-help">Turning off Own or Want keeps your reading history. Forgetting a book removes its entire private record.</p>}
+        {library.privacyControls && <p className="bv-help">Turning off Owned or Want to read keeps your reading history. Forgetting a book removes its entire private record.</p>}
       </>}</details>
       {!finished ? nextSection : null}
     </div>
@@ -291,8 +294,8 @@ export function PrivateBookPage() {
       else { library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`); }
     });
   }
-  return <section className="bv-container bv-private-entry"><PageHeading eyebrow="Only in your library" title="Add one book manually">This private entry won’t change the shared catalogue. Covers are supplied by the catalogue, not uploaded.</PageHeading>
-    {library.libraryImport && !library.readOnly && <p className="bv-notice">Have a library file instead? <TextLink to="/my-books/import">Bring Your Library</TextLink> imports many books from CSV or TSV.</p>}
+  return <section className="bv-container bv-private-entry"><PageHeading title="Add one book manually">This private entry won’t change the shared catalogue. Covers are supplied by the catalogue, not uploaded.</PageHeading>
+    {library.libraryImport && !library.readOnly && <p className="bv-notice">Have a library file instead? <TextLink to="/my-books/import">Bring your library</TextLink> imports many books from CSV or TSV.</p>}
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <form className="bv-field bv-reading-form" onSubmit={event => { event.preventDefault(); submit(); }}><fieldset disabled={library.readOnly || command.pending}><legend>Book details</legend>
       <label htmlFor="private-title">Title</label><input id="private-title" required maxLength={500} value={title} onChange={event => { setTitle(event.target.value); setMatches(null); }} />

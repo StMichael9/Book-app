@@ -84,7 +84,7 @@ test("keyboard shelf actions remain visible above the fixed mobile navigation", 
   const title = page.getByRole("link", { name: "Touch navigation fixture 12", exact: true });
   await title.focus();
   await page.keyboard.press("Tab");
-  const want = page.getByRole("button", { name: "Add Touch navigation fixture 12 to Want", exact: true });
+  const want = page.getByRole("button", { name: "Add Touch navigation fixture 12 to Want to read", exact: true });
   await expect(want).toBeFocused();
   await expect.poll(() => want.evaluate((element) => {
     const nav = document.querySelector(".bv-mobile-nav");

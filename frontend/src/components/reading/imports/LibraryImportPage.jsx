@@ -207,7 +207,7 @@ function ImportSession() {
   const progress = run?.phase === "analyzing" ? run.analyze_cursor : run?.phase === "grouping" && !run.rechecking ? run.group_cursor : run?.phase === "uploading" ? run.row_count : null;
   return <section className="bv-container bv-import-page"><div className="bv-narrow">
     <TextLink to="/my-books">Back to My Books</TextLink>
-    <PageHeading eyebrow="Your books belong here" title="Bring Your Library">Import many books from a CSV or TSV file, including supported reading history. Preview everything before changing your library.</PageHeading>
+    <PageHeading title="Bring your library">Import many books from a CSV or TSV file, including supported reading history. Preview everything before changing your library.</PageHeading>
     <ImportJourney run={run} />
     <p className="bv-help">Private to you. We’ll ask before adding anything to your library.</p>
     {notice && <p role="status">{notice}</p>}
