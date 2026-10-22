@@ -431,7 +431,12 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
     await expect(page.locator(".bv-personal-book .bv-cover-fallback")).toHaveCount(8);
     await expect(page.getByRole("heading", { name: "My private reading", exact: true })).toBeVisible();
     await expect(page.getByRole("img", { name: "Cover unavailable for My private reading", exact: true })).toBeVisible();
-    for (const fallback of await page.locator(".bv-personal-book .bv-cover-fallback strong").all()) await expect(fallback).toBeHidden();
+    // Missing artwork renders a typographic jacket: the title is on the cover, with a stable palette tint.
+    for (const fallback of await page.locator(".bv-personal-book .bv-cover-fallback").all()) {
+      await expect(fallback.locator("strong")).toBeVisible();
+      await expect(fallback).toHaveClass(/bv-jacket--(sage|ivory|rust|forest|ink)/);
+    }
+    await expect(page.getByText("Cover unavailable", { exact: true })).toHaveCount(0);
     const controls = page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button");
     const normalControlWidth = (await controls.first().boundingBox()).width;
     const normalSearchWidth = (await page.getByLabel("Search title or author").boundingBox()).width;

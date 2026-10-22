@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [October 22 refinement, phase 3: cover jackets and My Books](2026-10-22-refine-3-covers.md)
 - [October 22 refinement, phase 2: reading workspace hierarchy](2026-10-22-refine-2-workspace.md)
 - [October 22 refinement, phase 1: foundations and accessibility](2026-10-22-refine-1-foundations.md)
 - [October 21 independent review and bounded follow-up](2026-10-21-independent-review-response.md)

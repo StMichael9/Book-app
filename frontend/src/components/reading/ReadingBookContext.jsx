@@ -42,7 +42,7 @@ export function ReadingBookDetails({ bookId }) {
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
       : <>
-        {request.data.tags?.length > 0 && <div className="bv-book-tags">{request.data.tags.slice(0, 4).map(tag => <span key={tag.id}>{subjectLabel(tag.name)}</span>)}</div>}
+        {request.data.tags?.length > 0 && <p className="bv-book-subjects">{request.data.tags.slice(0, 4).map(tag => subjectLabel(tag.name)).join(" · ")}</p>}
         {(request.data.published_year != null || request.data.page_count > 0) && <p className="bv-help">
           {request.data.published_year != null && `Published ${request.data.published_year}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `Catalogue: ${request.data.page_count} pages · your copy may differ`}
         </p>}

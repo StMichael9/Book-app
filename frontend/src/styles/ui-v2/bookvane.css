@@ -115,9 +115,6 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-hero-covers > a, .bv-root .bv-hero-covers > .bv-skeleton { width: 30%; min-width: 0; border-radius: 3px; }
 .bv-root .bv-hero-covers > :nth-child(2) { transform: translateY(-12px); }
 .bv-root .bv-hero-covers .bv-cover { box-shadow: var(--bv-shadow); }
-.bv-root .bv-hero-covers .bv-cover-fallback { padding: 12px; }
-.bv-root .bv-hero-covers .bv-cover-fallback strong { font-size: 17px; }
-.bv-root .bv-hero-covers .bv-cover-fallback :is(span, small) { display: none; }
 .bv-root .bv-hero-placeholder { padding: 20px; display: grid; place-items: center; text-align: center; gap: 16px; color: var(--bv-green); }
 .bv-root .bv-hero-placeholder svg { width: 56px; height: 56px; }
 .bv-root .bv-shelf-rule { height: 2px; margin-top: 18px; background: var(--bv-green); opacity: .3; }
@@ -160,11 +157,21 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-book-link { display: block; }
 .bv-root .bv-cover { background: var(--bv-wash); aspect-ratio: 2/3; border-radius: 4px; overflow: hidden; width: 100%; }
 .bv-root .bv-cover img { width: 100%; height: 100%; object-fit: contain; }
-.bv-root .bv-cover-fallback { padding: 24px; height: 100%; background: var(--bv-hero); color: var(--bv-green); display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
-.bv-root .bv-cover-fallback svg { width: 32px; height: 32px; }
-.bv-root .bv-cover-fallback strong { font: 500 23px/1.25 var(--bv-display); overflow: hidden; }
-.bv-root .bv-cover-fallback span { font-size: 14px; color: var(--bv-muted); overflow: hidden; }
-.bv-root .bv-cover-fallback small { font-size: 12px; color: var(--bv-muted); margin-top: auto; }
+/* Typographic jacket for books without artwork: the cover itself carries title and author.
+   One of five palette tints is chosen per title; type scales with the cover's own width. */
+.bv-root .bv-cover { container-type: inline-size; }
+.bv-root .bv-jacket { position: relative; height: 100%; display: flex; flex-direction: column; gap: 6cqi; padding: 12cqi 10cqi 10cqi 16cqi; overflow: hidden; background: var(--bv-jacket-bg); color: var(--bv-jacket-ink); box-shadow: inset 5cqi 0 0 color-mix(in srgb, var(--bv-jacket-ink) 14%, transparent); }
+.bv-root .bv-jacket::after { content: ""; position: absolute; left: 7.5cqi; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--bv-jacket-ink) 22%, transparent); }
+.bv-root .bv-jacket strong { font: 500 clamp(9px, 12cqi, 26px)/1.15 var(--bv-display); letter-spacing: -.01em; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.bv-root .bv-jacket span { margin-top: auto; padding-top: 6cqi; border-top: 1px solid color-mix(in srgb, var(--bv-jacket-ink) 30%, transparent); font: 600 clamp(8px, 6.5cqi, 14px)/1.3 var(--bv-body); font-variant: small-caps; letter-spacing: .04em; opacity: .85; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.bv-root .bv-jacket--sage { --bv-jacket-bg: var(--bv-soft-green); --bv-jacket-ink: var(--bv-green); }
+.bv-root .bv-jacket--ivory { --bv-jacket-bg: var(--bv-wash); --bv-jacket-ink: var(--bv-ink); }
+.bv-root .bv-jacket--rust { --bv-jacket-bg: color-mix(in srgb, var(--bv-rust) 13%, var(--bv-paper)); --bv-jacket-ink: var(--bv-rust); }
+.bv-root .bv-jacket--forest { --bv-jacket-bg: var(--bv-green); --bv-jacket-ink: var(--bv-on-green); }
+.bv-root .bv-jacket--ink { --bv-jacket-bg: var(--bv-ink); --bv-jacket-ink: var(--bv-paper); }
+/* Thumbnails keep the title only; tiny marks keep just the tint and spine. */
+@container (max-width: 96px) { .bv-root .bv-jacket span { display: none; } .bv-root .bv-jacket strong { -webkit-line-clamp: 4; } }
+@container (max-width: 48px) { .bv-root .bv-jacket strong { display: none; } }
 .bv-root .bv-book-card h3 { font: 600 18px/1.3 var(--bv-body); margin: 13px 0 4px; overflow-wrap: anywhere; }
 .bv-root .bv-book-card h3 a:hover { text-decoration: underline; }
 .bv-root .bv-author { color: var(--bv-muted); font-size: 15px; margin: 0 0 12px; overflow-wrap: anywhere; }
@@ -231,9 +238,6 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-auth-switch { font-size: 16px; text-align: center; margin: 20px 0 12px; }
 .bv-root .bv-pending-book { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); margin: 24px 0; text-align: left; }
 .bv-root .bv-pending-book .bv-cover { width: 38px; flex-shrink: 0; }
-.bv-root .bv-pending-book .bv-cover-fallback { padding: 4px; }
-.bv-root .bv-pending-book .bv-cover-fallback :is(strong, span, small) { display: none; }
-.bv-root .bv-pending-book .bv-cover-fallback svg { width: 22px; }
 .bv-root .bv-pending-book p { margin: 0; font-size: 14px; line-height: 1.4; }
 .bv-root .bv-pending-book strong { display: block; margin-bottom: 3px; }
 .bv-root .bv-narrow { max-width: 440px; margin: 42px auto 70px; }
@@ -340,9 +344,6 @@ body:has(.bv-root) { margin: 0; }
   .bv-root .bv-hero-display { padding: 24px 20px 18px; border-radius: 7px; }
   .bv-root .bv-hero-covers { min-height: 174px; gap: 13px; max-width: 335px; margin: auto; }
   .bv-root .bv-hero-covers > :nth-child(2) { transform: translateY(-6px); }
-  .bv-root .bv-hero-covers .bv-cover-fallback strong { font-size: 14px; }
-  .bv-root .bv-hero-covers .bv-cover-fallback { padding: 8px; }
-  .bv-root .bv-hero-covers .bv-cover-fallback svg { width: 20px; height: 20px; }
   .bv-root .bv-shelf-rule { margin-top: 12px; }
   .bv-root .bv-genre-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
   .bv-root .bv-genre-card { min-height: 96px; padding: 15px 14px; }
@@ -362,6 +363,8 @@ body:has(.bv-root) { margin: 0; }
   .bv-root .bv-filter-trigger span { display: none; }
   .bv-root .bv-help { font-size: 13px; margin: 6px 0 12px; }
   .bv-root .bv-chip-row { flex-wrap: nowrap; overflow-x: auto; gap: 7px; padding: 4px; margin: 12px -4px; scrollbar-width: none; }
+  /* A soft right edge shows that more subjects scroll into view. */
+  .bv-root .bv-chip-row { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); padding-right: 28px; }
   .bv-root .bv-chip { white-space: nowrap; font-size: 14px; padding: 8px 15px; }
   .bv-root .bv-applied-filters { font-size: 13px; }
   .bv-root .bv-results-heading { margin: 18px 0 16px; align-items: end; }
@@ -373,8 +376,6 @@ body:has(.bv-root) { margin: 0; }
   .bv-root .bv-shelf-controls--compact .bv-shelf-actions { gap: 4px; }
   .bv-root .bv-shelf-controls--compact .bv-button { font-size: 14px; padding: 9px 5px; gap: 4px; }
   .bv-root .bv-shelf-controls--compact svg { width: 15px; height: 15px; }
-  .bv-root .bv-cover-fallback { padding: 16px; }
-  .bv-root .bv-cover-fallback strong { font-size: 20px; }
   .bv-root .bv-pagination { flex-direction: column; align-items: stretch; margin-top: 28px; gap: 12px; font-size: 14px; }
   .bv-root .bv-pagination nav { justify-content: space-between; gap: 6px; }
   .bv-root .bv-pagination .bv-button { padding: 9px 10px; font-size: 14px; }

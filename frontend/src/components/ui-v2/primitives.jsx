@@ -28,6 +28,14 @@ export function EmptyState({ title, children, action, error = false, icon: Icon 
   </section>;
 }
 
+const jacketTones = ["sage", "ivory", "rust", "forest", "ink"];
+// A stable tint per title, so a book keeps the same jacket everywhere it appears.
+function jacketTone(title = "") {
+  let hash = 0;
+  for (const character of title) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  return jacketTones[hash % jacketTones.length];
+}
+
 export function BookCover({ book, priority = false }) {
   const [failedUrl, setFailedUrl] = useState(null);
   const failed = failedUrl === book.cover_image_url;
@@ -35,9 +43,9 @@ export function BookCover({ book, priority = false }) {
     {book.cover_image_url && !failed ? <img
       src={book.cover_image_url} alt={`Cover of ${book.title || "this book"}`}
       loading={priority ? "eager" : "lazy"} decoding="async" onError={() => setFailedUrl(book.cover_image_url)}
-    /> : <div className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`}>
-      <BookOpen aria-hidden="true" /><strong>{book.title || "Untitled book"}</strong>
-      <span>{authorLabel(book)}</span><small>Cover unavailable</small>
+    /> : <div className={`bv-cover-fallback bv-jacket bv-jacket--${jacketTone(book.title || "")}`} role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`}>
+      <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
+      <span aria-hidden="true">{authorLabel(book)}</span>
     </div>}
   </div>;
 }

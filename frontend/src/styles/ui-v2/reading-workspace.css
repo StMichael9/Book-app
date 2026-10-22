@@ -4,8 +4,6 @@
 .bv-root .bv-workspace-book { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 26px; }
 .bv-root :is(.bv-workspace-book, .bv-workspace-progress) { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; min-width: 0; }
 .bv-root .bv-workspace-cover .bv-cover { box-shadow: var(--bv-shadow); }
-.bv-root .bv-workspace-cover .bv-cover-fallback { padding: 16px; }
-.bv-root .bv-workspace-cover .bv-cover-fallback :is(strong, span) { display: none; }
 .bv-root .bv-workspace-identity h1 { font-size: 38px; margin-bottom: 10px; }
 .bv-root .bv-workspace-identity .bv-detail-author { font-size: 20px; margin-bottom: 20px; color: var(--bv-muted); }
 .bv-root .bv-workspace-flags { gap: 10px; }
@@ -26,8 +24,8 @@
 .bv-root .bv-workspace-state-actions .bv-button { padding: 10px 9px; font-size: 15px; }
 .bv-root .bv-workspace-dates { border-top: 1px solid var(--bv-line); color: var(--bv-muted); padding-top: 16px; margin: 20px 0 0; font-size: 13px; }
 .bv-root .bv-workspace-about h3 { font: 500 21px/1.3 var(--bv-display); margin-bottom: 10px; }
-.bv-root .bv-workspace-about .bv-book-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.bv-root .bv-workspace-about .bv-book-tags span { padding: 3px 9px; background: var(--bv-wash); border-radius: 4px; font-size: 13px; }
+/* Subjects here are descriptive, not filters, so they read as text rather than chips. */
+.bv-root .bv-workspace-about .bv-book-subjects { margin-bottom: 6px; color: var(--bv-green); font-size: 14px; font-weight: 600; }
 .bv-root .bv-reading-synopsis { line-height: 1.7; color: var(--bv-muted); }
 .bv-root .bv-reading-synopsis--short { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-workspace-about > .bv-text-link { display: flex; margin-top: 4px; font-size: 14px; }
@@ -38,7 +36,12 @@
 .bv-root .bv-progress-settings[open], .bv-root .bv-note-options[open] { display: grid; gap: 12px; }
 .bv-root :is(.bv-progress-settings, .bv-note-options) input, .bv-root .bv-note-options select { width: 100%; }
 .bv-root .bv-reading-library .bv-filter-groups { align-items: center; gap: 12px; }
-.bv-root .bv-library-more > summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
+/* "More filters" reads as a control in the same family as the filter pills, not a bare browser triangle. */
+.bv-root .bv-library-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1px solid var(--bv-line); border-radius: 6px; font-weight: 600; font-size: 15px; }
+.bv-root .bv-library-more > summary::-webkit-details-marker { display: none; }
+.bv-root .bv-library-more > summary svg { width: 16px; height: 16px; transition: transform 150ms ease; }
+.bv-root .bv-library-more[open] > summary svg { transform: rotate(180deg); }
+.bv-root .bv-library-more[open] > summary { margin-bottom: 8px; }
 .bv-root .bv-library-more[open] { width: 100%; }
 .bv-root .bv-workspace-memory { grid-column: 1; }
 /* Secondary material shares one quiet group: About, then history, imported sources and management as plain rows. */
@@ -64,14 +67,10 @@
 .bv-root .bv-workspace-next-book .bv-author { font-size: 14px; margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-help { margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-text-link { font-size: 14px; }
-.bv-root .bv-workspace-next-book .bv-cover-fallback { padding: 8px; }
-.bv-root .bv-workspace-next-book .bv-cover-fallback :is(strong, span, small) { display: none; }
 .bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-choice-grid { grid-template-columns: 1fr; }
 .bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-choice-grid .bv-book-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 16px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; }
 .bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card > :not(.bv-cover) { grid-column: 2; }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card .bv-cover-fallback { padding: 8px; }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card .bv-cover-fallback :is(strong, span, small) { display: none; }
 .bv-root .bv-workspace-layout > .bv-finish-choices { grid-column: 1 / -1; grid-row: 3; margin: 0; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-editor { grid-row: 4; }
 .bv-root .bv-workspace-loading { grid-column: 1 / -1; }

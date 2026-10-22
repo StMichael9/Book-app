@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ChevronDown } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getLibraryPage } from "../../api/reading.js";
@@ -68,7 +68,7 @@ export default function LibraryPage() {
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
     {label && <p className="bv-notice">Imported label: {label} <Button variant="quiet" onClick={() => { const next = new URLSearchParams(params); next.delete("label"); next.delete("cursor"); setParams(next); }}>Clear label filter</Button></p>}
     <div className="bv-filter-groups"><div className="bv-library-facets" role="group" aria-label="Filter your library">{[...commonFacets, ...(activeOther ? [activeOther] : [])].map(filterButton)}</div>
-      <details className="bv-library-more"><summary>More filters</summary><div className="bv-library-facets" role="group" aria-label="More library filters">{otherFacets.filter(([key]) => key !== facet).map(filterButton)}</div><p className="bv-help">Want to read and Owned are separate; a book can be on both.</p></details>
+      <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary><div className="bv-library-facets" role="group" aria-label="More library filters">{otherFacets.filter(([key]) => key !== facet).map(filterButton)}</div><p className="bv-help">Want to read and Owned are separate; a book can be on both.</p></details>
     </div>
     {["reading", "paused", "finished", "dnf"].includes(facet) && <p className="bv-help">Earlier readings are kept in each book’s Reading history.</p>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
