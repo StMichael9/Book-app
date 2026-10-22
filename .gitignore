@@ -1,5 +1,6 @@
 .env
 .env.test
+.env.catalogue
 venv/
 .pytest_tmp/
 .test-postgres/
