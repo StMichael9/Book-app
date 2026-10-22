@@ -60,19 +60,17 @@
 .bv-root .bv-workspace-editor .bv-reading-form { margin-top: 0; max-width: none; }
 .bv-root .bv-workspace-editor .bv-reading-form fieldset { padding: 0; border: 0; }
 .bv-root .bv-workspace-editor :is(input, select, textarea) { max-width: 100%; min-width: 0; }
-.bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { grid-column: 2; grid-row: 3 / span 2; padding: 24px 0 0; margin: 0; border-top: 1px solid var(--bv-line); min-width: 0; }
+.bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full) { grid-column: 2; grid-row: 3 / span 2; padding: 24px 0 0; margin: 0; border-top: 1px solid var(--bv-line); min-width: 0; }
 .bv-root .bv-workspace-next h2 { font-size: 25px; }
 .bv-root .bv-workspace-next-book { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 16px; border: 1px solid var(--bv-line); border-radius: 8px; background: var(--bv-panel); }
 .bv-root .bv-workspace-next-book h3 { font: 500 20px/1.3 var(--bv-display); margin: 0 0 6px; }
 .bv-root .bv-workspace-next-book .bv-author { font-size: 14px; margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-help { margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-text-link { font-size: 14px; }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-choice-grid { grid-template-columns: 1fr; }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-choice-grid .bv-book-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 16px; border-top: 1px solid var(--bv-line); }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; }
-.bv-root .bv-workspace-next-full:not(.bv-finish-choices) .bv-book-card > :not(.bv-cover) { grid-column: 2; }
-.bv-root .bv-workspace-layout > .bv-finish-choices { grid-column: 1 / -1; grid-row: 3; margin: 0; }
-.bv-root .bv-workspace-layout--finished .bv-workspace-editor { grid-row: 4; }
+.bv-root .bv-workspace-next-full .bv-choice-grid { grid-template-columns: 1fr; }
+.bv-root .bv-workspace-next-full .bv-choice-grid .bv-book-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 16px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-workspace-next-full .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; }
+.bv-root .bv-workspace-next-full .bv-book-card > :not(.bv-cover) { grid-column: 2; }
 .bv-root .bv-workspace-loading { grid-column: 1 / -1; }
 .bv-root .bv-workspace-loading .bv-book-grid { grid-template-columns: 150px; }
 @media (max-width: 1000px) and (min-width: 761px) {
@@ -88,19 +86,21 @@
   .bv-root .bv-workspace-identity h1 { font-size: 30px; }
   .bv-root .bv-workspace-identity .bv-detail-author { font-size: 18px; margin-bottom: 12px; }
   .bv-root .bv-workspace-progress { order: 2; padding: 20px; }
-  .bv-root .bv-workspace-layout > .bv-finish-choices { order: 4; }
   .bv-root .bv-workspace-editor { order: 5; padding: 20px; }
   .bv-root .bv-workspace-memory { order: 6; padding: 20px; }
-  .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { order: 10; }
+  .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full) { order: 10; }
   .bv-root .bv-editorial-workspace :is(button, a, summary, input, select, textarea, [tabindex]) { scroll-margin-bottom: 100px; }
 }
 
 /* Editors remain mounted at their point of use, including during refetch. */
 .bv-root .bv-workspace-reading { grid-column: 2; grid-row: 1 / span 2; min-width: 0; }
-.bv-root .bv-workspace-layout--finished .bv-workspace-reading { grid-row: 1; }
 .bv-root .bv-workspace-reading .bv-workspace-progress { padding: 24px; }
 .bv-root .bv-workspace-memory { grid-row: 2; }
-.bv-root .bv-workspace-layout > .bv-finish-choices { grid-row: 2; }
+/* A saved finish is acknowledged between the book and My note; nothing else moves. */
+.bv-root .bv-finish-moment { grid-column: 1; grid-row: 2; min-width: 0; border-top: 1px solid var(--bv-line); padding: 22px 0 6px; }
+.bv-root .bv-finish-moment h2 { font-size: 26px; margin-bottom: 6px; }
+.bv-root .bv-finish-moment .bv-finish-dates { color: var(--bv-green); font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+.bv-root .bv-finish-moment .bv-muted { max-width: 38rem; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-memory { grid-row: 3; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-more { grid-row: 4; }
 .bv-root .bv-workspace-editor { padding: 0; margin-top: 18px; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; background: transparent; }
@@ -118,11 +118,11 @@
   /* A taller progress form must not make the book's whole left column wait.
      Span the existing content rows while keeping the same mounted editor. */
   .bv-root .bv-workspace-layout--progress-open:not(.bv-workspace-layout--finished) .bv-workspace-reading { grid-row: 1 / span 3; }
-  .bv-root .bv-workspace-layout--progress-open:not(.bv-workspace-layout--finished) > :is(.bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { grid-row: 4 / span 3; }
+  .bv-root .bv-workspace-layout--progress-open:not(.bv-workspace-layout--finished) > :is(.bv-workspace-next, .bv-workspace-next-full) { grid-row: 4 / span 3; }
 }
 @media (max-width: 760px) {
   .bv-root .bv-workspace-layout > * { order: initial; }
-  .bv-root .bv-workspace-layout > :is(.bv-finish-choices, .bv-workspace-next, .bv-workspace-next-full:not(.bv-finish-choices)) { order: initial; }
+  .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full) { order: initial; }
   .bv-root .bv-workspace-reading .bv-workspace-progress { padding: 20px; }
   .bv-root .bv-workspace-memory { padding: 20px 0; }
   .bv-root .bv-workspace-editor { padding: 0; }

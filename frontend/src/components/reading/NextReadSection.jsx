@@ -55,7 +55,7 @@ function NextReadCard({ choice, disabled, pending, onStart }) {
 
 const defaultSettings = () => ({ source: "want", owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
 
-export default function NextReadSection({ onSkip, preview = false, home = false, currentKey, finishId, finishedTitle, enabled = true, hidden = false }) {
+export default function NextReadSection({ preview = false, home = false, currentKey, finishId, enabled = true, hidden = false }) {
   const auth = useAuth(), library = useUserBooks();
   const go = useNavigate(), command = useReadingCommand();
   const intent = useRef(null);
@@ -63,7 +63,10 @@ export default function NextReadSection({ onSkip, preview = false, home = false,
   const [sessionId] = useState(() => crypto.randomUUID());
   const filterForm = useRef(null);
   const [expanded, setExpanded] = useState(false);
-  const heading = useRef(null), finishHeading = useRef(null), previewButton = useRef(null), returning = useRef(false);
+  // A new finish returns to the quiet one-book preview, even if choices were open.
+  const [finishSeen, setFinishSeen] = useState(finishId);
+  if (finishSeen !== finishId) { setFinishSeen(finishId); if (finishId) setExpanded(false); }
+  const heading = useRef(null), previewButton = useRef(null), returning = useRef(false);
   const scope = finishId ? `finish:${finishId}` : "choices";
   const [stored, setStored] = useState(() => ({ scope, values: defaultSettings() }));
   const settings = stored.scope === scope ? stored.values : defaultSettings();
@@ -77,12 +80,12 @@ export default function NextReadSection({ onSkip, preview = false, home = false,
   // exclusion contract keeps the current book out of a workspace preview.
   const values = { ...settings, exclude: currentKey && !finishId
     ? [currentKey, ...settings.exclude.filter(key => key !== currentKey).slice(-29)] : settings.exclude, session_id: sessionId };
-  useEffect(() => { if (finishId) finishHeading.current?.focus(); }, [finishId]);
+  // A saved finish keeps this controller and its session; the workspace owns the finish moment and its focus.
   useEffect(() => {
-    if (!preview || finishId) return;
+    if (!preview) return;
     if (expanded) heading.current?.focus();
     else if (returning.current) { returning.current = false; previewButton.current?.focus(); }
-  }, [expanded, preview, finishId]);
+  }, [expanded, preview]);
   const request = useRequest(async () => {
     const result = await getNextRead(values);
     if (!Array.isArray(result?.items) || result.items.length > 3 || !Array.isArray(result.interests) ||
@@ -110,22 +113,20 @@ export default function NextReadSection({ onSkip, preview = false, home = false,
   }
   const result = request.data;
   if (hidden || !enabled) return null;
-  if (preview && !expanded && !finishId) {
+  if (preview && !expanded) {
     const choice = result?.items[0];
     const book = choice?.book || (choice ? { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] } : null);
     return <section className="bv-workspace-next" aria-label={home ? "Choose your next read" : "Next after this"}><h2>{home ? "Your next read" : "Next after this"}</h2>
-      <p className="bv-help">From your Want to read list.</p>
+      {choice && <p className="bv-help">From your Want to read list.</p>}
       {request.loading ? <p role="status" className="bv-help">Finding a choice…</p> : request.error ? <><p role="status" className="bv-muted">Choices couldn’t load. Your reading is unchanged.</p><Button variant="quiet" onClick={request.retry}>Try choices again</Button></> : choice ?
         <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink></div></article>
         : <p className="bv-muted">Nothing is on your Want to read list yet. Mark a book Want to read, or explore other choices.</p>}
       <Button ref={previewButton} variant="quiet" onClick={() => setExpanded(true)}>{home ? "Choose next" : "Explore more choices"}</Button>
     </section>;
   }
-  return <section className={`bv-section bv-next-read${finishId ? " bv-finish-choices" : ""}${preview ? " bv-workspace-next-full" : ""}`} aria-label="Choose your next read">
-    {finishId && <><h2 ref={finishHeading} tabIndex={-1}>Reading saved.</h2><p>You finished {finishedTitle}. No note, rating or progress entry is required.</p></>}
+  return <section className={`bv-section bv-next-read${preview ? " bv-workspace-next-full" : ""}`} aria-label="Choose your next read">
     <h2 ref={heading} tabIndex={preview ? -1 : undefined}>What would you like to read next?</h2><p className="bv-help">A few choices, not a prediction. Start with your Want to read books; you can always skip this.</p>
-    {onSkip && <Button variant="quiet" disabled={command.pending} onClick={onSkip}>Not now</Button>}
-    {preview && !finishId && <Button variant="quiet" disabled={command.pending} onClick={() => { returning.current = true; setSettings(defaultSettings()); setExpanded(false); }}>{home ? "Back to Home" : "Back to this reading"}</Button>}
+    {preview && <Button variant="quiet" disabled={command.pending} onClick={() => { returning.current = true; setSettings(defaultSettings()); setExpanded(false); }}>{home ? "Back to Home" : "Back to this reading"}</Button>}
     <div className="bv-form-actions" role="group" aria-label="Choice source"><Button disabled={command.pending} variant={settings.source === "want" ? "saved" : "quiet"} aria-pressed={settings.source === "want"} onClick={() => switchSource("want")}>My Want to read books</Button><Button disabled={command.pending} variant={settings.source === "catalogue" ? "saved" : "quiet"} aria-pressed={settings.source === "catalogue"} onClick={() => switchSource("catalogue")}>Explore something new</Button></div>
     <p className="bv-help">{settings.source === "want" ? "From your Want to read list. Books you’re reading or have paused stay out." : "New choices from the catalogue. Books with a reading history stay out."}</p>
     {library.readOnly && <p role="status">You can view choices. Starting a reading is temporarily paused.</p>}

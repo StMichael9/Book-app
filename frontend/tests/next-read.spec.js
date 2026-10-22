@@ -83,11 +83,13 @@ const test = base.extend({
   },
 });
 
-test("M4 finish skip cannot hide a committed pending start and completion remains visible", async ({ page, app }) => {
+test("M4 finish: collapsing choices cannot hide a committed pending start and completion remains visible", async ({ page, app }) => {
   await page.goto("/my-books/1");
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
   const choices = page.getByRole("region", { name: "Choose your next read" });
-  const skip = choices.getByRole("button", { name: "Not now", exact: true });
+  const skip = choices.getByRole("button", { name: "Back to this reading", exact: true });
   await expect(skip).toBeEnabled();
   let release;
   app.holdCommittedStart = new Promise(done => { release = done; });
@@ -95,7 +97,7 @@ test("M4 finish skip cannot hide a committed pending start and completion remain
     await choices.getByRole("button", { name: "Start reading M4 fixture 2", exact: true }).click();
     await expect.poll(() => app.attempts.get(2)?.state).toBe("reading");
     await expect(skip).toBeDisabled();
-    await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeVisible();
     release();
     await expect(page).toHaveURL(/\/my-books\/2$/);
     await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
@@ -113,16 +115,19 @@ test("editorial workspace preview shares choices and a new finish returns to Wan
   await page.getByRole("button", { name: "Explore something new", exact: true }).click();
   await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
-  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
+  // The finish is acknowledged quietly; the same controller collapses back to one Want book.
+  await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Choose your next read" })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
+  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
   await expect(page.getByRole("button", { name: "My Want to read books", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
   expect(app.requests.filter(r => r.path === "/books/1")).toHaveLength(1);
   expect(new Set(app.requests.filter(r => r.path === "/me/next-read").map(r => r.params.session_id)).size).toBe(1);
   expect(app.requests.filter(r => r.method === "PATCH" && r.body.state === "finished")).toHaveLength(1);
-  await page.getByRole("button", { name: "Not now", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Back to this reading", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Next after this" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeVisible();
 });
 
 test("editorial workspace excludes its current book and returning from catalogue restores a truthful Want preview", async ({ page, app }) => {
@@ -146,10 +151,10 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/1");
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
-  const finished = page.getByRole("heading", { name: "Reading saved.", exact: true });
+  const finished = page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true });
   await expect(finished).toBeFocused();
-  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
-  expect(await page.locator(".bv-finish-choices").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
+  expect(await page.locator(".bv-finish-moment").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -219,20 +224,18 @@ test("M4 controls preserve intent across sources, explain unknown metadata and c
   await expect(page.getByLabel("At most this many pages (optional)", { exact: true })).toHaveValue("");
 });
 
-for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "failed"} choices do not undo a committed finish; skip is quiet`, async ({ page, app }) => {
+for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "failed"} choices do not undo a committed finish; the preview says so quietly`, async ({ page, app }) => {
   await page.goto("/my-books/1");
   app.choicesFail = !malformed; app.malformed = malformed;
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("any saved finish are unchanged");
+  await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Next after this" })).toContainText("Your reading is unchanged");
   expect(app.attempts.get(1).state).toBe("finished");
   expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(1);
-  await page.getByRole("button", { name: "Not now", exact: true }).click();
   await expect(page.getByRole("region", { name: "Choose your next read" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
   await page.reload();
   await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^You finished / })).toHaveCount(0);
 });
 
 test("M4 failed finish never opens next choices", async ({ page, app }) => {
@@ -247,9 +250,8 @@ test("M4 failed finish never opens next choices", async ({ page, app }) => {
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(requestsBeforeFinish);
-  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^You finished / })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Choose your next read", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Not now", exact: true })).toHaveCount(0);
   await expect(preview).toBeVisible();
   expect(app.attempts.get(1).state).toBe("reading");
 });

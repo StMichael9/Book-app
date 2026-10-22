@@ -859,11 +859,12 @@ for (const theme of ["light", "dark"]) test(`zero-friction active reader journey
   await page.getByRole("button", { name: "Pause reading", exact: true }).click();
   await page.getByRole("button", { name: "Resume reading", exact: true }).click();
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: /^You finished / })).toBeFocused();
   expect(app.attempt.state).toBe("finished");
   expect(app.attempt.note).toBe("Keep this thought — 読書");
-  await page.getByRole("button", { name: "Not now", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeFocused();
+  // A note already exists, so the finish moment doesn't offer another one.
+  await expect(page.getByRole("button", { name: "Leave a closing note", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
   await test.info().attach("developer-simulated-task-counts", { body: JSON.stringify({ libraryOpen: { navigations: 1 }, configuredProgress: { buttonActivations: 2, valueEdits: 1 }, note: { buttonActivations: 2, textEdits: 1 }, pause: 1, resume: 1, finish: 1, skip: 1, realParticipants: 0 }), contentType: "application/json" });
 });
 
@@ -1179,7 +1180,7 @@ test("minimalist Finish keeps its focus even when an older editor-close frame ru
   try {
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("button", { name: "Finish book", exact: true }).click();
-    const saved = page.getByRole("heading", { name: "Reading saved.", exact: true });
+    const saved = page.getByRole("heading", { name: /^You finished / });
     await expect(saved).toBeFocused();
     await page.evaluate(() => { for (const callback of window.closeFrames.splice(0)) callback(performance.now()); });
     await expect(saved).toBeFocused();
