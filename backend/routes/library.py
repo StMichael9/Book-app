@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 
 from auth.dependencies import get_current_user
-from database import get_db, settings
+from database import engine, get_db, settings
 from models import User
 from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
@@ -26,9 +29,10 @@ def writing_user(current_user: User = Depends(get_current_user)):
 @limiter.limit("60/minute")
 def capabilities(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     writable = reading_enabled(current_user.id)
-    return {"enabled": writable or library_needs_v3(db, current_user.id), "writable": writable, "contract_version": 1,
+    enabled = writable or library_needs_v3(db, current_user.id)
+    return {"enabled": enabled, "writable": writable, "contract_version": 1,
             "milestone": "M5" if settings.library_import_enabled else "M4", "features": {"library": True, "reading_actions": True,
-            "private_context": True, "reading_export": True, "privacy_controls": True, "next_read": True,
+            "private_context": True, "reading_export": True, "library_export": enabled, "privacy_controls": True, "next_read": True,
             "extended_catalogue": writable and settings.external_catalogue_enabled,
             "library_import": writable and settings.library_import_enabled}}
 
@@ -61,6 +65,24 @@ def ensure_entry(request: Request, book_id: int, data: FlagUpdate,
 def private_matches(request: Request, title: str = Query(min_length=1, max_length=500),
                     current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
     return {"items": ReadingService(db).private_matches(current_user.id, title)}
+
+
+# Portability follows reading access, not the separately gated import pilot.
+# Declared before /library/{entry_id} so the literal path is not parsed as an ID.
+@router.get("/library/export.csv")
+@limiter.limit("3/minute")
+def library_csv(request: Request, current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    from services.library_imports.exports import CsvLibraryExport
+    from services.library_imports.workflow import fail
+    owner = current_user.id
+    db.rollback()  # Release authentication's connection before the snapshot.
+    try:
+        export = CsvLibraryExport(engine, owner)
+    except (OperationalError, TimeoutError):
+        fail("import_temporarily_unavailable_retry", 503)
+    return StreamingResponse(export.stream(), media_type="text/csv; charset=utf-8", background=BackgroundTask(export.close),
+        headers={"Content-Disposition": 'attachment; filename="bookvane-library-v1.csv"',
+            "Content-Length": str(export.length), "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/library/{entry_id}", response_model=EntryDetail)

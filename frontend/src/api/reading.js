@@ -32,3 +32,4 @@ export const forgetLibraryEntry = (id, version) => apiRequest(`/me/library/${id}
   method: "DELETE", body: JSON.stringify({ expected_version: version, confirmed: true }),
 });
 export const getReadingExport = () => apiRequest("/me/reading-export", { responseType: "response" });
+export const getLibraryCsvExport = () => apiRequest("/me/library/export.csv", { responseType: "response" });
