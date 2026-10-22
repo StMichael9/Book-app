@@ -7,3 +7,13 @@ venv/
 __pycache__/
 *.pyc
 data/json_data/
+
+# Impeccable (design skill): per-developer and runtime files
+.impeccable/config.local.json
+**/.impeccable/hook.cache.json
+**/.impeccable/hook.pending.json
+.impeccable/live/
+.impeccable/history/
+.impeccable/critique/
+**/skills/impeccable/scripts/bin/
+**/skills/impeccable/scripts/config.json
