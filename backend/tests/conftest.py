@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, text
+from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.orm import Session
 
 
@@ -19,6 +19,23 @@ if str(PROJECT_ROOT) not in sys.path:
 
 def _resolve_test_database_url() -> str | None:
     return os.getenv("TEST_DATABASE_URL")
+
+
+MIGRATION_TRIGGERS = (
+    "bookvane_library_compatibility",
+    "bookvane_import_entry_removal",
+    "bookvane_import_attempt_removal",
+)
+
+
+def missing_migration_objects(connection) -> list[str]:
+    if connection.execute(text("SELECT to_regclass('alembic_version')")).scalar() is None:
+        return ["table alembic_version"]
+    present = set(connection.execute(
+        text("SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname = ANY(:names)"),
+        {"names": list(MIGRATION_TRIGGERS)},
+    ).scalars())
+    return [f"trigger {name}" for name in MIGRATION_TRIGGERS if name not in present]
 
 
 @pytest.fixture(scope="session")
@@ -40,6 +57,17 @@ def test_database_url() -> str:
             live_url.host, live_url.port, live_url.database
         ):
             pytest.fail("TEST_DATABASE_URL resolves to the configured application database.")
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            missing = missing_migration_objects(connection)
+    finally:
+        engine.dispose()
+    if missing:
+        pytest.fail(
+            "TEST_DATABASE_URL is not migrated to Alembic head; run alembic upgrade head against it "
+            f"(missing: {', '.join(missing)})."
+        )
     return database_url
 
 
