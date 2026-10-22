@@ -28,9 +28,22 @@ function CatalogueConfirmation({ book, requestId, onClose }) {
   </NativeDialog>;
 }
 
+// Opens the private-book form with the reader's search already filled in.
+export function ManualBookLink({ title = "", author = "", children }) {
+  const go = useNavigate(), location = useLocation(), navigation = useLibraryNavigation();
+  function manual(event) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    // Only an opaque, account-scoped memory key enters browser history. Reload,
+    // new tabs and account departure discard this optional bibliographic draft.
+    const key = navigation.captureManualBook({ title, author, returnTo: location.pathname + location.search });
+    go("/my-books/private", { state: { manualBook: key } });
+  }
+  return <TextLink to="/my-books/private" onClick={manual}>{children}</TextLink>;
+}
+
 export default function ExtendedCatalogue({ title = "", author = "", hasLocalResults = false }) {
-  const auth = useAuth(), library = useUserBooks(), go = useNavigate(), location = useLocation();
-  const navigation = useLibraryNavigation();
+  const auth = useAuth(), library = useUserBooks();
   const [selected, setSelected] = useState(null);
   const query = new URLSearchParams({ title, author });
   const request = useRequest(async () => {
@@ -42,14 +55,6 @@ export default function ExtendedCatalogue({ title = "", author = "", hasLocalRes
   }, `extended:${auth.sessionGeneration}:${query}`, library.extendedCatalogue && Boolean(title.trim() || author.trim()));
   if (!library.extendedCatalogue || !(title.trim() || author.trim())) return null;
   const items = request.data?.items || [];
-  function manual(event) {
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    // Only an opaque, account-scoped memory key enters browser history. Reload,
-    // new tabs and account departure discard this optional bibliographic draft.
-    const key = navigation.captureManualBook({ title, author, returnTo: location.pathname + location.search });
-    go("/my-books/private", { state: { manualBook: key } });
-  }
   return <>
     {request.loading ? <p role="status" className="bv-help">Checking more books…</p> : request.error || request.data?.available === false ?
       <p className="bv-help" role="status">More books are temporarily unavailable. Your existing library is unchanged. <Button variant="quiet" onClick={request.retry}>Try again</Button></p> : items.length ?
@@ -61,7 +66,7 @@ export default function ExtendedCatalogue({ title = "", author = "", hasLocalRes
         </article>)}</div>
         {request.data.more_available && <p className="bv-help">Showing the closest matches. Refine the title or author to narrow your search.</p>}
       </section> : !hasLocalResults ? <EmptyState title="No books found.">Try a shorter title or search by author. You can also add this book privately.</EmptyState> : null}
-    {!library.readOnly && <p className="bv-help">Still missing your book? <TextLink to="/my-books/private" onClick={manual}>Add a private book</TextLink></p>}
+    {!library.readOnly && <p className="bv-help">Still missing your book? <ManualBookLink title={title} author={author}>Add a private book</ManualBookLink></p>}
     {selected && <CatalogueConfirmation key={selected.requestId} {...selected} onClose={() => setSelected(null)} />}
   </>;
 }
