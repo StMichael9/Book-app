@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { deleteReadingAttempt, forgetLibraryEntry, getReadingAttempt, getReadingExport, getReadingWorkspace } from "../../api/reading.js";
+import { deleteReadingAttempt, forgetLibraryEntry, getLibraryCsvExport, getReadingAttempt, getReadingExport, getReadingWorkspace } from "../../api/reading.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { Button, NativeDialog, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
@@ -64,10 +64,40 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
   </NativeDialog>;
 }
 
+function saveFile(file, name) {
+  const url = URL.createObjectURL(file), link = document.createElement("a");
+  link.href = url; link.download = name;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
+
+// The spreadsheet download is independent of import: it needs only the library_export capability.
+function LibraryCsvDownload() {
+  const command = useReadingCommand("The download was interrupted or unavailable. Please try again.");
+  const [downloaded, setDownloaded] = useState(false);
+  async function download(assertCurrent) {
+    setDownloaded(false);
+    const response = await getLibraryCsvExport();
+    assertCurrent();
+    const file = await response.blob();
+    assertCurrent();
+    if (!file.size) throw new Error("The download was empty. Please try again.");
+    const name = /filename="([^"]+)"/.exec(response.headers.get("Content-Disposition") || "")?.[1] || "bookvane-library-v1.csv";
+    saveFile(file, name);
+  }
+  return <section className="bv-data-download" aria-labelledby="bv-library-csv-title">
+    <h3 id="bv-library-csv-title">Library spreadsheet (CSV)</h3>
+    <p>Your books with Want to read and Owned, reading statuses, dates, page details and reading notes, in one table. Opens in Excel, Numbers or Google Sheets.</p>
+    <Button variant="secondary" disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing spreadsheet…" : "Download library (CSV)"}</Button>
+    {downloaded && <p role="status">Spreadsheet download started. Check your Downloads folder.</p>}
+    {command.error && <p role="alert">The spreadsheet couldn’t download. {command.error} Your library hasn’t changed.</p>}
+  </section>;
+}
+
 export function ReadingDataPage() {
   const library = useUserBooks(), command = useReadingCommand("The download was interrupted or unavailable. Please try again.");
   const [downloaded, setDownloaded] = useState(false);
-  if (!library.readingExport && !library.privacyControls) return <Navigate to="/account" replace />;
+  if (!library.readingExport && !library.privacyControls && !library.libraryExport) return <Navigate to="/account" replace />;
   async function download(assertCurrent) {
     setDownloaded(false);
     const response = await getReadingExport();
@@ -79,17 +109,20 @@ export function ReadingDataPage() {
     const footer = JSON.parse(tail.trimEnd().split("\n").at(-1));
     if (footer.type !== "complete" || footer.format_version !== 1) throw new Error("The download was interrupted. Please try again.");
     assertCurrent();
-    const url = URL.createObjectURL(file), link = document.createElement("a");
-    link.href = url; link.download = "bookvane-reading-data.jsonl";
-    document.body.append(link); link.click(); link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    saveFile(file, "bookvane-reading-data.jsonl");
   }
   return <section className="bv-container"><div className="bv-narrow"><TextLink to="/account">Back to your account</TextLink><PageHeading title="Your reading data">Your reading context is private, not a public review or social profile.</PageHeading>
-    {library.readingExport && <section className="bv-section"><h2>Download my data</h2><p>Includes your saved catalogue and private books, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
-      <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. This is a personal backup, not a CSV import format or an automatic restore. We stream it directly without keeping a server-side archive. Your browser holds the download; store it somewhere private.</p>
-      <Button disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download my data"}</Button>
-      {downloaded && <p role="status">Download started. Your complete file was sent to your browser. Check Downloads; protect or delete your saved copy yourself.</p>}
-      {command.error && <p role="alert">The download couldn’t complete. {command.error} Your library hasn’t changed. Please try again.</p>}
+    {(library.libraryExport || library.readingExport) && <section className="bv-section"><h2>Download my data</h2>
+      <p className="bv-help">Downloads go straight to your browser. Store them somewhere private.</p>
+      {library.libraryExport && <LibraryCsvDownload />}
+      {library.readingExport && <section className="bv-data-download" aria-labelledby="bv-reading-json-title">
+        <h3 id="bv-reading-json-title">Complete private copy (JSON)</h3>
+        <p>A complete private copy for backup: your saved catalogue and private books, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
+        <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. It’s a personal backup, not a spreadsheet or an automatic restore. We stream it directly without keeping a server-side archive.</p>
+        <Button variant="secondary" disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download complete copy (JSON)"}</Button>
+        {downloaded && <p role="status">Download started. Your complete file was sent to your browser. Check Downloads; protect or delete your saved copy yourself.</p>}
+        {command.error && <p role="alert">The download couldn’t complete. {command.error} Your library hasn’t changed. Please try again.</p>}
+      </section>}
     </section>}
     <section className="bv-section"><h2>Remove reading data</h2><p>Open a book in My Books to delete one reading, or choose Forget this book to remove its entire private history. Turning off Owned or Want to read does not delete reading history.</p><TextLink to="/my-books">Open My Books</TextLink>
       <p>Removal affects the live account data. Backups may retain earlier data until their configured retention expires. Data already downloaded to your device is not erased.</p>

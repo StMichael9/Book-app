@@ -42,9 +42,13 @@ const test = base.extend({
       if (path === "/me/reading-capabilities") {
         if (state.oldBackend) return reply(404, {});
         return reply(200, { enabled: !state.disabled, writable: !state.readOnly, contract_version: 1,
-          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls), library_import: Boolean(state.libraryImport), next_read: Boolean(state.nextRead) } });
+          features: { reading_actions: true, private_context: Boolean(state.privateContext), privacy_controls: Boolean(state.dataControls), reading_export: Boolean(state.dataControls), library_export: Boolean(state.libraryExport), library_import: Boolean(state.libraryImport), next_read: Boolean(state.nextRead) } });
       }
       if (path === "/me/books") return reply(200, []);
+      if (path === "/me/library/export.csv") {
+        if (state.libraryCsvFails) return reply(503, { detail: "Temporary failure" });
+        return route.fulfill({ status: 200, contentType: "text/csv", headers: { "Content-Disposition": 'attachment; filename="bookvane-library-v1.csv"' }, body: "title,author,want_to_read,owned\nReading fixture 101,,false,true\n" });
+      }
       if (path === "/me/reading-export") {
         if (state.holdExport) await state.holdExport;
         if (state.exportFails) return reply(503, { detail: "Temporary failure" });
@@ -520,7 +524,7 @@ test("M3 Download my data rejects failures and truncated exports, then starts a 
   app.dataControls = true; app.readOnly = true; app.exportFails = true;
   await page.goto("/account");
   await page.getByRole("link", { name: "Manage my data", exact: true }).click();
-  const button = page.getByRole("button", { name: "Download my data", exact: true });
+  const button = page.getByRole("button", { name: "Download complete copy (JSON)", exact: true });
   let count = 0;
   page.on("download", () => { count += 1; });
   await button.click();
@@ -544,7 +548,7 @@ test("M3 late download never leaves a departed account", async ({ page, app }) =
   let count = 0;
   page.on("download", () => { count += 1; });
   await page.goto("/my-data");
-  await page.getByRole("button", { name: "Download my data", exact: true }).click();
+  await page.getByRole("button", { name: "Download complete copy (JSON)", exact: true }).click();
   await expect(page.getByRole("button", { name: "Preparing download…", exact: true })).toBeDisabled();
   app.authenticated = false;
   await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
@@ -1325,4 +1329,28 @@ test.describe("live reading dates use the reader's local calendar day", () => {
     expect(liveWrites(app)[0].body).not.toHaveProperty("started_on");
     expect(liveWrites(app)[0].body).not.toHaveProperty("ended_on");
   });
+});
+
+test("4c library CSV downloads from My Data with import switched off, and failures are explained", async ({ page, app }) => {
+  // Only library_export is on: no import pilot, no reading export or privacy controls.
+  app.libraryExport = true; app.libraryImport = false; app.dataControls = false; app.libraryCsvFails = true;
+  await page.goto("/account");
+  await page.getByRole("link", { name: "Manage my data", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-data$/);
+  await expect(page.getByRole("heading", { name: "Library spreadsheet (CSV)", exact: true })).toBeVisible();
+  await expect(page.getByText("Opens in Excel, Numbers or Google Sheets.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download complete copy (JSON)", exact: true })).toHaveCount(0);
+  const button = page.getByRole("button", { name: "Download library (CSV)", exact: true });
+  let count = 0;
+  page.on("download", () => { count += 1; });
+  await button.click();
+  await expect(page.getByRole("alert")).toContainText("spreadsheet couldn’t download");
+  expect(count).toBe(0);
+  app.libraryCsvFails = false;
+  const completed = page.waitForEvent("download");
+  await button.click();
+  expect((await completed).suggestedFilename()).toBe("bookvane-library-v1.csv");
+  await expect(page.getByRole("status").filter({ hasText: "Spreadsheet download started" })).toBeVisible();
+  expect(app.requests.filter(request => request.path === "/me/library/export.csv")).toHaveLength(2);
+  expect(app.requests.filter(request => request.path.startsWith("/me/library-imports"))).toHaveLength(0);
 });

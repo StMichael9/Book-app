@@ -103,3 +103,7 @@
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }
+/* My Data: each download is its own small block, so the two formats read as a choice. */
+.bv-root .bv-data-download { padding-block: 16px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-data-download h3 { font: 500 1.25rem/1.3 var(--bv-display); margin-bottom: 8px; }
+.bv-root .bv-data-download [role="status"], .bv-root .bv-data-download [role="alert"] { margin-top: 12px; }

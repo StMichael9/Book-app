@@ -279,7 +279,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   const workspaceUrl = page.url();
   await page.goto("/my-data");
   const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download my data", exact: true }).click();
+  await page.getByRole("button", { name: "Download complete copy (JSON)", exact: true }).click();
   const download = await downloading;
   expect(download.suggestedFilename()).toBe("bookvane-reading-data.jsonl");
   expect(await download.failure()).toBeNull();
