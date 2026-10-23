@@ -255,9 +255,10 @@ export function ReadingWorkspacePage() {
               {editing && <p id="bv-reading-actions-paused" className="bv-help">Save or close the open editor to use these actions.</p>}
               {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
               {terminal && !library.readOnly && <>
-                <Button disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."))}>Mark as reading</Button>
-                <Button variant="quiet" disabled={readingUnavailable} onClick={() => setReread({ entry, editionId })}>Read it again</Button>
-                <p className="bv-help">Continue this reading. Earlier readings stay in Reading history.</p>
+                {/* A finished or stopped book has no primary action: rereading is a choice, and undo stays quiet. */}
+                <Button variant="secondary" disabled={readingUnavailable} onClick={() => setReread({ entry, editionId })}>Read it again</Button>
+                <p className="bv-help">Starts a new reading. This one stays in Reading history.</p>
+                <p className="bv-workspace-undo">Still reading it? <Button variant="quiet" className="bv-inline-action" disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."))}>Mark as reading</Button></p>
               </>}
               {attempt?.state !== "paused" ? progressAction : null}
               {attempt && !terminal && !library.readOnly && <div className="bv-workspace-state-actions">{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : [["reading", "Resume reading"]]), ["finished", "Finish book"]].map(([state, label]) => <Button key={label} variant={state === "reading" ? "primary" : "secondary"} disabled={blocked} onClick={() => changeState(state)}>{label}</Button>)}</div>}

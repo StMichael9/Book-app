@@ -71,7 +71,10 @@ for (const width of [390, 1440]) test(`Mark as reading reopens the same record w
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: `/tmp/bookvane-current-status-finished-${width}.png`, fullPage: true });
   const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
-  await expect(mark).toHaveClass(/bv-button--primary/);
+  // A finished book has no primary action: undo is a quiet inline link, rereading a secondary choice.
+  await expect(mark).toHaveClass(/bv-button--quiet/);
+  await expect(page.getByRole('button', { name: 'Read it again', exact: true })).toHaveClass(/bv-button--secondary/);
+  await expect(page.getByRole('group', { name: 'Reading actions' }).locator('.bv-button--primary')).toHaveCount(0);
   await mark.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeFocused();
@@ -233,7 +236,7 @@ for (const width of [390, 1440]) test(`same book Finish → Mark as reading upda
   await expect(page.getByRole('button', { name: /^Reading/ })).toHaveText(/Reading\s*0/);
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
   const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
-  await expect(mark).toHaveClass(/bv-button--primary/);
+  await expect(mark).toHaveClass(/bv-button--quiet/);
   await mark.focus(); await page.keyboard.press('Enter');
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeFocused();
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
@@ -269,7 +272,7 @@ test('latest stopped reading uses the same primary action without reviving Finis
   await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
   const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
-  await expect(mark).toHaveClass(/bv-button--primary/);
+  await expect(mark).toHaveClass(/bv-button--quiet/);
   await mark.click();
   await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
   expect(app.attempts).toHaveLength(2);
