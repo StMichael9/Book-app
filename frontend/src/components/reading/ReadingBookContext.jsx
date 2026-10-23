@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { getBookById } from "../../api/books.js";
-import { BookCover, Button, TextLink } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
 import { authorLabel, subjectLabel, useRequest } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-workspace.css";
 
@@ -9,7 +9,7 @@ export function ReadingBookIdentity({ entry, flags, headingRef }) {
   return <article className="bv-workspace-book" aria-labelledby="bv-reading-book-title">
     <div className="bv-workspace-cover"><BookCover book={book} priority /></div>
     <div className="bv-workspace-identity">
-      <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><p className="bv-detail-author">{authorLabel(book)}</p>
+      <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><EnglishTitle book={book} /><p className="bv-detail-author">{authorLabel(book)}</p>
       {!entry.book && <p className="bv-help">Private book, only in your library. No description or edition details have been confirmed.</p>}
       {flags}
     </div>

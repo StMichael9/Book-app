@@ -103,6 +103,10 @@
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }
+/* English title: a quiet second line that reads as one group with the title and author. */
+.bv-root .bv-english-title { margin: 0 0 2px; font: 400 0.875rem/1.35 var(--bv-body); color: var(--bv-muted); overflow-wrap: anywhere; }
+.bv-root :is(.bv-detail-body, .bv-workspace-identity) .bv-english-title { font-size: 1.125rem; }
+.bv-root :is(.bv-detail-body, .bv-workspace-identity) h1:has(+ .bv-english-title) { margin-bottom: 4px; }
 /* My Data: each download is its own small block, so the two formats read as a choice. */
 .bv-root .bv-data-download { padding-block: 16px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-data-download h3 { font: 500 1.25rem/1.3 var(--bv-display); margin-bottom: 8px; }

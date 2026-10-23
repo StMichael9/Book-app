@@ -607,3 +607,25 @@ test("independent review: twenty-thousand saved books retain bounded pages and r
   expect(app.requests.filter(r => r.path === "/me/library")).toHaveLength(3);
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
 });
+
+test("an English title shows on My Books cards and the reading page; private books never show one", async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries.set(1, { ...row(1), book: { ...books[0], title: "Ὀδύσσεια", english_title: "The Odyssey" } });
+  app.entries.set(2, { ...row(2), book: { ...books[1], english_title: " LIBRARY fixture 02 " } });
+  app.entries.set(3, { ...row(3), book: { ...books[2], english_title: "" } });
+  app.entries.set(4, { ...row(4), book: { ...books[3], english_title: null } });
+  app.entries.set(5, { ...row(5), book: null, book_id: null, private_title: "Private diary", private_author: "Me" });
+  await page.goto("/my-books"); await expect(page.locator(".bv-personal-book")).toHaveCount(5);
+  await expect(page.locator(".bv-english-title")).toHaveCount(1);
+  const card = page.locator(".bv-personal-book").filter({ hasText: "Ὀδύσσεια" });
+  await expect(card.locator(".bv-english-title")).toHaveText("The Odyssey");
+  await expect(card.locator(".bv-english-title")).toHaveAttribute("lang", "en");
+  await expect(card.locator("h3 + .bv-english-title + .bv-author")).toHaveCount(1);
+  await page.goto("/my-books/1");
+  await expect(page.locator("#bv-reading-book-title + .bv-english-title")).toHaveText("The Odyssey");
+  await expect(page.locator(".bv-english-title")).toHaveAttribute("lang", "en");
+  for (const id of [2, 3, 4, 5]) {
+    await page.goto(`/my-books/${id}`); await expect(page.locator("#bv-reading-book-title")).toBeVisible();
+    await expect(page.locator(".bv-english-title")).toHaveCount(0);
+  }
+});

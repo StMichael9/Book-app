@@ -20,6 +20,12 @@ export function authorLabel(book) {
     "Author not listed";
 }
 
+export function englishTitle(book) {
+  const english = typeof book?.english_title === "string" ? book.english_title.trim() : "";
+  if (!english) return null;
+  return english.toLowerCase() === (book.title || "").trim().toLowerCase() ? null : english;
+}
+
 export function validBookId(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : null;

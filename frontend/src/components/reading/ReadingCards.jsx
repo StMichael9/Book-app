@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionLink, BookCover, ShelfActions } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-home.css";
 
@@ -46,6 +46,7 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
   return <article className="bv-book-card bv-personal-book">
     {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} tabIndex={-1} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
     <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3>
+    <EnglishTitle book={book} />
     <p className="bv-author">{authorLabel(book)}</p>
     {/* One status line on every card: the reading state leads, then the independent shelves. */}
     {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <StatusLine labels={[readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean)} />}
