@@ -88,13 +88,13 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   const api = "http://127.0.0.1:8005";
   const entry = (await (await page.request.get(`${api}/me/library`)).json()).items[0];
   expect(entry.is_owned).toBe(true); expect(entry.is_wanted).toBe(false);
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
   await page.getByLabel("Track by", { exact: true }).selectOption("percent");
   await page.getByLabel("Percent complete", { exact: true }).fill("40");
   await page.getByRole("button", { name: "Save progress", exact: true }).click();
   await expect(page.getByText("40%", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
   await page.getByLabel("Percent complete", { exact: true }).fill("25");
   const current = (await (await page.request.get(`${api}/me/library/${entry.id}`)).json());
@@ -103,7 +103,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await expect(page.getByRole("alert")).toContainText("Your draft is still here");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("25");
   await page.getByRole("button", { name: "Load saved version", exact: true }).click();
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
   await expect(page.getByLabel("Percent complete", { exact: true })).toHaveValue("40");
   await page.getByLabel("Percent complete", { exact: true }).fill("25");
@@ -117,7 +117,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
   await openReadingSection(page, "Manage this book");
   await page.getByRole("button", { name: "Undo finish", exact: true }).click();
-  await page.getByRole("button", { name: "Stop reading", exact: true }).click();
+  await page.getByRole("button", { name: "Stop reading this book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Stopped", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Read it again", exact: true }).click();
   await page.getByRole("button", { name: "Start a new reading", exact: true }).click();
@@ -157,7 +157,7 @@ test("M2 private missing book and historical dates stay private and optional", a
   await page.getByRole("button", { name: "Add private book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "読書の家", exact: true })).toBeVisible();
   await openReadingSection(page, "Manage this book");
-  await page.getByRole("button", { name: "Record a past finish", exact: true }).click();
+  await page.getByRole("button", { name: "Log an earlier read I finished", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
   const api = "http://127.0.0.1:8005";
   const entry = (await (await page.request.get(`${api}/me/library`)).json()).items[0];
@@ -165,7 +165,7 @@ test("M2 private missing book and historical dates stay private and optional", a
   expect(entry.book_id).toBeNull(); expect(history[0].started_on).toBeNull(); expect(history[0].ended_on).toBeNull();
   // A client-side move between workspaces must discard the previous editor
   // and retry identity, even though React reuses the same route component.
-  await page.getByRole("button", { name: /^(Update progress|Correct progress or dates|View progress and dates)$/ }).click();
+  await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
   await openReadingSection(page, "Format, copy & dates");
   await expect(page.getByLabel("Started on (optional)", { exact: true })).toBeVisible();
   const another = await page.request.post(`${api}/me/library/private`, { data: {
@@ -257,7 +257,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   const current = (await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json()).current_attempt;
   expect(current.id).not.toBe(first.id); expect(current.note).toBeNull(); expect(current.reaction).toBeNull();
   await openReadingSection(page, "Reading history");
-  await page.locator(".bv-reading-history").getByRole("button", { name: "Note and reaction", exact: true }).last().click();
+  await page.locator(".bv-reading-history").getByRole("button", { name: /^Note and reaction: / }).last().click();
   await expect(page.getByLabel("Note (optional)", { exact: true })).toHaveValue(memory);
   await page.getByLabel("Note (optional)", { exact: true }).fill("Corrected first-read memory");
   await page.getByRole("button", { name: "Save note", exact: true }).click();
@@ -292,7 +292,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   expect(JSON.stringify(lines)).not.toContain("creation_fingerprint");
   await page.goto(workspaceUrl);
   await openReadingSection(page, "Reading history");
-  await page.locator(".bv-reading-history").getByRole("button", { name: "Delete this reading record", exact: true }).last().click();
+  await page.locator(".bv-reading-history").getByRole("button", { name: /^Delete this reading: / }).last().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("other readings will stay");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -304,7 +304,7 @@ test("M3 real private context persists, stays separate across rereads and is own
     await route.fetch(); return route.abort("failed");
   }, { times: 1 });
   await openReadingSection(page, "Reading history");
-  await page.locator(".bv-reading-history").getByRole("button", { name: "Delete this reading record", exact: true }).last().click();
+  await page.locator(".bv-reading-history").getByRole("button", { name: /^Delete this reading: / }).last().click();
   await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await expect(page.locator(".bv-reading-history li")).toHaveCount(2);

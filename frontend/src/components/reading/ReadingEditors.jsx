@@ -62,11 +62,12 @@ export default function ReadingEditor({ draft, historical, readOnly, canReopen, 
           <small className="bv-editor-caption">Private to you · {fields.text.length} / {isReason ? 500 : 2000}</small>
           {!isReason && <details className="bv-note-options"><summary>Reaction (optional)</summary><label className="bv-sr-only" htmlFor="reading-reaction">Reaction (optional)</label><select id="reading-reaction" value={fields.reaction} onChange={event => edit("reaction", event.target.value)}><option value="">No reaction</option>{Object.entries(reactions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></details>}
         </>}
-        <div className="bv-form-actions"><Button type="submit">{command.pending ? "Saving…" : isProgress ? "Save progress" : isReason ? "Save reason" : "Save note"}</Button></div>
         {canReopen && <><Button variant="quiet" disabled={dirty} onClick={() => command.run(() => updateReadingAttempt(draft.attempt.id, { expected_version: draft.version, state: "reading" }), onSaved)}>Reopen selected reading</Button>{dirty && <p className="bv-help">Save your changes before reopening this reading.</p>}</>}
       </fieldset>
+      {/* Save and Close share one row; Save stays outside the fieldset so Close works while changes are paused. */}
+      <div className="bv-form-actions bv-editor-actions"><Button type="submit" disabled={readOnly || command.pending}>{command.pending ? "Saving…" : isProgress ? "Save progress" : isReason ? "Save reason" : "Save note"}</Button>
+        <Button variant="quiet" disabled={command.pending} onClick={onClose}>Close</Button></div>
       {command.error && <div role="alert" className="bv-notice"><p>{command.error} Your draft is still here.</p><Button variant="quiet" disabled={command.pending} onClick={onReload}>Load saved version</Button><p className="bv-help">This replaces this draft with the saved version. Copy any text you want to keep first.</p></div>}
     </form>
-    <Button variant="quiet" disabled={command.pending} onClick={onClose}>Close</Button>
   </div>;
 }

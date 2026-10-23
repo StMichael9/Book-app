@@ -115,11 +115,11 @@ test('mistaken active reread can be explicitly removed, then previous reading co
   await page.locator('.bv-workspace-history > summary').click();
   const rows = page.locator('.bv-reading-history > li');
   await expect(rows.first()).toContainText('Current reading');
-  await rows.first().getByRole('button', { name: 'Delete this reading record' }).click();
+  await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
   await expect(page.getByRole('dialog')).toContainText('Your saved book, Own/Want flags, save reason and other readings will stay.');
   await page.getByRole('button', { name: 'Keep it', exact: true }).click();
   expect(writes(app)).toHaveLength(0);
-  await rows.first().getByRole('button', { name: 'Delete this reading record' }).click();
+  await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
   await page.getByRole('button', { name: 'Delete reading record', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toBeVisible();
   expect(app.attempts).toEqual(previous);
@@ -173,7 +173,7 @@ test('read-only workspace cannot reopen, reread or delete', async ({ page, app }
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Read it again', exact: true })).toHaveCount(0);
   await page.locator('.bv-workspace-history > summary').click();
-  await expect(page.getByRole('button', { name: 'Delete this reading record' }).first()).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Delete this reading:' }).first()).toBeDisabled();
   expect(writes(app)).toHaveLength(0);
 });
 
@@ -183,7 +183,7 @@ test('a historical finished record cannot be reopened while another reading is a
   app.entry.reading_state = 'reading';
   await page.goto('/my-books/101');
   await page.locator('.bv-workspace-history > summary').click();
-  await page.locator('.bv-reading-history > li').nth(1).getByRole('button', { name: 'Correct this reading' }).click();
+  await page.locator('.bv-reading-history > li').nth(1).getByRole('button', { name: 'Edit dates and progress:' }).click();
   await expect(page.getByRole('heading', { name: 'Selected reading' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reopen selected reading' })).toHaveCount(0);
   expect(writes(app)).toHaveLength(0);
