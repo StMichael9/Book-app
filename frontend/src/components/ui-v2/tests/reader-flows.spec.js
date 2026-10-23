@@ -385,3 +385,17 @@ test("minimalist landing retains existing legacy fallback and scoped catalogue r
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
 });
+
+test("landing prefers covered, plain-English titles and never repeats hero books in the row", async ({ page, app }) => {
+  const odd = ["Ὀδύσσεια", "Hrabě Monte Cristo"];
+  app.catalogue = Array.from({ length: 10 }, (_, i) => ({ ...books[i % 5], id: i + 1, title: odd[i] || `Plain title ${i + 1}`, cover_image_url: i === 9 ? null : `/test-cover/${i + 1}.jpg` }));
+  await page.goto("/");
+  await expect(page.locator(".bv-hero-covers a")).toHaveCount(3);
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  const hero = await page.locator(".bv-hero-covers a").evaluateAll(links => links.map(link => link.getAttribute("aria-label")));
+  const row = await page.locator(".bv-book-card h3").allTextContents();
+  expect(hero).toEqual(["Explore Plain title 3", "Explore Plain title 4", "Explore Plain title 5"]);
+  expect(row).toHaveLength(5);
+  for (const title of row) expect(hero).not.toContain(`Explore ${title}`);
+  for (const title of odd) expect(hero).not.toContain(`Explore ${title}`);
+});
