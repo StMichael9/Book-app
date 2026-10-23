@@ -139,3 +139,4 @@
 .bv-root .bv-workspace-undo .bv-inline-action { min-height: 44px; padding: 0 4px; color: var(--bv-green); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
 .bv-root .bv-workspace-forget { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-workspace-forget .bv-help { margin-bottom: 0; }
+.bv-root .bv-finish-moment .bv-finish-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 16px 0 0; color: var(--bv-muted); }
