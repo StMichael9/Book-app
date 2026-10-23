@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-from sqlalchemy import select, func
+from sqlalchemy import exists, select, func
 from sqlalchemy.orm import selectinload, Session
 
 from database import get_db
-from models import Book, User, UserBookStatus
+from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
 from services import search
 from rate_limit import limiter
@@ -58,7 +58,12 @@ def get_books(
 
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
-def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
+def get_book(
+    request: Request,
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
+):
      query = (
          select(Book)
          .where(Book.id == book_id)
@@ -66,6 +71,11 @@ def get_book(request: Request, book_id: int, db: Session = Depends(get_db)):
      )
      result = db.execute(query)
      book = result.scalars().one_or_none()
+
+     # Discovery shows only complete books, but never break a reader's own saved book.
+     if book and not book.is_complete and not (current_user and db.scalar(select(exists().where(
+             UserBook.book_id == book.id, UserBook.user_id == current_user.id)))):
+         book = None
 
      if not book:
          raise HTTPException(status_code=404, detail="Book not found")

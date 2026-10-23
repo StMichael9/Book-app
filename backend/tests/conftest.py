@@ -102,6 +102,7 @@ def db_session(app_modules) -> Session:
             description="A young wizard starts his education.",
             published_year=1997,
             page_count=309,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "fellowship": models.Book(
             title="The Fellowship of the Ring",
@@ -109,6 +110,7 @@ def db_session(app_modules) -> Session:
             description="The first part of the journey to destroy the ring.",
             published_year=1954,
             page_count=423,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "dracula": models.Book(
             title="Dracula",
@@ -116,6 +118,7 @@ def db_session(app_modules) -> Session:
             description="A gothic horror novel.",
             published_year=1897,
             page_count=418,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "good_omens": models.Book(
             title="Good Omens",
@@ -123,6 +126,7 @@ def db_session(app_modules) -> Session:
             description="An apocalypse comedy with two authors.",
             published_year=1990,
             page_count=288,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "unknown_year": models.Book(
             title="The Lost Codex",
@@ -130,6 +134,7 @@ def db_session(app_modules) -> Session:
             description="A deliberately yearless fixture.",
             published_year=None,
             page_count=123,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
     }
 

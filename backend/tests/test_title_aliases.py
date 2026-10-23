@@ -20,7 +20,8 @@ def make_book(db_session, app_modules):
     models = app_modules["models"]
 
     def make(title, *aliases):
-        book = models.Book(title=title, description="Alias fixture.", published_year=1900, page_count=100)
+        book = models.Book(title=title, description="Alias fixture.", published_year=1900, page_count=100,
+                           cover_image_url="https://covers.example/alias.jpg")
         db_session.add(book)
         db_session.flush()
         for alias, language in aliases:

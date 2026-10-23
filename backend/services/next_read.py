@@ -2,7 +2,7 @@
 from collections import defaultdict
 
 from fastapi import HTTPException
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, func, or_, select
 
 from models import Author, Book, ReadingAttempt, Tag, TagType, UserBook, UserPreference, book_authors, book_tags
 from reading_schemas import NextReadChoice, NextReadResult
@@ -34,7 +34,9 @@ class NextReadService:
             # unread owned books, but not queued books or unrequested revisits.
             base = select(*columns).select_from(Book).outerjoin(UserBook,
                 and_(UserBook.book_id == Book.id, UserBook.user_id == user_id))\
-                .where(~current, ~prior, UserBook.is_wanted.is_not(True))
+                .where(~current, ~prior, UserBook.is_wanted.is_not(True),
+                       # Only complete books are suggested from the catalogue; a reader's own entry is never hidden.
+                       or_(Book.is_complete.is_(True), UserBook.id.is_not(None)))
         if query.owned_only:
             base = base.where(UserBook.is_owned.is_(True))
         if query.max_pages is not None:

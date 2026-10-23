@@ -185,6 +185,7 @@ def test_large_catalogue_query_and_factual_length_reasons(client, reader, app_mo
     for batch in range(50):
         ids = db_session.scalars(insert(models.Book).returning(models.Book.id), [{"title": f"M4 synthetic catalogue {batch * 1000 + index}",
             "source_id": f"/works/OLM4TEST{batch * 1000 + index}W", "page_count": 120,
+            "cover_image_url": "https://covers.example/m4.jpg", "published_year": 2000,
             "description": "Isolated synthetic catalogue description. " * 8} for index in range(1000)]).all()
         db_session.execute(insert(models.book_tags), [{"book_id": identity, "tag_id": tag_ids[index % len(tag_ids)]} for index, identity in enumerate(ids)])
         db_session.execute(insert(models.book_authors), [{"book_id": identity, "author_id": author_ids[index % len(author_ids)]} for index, identity in enumerate(ids)])

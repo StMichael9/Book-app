@@ -18,6 +18,7 @@ class SearchService:
     ):
         query = (
             select(Book)
+            .where(Book.is_complete.is_(True))
             .options(selectinload(Book.authors), selectinload(Book.tags))
             .order_by(Book.id)
         )
