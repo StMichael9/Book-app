@@ -78,7 +78,7 @@ export default function LibraryPage() {
       <div className="bv-book-grid">{request.data.items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView} buyUrl={facet === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : null} />)}</div>
       {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
       </> : <EmptyState icon={BookOpen} title={cursor ? "No books on this page." : q || facet !== "all" ? "No saved books match this view." : "Give your books a home."} action={!cursor && <ActionLink to="/browse">Discover books</ActionLink>}>
-        {cursor ? "Your library may have changed. Return to an earlier page or start again at the first page." : q || facet !== "all" ? "Try another title or author, or change the library filter." : "Save a book with Own or Want to keep it here."}
+        {cursor ? "Your library may have changed. Return to an earlier page or start again at the first page." : q || facet !== "all" ? "Try another title or author, or change the library filter." : "Mark a book Want to read or Owned to keep it here."}
       </EmptyState>}
       {(cursor || request.data.next_cursor) && <nav className="bv-library-pagination" aria-label="Library pages">
         {cursor && previousView && <Button variant="secondary" onClick={() => { go(previousView.href, { state: { libraryPrevious: previousView.previous } }); focusCollection(); }}>Previous page</Button>}

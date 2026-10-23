@@ -416,3 +416,23 @@ for (const width of [320, 390]) test(`browser default font size scales text and 
   await expect(page.getByRole("button", { name: /^Add .+ to Want to read$/ }).first()).toBeVisible();
 });
 
+test("guest Discover leads with covered, plain-title books; a slow cover shows its jacket until it loads", async ({ page, app }) => {
+  app.catalogue = [
+    { ...books[0], id: 1, title: "Ἰλιάς", cover_image_url: "/test-cover/1.jpg" },
+    { ...books[1], id: 2, title: "No cover yet", cover_image_url: null },
+    { ...books[2], id: 3, title: "Slow cover", cover_image_url: "/test-cover/3.jpg" },
+  ];
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  await page.route("**/test-cover/3.jpg", async route => { await held; await route.fallback(); });
+  await page.goto("/browse");
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Slow cover", "Ἰλιάς", "No cover yet"]);
+  const slow = page.locator(".bv-book-card").first().locator(".bv-cover");
+  await expect(slow.locator(".bv-cover-placeholder")).toContainText("Slow cover");
+  await expect(slow.locator("img")).toHaveCSS("opacity", "0");
+  release();
+  await expect(slow.locator(".bv-cover-placeholder")).toHaveCount(0);
+  await expect(slow.locator("img")).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("img", { name: "Cover of Slow cover", exact: true })).toBeVisible();
+});
+

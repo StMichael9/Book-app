@@ -47,7 +47,7 @@ function ImportRow({ row, revision, disabled, onDecision }) {
     {row.error_code && <p className="bv-help">{readable(row.error_code)}.</p>}
     {source?.warnings?.length > 0 && <p className="bv-help">Source values needing care: {source.warnings.map(readable).join(", ")}.</p>}
     {source && <details><summary>Source information</summary><dl className="bv-import-context">
-      <dt>Source Own / Want</dt><dd>Own: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}. Unknown does not become an invented preference.</dd>
+      <dt>Source Owned / Want to read</dt><dd>Owned: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want to read: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}. Unknown does not become an invented preference.</dd>
       {source.status && <><dt>Reading status</dt><dd>{readable(source.status)}</dd></>}
       {source.context?.rating != null && <><dt>Source rating</dt><dd>{source.context.rating} / 5</dd></>}
       {source.context?.review && <><dt>Imported review (private)</dt><dd>{source.context.review}</dd></>}
@@ -65,7 +65,7 @@ function ImportRow({ row, revision, disabled, onDecision }) {
       {source && row.plan?.kind !== "removed" && <div className="bv-form-actions">
         {source.title && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "private" })}>Keep as a private book</Button>}
         {["existing", "catalogue", "private"].includes(row.plan?.kind) && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: addHistory ? "add" : "preserve", accept_source_update: sourceUpdate })}>Keep existing data; accept source context</Button>}
-        {["existing", "catalogue", "private"].includes(row.plan?.kind) && source.events?.length > 0 && <>{row.error_code === "mixed_terminal_states_require_context_decision" && <p>These source readings include both finished and stopped states. Bookvane will not choose a displayed status at random. You can keep every supplied span as private context, without creating reading records.</p>}<Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: "context_only", accept_source_update: sourceUpdate })}>Keep source history as context only</Button></>}
+        {["existing", "catalogue", "private"].includes(row.plan?.kind) && source.events?.length > 0 && <>{row.error_code === "mixed_terminal_states_require_context_decision" && <p>These source readings include both finished and stopped states. Bookvane will not choose a displayed status at random. You can keep every supplied span as private context, without creating readings.</p>}<Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: "context_only", accept_source_update: sourceUpdate })}>Keep source history as context only</Button></>}
       </div>}
       {row.plan?.kind === "existing" && <label className="bv-import-check"><input type="checkbox" checked={addHistory} onChange={event => setAddHistory(event.target.checked)} />Also add clearly separate source readings. Conflicting active or overlapping readings still need review.</label>}
       {["source_record_changed", "source_context_changed_since_preview"].includes(row.error_code) && <label className="bv-import-check"><input type="checkbox" checked={sourceUpdate} onChange={event => setSourceUpdate(event.target.checked)} />Replace only this source’s previously imported context with these incoming source values. Native notes and history stay. If you deleted that context elsewhere, this deliberately restores the incoming text.</label>}
@@ -235,7 +235,7 @@ function ImportSession() {
       {run.phase === "preview_ready" && <>
         <p>{run.summary?.distinct_targets || 0} distinct proposed book groups · {run.summary?.targets_by_kind?.catalogue || 0} new catalogue entries · {run.summary?.targets_by_kind?.existing || 0} existing entries preserved · {run.summary?.targets_by_kind?.private || 0} private-entry proposals.</p>
         {run.summary?.ignored_columns?.length > 0 && <details><summary>Fields not imported</summary><p>{run.summary.ignored_columns.join(", ")}. These fields remain in your original file, not in Bookvane.</p></details>}
-        <p>Your existing Own/Want flags, notes, reactions and reading records stay. Source ratings, reviews and labels are kept separately and privately. Missing works can become private entries, never public catalogue books.</p>
+        <p>Your existing Want to read and Owned marks, notes, reactions and readings stay. Source ratings, reviews and labels are kept separately and privately. Missing works can become private entries, never public catalogue books.</p>
         <Button variant="secondary" disabled={command.pending} onClick={() => command.run(async () => imports.importRows(run.id, 0, !onlyReview), result => { setPage(result); setOnlyReview(value => !value); })}>{onlyReview ? "Show all rows" : "Review exceptions"}</Button>
       </>}
       {!terminal && <Button variant="quiet" disabled={command.pending} onClick={() => command.run(async () => imports.cancelImport(run.id), current => { setRun(current); setPage(null); library.importChanged(); })}>Cancel import</Button>}
@@ -259,7 +259,7 @@ function ImportSession() {
       </section>}
     {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}
     {!run && <section className="bv-section"><h2>Library files and privacy</h2>      <details><summary>Bookvane CSV v1 / another spreadsheet</summary><p>Use ISO dates (YYYY-MM-DD), separate ownership from reading status, and JSON arrays for labels, such as ["favourites","night reading"]. Blank values stay unknown. Stable record and attempt IDs make repeated imports safer. The CSV format is not a full database backup.</p><Button variant="secondary" onClick={downloadTemplate}>Download Bookvane CSV template</Button></details>
-      <details><summary>Export my Bookvane library</summary><p>CSV v1 includes book identity, Own/Want, supported reading statuses, dates, copy/page information and reading notes. It is not a full backup: use your private reading-data JSON download for save reasons, reactions, progress, preferences and preserved source context.</p>
+      <details><summary>Export my Bookvane library</summary><p>CSV v1 includes book identity, Want to read and Owned, supported reading statuses, dates, copy/page information and reading notes. It is not a full backup: use your private reading-data JSON download for save reasons, reactions, progress, preferences and preserved source context.</p>
         <Button disabled={command.pending} variant="secondary" onClick={() => command.run(async assertCurrent => {
           const response = await imports.exportLibraryCsv(signal());
           await downloadCsv(response, "bookvane-library-v1.csv", assertCurrent);

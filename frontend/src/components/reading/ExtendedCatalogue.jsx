@@ -22,7 +22,7 @@ function CatalogueConfirmation({ book, requestId, onClose }) {
   }
   return <NativeDialog open title="Is this your book?" onClose={() => { if (!command.pending) onClose(); }}>
     <h3>{book.title}</h3><p>{book.author || "Author not listed"}</p>
-    <p>This saves the book privately to Want. If it is already saved, we’ll open that entry without changing it. It won’t change the shared catalogue.</p>
+    <p>This saves the book privately to your Want to read list. If it is already saved, we’ll open that entry without changing it. It won’t change the shared catalogue.</p>
     {command.error && <p role="alert">{command.error}</p>}
     <div className="bv-dialog-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Cancel</Button><Button disabled={command.pending || library.readOnly} onClick={confirm}>{command.pending ? "Saving…" : "Confirm and open"}</Button></div>
   </NativeDialog>;

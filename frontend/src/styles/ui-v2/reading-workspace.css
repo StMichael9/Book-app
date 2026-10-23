@@ -137,3 +137,5 @@
 /* Quiet undo on a finished or stopped book: a text action inside a sentence, still a 44px target. */
 .bv-root .bv-workspace-undo { margin: 4px 0 0; color: var(--bv-muted); font-size: 0.9375rem; }
 .bv-root .bv-workspace-undo .bv-inline-action { min-height: 44px; padding: 0 4px; color: var(--bv-green); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-workspace-forget { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-workspace-forget .bv-help { margin-bottom: 0; }

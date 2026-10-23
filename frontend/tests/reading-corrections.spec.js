@@ -119,11 +119,13 @@ test('mistaken active reread can be explicitly removed, then previous reading co
   const rows = page.locator('.bv-reading-history > li');
   await expect(rows.first()).toContainText('Current reading');
   await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
-  await expect(page.getByRole('dialog')).toContainText('Your saved book, Own/Want flags, save reason and other readings will stay.');
+  await expect(page.getByRole('dialog')).toContainText('Your saved book, Want to read and Owned marks, save reason and other readings will stay.');
   await page.getByRole('button', { name: 'Keep it', exact: true }).click();
   expect(writes(app)).toHaveLength(0);
   await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
-  await page.getByRole('button', { name: 'Delete reading record', exact: true }).click();
+  // The final, irreversible confirmation is styled as destructive.
+  await expect(page.getByRole('button', { name: 'Delete this reading', exact: true })).toHaveClass(/bv-button--danger/);
+  await page.getByRole('button', { name: 'Delete this reading', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toBeVisible();
   expect(app.attempts).toEqual(previous);
   await page.getByRole('button', { name: 'Mark as reading', exact: true }).click();

@@ -15,9 +15,13 @@ import { useParams } from "react-router-dom";
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
 // covered books with plain English-alphabet titles first, never repeating hero and row.
 const plainTitle = title => Boolean(title) && /^[ -~\u2018\u2019\u201C\u201D\u2013\u2014]+$/.test(title);
-function landingSelection(items) {
+// Stable first-impression order: covered books with plain titles first, then the rest in catalogue order.
+function firstImpressionOrder(items) {
   const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
-  const ordered = items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
+  return items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
+}
+function landingSelection(items) {
+  const ordered = firstImpressionOrder(items);
   // A very small catalogue can't fill both without repeating; then the row shows the first five.
   return { hero: ordered.slice(0, 3), row: ordered.length >= 8 ? ordered.slice(3, 8) : ordered.slice(0, 5) };
 }
@@ -106,7 +110,9 @@ export function BrowsePage() {
   const shelfRevision = shelf || exclude ? library.revision : 0;
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}:${reader.preferencesVersion}:${shelfRevision}` : "public";
   const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
-  const items = request.data?.items || [];
+  // Guests browsing without a search get the landing's first-impression order within each page.
+  // Signed-in readers keep server order, which puts their preferred subjects first.
+  const items = !auth.isAuthenticated && !book && !author ? firstImpressionOrder(request.data?.items || []) : request.data?.items || [];
   const total = request.data?.total || 0;
   const size = Number(request.data?.size) || 20;
   const pages = Math.max(1, Math.ceil(total / size));

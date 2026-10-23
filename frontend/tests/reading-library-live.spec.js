@@ -305,10 +305,10 @@ test("M3 real private context persists, stays separate across rereads and is own
   }, { times: 1 });
   await openReadingSection(page, "Reading history");
   await page.locator(".bv-reading-history").getByRole("button", { name: /^Delete this reading: / }).last().click();
-  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete this reading", exact: true }).click();
   await expect(dialog.getByRole("alert")).toBeVisible();
   await expect(page.locator(".bv-reading-history li")).toHaveCount(2);
-  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete this reading", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.locator(".bv-reading-history li")).toHaveCount(1);
   expect((await page.request.get(`${api}/me/reading-attempts/${first.id}`)).status()).toBe(404);

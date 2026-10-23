@@ -36,17 +36,26 @@ function jacketTone(title = "") {
   return jacketTones[hash % jacketTones.length];
 }
 
+function Jacket({ book, className = "", ...props }) {
+  return <div className={`bv-jacket bv-jacket--${jacketTone(book.title || "")} ${className}`} {...props}>
+    <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
+    <span aria-hidden="true">{authorLabel(book)}</span>
+  </div>;
+}
+
 export function BookCover({ book, priority = false }) {
   const [failedUrl, setFailedUrl] = useState(null);
-  const failed = failedUrl === book.cover_image_url;
-  return <div className="bv-cover">
-    {book.cover_image_url && !failed ? <img
-      src={book.cover_image_url} alt={`Cover of ${book.title || "this book"}`}
-      loading={priority ? "eager" : "lazy"} decoding="async" onError={() => setFailedUrl(book.cover_image_url)}
-    /> : <div className={`bv-cover-fallback bv-jacket bv-jacket--${jacketTone(book.title || "")}`} role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`}>
-      <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
-      <span aria-hidden="true">{authorLabel(book)}</span>
-    </div>}
+  const [loadedUrl, setLoadedUrl] = useState(null);
+  const url = book.cover_image_url;
+  const failed = failedUrl === url, loaded = loadedUrl === url;
+  // While artwork loads, its jacket stands in, so a slow cover never shows as a blank slab.
+  return <div className={`bv-cover${url && !failed && !loaded ? " bv-cover--loading" : ""}`}>
+    {url && !failed ? <>
+      {!loaded && <Jacket book={book} className="bv-cover-placeholder" aria-hidden="true" />}
+      <img ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(url); }}
+        src={url} alt={`Cover of ${book.title || "this book"}`} loading={priority ? "eager" : "lazy"} decoding="async"
+        onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)} />
+    </> : <Jacket book={book} className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`} />}
   </div>;
 }
 

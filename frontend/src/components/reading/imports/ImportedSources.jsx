@@ -21,14 +21,14 @@ export default function ImportedSources({ entryId, count }) {
       {record.context.private_note && <><h4>Source private note</h4><p style={{ whiteSpace: "pre-wrap" }}>{record.context.private_note}</p></>}
       {record.context.labels?.length > 0 && <div className="bv-form-actions">{record.context.labels.map(label => <TextLink key={label} to={`/my-books?label=${encodeURIComponent(label)}`}>{label}</TextLink>)}</div>}
       {record.context.import_warnings?.length > 0 && <p className="bv-help">Source limitations: {record.context.import_warnings.map(value => value.replaceAll("_", " ")).join(", ")}. The source may not describe every reading.</p>}
-      {record.context.history_policy === "context_only" && <p className="bv-help">You chose to keep these historical spans as source context only. They did not create reading records or replace your displayed reading state.</p>}
+      {record.context.history_policy === "context_only" && <p className="bv-help">You chose to keep these historical spans as source context only. They did not create readings or replace your displayed reading state.</p>}
       <details><summary>Other preserved source values</summary><dl>{Object.entries(record.context).filter(([key]) => !["review", "rating", "rating_scale", "labels", "private_note", "import_warnings"].includes(key)).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{typeof value === "object" ? JSON.stringify(value) : String(value ?? "")}</dd></div>)}</dl></details>
       {!library.readOnly && <Button variant="quiet" disabled={command.pending} onClick={() => setRemoval(record)}>Delete this source context</Button>}
     </article>)}
     {page?.next_after && <Button disabled={command.pending} variant="secondary" onClick={() => command.run(() => importedSources(entryId, page.next_after), setPage)}>More sources</Button>}
     {command.error && <p role="alert">{command.error}<Button disabled={command.pending} onClick={() => command.run(() => importedSources(entryId), setPage)}>Try again</Button></p>}
   </details>{removal && <NativeDialog open title="Delete this imported context?" onClose={() => { if (!command.pending) setRemoval(null); }}>
-    <p>This deletes only this source’s rating, review, notes and labels. Your saved book, Own/Want flags, native notes and reading history stay. Minimal replay markers prevent the same file from restoring deleted text.</p>
+    <p>This deletes only this source’s rating, review, notes and labels. Your saved book, Want to read and Owned marks, native notes and reading history stay. Minimal replay markers prevent the same file from restoring deleted text.</p>
     <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={() => setRemoval(null)}>Keep context</Button><Button disabled={command.pending} onClick={() => command.run(async assertCurrent => { await removeImportedSource(entryId, removal.id); assertCurrent(); return importedSources(entryId); }, result => { setPage(result); setRemoval(null); library.readingChanged(); })}>Delete source context</Button></div>
     {command.error && <p role="alert">{command.error}</p>}
   </NativeDialog>}</section>;
