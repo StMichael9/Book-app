@@ -1,4 +1,4 @@
-from sqlalchemy import case, select, exists, or_
+from sqlalchemy import case, select, exists, or_, union
 from sqlalchemy.orm import Session, selectinload
 from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, book_tags
 
@@ -25,9 +25,10 @@ class SearchService:
         if book is not None:
             # LIKE wildcards in the reader's text are literal; an alias is another way to find the same book.
             pattern = "%" + book.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            alias_match = exists(select(BookTitleAlias.id).where(
-                BookTitleAlias.book_id == Book.id, BookTitleAlias.title.ilike(pattern, escape="\\")))
-            query = query.where(or_(Book.title.ilike(pattern, escape="\\"), alias_match))
+            # Two uncorrelated trigram-indexable selects; an OR with a correlated EXISTS defeats ix_books_title_trgm.
+            title_ids = select(Book.id).where(Book.title.ilike(pattern, escape="\\"))
+            alias_ids = select(BookTitleAlias.book_id).where(BookTitleAlias.title.ilike(pattern, escape="\\"))
+            query = query.where(Book.id.in_(union(title_ids, alias_ids)))
             title_rank = case((Book.title.ilike(pattern, escape="\\"), 0), else_=1)
             query = query.order_by(None).order_by(title_rank, Book.id)
         if author is not None:
