@@ -154,3 +154,32 @@ offline steps. Neither runs on import or on deploy, and neither reads `DATABASE_
    following a recorded redirect for retired work keys. It refuses to apply when the
    database is larger than `--max-database-mb`. Run it only against a database you have
    chosen deliberately; the Neon run is a separate, approved step.
+
+## Completeness backfill from the dumps (description, year, pages, cover)
+
+Discovery shows only complete books, so gaps are filled in two offline steps (neither runs on import or deploy,
+neither downloads anything, and the loader never reads `DATABASE_URL`). First, the gaps that the stored editions can
+fill: `python -m data.backfill_from_editions --database-url URL [--apply]`. Then the rest from Open Library dumps you
+have downloaded yourself:
+
+1. Extract from the works dump (description, first publish year) and/or the editions dump (page count, cover id):
+
+   ```
+   python -m data.extract_catalogue_backfill --works-file works.txt --works-dump ol_dump_works.txt.gz --editions-dump ol_dump_editions.txt.gz --output backfill.jsonl --aliases-output aliases.jsonl
+   ```
+
+   Descriptions may be a string or `{"value": ...}`; HTML and Markdown are stripped, paragraphs kept, and the text is
+   capped at 5,000 characters. Page count is the median of positive counts (English editions first) and the cover is the
+   first usable cover id (English first). `--aliases-output` also writes the title aliases from the same editions
+   pass, so one download feeds both this tool and the alias loader.
+
+2. Load. A dry run by default; it prints counts and the predicted number of complete books:
+
+   ```
+   python -m data.load_catalogue_backfill --database-url URL --input backfill.jsonl
+   python -m data.load_catalogue_backfill --database-url URL --input backfill.jsonl --apply --max-database-mb 400
+   ```
+
+   Only missing fields are filled (NULL, or a blank description or cover), never overwritten, so it is idempotent
+   and can be rerun after an interruption. It refuses to apply above `--max-database-mb`. The Neon run is a
+   separate, approved step.

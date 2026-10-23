@@ -46,7 +46,7 @@ def _parse(line: str) -> dict | None:
     return {"work": data["work"], "title": title, "language": language}
 
 
-def _resolve(connection, works: set[str]) -> dict[str, tuple[int, str]]:
+def resolve_works(connection, works: set[str]) -> dict[str, tuple[int, str]]:
     """Map work keys to (book id, book title), following one redirect hop for retired work keys."""
     keys = list(works)
     found = {row[0]: (row[1], row[2]) for row in connection.execute(
@@ -65,7 +65,7 @@ def _resolve(connection, works: set[str]) -> dict[str, tuple[int, str]]:
 
 
 def _flush(connection, batch: list[dict], state: dict, apply: bool) -> None:
-    resolved = _resolve(connection, {row["work"] for row in batch})
+    resolved = resolve_works(connection, {row["work"] for row in batch})
     candidates = []
     for row in batch:
         book = resolved.get(row["work"])

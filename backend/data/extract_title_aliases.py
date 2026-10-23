@@ -29,8 +29,8 @@ def _read_works(path: Path) -> dict[str, str | None]:
     return works
 
 
-def _edition(line: str) -> tuple[str, str, bool] | None:
-    """Return (work key, normalised title, english) for a usable dump line, else None."""
+def parse_dump_line(line: str) -> dict | None:
+    """Return the JSON object in the last tab-separated column of an Open Library dump line, else None."""
     fields = line.rstrip("\n").split("\t")
     if len(fields) < 5:
         return None
@@ -38,7 +38,12 @@ def _edition(line: str) -> tuple[str, str, bool] | None:
         data = json.loads(fields[-1])
     except ValueError:
         return None
-    if not isinstance(data, dict) or not isinstance(data.get("title"), str):
+    return data if isinstance(data, dict) else None
+
+
+def _edition(data: dict | None) -> tuple[str, str, bool] | None:
+    """Return (work key, normalised title, english) for a usable edition record, else None."""
+    if data is None or not isinstance(data.get("title"), str):
         return None
     works = data.get("works")
     key = clean.work_key(works[0].get("key")) if isinstance(works, list) and works and isinstance(works[0], dict) else None
@@ -54,27 +59,40 @@ def _edition(line: str) -> tuple[str, str, bool] | None:
     return None
 
 
+class AliasCollector:
+    """Accumulates alias candidates edition by edition, so one pass over the dump can feed several tools."""
+
+    def __init__(self, work_titles: dict[str, str | None]):
+        self.work_titles = work_titles  # requested work key -> its own lower-cased title, if known
+        self.found: dict[str, dict[str, dict]] = {}
+
+    def add(self, data: dict | None) -> None:
+        edition = _edition(data)
+        if edition is None or edition[0] not in self.work_titles:
+            return
+        key, title, english = edition
+        lowered = title.lower()
+        if lowered == self.work_titles[key]:
+            return
+        seen = self.found.setdefault(key, {})
+        entry = seen.setdefault(lowered, {"title": title, "english": False, "count": 0})
+        entry["count"] += 1
+        entry["english"] = entry["english"] or english
+
+    def rows(self):
+        for key in sorted(self.found):
+            # dicts keep first-seen order and sort is stable, so ties go to the earliest edition
+            ranked = sorted(self.found[key].values(), key=lambda item: -item["count"])[:MAX_PER_WORK]
+            for item in ranked:
+                yield {"work": key, "title": item["title"], "language": "eng" if item["english"] else None}
+
+
 def extract(editions_dump: Path, works_file: Path):
-    works = _read_works(works_file)
-    found: dict[str, dict[str, dict]] = {}
+    collector = AliasCollector(_read_works(works_file))
     with gzip.open(editions_dump, "rt", encoding="utf-8", errors="replace") as handle:
         for line in handle:
-            edition = _edition(line)
-            if edition is None or edition[0] not in works:
-                continue
-            key, title, english = edition
-            lowered = title.lower()
-            if lowered == works[key]:
-                continue
-            seen = found.setdefault(key, {})
-            entry = seen.setdefault(lowered, {"title": title, "english": False, "count": 0})
-            entry["count"] += 1
-            entry["english"] = entry["english"] or english
-    for key in sorted(found):
-        # dicts keep first-seen order and sort is stable, so ties go to the earliest edition
-        ranked = sorted(found[key].values(), key=lambda item: -item["count"])[:MAX_PER_WORK]
-        for item in ranked:
-            yield {"work": key, "title": item["title"], "language": "eng" if item["english"] else None}
+            collector.add(parse_dump_line(line))
+    yield from collector.rows()
 
 
 def main(argv: list[str] | None = None) -> int:
