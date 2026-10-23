@@ -103,6 +103,9 @@
 .bv-root .bv-finish-moment .bv-muted { max-width: 38rem; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-memory { grid-row: 3; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-more { grid-row: 4; }
+/* Without private notes there is no My note row; the secondary group moves up instead of leaving a gap. */
+.bv-root .bv-workspace-layout:not(:has(> .bv-workspace-memory)) > .bv-workspace-more { grid-row: 2 / span 3; }
+.bv-root .bv-workspace-layout--finished:not(:has(> .bv-workspace-memory)) > .bv-workspace-more { grid-row: 3 / span 2; }
 .bv-root .bv-workspace-editor { padding: 0; margin-top: 18px; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; background: transparent; }
 .bv-root .bv-workspace-memory > .bv-workspace-editor { margin-top: 0; border-top: 0; }
 .bv-root .bv-workspace-editor .bv-reading-form { margin: 18px 0 0; }

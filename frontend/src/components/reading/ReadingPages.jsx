@@ -34,7 +34,7 @@ export function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks();
   const request = useRequest(getReadingHome, `home:${auth.sessionGeneration}:${library.revision}`);
   return <section className="bv-container bv-reading-home">
-    <div className="bv-home-heading"><PageHeading title="Pick up where you left off.">A little space for what you’re reading now.</PageHeading></div>
+    <div className="bv-home-heading"><PageHeading title="Pick up where you left off." /></div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <SlowReadingNotice loading={request.loading} />
     <div className="bv-home-layout"><section className="bv-reading-desk" aria-labelledby="bv-current-reading-title">
@@ -43,8 +43,8 @@ export function ReadingHomePage() {
       {request.data.current_reads.length ? <div className="bv-current-grid">{request.data.current_reads.map(({ entry, attempt }) => <CurrentReadingCard key={entry.id} entry={entry} attempt={attempt} />)}</div> : <div className="bv-home-start">
         <h2>{request.data.paused_count ? "A book can wait for you." : "Make this reading home your own."}</h2>
         <p className="bv-muted">{request.data.paused_count ? "Your paused books are here whenever you’re ready. Resume one, or choose something different." : "Choose a saved book or find something that catches your eye. Tracking pages and writing notes are always optional."}</p>
-        <div className="bv-form-actions"><ActionLink to={request.data.paused_count ? "/my-books?status=paused" : "/my-books"}>{request.data.paused_count ? "Open paused books" : "Choose from My Books"}</ActionLink><ActionLink to="/browse" variant="secondary">Find a book</ActionLink></div>
-        {library.libraryImport && !library.readOnly && <p><TextLink to="/my-books/import">Bring your library</TextLink> · Import a CSV or TSV file of your books and history.</p>}
+        <div className="bv-form-actions">{request.data.paused_count ? <><ActionLink to="/my-books?status=paused">Open paused books</ActionLink><ActionLink to="/browse" variant="secondary">Find a book</ActionLink></> : <><ActionLink to="/browse">Find a book</ActionLink><ActionLink to="/my-books" variant="secondary">Choose from My Books</ActionLink></>}</div>
+        {library.libraryImport && !library.readOnly && <p className="bv-muted">Have a reading history somewhere else? <TextLink to="/my-books/import">Bring your library</TextLink> from a CSV or TSV file.</p>}
       </div>}
       {(request.data.reading_count > request.data.current_reads.length || (request.data.paused_count > 0 && request.data.current_reads.length > 0)) && <div className="bv-home-support">{request.data.reading_count > request.data.current_reads.length && <TextLink to="/my-books?status=reading">See all current reads ({request.data.reading_count})</TextLink>}{request.data.paused_count > 0 && request.data.current_reads.length > 0 && <TextLink to="/my-books?status=paused">Paused books ({request.data.paused_count})</TextLink>}</div>}
     </>}

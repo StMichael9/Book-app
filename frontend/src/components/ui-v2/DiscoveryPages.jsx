@@ -12,14 +12,24 @@ import { SUBJECTS, authorLabel, catalogueResponse, errorText, safeReturnTo, subj
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
+// Landing books are chosen by rule, not ID, so every environment's catalogue works:
+// covered books with plain English-alphabet titles first, never repeating hero and row.
+const plainTitle = title => Boolean(title) && /^[ -~\u2018\u2019\u201C\u201D\u2013\u2014]+$/.test(title);
+function landingSelection(items) {
+  const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
+  const ordered = items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
+  // A very small catalogue can't fill both without repeating; then the row shows the first five.
+  return { hero: ordered.slice(0, 3), row: ordered.length >= 8 ? ordered.slice(3, 8) : ordered.slice(0, 5) };
+}
+
 export function WelcomePage() {
   const auth = useAuth();
   // Personalized catalogue ordering and in-flight requests belong to one
   // session, not to every account that happens to be signed in in this SPA.
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
-  const books = useRequest(async () => catalogueResponse(await getBooks({ size: 10, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
+  const books = useRequest(async () => catalogueResponse(await getBooks({ size: 30, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
   const items = books.data?.items || [];
-  const heroBooks = [...items.filter((book) => book.cover_image_url), ...items.filter((book) => !book.cover_image_url)].slice(0, 3);
+  const { hero: heroBooks, row: rowBooks } = landingSelection(items);
   const subjects = ["fantasy", "mystery", "romance", "science_fiction"];
   return <>
     <section className="bv-container bv-hero">
@@ -39,13 +49,13 @@ export function WelcomePage() {
       </div>
     </section>
     <section className="bv-container bv-section"><SectionHeading title="Open a new chapter" to="/browse">A few books to spark your curiosity.</SectionHeading>
-      {books.loading ? <BookSkeletons /> : books.error ? <EmptyState error icon={BookOpen} title="The books are taking a moment." action={<Button onClick={books.retry}>Try again</Button>}>We couldn’t load the catalogue. You can try again or continue to discovery.</EmptyState> : items.length ? <BookGrid books={items.slice(0, 5)} preview /> : <EmptyState title="More stories are on their way." action={<ActionLink to="/browse">Explore books</ActionLink>}>Try discovery to see what’s available.</EmptyState>}
+      {books.loading ? <BookSkeletons /> : books.error ? <EmptyState error icon={BookOpen} title="The books are taking a moment." action={<Button onClick={books.retry}>Try again</Button>}>We couldn’t load the catalogue. You can try again or continue to discovery.</EmptyState> : rowBooks.length ? <BookGrid books={rowBooks} preview /> : <EmptyState title="More stories are on their way." action={<ActionLink to="/browse">Explore books</ActionLink>}>Try discovery to see what’s available.</EmptyState>}
       <nav className="bv-landing-subjects" aria-label="Explore by subject">{subjects.map(subject => <TextLink key={subject} to={`/browse?tag=${subject}`}>{subjectLabel(subject)}</TextLink>)}</nav>
     </section>
     <section className="bv-container bv-section bv-landing-story" aria-label="Your reading life"><SectionHeading title="Make room for your reading life." />
       <div className="bv-landing-benefits"><div><h3>Keep your books together.</h3><p>The books you own, the ones you want, and the stories you’ve already spent time with.</p></div><div><h3>Pick up where you left off.</h3><p>A place for your current books, with optional progress and private notes.</p></div><div><h3>Find your next beginning.</h3><p>Finish a book, then choose what calls to you next. There’s no required rating or journal.</p></div></div>
     </section>
-    <section className="bv-container"><div className="bv-library-banner"><div><h2>A home for your kind of books.</h2><p>Start with a book that interests you. Save it to your library, and make this space your own.</p></div><ActionLink to={auth.isAuthenticated ? "/my-books" : "/register"}>{auth.isAuthenticated ? "Open your library" : "Create your library"}</ActionLink></div></section>
+    <section className="bv-container"><div className="bv-library-banner"><div><h2>Your next book is waiting.</h2><p>Bookvane is free. Save what catches your eye, track what you’re reading, and keep notes only you can see.</p></div><ActionLink to={auth.isAuthenticated ? "/my-books" : "/register"}>{auth.isAuthenticated ? "Open your library" : "Start your free library"}</ActionLink></div></section>
   </>;
 }
 
@@ -195,11 +205,12 @@ export function BookPage() {
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
         <p className="bv-detail-author">{authorLabel(book)}</p>
+        {/* Shelf choices come before subjects so they're on a phone's first screen. */}
+        <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}
         {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">
           {book.published_year != null && <div><dt>Published</dt><dd>{book.published_year}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
         </dl>}
-        <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
         {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink><p className="bv-help">Open an existing reading, or start your first. Starting keeps Owned and clears Want to read. A new reread is always your choice.</p></div>}
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
         <section className="bv-description"><h2>About this book</h2><p>{book.description || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p></section>
