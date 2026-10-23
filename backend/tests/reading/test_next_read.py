@@ -220,12 +220,13 @@ def test_best_preferences_across_large_shelf_not_just_recent_60(client, reader, 
     ids = db_session.scalars(insert(models.Book).returning(models.Book.id), [{"title": f"M4 other {index}"} for index in range(10000)]).all()
     db_session.execute(insert(models.UserBook), [{"user_id": reader.id, "book_id": identity, "is_wanted": True,
         "is_owned": False, "status": "want", "version": 1} for identity in ids]); db_session.commit()
+    best_id = best.id  # read before counting: refreshing the expired Book would add its alias query
     statements = []
     def observe(_connection, _cursor, sql, _parameters, _context, _many): statements.append(sql)
     event.listen(engine, "before_cursor_execute", observe)
     try:
         response = choose(client, session_id=str(uuid.uuid4()))
-        assert response["items"][0]["book"]["id"] == best.id
+        assert response["items"][0]["book"]["id"] == best_id
         assert response["eligible_count"] == 10001
         assert len(response["items"]) == 3
         assert len(statements) <= 6

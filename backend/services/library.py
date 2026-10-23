@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from database import settings
-from models import Author, Book, ImportedLibraryRecord, ReadingAttempt, UserBook, UserBookStatus, book_authors
+from models import Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, UserBook, UserBookStatus, book_authors
 from reading_schemas import EntryDetail, FlagUpdate, LibraryEntry, LibraryPage
 
 
@@ -66,7 +66,7 @@ def entry_dto(entry, state=None, *, detail=False):
     values = dict(
         id=entry.id, book_id=entry.book_id,
         book=None if book is None else dict(id=book.id, title=book.title,
-            cover_image_url=book.cover_image_url, page_count=book.page_count, isbn13=book.isbn13,
+            cover_image_url=book.cover_image_url, page_count=book.page_count, isbn13=book.isbn13, english_title=book.english_title,
             authors=[dict(id=author.id, name=author.name) for author in book.authors]),
         private_title=entry.private_title, private_author=entry.private_author,
         private_catalogue=entry.private_catalogue,
@@ -113,8 +113,9 @@ class LibraryService:
             # Owner scoping remains on UserBook, including private records.
             author_books = select(book_authors.c.book_id).join(Author,
                 Author.id == book_authors.c.author_id).where(Author.name.ilike(pattern, escape="\\"))
+            alias_books = select(BookTitleAlias.book_id).where(BookTitleAlias.title.ilike(pattern, escape="\\"))
             matching_books = select(Book.id).where(or_(Book.title.ilike(pattern, escape="\\"),
-                Book.id.in_(author_books)))
+                Book.id.in_(author_books), Book.id.in_(alias_books)))
             conditions.append(or_(
                 UserBook.private_title.ilike(pattern, escape="\\"), UserBook.private_author.ilike(pattern, escape="\\"),
                 UserBook.book_id.in_(matching_books),

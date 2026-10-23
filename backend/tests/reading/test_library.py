@@ -242,7 +242,7 @@ def test_10k_library_is_bounded_and_searchable(reader, app_modules, db_session):
     duration = time.perf_counter() - start
     assert len(page.items) == 25 and page.total == 10000
     assert page.counts["finished"] == 8000 and page.counts["reading"] == 2000
-    assert len(statements) <= 6
+    assert len(statements) <= 7  # 6 + one constant selectin query for title aliases, independent of page size
     assert all("description" not in row.model_dump().get("book", {}) for row in page.items)
     next_start = time.perf_counter()
     second = LibraryService(db_session).page(reader.id, cursor=page.next_cursor)
