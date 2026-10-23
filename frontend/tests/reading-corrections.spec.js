@@ -295,3 +295,48 @@ test('stale Mark as reading does not retry or silently create a reread', async (
   expect(app.attempts[0].state).toBe('finished');
   expect(writes(app)).toEqual([{ path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'reading' } }]);
 });
+
+// Finish and Stop are single clicks; their moment offers an immediate undo on the same attempt.
+for (const [action, heading, prompt, open] of [
+  ['Finish book', 'You finished A book with history.', 'Finished by mistake?', null],
+  ['Stop reading this book', 'You stopped reading A book with history.', 'Stopped by mistake?', 'Manage this book'],
+]) test(`undo right after "${action}" returns the same attempt to reading without new records`, async ({ page, app }) => {
+  app.attempts[0].state = 'reading'; app.attempts[0].ended_on = null;
+  app.entry.reading_state = 'reading';
+  const original = structuredClone(app.attempts);
+  await page.goto('/my-books/101');
+  if (open) await page.locator('.bv-workspace-manage > summary').click();
+  await page.getByRole('button', { name: action, exact: true }).click();
+  await expect(page.getByRole('heading', { name: heading, exact: true })).toBeFocused();
+  const moment = page.locator('.bv-finish-moment');
+  await expect(moment).toContainText(prompt);
+  // While the moment shows, its undo is the only Mark as reading on the page.
+  await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(1);
+  await moment.getByRole('button', { name: 'Mark as reading', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeFocused();
+  await expect(moment).toHaveCount(0);
+  expect(app.attempts).toHaveLength(2);
+  expect(app.attempts[0].id).toBe(originalId);
+  expect(app.attempts[0].state).toBe('reading');
+  expect(app.attempts[1]).toEqual(original[1]);
+  const patches = writes(app).filter(write => write.method === 'PATCH');
+  expect(patches.map(write => [write.path, write.body.state])).toEqual([
+    [`/me/reading-attempts/${originalId}`, action === 'Finish book' ? 'finished' : 'dnf'],
+    [`/me/reading-attempts/${originalId}`, 'reading'],
+  ]);
+});
+
+test('a stale undo from the finish moment shows the conflict and keeps the finish', async ({ page, app }) => {
+  app.attempts[0].state = 'reading'; app.attempts[0].ended_on = null;
+  app.entry.reading_state = 'reading';
+  await page.goto('/my-books/101');
+  await page.getByRole('button', { name: 'Finish book', exact: true }).click();
+  const moment = page.locator('.bv-finish-moment');
+  await expect(moment.getByRole('button', { name: 'Mark as reading', exact: true })).toBeEnabled();
+  app.entry.version++;
+  await moment.getByRole('button', { name: 'Mark as reading', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
+  expect(app.attempts[0].state).toBe('finished');
+  expect(writes(app).filter(write => write.method === 'PATCH' && write.body.state === 'reading')).toHaveLength(1);
+});

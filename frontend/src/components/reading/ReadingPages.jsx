@@ -91,14 +91,17 @@ function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
 const isoDay = /^\d{4}-\d{2}-\d{2}$/;
 const shortDate = value => isoDay.test(value || "") ? new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
 
-// A quiet acknowledgement of a saved finish. Dates appear only when recorded; nothing is required.
-function FinishMoment({ title, attempt, headingRef, onNote, noteDisabled }) {
+// A quiet acknowledgement of a saved finish or stop. Dates appear only when recorded; nothing is required.
+// Finish and Stop are single clicks, so the moment carries an obvious undo for this session only.
+function FinishMoment({ kind, title, attempt, headingRef, onNote, noteDisabled, onUndo, undoDisabled }) {
   const started = shortDate(attempt?.started_on), ended = shortDate(attempt?.ended_on);
+  const stopped = kind === "dnf";
   return <section className="bv-finish-moment" aria-labelledby="bv-finish-title">
-    <h2 id="bv-finish-title" ref={headingRef} tabIndex={-1}>You finished {title}.</h2>
-    {(started || ended) && <p className="bv-finish-dates">{started && ended ? `Read ${started} – ${ended}` : ended ? `Finished ${ended}` : `Started ${started}`}</p>}
-    <p className="bv-muted">No rating or review needed. If something stayed with you, you can keep it here, privately.</p>
+    <h2 id="bv-finish-title" ref={headingRef} tabIndex={-1}>{stopped ? `You stopped reading ${title}.` : `You finished ${title}.`}</h2>
+    {(started || ended) && <p className="bv-finish-dates">{started && ended ? `Read ${started} – ${ended}` : ended ? `${stopped ? "Stopped" : "Finished"} ${ended}` : `Started ${started}`}</p>}
+    <p className="bv-muted">{stopped ? "It stays in your Reading history, with your progress and note." : "No rating or review needed. If something stayed with you, you can keep it here, privately."}</p>
     {onNote && <Button variant="secondary" disabled={noteDisabled} onClick={onNote}>Leave a closing note</Button>}
+    {onUndo && <p className="bv-finish-undo">{stopped ? "Stopped by mistake?" : "Finished by mistake?"} <Button variant="secondary" disabled={undoDisabled} onClick={onUndo}>Mark as reading</Button></p>}
   </section>;
 }
 
@@ -180,7 +183,7 @@ export function ReadingWorkspacePage() {
     const focused = document.activeElement;
     const restore = Boolean(focused === document.body || workspaceRoot.current?.querySelector(".bv-reading-draft")?.contains(focused));
     library.readingChanged(result.entry); closeEditor(restore); intent.current = null;
-    if (result.attempt && result.attempt.state !== "finished") setFinishNotice(null);
+    if (result.attempt && !["finished", "dnf"].includes(result.attempt.state)) setFinishNotice(null);
   }
   function create(entry, state = "reading") {
     const key = `${entry.id}:${state}`;
@@ -230,8 +233,10 @@ export function ReadingWorkspacePage() {
       });
     }} />;
   const loaded = Boolean(entry);
-  const finished = finishNotice?.generation === auth.sessionGeneration &&
-    (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) ? finishNotice : null;
+  // The moment belongs to this session's own Finish or Stop, and only while that attempt still has that state.
+  const moment = finishNotice?.generation === auth.sessionGeneration &&
+    (!request.data || (attempt?.id === finishNotice.id && attempt.state === finishNotice.state)) ? finishNotice : null;
+  const finished = moment?.state === "finished" ? moment : null;
   const readingUnavailable = library.readOnly || command.pending || request.loading || Boolean(request.error) || Boolean(editing);
   const blocked = readingUnavailable || Boolean(reread);
   const progressAction = attempt && <Button key="progress" variant={attempt.state === "paused" || terminal ? "quiet" : "primary"} disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openEditor(attempt)}>{library.readOnly ? "View progress and dates" : terminal ? "Edit dates and progress" : "Update progress"}</Button>;
@@ -243,18 +248,21 @@ export function ReadingWorkspacePage() {
     }
     command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state, ...(ended_on ? { ended_on } : {}) }), result => {
       accept(result);
-      if (state === "finished") setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration });
+      if (["finished", "dnf"].includes(state)) setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state });
     });
+  }
+  function markAsReading() {
+    command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."));
   }
   // One keyed controller stays after My note; a saved finish only resets it to the quiet Want preview.
   const nextSection = library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
     enabled={loaded || Boolean(finished)} finishId={finished?.id} />;
-  const finishedId = finished?.id;
-  useEffect(() => { if (finishedId) finishHeading.current?.focus(); }, [finishedId]);
+  const momentId = moment?.id;
+  useEffect(() => { if (momentId) finishHeading.current?.focus(); }, [momentId]);
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-editorial-workspace">
     <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous } : null}>Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
-    <div className={`bv-workspace-layout${finished ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
+    <div className={`bv-workspace-layout${moment ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
       {!entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
         : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
         : <>
@@ -267,7 +275,8 @@ export function ReadingWorkspacePage() {
                 {/* A finished or stopped book has no primary action: rereading is a choice, and undo stays quiet. */}
                 <Button variant="secondary" disabled={readingUnavailable} onClick={() => setReread({ entry, editionId })}>Read it again</Button>
                 <p className="bv-help">Starts a new reading. This one stays in Reading history.</p>
-                <p className="bv-workspace-undo">Still reading it? <Button variant="quiet" className="bv-inline-action" disabled={blocked} onClick={() => command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state: "reading" }), result => acceptReadingAction(result, "Marked as reading. Your reading history is kept."))}>Mark as reading</Button></p>
+                {/* Right after Finish or Stop the moment offers the undo; on later visits this quiet link does. */}
+                {!moment && <p className="bv-workspace-undo">Still reading it? <Button variant="quiet" className="bv-inline-action" disabled={blocked} onClick={markAsReading}>Mark as reading</Button></p>}
               </>}
               {attempt?.state !== "paused" ? progressAction : null}
               {attempt && !terminal && !library.readOnly && <div className="bv-workspace-state-actions">{[...(attempt.state === "reading" ? [["paused", "Pause reading"]] : [["reading", "Resume reading"]]), ["finished", "Finish book"]].map(([state, label]) => <Button key={label} variant={state === "reading" ? "primary" : "secondary"} disabled={blocked} onClick={() => changeState(state)}>{label}</Button>)}</div>}
@@ -279,9 +288,10 @@ export function ReadingWorkspacePage() {
             {request.error && <p role="alert" className="bv-notice">Your reading couldn’t refresh. Your draft is still here. <Button variant="quiet" onClick={request.retry}>Try again</Button></p>}
           </ReadingProgress></div>
         </>}
-      {finished && <FinishMoment title={finished.title} attempt={attempt?.id === finished.id ? attempt : null} headingRef={finishHeading}
-        onNote={library.privateContext && attempt?.id === finished.id && !attempt.note ? () => openMemory(attempt) : undefined}
-        noteDisabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} />}
+      {moment && <FinishMoment kind={moment.state} title={moment.title} attempt={attempt?.id === moment.id ? attempt : null} headingRef={finishHeading}
+        onNote={library.privateContext && attempt?.id === moment.id && !attempt.note ? () => openMemory(attempt) : undefined}
+        noteDisabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)}
+        onUndo={!library.readOnly && attempt?.id === moment.id ? markAsReading : undefined} undoDisabled={blocked} />}
       {library.privateContext && <section hidden={!loaded} className="bv-workspace-memory" aria-label="My note">{editing?.kind === "memory" ? editor : <h2>My note</h2>}{loaded && <>
         {attempt && editing?.kind !== "memory" && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
           {!attempt.note && !attempt.reaction && <p className="bv-help">{library.readOnly ? "Your note would appear here. Changes are temporarily paused." : "A thought worth keeping? Your note is private and always optional."}</p>}
