@@ -253,7 +253,7 @@ for (const theme of ["light", "dark"]) test(`editorial workspace is book-first w
     await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Update progress", exact: true })).toBeVisible();
     await expect(page.getByRole("progressbar", { name: "Reading progress", exact: true })).toHaveAttribute("max", "100");
-    await expect(page.getByText("Published 2000 · Catalogue: 999 pages · your copy may differ", { exact: true })).toBeVisible();
+    await expect(page.getByText("Published 2000 · About 999 pages · your copy may differ", { exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: "On this book" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Add a note", exact: true })).toBeVisible();
@@ -335,7 +335,7 @@ test("editorial workspace keeps reading usable when book details fail", async ({
   const field = page.getByLabel("Percent complete", { exact: true }); await field.fill("25");
   app.bookDetailsFail = false;
   await page.getByRole("button", { name: "Try book details again", exact: true }).click();
-  await expect(page.getByText("Published 2000 · Catalogue: 999 pages · your copy may differ", { exact: true })).toBeVisible();
+  await expect(page.getByText("Published 2000 · About 999 pages · your copy may differ", { exact: true })).toBeVisible();
   await expect(field).toHaveValue("25");
   expect(app.requests.filter(r => r.path === "/books/101")).toHaveLength(2);
   expect(app.requests.filter(r => r.method === "PATCH")).toHaveLength(0);
@@ -353,7 +353,7 @@ test("editorial workspace late metadata preserves a dirty version-captured edito
     await want.click(); await expect(want).toHaveAttribute("aria-pressed", "true");
     await expect(field).toHaveValue("25"); await field.focus();
     release();
-    await expect(page.getByText("Published 2000 · Catalogue: 999 pages · your copy may differ", { exact: true })).toBeVisible();
+    await expect(page.getByText("Published 2000 · About 999 pages · your copy may differ", { exact: true })).toBeVisible();
     await expect(field).toBeFocused();
     await page.getByRole("button", { name: "Save progress", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText("Your draft is still here");
@@ -1353,4 +1353,16 @@ test("4c library CSV downloads from My Data with import switched off, and failur
   await expect(page.getByRole("status").filter({ hasText: "Spreadsheet download started" })).toBeVisible();
   expect(app.requests.filter(request => request.path === "/me/library/export.csv")).toHaveLength(2);
   expect(app.requests.filter(request => request.path.startsWith("/me/library-imports"))).toHaveLength(0);
+});
+
+// Readers never see where book data comes from; the privacy page is the one deliberate disclosure.
+test("reader screens never name data sources", async ({ page, app }) => {
+  app.privateContext = true; app.nextRead = true; app.dataControls = true; app.libraryExport = true;
+  const banned = /shared catalogue|catalogue lists|catalogue details|Open Library|openlibrary|Turso|external catalogue/i;
+  for (const path of ["/home", "/my-books", "/my-books/101", "/my-data"]) {
+    await page.goto(path);
+    await expect(page.locator("main h1").first()).toBeVisible();
+    await page.locator("main details:not([open]) > summary").evaluateAll(nodes => nodes.forEach(node => node.click()));
+    expect(await page.locator("main").innerText(), path).not.toMatch(banned);
+  }
 });

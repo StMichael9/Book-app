@@ -48,7 +48,7 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
   }
   return <NativeDialog open title={attempt ? "Delete this reading?" : "Forget this book?"} onClose={() => { if (!command.pending) onClose(); }}>
     <p><strong>{title}</strong></p>{record && <p>{record}</p>}
-    <p>{attempt ? "Delete only this reading’s dates, progress, note and reaction. Your saved book, Want to read and Owned marks, save reason and other readings will stay." : "Remove this book from your library, including Want to read and Owned marks, save reason and every reading, note and reaction for it. Other readers, the shared catalogue and your discovery subjects will not change."}</p>
+    <p>{attempt ? "Delete only this reading’s dates, progress, note and reaction. Your saved book, Want to read and Owned marks, save reason and other readings will stay." : "Remove this book from your library, including Want to read and Owned marks, save reason and every reading, note and reaction for it. Other readers’ libraries and your discovery subjects won’t change."}</p>
     <p>This cannot be undone. A download you already saved will not be changed.</p>
     <p>Unsaved drafts for {attempt ? "this reading" : "this book"} will be removed too.</p>
     <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Keep it</Button><Button variant="danger" disabled={command.pending || library.readOnly} onClick={() => command.run(remove, saved => {
@@ -117,7 +117,7 @@ export function ReadingDataPage() {
       {library.libraryExport && <LibraryCsvDownload />}
       {library.readingExport && <section className="bv-data-download" aria-labelledby="bv-reading-json-title">
         <h3 id="bv-reading-json-title">Complete private copy (JSON)</h3>
-        <p>A complete private copy for backup: your saved catalogue and private books, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
+        <p>A complete private copy for backup: your saved books, including private ones, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
         <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. It’s a personal backup, not a spreadsheet or an automatic restore. We stream it directly without keeping a server-side archive.</p>
         <Button variant="secondary" disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download complete copy (JSON)"}</Button>
         {downloaded && <p role="status">Download started. Your complete file was sent to your browser. Check Downloads; protect or delete your saved copy yourself.</p>}

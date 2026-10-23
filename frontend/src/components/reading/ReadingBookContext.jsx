@@ -44,11 +44,11 @@ export function ReadingBookDetails({ bookId }) {
       : <>
         {request.data.tags?.length > 0 && <p className="bv-book-subjects">{request.data.tags.slice(0, 4).map(tag => subjectLabel(tag.name)).join(" · ")}</p>}
         {(request.data.published_year != null || request.data.page_count > 0) && <p className="bv-help">
-          {request.data.published_year != null && `Published ${request.data.published_year}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `Catalogue: ${request.data.page_count} pages · your copy may differ`}
+          {request.data.published_year != null && `Published ${request.data.published_year}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `About ${request.data.page_count} pages · your copy may differ`}
         </p>}
         {request.data.description ? <Synopsis text={request.data.description} /> : <p className="bv-muted">A description isn’t available for this book yet.</p>}
       </>}
-    {bookId && <TextLink to={`/book/${bookId}`}>Full catalogue details</TextLink>}
+    {bookId && <TextLink to={`/book/${bookId}`}>Full book details</TextLink>}
   </section>;
 }
 

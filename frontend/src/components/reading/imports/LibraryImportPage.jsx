@@ -45,15 +45,15 @@ function ImportRow({ row, revision, disabled, onDecision }) {
     {proposed && <p className="bv-help">Proposed catalogue work: {proposed.title} · {proposed.authors?.join(", ") || "Author not listed"}.</p>}
     {row.plan?.kind === "private" && <p className="bv-help">New private-entry proposal, only with your approval.</p>}
     {row.error_code && <p className="bv-help">{readable(row.error_code)}.</p>}
-    {source?.warnings?.length > 0 && <p className="bv-help">Source values needing care: {source.warnings.map(readable).join(", ")}.</p>}
-    {source && <details><summary>Source information</summary><dl className="bv-import-context">
-      <dt>Source Owned / Want to read</dt><dd>Owned: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want to read: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}. Unknown does not become an invented preference.</dd>
+    {source?.warnings?.length > 0 && <p className="bv-help">Values in your file needing care: {source.warnings.map(readable).join(", ")}.</p>}
+    {source && <details><summary>From your file</summary><dl className="bv-import-context">
+      <dt>Owned / Want to read in your file</dt><dd>Owned: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want to read: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}. Unknown does not become an invented preference.</dd>
       {source.status && <><dt>Reading status</dt><dd>{readable(source.status)}</dd></>}
-      {source.context?.rating != null && <><dt>Source rating</dt><dd>{source.context.rating} / 5</dd></>}
+      {source.context?.rating != null && <><dt>Rating in your file</dt><dd>{source.context.rating} / 5</dd></>}
       {source.context?.review && <><dt>Imported review (private)</dt><dd>{source.context.review}</dd></>}
       {source.context?.private_note && <><dt>Imported note (private)</dt><dd>{source.context.private_note}</dd></>}
-      {source.context?.labels?.length > 0 && <><dt>Private source labels</dt><dd>{source.context.labels.join(", ")}</dd></>}
-      {source.events?.length > 0 && <><dt>Source reading information</dt><dd>{source.events.map(event => `${readable(event.state)}: ${event.started_on || "start unknown"} → ${event.ended_on || "end unknown"}`).join("; ")}</dd></>}
+      {source.context?.labels?.length > 0 && <><dt>Labels in your file (private)</dt><dd>{source.context.labels.join(", ")}</dd></>}
+      {source.events?.length > 0 && <><dt>Reading information in your file</dt><dd>{source.events.map(event => `${readable(event.state)}: ${event.started_on || "start unknown"} → ${event.ended_on || "end unknown"}`).join("; ")}</dd></>}
     </dl></details>}
     {["review", "ready", "approved", "invalid"].includes(row.disposition) && <details open={["review", "invalid"].includes(row.disposition)}><summary>{["review", "invalid"].includes(row.disposition) ? "Resolve this book group" : "Change this proposal"}</summary><fieldset disabled={disabled} className="bv-field">
       <legend>Decision for this book group</legend>

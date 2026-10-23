@@ -11,11 +11,11 @@ import { localToday } from "./localToday.js";
 function reasonText(reason) {
   switch (reason.code) {
     case "want": return "On your Want to read list.";
-    case "catalogue": return "From the shared catalogue.";
+    case "catalogue": return "Something new to explore.";
     case "owned": return "You marked this as owned.";
     case "interest": return `Matches your choice: ${reason.value}.`;
     case "preferences": return "Matches your saved discovery subjects.";
-    case "pages": return `Catalogue lists ${reason.value} pages. Your copy may differ.`;
+    case "pages": return `About ${reason.value} pages. Your copy may differ.`;
     default: return "";
   }
 }
@@ -129,7 +129,7 @@ export default function NextReadSection({ preview = false, home = false, current
     <h2 ref={heading} tabIndex={preview ? -1 : undefined}>What would you like to read next?</h2><p className="bv-help">A few choices, not a prediction. Start with your Want to read books; you can always skip this.</p>
     {preview && <Button variant="quiet" disabled={command.pending} onClick={() => { returning.current = true; setSettings(defaultSettings()); setExpanded(false); }}>{home ? "Back to Home" : "Back to this reading"}</Button>}
     <div className="bv-form-actions" role="group" aria-label="Choice source"><Button disabled={command.pending} variant={settings.source === "want" ? "saved" : "quiet"} aria-pressed={settings.source === "want"} onClick={() => switchSource("want")}>My Want to read books</Button><Button disabled={command.pending} variant={settings.source === "catalogue" ? "saved" : "quiet"} aria-pressed={settings.source === "catalogue"} onClick={() => switchSource("catalogue")}>Explore something new</Button></div>
-    <p className="bv-help">{settings.source === "want" ? "From your Want to read list. Books you’re reading or have paused stay out." : "New choices from the catalogue. Books with a reading history stay out."}</p>
+    <p className="bv-help">{settings.source === "want" ? "From your Want to read list. Books you’re reading or have paused stay out." : "New books to explore. Books you’ve already read or started stay out."}</p>
     {library.readOnly && <p role="status">You can view choices. Starting a reading is temporarily paused.</p>}
     {result && <details className="bv-field"><summary>Refine choices (optional)</summary><form key={scope} ref={filterForm} className="bv-reading-form" onSubmit={event => {
       event.preventDefault(); const values = new FormData(event.currentTarget);
@@ -137,12 +137,12 @@ export default function NextReadSection({ preview = false, home = false, current
     }}><fieldset disabled={command.pending}><legend>Your choice for now</legend>
       <label><input type="checkbox" name="owned" defaultChecked={settings.owned_only} /> Only books I own</label>
       <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
-      {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">No reliable catalogue page counts are available for this selection.</p>}
-      <p className="bv-help">A page limit includes only known catalogue lengths. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
+      {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">Page counts aren’t available for these books.</p>}
+      <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
     </fieldset></form></details>}
     {command.error && <p role="alert">{command.error} Your other readings haven’t changed. <Button variant="quiet" disabled={command.pending} onClick={request.retry}>Reload choices</Button></p>}
     {request.loading ? <p role="status">Finding a few choices…</p> : request.error ? <div role="alert"><p>Choices couldn’t load. Your library and any saved finish are unchanged.</p><Button onClick={request.retry}>Try choices again</Button><Button variant="quiet" onClick={() => reset()}>Clear choice filters</Button></div> : <>
-      {result.items.length ? <div className="bv-choice-grid">{result.items.map(choice => <NextReadCard key={`${settings.source}:${choice.key}`} choice={choice} disabled={library.readOnly || command.pending} pending={command.pending && chosen === choice.key} onStart={() => begin(choice)} />)}</div> : <p role="status">{result.eligible_count ? currentKey && !finishId && settings.rotation === 0 && !settings.exclude.length ? "No other books match these choices. Clear filters or explore another source." : "You’ve seen the available choices for these settings. Start over or change a filter." : settings.source === "want" ? "No Want to read books match these choices. Clear filters, mark a book Want to read, or explicitly explore the catalogue." : "No catalogue books match these choices. Clear filters or browse for yourself."}</p>}
+      {result.items.length ? <div className="bv-choice-grid">{result.items.map(choice => <NextReadCard key={`${settings.source}:${choice.key}`} choice={choice} disabled={library.readOnly || command.pending} pending={command.pending && chosen === choice.key} onStart={() => begin(choice)} />)}</div> : <p role="status">{result.eligible_count ? currentKey && !finishId && settings.rotation === 0 && !settings.exclude.length ? "No other books match these choices. Clear filters or try the other choice." : "You’ve seen the available choices for these settings. Start over or change a filter." : settings.source === "want" ? "No Want to read books match these choices. Clear filters, mark a book Want to read, or explore something new." : "No new books match these choices. Clear filters or browse for yourself."}</p>}
       <div className="bv-form-actions">{result.items.length > 0 && result.remaining_count > result.items.length && settings.rotation < 10000 && <Button disabled={command.pending} variant="secondary" onClick={() => setSettings(current => ({ ...current, rotation: current.rotation + 1, exclude: [...new Set([...current.exclude, ...result.items.map(item => item.key)])].slice(-30) }))}>Show different choices</Button>}
         {(settings.rotation > 0 || !result.items.length) && <Button disabled={command.pending} variant="quiet" onClick={() => reset()}>Start choices over</Button>}<TextLink to="/browse">Browse for myself</TextLink></div>
     </>}
