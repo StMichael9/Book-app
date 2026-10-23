@@ -123,3 +123,34 @@ User-Agent; do not make per-book API calls for the bulk import. Before a
 production selection, sample that pinned works dump and check the frequency
 of each reviewed exact mood/theme phrase. No such pinned-dump validation has
 been performed by the isolated synthetic tests.
+
+## Title aliases (English search for original-language titles)
+
+The catalogue stores Open Library's *work* title, which is often the original language
+("Ὀδύσσεια", "Le petit prince"). `book_title_aliases` holds English edition titles for the
+same work so a search for "Odyssey" or "The Little Prince" finds the book. `Book.title`
+never changes; `english_title` is exposed for display. The backfill is two explicit,
+offline steps. Neither runs on import or on deploy, and neither reads `DATABASE_URL`.
+
+1. Extract (no network; you supply a downloaded Open Library editions dump and a
+   works list, one `/works/OL...W` per line, optionally followed by a tab and the work's title):
+
+   ```
+   python -m data.extract_title_aliases --editions-dump ol_dump_editions.txt.gz --works-file works.txt --output aliases.jsonl
+   ```
+
+   Keeps English editions, plus unlabelled editions only when the title is plain ASCII;
+   deduplicates per work ignoring case; keeps at most 3 titles per work, most frequent first.
+
+2. Load. The default is a dry run that prints counts and writes nothing:
+
+   ```
+   python -m data.load_title_aliases --database-url URL --input aliases.jsonl
+   python -m data.load_title_aliases --database-url URL --input aliases.jsonl --apply --max-database-mb 400
+   ```
+
+   `--apply` inserts in batches of 1,000 with `ON CONFLICT DO NOTHING`, so it is idempotent
+   and can simply be rerun after an interruption. Works are matched by `books.source_id`,
+   following a recorded redirect for retired work keys. It refuses to apply when the
+   database is larger than `--max-database-mb`. Run it only against a database you have
+   chosen deliberately; the Neon run is a separate, approved step.

@@ -27,6 +27,7 @@ class BookSchema(BaseModel):
     cover_image_url: str | None = None
     page_count: int | None = None
     isbn13: str | None = None
+    english_title: str | None = None
     authors: list[AuthorSchema] = []
     tags: list[TagSchema] = []
     owned_count: int | None = None

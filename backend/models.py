@@ -136,6 +136,33 @@ class Book(Base):
     editions: Mapped[list["Edition"]] = relationship(
         back_populates="book", foreign_keys="Edition.book_id"
     )
+    title_aliases: Mapped[list["BookTitleAlias"]] = relationship(
+        lazy="selectin", order_by="BookTitleAlias.id", passive_deletes="all"
+    )
+
+    @property
+    def english_title(self) -> str | None:
+        own = self.title.lower()
+        return next((alias.title for alias in self.title_aliases if alias.language == "eng" and alias.title.lower() != own), None)
+
+
+class BookTitleAlias(Base):
+    __tablename__ = 'book_title_aliases'
+    __table_args__ = (
+        CheckConstraint('char_length(btrim(title)) BETWEEN 1 AND 500', name='ck_book_title_aliases_title_length'),
+        CheckConstraint("source IN ('openlibrary_edition')", name='ck_book_title_aliases_source'),
+        Index('uq_book_title_alias', 'book_id', func.lower(text('title')), unique=True),
+        Index('ix_book_title_aliases_book', 'book_id'),
+        Index('ix_book_title_aliases_title_trgm', 'title', postgresql_using='gin', postgresql_ops={'title': 'gin_trgm_ops'}),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
 
 class UserBookStatus(str, enum.Enum):
     owned = "owned"

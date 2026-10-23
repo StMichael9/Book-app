@@ -1,6 +1,6 @@
-from sqlalchemy import select, exists, or_
+from sqlalchemy import case, select, exists, or_
 from sqlalchemy.orm import Session, selectinload
-from models import Book, Author, Tag, User, UserBook, UserBookStatus, book_tags
+from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, book_tags
 
 
 class SearchService:
@@ -21,8 +21,15 @@ class SearchService:
             .options(selectinload(Book.authors), selectinload(Book.tags))
             .order_by(Book.id)
         )
+        title_rank = None
         if book is not None:
-            query = query.where(Book.title.ilike(f"%{book}%"))
+            # LIKE wildcards in the reader's text are literal; an alias is another way to find the same book.
+            pattern = "%" + book.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            alias_match = exists(select(BookTitleAlias.id).where(
+                BookTitleAlias.book_id == Book.id, BookTitleAlias.title.ilike(pattern, escape="\\")))
+            query = query.where(or_(Book.title.ilike(pattern, escape="\\"), alias_match))
+            title_rank = case((Book.title.ilike(pattern, escape="\\"), 0), else_=1)
+            query = query.order_by(None).order_by(title_rank, Book.id)
         if author is not None:
             query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))
         if tags:
@@ -60,6 +67,7 @@ class SearchService:
                     .where(book_tags.c.book_id == Book.id)
                     .where(book_tags.c.tag_id.in_(preferred_tag_ids))
                 )
-                query = query.order_by(None).order_by(preference_match.desc(), Book.id)
+                query = query.order_by(None).order_by(
+                    *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
 
         return query

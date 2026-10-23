@@ -114,6 +114,7 @@ class LibraryBook(BaseModel):
     authors: list[dict[str, str | int]]
     page_count: int | None
     isbn13: str | None = None
+    english_title: str | None = None
 
 
 class LibraryEntry(BaseModel):
