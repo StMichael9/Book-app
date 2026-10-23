@@ -1,6 +1,8 @@
 /* Shared finish: the existing palette, typefaces and navigation remain intact. */
 .bv-root :is(h1, h2, h3) { text-wrap: pretty; }
-.bv-root :is(p, h1, h2, h3, label, a, button) { overflow-wrap: anywhere; }
+.bv-root :is(p, label, a) { overflow-wrap: anywhere; }
+/* Headings and buttons break only between words, so enlarged text wraps lines rather than splitting a word. */
+.bv-root :is(h1, h2, h3, button, .bv-button) { overflow-wrap: break-word; }
 .bv-root .bv-button { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease; }
 .bv-root :is(input:not([type=checkbox]), select, textarea) { transition: border-color 150ms ease, box-shadow 150ms ease; }
 .bv-root :is(input, select, textarea):focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bv-green) 14%, transparent); }
@@ -29,6 +31,7 @@
 .bv-root .bv-library-search-row input { min-width: 0; }
 @media (hover: hover) and (pointer: fine) {
   .bv-root .bv-button:hover:not(:disabled) { box-shadow: 0 2px 6px color-mix(in srgb, var(--bv-ink) 8%, transparent); }
+  .bv-root .bv-button--saved:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bv-green), 0 2px 6px color-mix(in srgb, var(--bv-ink) 8%, transparent); }
   .bv-root a:hover .bv-cover { box-shadow: 0 10px 22px color-mix(in srgb, var(--bv-ink) 14%, transparent); }
   .bv-root details > summary:hover { color: var(--bv-green); }
   .bv-root .bv-book-card h3 a:hover { text-decoration: underline; text-underline-offset: 4px; }
@@ -78,7 +81,7 @@
 .bv-root .bv-personal-book .bv-cover-fallback small { margin-top: 0; }
 @media (max-width: 700px) {
   .bv-root .bv-reading-library .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-  .bv-root .bv-reading-library .bv-library-heading .bv-page-heading { flex: 1; padding: 18px 0 12px; }
+  .bv-root .bv-reading-library .bv-library-heading .bv-page-heading { flex: 1 1 auto; padding: 18px 0 12px; }
   .bv-root .bv-reading-library .bv-library-heading h1 { margin-bottom: 0; }
   .bv-root .bv-reading-library .bv-library-heading > .bv-button { margin: 0; min-height: 44px; padding: 8px 10px; font-size: 14px; white-space: normal; }
   .bv-root .bv-reading-library .bv-library-search { margin: 0 0 12px; }
@@ -88,12 +91,16 @@
   .bv-root .bv-reading-library .bv-library-search-row input { flex-basis: min(100%, 10em); }
   .bv-root .bv-reading-library .bv-library-search-row .bv-button { padding-inline: 14px; }
   .bv-root .bv-reading-library .bv-filter-groups { gap: 4px; margin-bottom: 8px; }
-  .bv-root .bv-reading-library .bv-library-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.2em), 1fr)); gap: 6px; font-size: 15px; }
+  .bv-root .bv-reading-library .bv-library-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.2em), 1fr)); align-items: stretch; gap: 6px; font-size: 15px; }
   .bv-root .bv-reading-library .bv-library-facets .bv-button { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 15px; min-height: 52px; }
   .bv-root .bv-reading-library .bv-library-facets .bv-button span { font-size: 13px; font-weight: 400; }
   .bv-root .bv-reading-library .bv-library-caption { margin-bottom: 12px; }
-  /* Enlarged text may need a second row; never split a navigation word. */
+  /* Navigation stays one row at any text size: equal columns, labels shorten rather than wrap or split. */
   .bv-root:not(.bv-root--landing) { padding-bottom: var(--bv-mobile-nav-clearance, calc(4em + 24px + env(safe-area-inset-bottom))); }
-  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 5em), 1fr)); font-size: 12px; gap: 8px 12px; }
-  .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 4px; overflow-wrap: normal; }
+  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); font-size: 12px; gap: 4px; padding-inline: 8px; }
+  .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
+  .bv-root .bv-mobile-nav a span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* Signed-in phone headers have room for the theme toggle; guests reach it from You. */
+  .bv-root .bv-header-actions:not(.bv-header-actions--guest) .bv-desktop-theme { display: inline-flex; }
+  .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }
 }

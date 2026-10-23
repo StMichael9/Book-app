@@ -57,18 +57,18 @@ export default function LibraryPage() {
       { state: pagination ? { libraryPrevious: location.key } : null });
   }
   const counts = request.data?.counts;
-  const commonFacets = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want"], ...(library.readingActions ? [["finished", "Finished"]] : [])];
-  const otherFacets = [["owned", "Own"], ...(library.readingActions ? [["paused", "Paused"], ["dnf", "Stopped"]] : [])];
+  const commonFacets = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want to read"], ...(library.readingActions ? [["finished", "Finished"]] : [])];
+  const otherFacets = [["owned", "Owned"], ...(library.readingActions ? [["paused", "Paused"], ["dnf", "Stopped"]] : [])];
   const activeOther = otherFacets.find(([key]) => key === facet);
   const filterButton = ([key, label]) => <Button key={key} variant={facet === key ? "saved" : "quiet"} aria-pressed={facet === key} onClick={() => navigate(key, q)}>{label}<span>{counts?.[key] ?? "…"}</span></Button>;
   const affiliateLinks = facet === "want" && request.data?.items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
 
   return <section ref={root} className="bv-container bv-reading-library">
-    <div className="bv-library-heading"><PageHeading title="My Books" />{library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link" aria-label="Bring Your Library" aria-describedby="bv-import-kind">Bring Your Library<span id="bv-import-kind">CSV / TSV import</span></ActionLink>}</div>
+    <div className="bv-library-heading"><PageHeading title="My Books" />{library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link" aria-label="Bring your library" aria-describedby="bv-import-kind">Bring your library<span id="bv-import-kind">CSV / TSV import</span></ActionLink>}</div>
     <LibrarySearch key={q} query={q} onSearch={value => navigate(facet, value)} />
     {label && <p className="bv-notice">Imported label: {label} <Button variant="quiet" onClick={() => { const next = new URLSearchParams(params); next.delete("label"); next.delete("cursor"); setParams(next); }}>Clear label filter</Button></p>}
     <div className="bv-filter-groups"><div className="bv-library-facets" role="group" aria-label="Filter your library">{[...commonFacets, ...(activeOther ? [activeOther] : [])].map(filterButton)}</div>
-      <details className="bv-library-more"><summary>More filters</summary><div className="bv-library-facets" role="group" aria-label="More library filters">{otherFacets.filter(([key]) => key !== facet).map(filterButton)}</div><p className="bv-help">Own and Want are separate; a book can be on both lists.</p></details>
+      <details className="bv-library-more"><summary>More filters</summary><div className="bv-library-facets" role="group" aria-label="More library filters">{otherFacets.filter(([key]) => key !== facet).map(filterButton)}</div><p className="bv-help">Want to read and Owned are separate; a book can be on both.</p></details>
     </div>
     {["reading", "paused", "finished", "dnf"].includes(facet) && <p className="bv-help">Earlier readings are kept in each book’s Reading history.</p>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}

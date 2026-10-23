@@ -115,7 +115,7 @@ test("editorial workspace preview shares choices and a new finish returns to Wan
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading saved.", exact: true })).toBeFocused();
   await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "My Want books", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "My Want to read books", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
   expect(app.requests.filter(r => r.path === "/books/1")).toHaveLength(1);
   expect(new Set(app.requests.filter(r => r.path === "/me/next-read").map(r => r.params.session_id)).size).toBe(1);
@@ -168,7 +168,7 @@ test("M4 Home is shelf-first, short and private; viewing and switching modes nev
   await choices.getByRole("button", { name: "Explore something new", exact: true }).click();
   await expect(choices.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
   await expect(choices.getByRole("button", { name: "Explore something new", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await choices.getByRole("button", { name: "My Want books", exact: true }).click();
+  await choices.getByRole("button", { name: "My Want to read books", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(2);
   expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
 });
@@ -299,7 +299,7 @@ test("M4 different choices preserve filters and bounded session exclusions witho
   await page.getByRole("button", { name: "Choose next", exact: true }).click();
   const choices = page.getByRole("region", { name: "Choose your next read" });
   await choices.getByText("Refine choices (optional)", { exact: true }).click();
-  await page.getByLabel("Only books I marked Own", { exact: true }).check();
+  await page.getByLabel("Only books I own", { exact: true }).check();
   await choices.getByRole("button", { name: "Update choices", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(3);
   const first = app.requests.filter(item => item.path === "/me/next-read").at(-1);

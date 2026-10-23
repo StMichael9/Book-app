@@ -40,8 +40,8 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     }
     expect(await a.evaluate(() => document.cookie)).not.toContain("access_token");
     await a.goto(`${origin}/browse`);
-    await a.getByRole("button", { name: "Add Local browser integration book to Want" }).click();
-    await expect(a.getByRole("button", { name: "Remove Local browser integration book from Want" })).toBeEnabled();
+    await a.getByRole("button", { name: "Add Local browser integration book to Want to read" }).click();
+    await expect(a.getByRole("button", { name: "Remove Local browser integration book from Want to read" })).toBeEnabled();
     await a.goto(`${origin}/my-books`); await a.reload(); await expect(a.locator(".bv-book-card")).toHaveCount(1);
     await b.reload(); await expect(b.locator(".bv-book-card")).toHaveCount(0);
     const blocked = await second.request.delete(`${api}/books/1/status`, { headers: { Origin: origin } });

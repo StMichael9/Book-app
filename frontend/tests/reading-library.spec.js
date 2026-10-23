@@ -98,7 +98,7 @@ for (const failedSave of [false, true]) test(`M6 Start waits for a same-book Wan
   let release;
   app.holdFlag = new Promise(resolve => { release = resolve; });
   await page.goto("/book/1");
-  await page.getByRole("button", { name: "Add Library fixture 01 to Want", exact: true }).click();
+  await page.getByRole("button", { name: "Add Library fixture 01 to Want to read", exact: true }).click();
   await expect.poll(() => app.requests.filter(request => request.path === "/me/library/books/1" && request.method === "PUT").length).toBe(1);
   await page.getByRole("link", { name: "Open or start your reading", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Opening your reading…", exact: true })).toBeVisible();
@@ -136,7 +136,7 @@ test("M6 genuine Start conflict has truthful copy and explicit idempotent retry"
 
 test("V3 discovery batches visible state and never loads the complete shelf", async ({ page, app }) => {
   await page.goto("/browse");
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeEnabled();
   expect(app.requests.filter(request => request.path === "/me/books")).toHaveLength(0);
   const lookups = app.requests.filter(request => request.path === "/me/library/lookup");
   expect(lookups).toHaveLength(1);
@@ -145,13 +145,13 @@ test("V3 discovery batches visible state and never loads the complete shelf", as
 
 test("Own and Want coexist, removing one preserves the other and survives reload", async ({ page, app }) => {
   await page.goto("/book/1");
-  await page.getByRole("button", { name: "Add Library fixture 01 to Own", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Own", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true }).click();
+  await page.getByRole("button", { name: "I own it: Add Library fixture 01 to Owned", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Owned", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true }).click();
   await page.reload();
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Own", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Want", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Owned", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Want to read", exact: true })).toHaveAttribute("aria-pressed", "false");
   expect(app.entries.get(1).is_owned).toBe(true);
   expect(app.entries.get(1).is_wanted).toBe(false);
   expect(app.requests.some(request => request.path.endsWith("/status"))).toBe(false);
@@ -160,23 +160,23 @@ test("Own and Want coexist, removing one preserves the other and survives reload
 test("failed and malformed lookups block writes and offer a real retry", async ({ page, app }) => {
   app.malformedLookup = true;
   await page.goto("/book/1");
-  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Own", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "I own it: Add Library fixture 01 to Owned", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Try saved status again" })).toBeVisible();
   app.malformedLookup = false;
   await page.getByRole("button", { name: "Try saved status again" }).click();
-  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Own", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "I own it: Add Library fixture 01 to Owned", exact: true })).toBeEnabled();
   expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
 });
 
 test("a stale update shows current state without overwriting it", async ({ page, app }) => {
   app.conflictNext = true;
   await page.goto("/book/1");
-  await page.getByRole("button", { name: "Add Library fixture 01 to Own", exact: true }).click();
+  await page.getByRole("button", { name: "I own it: Add Library fixture 01 to Owned", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("changed on another page");
   expect(app.entries.get(1).is_owned).toBe(false);
-  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Want", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Add Library fixture 01 to Own", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Own", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add Library fixture 01 to Want to read", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "I own it: Add Library fixture 01 to Owned", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Owned", exact: true })).toBeVisible();
 });
 
 test("large library pagination, search and both facets use bounded server queries", async ({ page, app }) => {
@@ -233,8 +233,8 @@ test("disabling writes preserves the richer library in read-only mode", async ({
   app.entries.set(1, row(1, true, true));
   await page.goto("/my-books");
   await expect(page.getByRole("status").filter({ hasText: "Your library is available to read. Changes are temporarily paused." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Own", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Owned", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(app.requests.some(request => request.path.endsWith("/status") || request.method === "PUT")).toBe(false);
 });
 
@@ -318,7 +318,7 @@ for (const theme of ["light", "dark"]) {
     await expect(page.locator(".bv-book-card")).toHaveCount(25);
     await page.getByRole("button", { name: "Next page", exact: true }).click();
     await expect(page.locator(".bv-book-card")).toHaveCount(1);
-    await page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true }).click();
+    await page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true }).click();
     await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
     // Capture from the top so off-viewport fixed elements are not included at
     // the prior scroll offset by a full-document browser screenshot.
@@ -344,7 +344,7 @@ for (const theme of ["light", "dark"]) {
     await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Return to first page", exact: true }).click();
     await expect(page.locator(".bv-book-card")).toHaveCount(25);
-    await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeDisabled();
     expect(app.requests.filter(r => r.method === "PUT" || r.method === "PATCH")).toHaveLength(0);
   });
 }
@@ -461,11 +461,15 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       expect((await page.getByLabel("Search title or author").boundingBox()).width).toBeGreaterThan(normalSearchWidth);
       const nav = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
       const discover = nav.getByRole("link", { name: "Discover", exact: true });
-      const textLines = await discover.locator("span").evaluate(node => {
-        const range = document.createRange(); range.selectNodeContents(node);
-        return range.getClientRects().length;
+      // One-row navigation: a label never wraps or splits; at extreme sizes it may shorten with an ellipsis.
+      const label = await discover.locator("span").evaluate(node => {
+        const style = getComputedStyle(node);
+        return { whiteSpace: style.whiteSpace, height: node.getBoundingClientRect().height, lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5 };
       });
-      expect(textLines).toBe(1);
+      expect(label.whiteSpace).toBe("nowrap");
+      expect(label.height).toBeLessThan(label.lineHeight * 1.5);
+      const navTops = await nav.getByRole("link").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
+      expect(Math.max(...navTops) - Math.min(...navTops)).toBeLessThan(2);
       const box = await discover.boundingBox();
       expect(box.width).toBeGreaterThanOrEqual(44);
       expect(box.height).toBeGreaterThanOrEqual(44);
@@ -475,7 +479,7 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       }).toBe(true);
     }
     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
-    const importLink = page.getByRole("link", { name: "Bring Your Library", exact: true });
+    const importLink = page.getByRole("link", { name: "Bring your library", exact: true });
     await importLink.focus();
     await expect(importLink).toBeFocused();
   });

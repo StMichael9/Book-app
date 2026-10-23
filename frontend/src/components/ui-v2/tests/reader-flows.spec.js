@@ -102,7 +102,7 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await expect(page.locator(".bv-library-banner")).toHaveCSS("background-color", "rgb(38, 37, 35)");
   await checkContrast(".bv-lead, .bv-help, .bv-genre-card, .bv-genre-card > span:last-child, .bv-button, .bv-text-link, .bv-library-banner p");
   const explore = page.getByRole("link", { name: "Explore books", exact: true });
-  await expect(explore).toHaveCSS("background-color", "rgb(143, 168, 155)");
+  await expect(explore).toHaveCSS("background-color", "rgb(169, 201, 179)");
   await expect(explore).toHaveCSS("color", "rgb(30, 29, 27)");
   await explore.hover(); await checkContrast(".bv-hero-actions .bv-button");
   await page.keyboard.press("Tab"); await explore.focus();
@@ -119,8 +119,8 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await checkContrast(".bv-field input, .bv-field small, .bv-auth-card .bv-button, .bv-auth-switch");
   await checkContrast(".bv-field input", "borderTopColor", 3);
   app.authenticated = true;
-  await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toBeEnabled();
-  app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Own" }).click();
+  await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
+  app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
   await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
   await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click();
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
@@ -128,38 +128,38 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
 });
 
 test("anonymous save survives registration and resumes exactly once", async ({ page, app }) => {
-  await page.goto("/browse"); await page.getByRole("button", { name: "Add The Time Machine to Want", exact: true }).click();
+  await page.goto("/browse"); await page.getByRole("button", { name: "Add The Time Machine to Want to read", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible(); await expect(page.getByRole("dialog")).toContainText("The Time Machine");
   await page.getByRole("dialog").getByRole("link", { name: "Create an account" }).click();
   await page.getByLabel("Email address", { exact: true }).fill("reader@example.com"); await page.getByLabel("Password", { exact: true }).fill("valid-password");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect(page).toHaveURL(/\/book\/3/); await expect(page.getByRole("button", { name: "Remove The Time Machine from Want" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/\/book\/3/); await expect(page.getByRole("button", { name: "Remove The Time Machine from Want to read" })).toHaveAttribute("aria-pressed", "true");
   expect(mutations(app)).toHaveLength(1); expect(app.saved[0].status).toBe("want");
   await page.getByRole("link", { name: "View My Books" }).click(); await expect(page.locator(".bv-book-card h3")).toHaveText(["The Time Machine"]);
 });
 
 test("save confirmation waits for the API and shelf moves update the shared library", async ({ page, app }) => {
   app.authenticated = true; let release; app.holdSave = new Promise((resolve) => { release = resolve; });
-  await page.goto("/book/1"); const want = page.getByRole("button", { name: "Add Pride and Prejudice to Want" }); await expect(want).toBeEnabled(); await want.click();
+  await page.goto("/book/1"); const want = page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }); await expect(want).toBeEnabled(); await want.click();
   await expect(want).toHaveText("Saving…"); await expect(want).toHaveAttribute("aria-pressed", "false"); expect(app.saved).toHaveLength(0);
-  release(); app.holdSave = null; await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Add Pride and Prejudice to Own" }).click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Own" })).toHaveAttribute("aria-pressed", "true");
+  release(); app.holdSave = null; await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" })).toHaveAttribute("aria-pressed", "true");
   expect(app.saved).toHaveLength(1); expect(app.saved[0].status).toBe("owned"); await page.goto("/my-books?status=owned");
-  await page.getByRole("button", { name: "Remove Pride and Prejudice from Own" }).click(); await expect(page.getByRole("heading", { name: "Give your books a home." })).toBeVisible(); expect(app.saved).toHaveLength(0);
+  await page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" }).click(); await expect(page.getByRole("heading", { name: "Give your books a home." })).toBeVisible(); expect(app.saved).toHaveLength(0);
 });
 
 test("failed writes retain the prior status and offer a real retry", async ({ page, app }) => {
-  app.authenticated = true; app.mutationFails = true; await page.goto("/book/1"); const button = page.getByRole("button", { name: "Add Pride and Prejudice to Want" }); await expect(button).toBeEnabled(); await button.click();
+  app.authenticated = true; app.mutationFails = true; await page.goto("/book/1"); const button = page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }); await expect(button).toBeEnabled(); await button.click();
   await expect(page.getByRole("alert")).toContainText("couldn’t be saved"); await expect(button).toHaveAttribute("aria-pressed", "false");
-  app.mutationFails = false; await button.click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toHaveAttribute("aria-pressed", "true");
+  app.mutationFails = false; await button.click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("initial library load blocks writes and failures do not imply an empty shelf", async ({ page, app }) => {
   app.authenticated = true; app.saved = [{ id: 1, book_id: 1, status: "want", book: books[0] }]; let release; app.holdShelves = new Promise((resolve) => { release = resolve; });
-  await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Add Pride and Prejudice to Want" })).toBeDisabled(); expect(mutations(app)).toHaveLength(0);
+  await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" })).toBeDisabled(); expect(mutations(app)).toHaveLength(0);
   app.shelfFailures = 1; release(); app.holdShelves = null; await expect(page.getByRole("alert")).toContainText("saved books couldn’t load");
-  await expect(page.getByRole("button", { name: "Add Pride and Prejudice to Want" })).toBeDisabled(); await page.getByRole("button", { name: "Try again", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toBeEnabled(); expect(mutations(app)).toHaveLength(0);
+  await expect(page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" })).toBeDisabled(); await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled(); expect(mutations(app)).toHaveLength(0);
 });
 
 test("author search, AND filters, hidden owned books, history and pagination use the API contract", async ({ page, app }) => {
@@ -226,19 +226,19 @@ test("discovery context survives book details and signing in to save", async ({ 
   await page.goto("/browse?author=Jane&tag=romance");
   await page.getByRole("link", { name: "View Pride and Prejudice", exact: true }).click();
   await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?author=Jane&tag=romance");
-  await page.getByRole("button", { name: "Add Pride and Prejudice to Want" }).click();
+  await page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click();
-  await signIn(page); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want" })).toBeEnabled();
+  await signIn(page); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
   await page.getByRole("link", { name: "Back to discovery" }).click(); await expect(page).toHaveURL(/author=Jane&tag=romance/);
   expect(mutations(app)).toHaveLength(1);
 });
 
 test("save-after-sign-in failures offer a retry without repeating registration", async ({ page, app }) => {
-  app.mutationFails = true; await page.goto("/browse"); await page.getByRole("button", { name: "Add Frankenstein to Want" }).click();
+  app.mutationFails = true; await page.goto("/browse"); await page.getByRole("button", { name: "Add Frankenstein to Want to read" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click(); await signIn(page);
   await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible(); await expect(page.getByRole("alert")).toHaveCount(1); expect(app.saved).toHaveLength(0);
   app.mutationFails = false; await page.getByRole("button", { name: "Retry save" }).click();
-  await expect(page.getByRole("button", { name: "Remove Frankenstein from Want" })).toBeEnabled(); await expect(page).not.toHaveURL(/save=/);
+  await expect(page.getByRole("button", { name: "Remove Frankenstein from Want to read" })).toBeEnabled(); await expect(page).not.toHaveURL(/save=/);
   expect(mutations(app)).toHaveLength(2); expect(app.requests.filter((request) => request.path === "/auth/login")).toHaveLength(1);
 });
 
@@ -319,8 +319,8 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(1);
   app.mutationFails = false;
-  await page.getByRole("button", { name: "Add Pride and Prejudice to Own" }).click();
-  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Own" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
+  await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" })).toHaveAttribute("aria-pressed", "true");
   await expect(page).not.toHaveURL(/save=/);
   await expect(page.getByRole("button", { name: "Retry save" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);

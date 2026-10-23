@@ -53,7 +53,7 @@ export default function ExtendedCatalogue({ title = "", author = "", hasLocalRes
   return <>
     {request.loading ? <p role="status" className="bv-help">Checking more books…</p> : request.error || request.data?.available === false ?
       <p className="bv-help" role="status">More books are temporarily unavailable. Your existing library is unchanged. <Button variant="quiet" onClick={request.retry}>Try again</Button></p> : items.length ?
-      <section className="bv-section" aria-label="More matching books"><h2>{hasLocalResults ? "More matching books" : "Matching books"}</h2><p className="bv-help">Confirm a match to add it to your private Want list. Existing entries and reading history are kept.</p>
+      <section className="bv-section" aria-label="More matching books"><h2>{hasLocalResults ? "More matching books" : "Matching books"}</h2><p className="bv-help">Confirm a match to add it to your private Want to read list. Existing entries and reading history are kept.</p>
         <div className="bv-book-grid">{items.map(item => <article key={item.source_id} className="bv-book-card">
           <BookCover book={{ ...item, authors: item.author ? [{ name: item.author }] : [] }} />
           <h3>{item.title}</h3><p className="bv-author">{item.author || "Author not listed"}</p>
