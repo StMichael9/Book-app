@@ -87,6 +87,20 @@ function ReadingHistoryDisclosure({ visible, entryId, ...props }) {
   </details>;
 }
 
+const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+const shortDate = value => isoDay.test(value || "") ? new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
+
+// A quiet acknowledgement of a saved finish. Dates appear only when recorded; nothing is required.
+function FinishMoment({ title, attempt, headingRef, onNote, noteDisabled }) {
+  const started = shortDate(attempt?.started_on), ended = shortDate(attempt?.ended_on);
+  return <section className="bv-finish-moment" aria-labelledby="bv-finish-title">
+    <h2 id="bv-finish-title" ref={headingRef} tabIndex={-1}>You finished {title}.</h2>
+    {(started || ended) && <p className="bv-finish-dates">{started && ended ? `Read ${started} – ${ended}` : ended ? `Finished ${ended}` : `Started ${started}`}</p>}
+    <p className="bv-muted">No rating or review needed. If something stayed with you, you can keep it here, privately.</p>
+    {onNote && <Button variant="secondary" disabled={noteDisabled} onClick={onNote}>Leave a closing note</Button>}
+  </section>;
+}
+
 function RereadDialog({ entry, editionId, onClose, onSaved }) {
   const library = useUserBooks(), command = useReadingCommand();
   const identity = useRef(crypto.randomUUID());
@@ -123,7 +137,7 @@ export function ReadingWorkspacePage() {
   const [removal, setRemoval] = useState(null);
   const [reread, setReread] = useState(null);
   const [finishNotice, setFinishNotice] = useState(null);
-  const [nextDismissed, setNextDismissed] = useState(false);
+  const finishHeading = useRef(null);
   const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
   const completeFocus = useCallback(node => {
     if (!node) return;
@@ -164,7 +178,7 @@ export function ReadingWorkspacePage() {
     const focused = document.activeElement;
     const restore = Boolean(focused === document.body || workspaceRoot.current?.querySelector(".bv-reading-draft")?.contains(focused));
     library.readingChanged(result.entry); closeEditor(restore); intent.current = null;
-    if (result.attempt && result.attempt.state !== "finished") { setFinishNotice(null); setNextDismissed(false); }
+    if (result.attempt && result.attempt.state !== "finished") setFinishNotice(null);
   }
   function create(entry, state = "reading") {
     const key = `${entry.id}:${state}`;
@@ -212,7 +226,7 @@ export function ReadingWorkspacePage() {
       });
     }} />;
   const loaded = Boolean(entry);
-  const finished = library.nextRead && finishNotice?.generation === auth.sessionGeneration &&
+  const finished = finishNotice?.generation === auth.sessionGeneration &&
     (!request.data || (attempt?.id === finishNotice.id && attempt.state === "finished")) ? finishNotice : null;
   const readingUnavailable = library.readOnly || command.pending || request.loading || Boolean(request.error) || Boolean(editing);
   const blocked = readingUnavailable || Boolean(reread);
@@ -220,14 +234,14 @@ export function ReadingWorkspacePage() {
   function changeState(state) {
     command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
       accept(result);
-      if (state === "finished" && library.nextRead) { setNextDismissed(false); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration }); }
+      if (state === "finished") setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration });
     });
   }
-  // A keyed direct child can move for Finish without remounting its controller.
-  // The quiet preview follows My note in both DOM and phone order, before the secondary group.
+  // One keyed controller stays after My note; a saved finish only resets it to the quiet Want preview.
   const nextSection = library.nextRead && <NextReadSection key={`${auth.sessionGeneration}:${entryId}`} preview currentKey={entry ? entry.book_id ? `book:${entry.book_id}` : `entry:${entry.id}` : null}
-    enabled={loaded || Boolean(finished)} hidden={nextDismissed && !finished} finishId={finished?.id} finishedTitle={finished?.title}
-    onSkip={finished ? () => { setFinishNotice(null); setNextDismissed(true); (statusHeading.current || document.getElementById("bv-main"))?.focus(); } : undefined} />;
+    enabled={loaded || Boolean(finished)} finishId={finished?.id} />;
+  const finishedId = finished?.id;
+  useEffect(() => { if (finishedId) finishHeading.current?.focus(); }, [finishedId]);
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-editorial-workspace">
     <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous } : null}>Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
@@ -255,7 +269,9 @@ export function ReadingWorkspacePage() {
             {request.error && <p role="alert" className="bv-notice">Your reading couldn’t refresh. Your draft is still here. <Button variant="quiet" onClick={request.retry}>Try again</Button></p>}
           </ReadingProgress></div>
         </>}
-      {finished ? nextSection : null}
+      {finished && <FinishMoment title={finished.title} attempt={attempt?.id === finished.id ? attempt : null} headingRef={finishHeading}
+        onNote={library.privateContext && attempt?.id === finished.id && !attempt.note ? () => openMemory(attempt) : undefined}
+        noteDisabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} />}
       {library.privateContext && <section hidden={!loaded} className="bv-workspace-memory" aria-label="My note">{editing?.kind === "memory" ? editor : <h2>My note</h2>}{loaded && <>
         {attempt && editing?.kind !== "memory" && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
           {!attempt.note && !attempt.reaction && <p className="bv-help">{library.readOnly ? "Your note would appear here. Changes are temporarily paused." : "A thought worth keeping? Your note is private and always optional."}</p>}
@@ -265,7 +281,7 @@ export function ReadingWorkspacePage() {
           {editing?.kind === "save_note" ? editor : !library.readOnly && <Button data-draft-trigger="save_note" variant="quiet" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openDraft("save_note")}>{drafts[draftKey(entryId, "save_note")] ? "Continue save-reason draft" : entry.save_note ? "Edit save reason" : "Add save reason (optional)"}</Button>}
         </details>
       </>}</section>}
-      {!finished ? nextSection : null}
+      {nextSection}
       <section hidden={!loaded} className="bv-workspace-more" aria-labelledby="bv-workspace-more-title"><h2 id="bv-workspace-more-title">More about this reading</h2>
       {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} />}
       <ReadingHistoryDisclosure entryId={entryId} visible={loaded} activeAttempt={attempt && !terminal ? attempt : null} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal) || Boolean(reread)} />
