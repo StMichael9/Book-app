@@ -399,3 +399,40 @@ test("landing prefers covered, plain-English titles and never repeats hero books
   for (const title of row) expect(hero).not.toContain(`Explore ${title}`);
   for (const title of odd) expect(hero).not.toContain(`Explore ${title}`);
 });
+
+// A larger browser default font size (not page zoom) reaches the root as a larger rem.
+for (const width of [320, 390]) test(`browser default font size scales text and the layout holds at ${width}px`, async ({ page, app: _app }) => {
+  await page.setViewportSize({ width, height: 844 });
+  await page.goto("/browse");
+  await expect(page.locator(".bv-book-card")).not.toHaveCount(0);
+  const before = await page.evaluate(() => ({ body: parseFloat(getComputedStyle(document.querySelector(".bv-root")).fontSize), h1: parseFloat(getComputedStyle(document.querySelector("h1")).fontSize) }));
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  const after = await page.evaluate(() => ({ body: parseFloat(getComputedStyle(document.querySelector(".bv-root")).fontSize), h1: parseFloat(getComputedStyle(document.querySelector("h1")).fontSize) }));
+  expect(after.body).toBeCloseTo(before.body * 2, 0);
+  expect(after.h1).toBeCloseTo(before.h1 * 2, 0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const navTops = await page.getByRole("navigation", { name: "Mobile navigation", exact: true }).getByRole("link").evaluateAll(links => links.map(link => link.getBoundingClientRect().top));
+  expect(Math.max(...navTops) - Math.min(...navTops)).toBeLessThan(2);
+  await expect(page.getByRole("button", { name: /^Add .+ to Want to read$/ }).first()).toBeVisible();
+});
+
+test("guest Discover leads with covered, plain-title books; a slow cover shows its jacket until it loads", async ({ page, app }) => {
+  app.catalogue = [
+    { ...books[0], id: 1, title: "Ἰλιάς", cover_image_url: "/test-cover/1.jpg" },
+    { ...books[1], id: 2, title: "No cover yet", cover_image_url: null },
+    { ...books[2], id: 3, title: "Slow cover", cover_image_url: "/test-cover/3.jpg" },
+  ];
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  await page.route("**/test-cover/3.jpg", async route => { await held; await route.fallback(); });
+  await page.goto("/browse");
+  await expect(page.locator(".bv-book-card h3")).toHaveText(["Slow cover", "Ἰλιάς", "No cover yet"]);
+  const slow = page.locator(".bv-book-card").first().locator(".bv-cover");
+  await expect(slow.locator(".bv-cover-placeholder")).toContainText("Slow cover");
+  await expect(slow.locator("img")).toHaveCSS("opacity", "0");
+  release();
+  await expect(slow.locator(".bv-cover-placeholder")).toHaveCount(0);
+  await expect(slow.locator("img")).toHaveCSS("opacity", "1");
+  await expect(page.getByRole("img", { name: "Cover of Slow cover", exact: true })).toBeVisible();
+});
+

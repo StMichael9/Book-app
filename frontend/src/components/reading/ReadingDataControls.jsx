@@ -46,12 +46,12 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
       throw error;
     }
   }
-  return <NativeDialog open title={attempt ? "Delete this reading record?" : "Forget this book?"} onClose={() => { if (!command.pending) onClose(); }}>
+  return <NativeDialog open title={attempt ? "Delete this reading?" : "Forget this book?"} onClose={() => { if (!command.pending) onClose(); }}>
     <p><strong>{title}</strong></p>{record && <p>{record}</p>}
-    <p>{attempt ? "Delete only this reading’s dates, progress, note and reaction. Your saved book, Own/Want flags, save reason and other readings will stay." : "Remove this book from your library, including Own/Want flags, save reason and every reading, note and reaction for it. Other readers, the shared catalogue and your discovery subjects will not change."}</p>
+    <p>{attempt ? "Delete only this reading’s dates, progress, note and reaction. Your saved book, Want to read and Owned marks, save reason and other readings will stay." : "Remove this book from your library, including Want to read and Owned marks, save reason and every reading, note and reaction for it. Other readers, the shared catalogue and your discovery subjects will not change."}</p>
     <p>This cannot be undone. A download you already saved will not be changed.</p>
     <p>Unsaved drafts for {attempt ? "this reading" : "this book"} will be removed too.</p>
-    <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Keep it</Button><Button disabled={command.pending || library.readOnly} onClick={() => command.run(remove, saved => {
+    <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Keep it</Button><Button variant="danger" disabled={command.pending || library.readOnly} onClick={() => command.run(remove, saved => {
       // Clear only after the existing command confirms removal (or verifies
       // absence). Failures must preserve the same session's private drafts.
       for (const key of Object.keys(memory.drafts)) {
@@ -59,7 +59,7 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
       }
       if (attempt) { library.readingChanged(saved); onRemoved(); }
       else { library.readingRemoved(entry.book_id); go("/my-books", { replace: true }); }
-    })}>{command.pending ? "Removing…" : attempt ? "Delete reading record" : "Forget book and history"}</Button></div>
+    })}>{command.pending ? "Removing…" : attempt ? "Delete this reading" : "Forget book and history"}</Button></div>
     {command.error && <p role="alert">{command.error} Close this confirmation and reload the current book before reapplying a conflicting removal. Nothing is hidden until removal is confirmed by the server.</p>}
   </NativeDialog>;
 }
@@ -85,13 +85,13 @@ export function ReadingDataPage() {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }
   return <section className="bv-container"><div className="bv-narrow"><TextLink to="/account">Back to your account</TextLink><PageHeading title="Your reading data">Your reading context is private, not a public review or social profile.</PageHeading>
-    {library.readingExport && <section className="bv-section"><h2>Download my data</h2><p>Includes your saved catalogue and private books, Own/Want flags, save reasons, all reading records, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
+    {library.readingExport && <section className="bv-section"><h2>Download my data</h2><p>Includes your saved catalogue and private books, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
       <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. This is a personal backup, not a CSV import format or an automatic restore. We stream it directly without keeping a server-side archive. Your browser holds the download; store it somewhere private.</p>
       <Button disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download my data"}</Button>
       {downloaded && <p role="status">Download started. Your complete file was sent to your browser. Check Downloads; protect or delete your saved copy yourself.</p>}
       {command.error && <p role="alert">The download couldn’t complete. {command.error} Your library hasn’t changed. Please try again.</p>}
     </section>}
-    <section className="bv-section"><h2>Remove reading data</h2><p>Open a book in My Books to delete one reading record, or choose Forget this book to remove its entire private history. Turning off Own or Want does not delete reading history.</p><TextLink to="/my-books">Open My Books</TextLink>
+    <section className="bv-section"><h2>Remove reading data</h2><p>Open a book in My Books to delete one reading, or choose Forget this book to remove its entire private history. Turning off Owned or Want to read does not delete reading history.</p><TextLink to="/my-books">Open My Books</TextLink>
       <p>Removal affects the live account data. Backups may retain earlier data until their configured retention expires. Data already downloaded to your device is not erased.</p>
       <p>For full account deletion, contact the Bookvane operator through the channel where you joined or received support. We verify account ownership before deleting the account and its private records. There is no self-service account-deletion button in this version.</p>
     </section><TextLink to="/privacy">Read the privacy policy</TextLink></div></section>;

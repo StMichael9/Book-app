@@ -73,7 +73,7 @@ export function AuthPage({ register = false }) {
       {pendingBook.data ? <div className="bv-auth-story-cover"><BookCover book={pendingBook.data} priority /></div> : <div className="bv-auth-story-shelves"><BookOpen aria-hidden="true" /><p><strong>Owned</strong>The ones you know.</p><p><strong>Want to read</strong>The next possibilities.</p></div>}
     </aside>
     <div className="bv-auth-card"><PageHeading title={register ? "Start your library." : "Welcome back."}>{register ? "Save discoveries and make room for your reading." : "Your books are right where you left them."}</PageHeading>
-      {intent && <div className="bv-pending-book">{pendingBook.data && <BookCover book={pendingBook.data} priority />}<p><strong>{pendingBook.data?.title || "Your chosen book"}</strong>Ready to add to your {intent.status === "owned" ? "Own" : "Want"} shelf after you sign in.</p></div>}
+      {intent && <div className="bv-pending-book">{pendingBook.data && <BookCover book={pendingBook.data} priority />}<p><strong>{pendingBook.data?.title || "Your chosen book"}</strong>Ready to save as {intent.status === "owned" ? "Owned" : "Want to read"} after you sign in.</p></div>}
       <form onSubmit={submit} aria-busy={pending}>
         {error && <p className="bv-field-error" role="alert">{error}</p>}
         <div className="bv-field"><label htmlFor="bv-auth-email">Email address</label><input id="bv-auth-email" type="email" name="email" autoComplete="email" required placeholder="you@example.com" /></div>

@@ -4,15 +4,15 @@
 .bv-root .bv-workspace-book { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 26px; }
 .bv-root :is(.bv-workspace-book, .bv-workspace-progress) { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; min-width: 0; }
 .bv-root .bv-workspace-cover .bv-cover { box-shadow: var(--bv-shadow); }
-.bv-root .bv-workspace-identity h1 { font-size: 38px; margin-bottom: 10px; }
-.bv-root .bv-workspace-identity .bv-detail-author { font-size: 20px; margin-bottom: 20px; color: var(--bv-muted); }
+.bv-root .bv-workspace-identity h1 { font-size: 2.375rem; margin-bottom: 10px; }
+.bv-root .bv-workspace-identity .bv-detail-author { font-size: 1.25rem; margin-bottom: 20px; color: var(--bv-muted); }
 .bv-root .bv-workspace-flags { gap: 10px; }
-.bv-root .bv-workspace-flags .bv-button { font-size: 14px; min-height: 44px; padding: 8px 16px; }
+.bv-root .bv-workspace-flags .bv-button { font-size: 0.875rem; min-height: 44px; padding: 8px 16px; }
 .bv-root .bv-workspace-progress { grid-column: 2; grid-row: 1 / span 2; }
 .bv-root .bv-workspace-progress-heading { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.bv-root .bv-workspace-progress-heading h2 { font-size: 24px; margin: 0; }
-.bv-root .bv-reading-state-pill { margin: 0; padding: 6px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft-green); font: 600 14px/1.4 var(--bv-body); }
-.bv-root .bv-workspace-progress-value { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; font-size: 15px; }
+.bv-root .bv-workspace-progress-heading h2 { font-size: 1.5rem; margin: 0; }
+.bv-root .bv-reading-state-pill { margin: 0; padding: 6px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft-green); font: 600 0.875rem/1.4 var(--bv-body); }
+.bv-root .bv-workspace-progress-value { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; font-size: 0.9375rem; }
 .bv-root .bv-workspace-progress-value p { margin-bottom: 10px; }
 .bv-root .bv-workspace-progress progress { display: block; width: 100%; height: 8px; margin-bottom: 20px; border: 0; border-radius: 8px; overflow: hidden; background: var(--bv-wash); color: var(--bv-green); accent-color: var(--bv-green); }
 .bv-root .bv-workspace-progress progress::-webkit-progress-bar { background: var(--bv-wash); }
@@ -21,23 +21,23 @@
 .bv-root .bv-workspace-primary-actions { display: flex; flex-direction: column; gap: 12px; }
 .bv-root .bv-workspace-primary-actions > .bv-button { width: 100%; }
 .bv-root .bv-workspace-state-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.bv-root .bv-workspace-state-actions .bv-button { padding: 10px 9px; font-size: 15px; }
-.bv-root .bv-workspace-dates { border-top: 1px solid var(--bv-line); color: var(--bv-muted); padding-top: 16px; margin: 20px 0 0; font-size: 13px; }
-.bv-root .bv-workspace-about h3 { font: 500 21px/1.3 var(--bv-display); margin-bottom: 10px; }
+.bv-root .bv-workspace-state-actions .bv-button { padding: 10px 9px; font-size: 0.9375rem; }
+.bv-root .bv-workspace-dates { border-top: 1px solid var(--bv-line); color: var(--bv-muted); padding-top: 16px; margin: 20px 0 0; font-size: 0.8125rem; }
+.bv-root .bv-workspace-about h3 { font: 500 1.3125rem/1.3 var(--bv-display); margin-bottom: 10px; }
 /* Subjects here are descriptive, not filters, so they read as text rather than chips. */
-.bv-root .bv-workspace-about .bv-book-subjects { margin-bottom: 6px; color: var(--bv-green); font-size: 14px; font-weight: 600; }
+.bv-root .bv-workspace-about .bv-book-subjects { margin-bottom: 6px; color: var(--bv-green); font-size: 0.875rem; font-weight: 600; }
 .bv-root .bv-reading-synopsis { line-height: 1.7; color: var(--bv-muted); }
 .bv-root .bv-reading-synopsis--short { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.bv-root .bv-workspace-about > .bv-text-link { display: flex; margin-top: 4px; font-size: 14px; }
+.bv-root .bv-workspace-about > .bv-text-link { display: flex; margin-top: 4px; font-size: 0.875rem; }
 .bv-root .bv-workspace-memory { background: transparent; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; padding: 22px 0; }
-.bv-root .bv-workspace-memory h2 { font-size: 25px; margin-bottom: 12px; }
+.bv-root .bv-workspace-memory h2 { font-size: 1.5625rem; margin-bottom: 12px; }
 .bv-root .bv-save-reason { margin-top: 20px; }
 .bv-root :is(.bv-save-reason, .bv-progress-settings, .bv-note-options) > summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--bv-muted); }
 .bv-root .bv-progress-settings[open], .bv-root .bv-note-options[open] { display: grid; gap: 12px; }
 .bv-root :is(.bv-progress-settings, .bv-note-options) input, .bv-root .bv-note-options select { width: 100%; }
 .bv-root .bv-reading-library .bv-filter-groups { align-items: center; gap: 12px; }
 /* "More filters" reads as a control in the same family as the filter pills, not a bare browser triangle. */
-.bv-root .bv-library-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1px solid var(--bv-line); border-radius: 6px; font-weight: 600; font-size: 15px; }
+.bv-root .bv-library-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1px solid var(--bv-line); border-radius: 6px; font-weight: 600; font-size: 0.9375rem; }
 .bv-root .bv-library-more > summary::-webkit-details-marker { display: none; }
 .bv-root .bv-library-more > summary svg { width: 16px; height: 16px; transition: transform 150ms ease; }
 .bv-root .bv-library-more[open] > summary svg { transform: rotate(180deg); }
@@ -46,11 +46,11 @@
 .bv-root .bv-workspace-memory { grid-column: 1; }
 /* Secondary material shares one quiet group: About, then history, imported sources and management as plain rows. */
 .bv-root .bv-workspace-more { grid-column: 1; grid-row: 3 / span 2; min-width: 0; border-top: 1px solid var(--bv-line); padding-top: 22px; }
-.bv-root .bv-workspace-more > h2 { font-size: 24px; margin-bottom: 16px; }
+.bv-root .bv-workspace-more > h2 { font-size: 1.5rem; margin-bottom: 16px; }
 .bv-root .bv-workspace-more > :is(.bv-workspace-about, .bv-workspace-history, .bv-workspace-imported, .bv-workspace-manage) { border-top: 1px solid var(--bv-line); padding: 14px 0; }
 .bv-root .bv-workspace-more > .bv-workspace-about { border-top: 0; padding-top: 0; }
 .bv-root :is(.bv-workspace-history, .bv-workspace-manage) > summary,
-.bv-root .bv-workspace-imported .bv-section > details > summary { font: 600 17px/1.4 var(--bv-body); cursor: pointer; min-height: 44px; align-content: center; }
+.bv-root .bv-workspace-imported .bv-section > details > summary { font: 600 1.0625rem/1.4 var(--bv-body); cursor: pointer; min-height: 44px; align-content: center; }
 .bv-root :is(.bv-workspace-history, .bv-workspace-manage)[open] > summary { margin-bottom: 12px; }
 .bv-root .bv-workspace-about .bv-synopsis-toggle { padding-inline: 0; }
 .bv-root .bv-workspace-stop { margin-bottom: 20px; }
@@ -61,12 +61,12 @@
 .bv-root .bv-workspace-editor .bv-reading-form fieldset { padding: 0; border: 0; }
 .bv-root .bv-workspace-editor :is(input, select, textarea) { max-width: 100%; min-width: 0; }
 .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full) { grid-column: 2; grid-row: 3 / span 2; padding: 24px 0 0; margin: 0; border-top: 1px solid var(--bv-line); min-width: 0; }
-.bv-root .bv-workspace-next h2 { font-size: 25px; }
+.bv-root .bv-workspace-next h2 { font-size: 1.5625rem; }
 .bv-root .bv-workspace-next-book { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 16px; border: 1px solid var(--bv-line); border-radius: 8px; background: var(--bv-panel); }
-.bv-root .bv-workspace-next-book h3 { font: 500 20px/1.3 var(--bv-display); margin: 0 0 6px; }
-.bv-root .bv-workspace-next-book .bv-author { font-size: 14px; margin-bottom: 8px; }
+.bv-root .bv-workspace-next-book h3 { font: 500 1.25rem/1.3 var(--bv-display); margin: 0 0 6px; }
+.bv-root .bv-workspace-next-book .bv-author { font-size: 0.875rem; margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-help { margin-bottom: 8px; }
-.bv-root .bv-workspace-next-book .bv-text-link { font-size: 14px; }
+.bv-root .bv-workspace-next-book .bv-text-link { font-size: 0.875rem; }
 .bv-root .bv-workspace-next-full .bv-choice-grid { grid-template-columns: 1fr; }
 .bv-root .bv-workspace-next-full .bv-choice-grid .bv-book-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 16px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-workspace-next-full .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; }
@@ -76,15 +76,15 @@
 @media (max-width: 1000px) and (min-width: 761px) {
   .bv-root .bv-workspace-layout { grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; }
   .bv-root .bv-workspace-book { grid-template-columns: 112px minmax(0, 1fr); gap: 18px; padding: 20px; }
-  .bv-root .bv-workspace-identity h1 { font-size: 32px; }
+  .bv-root .bv-workspace-identity h1 { font-size: 2rem; }
 }
 @media (max-width: 760px) {
   .bv-root .bv-workspace-layout { display: flex; flex-direction: column; gap: 20px; }
   .bv-root .bv-workspace-layout > * { width: 100%; }
   .bv-root .bv-workspace-book { order: 1; display: flex; flex-direction: column; align-items: stretch; gap: 18px; border: 0; padding: 0; background: transparent; }
   .bv-root .bv-workspace-cover { width: 112px; align-self: center; }
-  .bv-root .bv-workspace-identity h1 { font-size: 30px; }
-  .bv-root .bv-workspace-identity .bv-detail-author { font-size: 18px; margin-bottom: 12px; }
+  .bv-root .bv-workspace-identity h1 { font-size: 1.875rem; }
+  .bv-root .bv-workspace-identity .bv-detail-author { font-size: 1.125rem; margin-bottom: 12px; }
   .bv-root .bv-workspace-progress { order: 2; padding: 20px; }
   .bv-root .bv-workspace-editor { order: 5; padding: 20px; }
   .bv-root .bv-workspace-memory { order: 6; padding: 20px; }
@@ -98,8 +98,8 @@
 .bv-root .bv-workspace-memory { grid-row: 2; }
 /* A saved finish is acknowledged between the book and My note; nothing else moves. */
 .bv-root .bv-finish-moment { grid-column: 1; grid-row: 2; min-width: 0; border-top: 1px solid var(--bv-line); padding: 22px 0 6px; }
-.bv-root .bv-finish-moment h2 { font-size: 26px; margin-bottom: 6px; }
-.bv-root .bv-finish-moment .bv-finish-dates { color: var(--bv-green); font-size: 15px; font-weight: 600; margin-bottom: 10px; }
+.bv-root .bv-finish-moment h2 { font-size: 1.625rem; margin-bottom: 6px; }
+.bv-root .bv-finish-moment .bv-finish-dates { color: var(--bv-green); font-size: 0.9375rem; font-weight: 600; margin-bottom: 10px; }
 .bv-root .bv-finish-moment .bv-muted { max-width: 38rem; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-memory { grid-row: 3; }
 .bv-root .bv-workspace-layout--finished .bv-workspace-more { grid-row: 4; }
@@ -109,14 +109,14 @@
 .bv-root .bv-workspace-editor { padding: 0; margin-top: 18px; border: 0; border-top: 1px solid var(--bv-line); border-radius: 0; background: transparent; }
 .bv-root .bv-workspace-memory > .bv-workspace-editor { margin-top: 0; border-top: 0; }
 .bv-root .bv-workspace-editor .bv-reading-form { margin: 18px 0 0; }
-.bv-root .bv-workspace-editor h2 { font-size: 24px; margin-bottom: 12px; }
+.bv-root .bv-workspace-editor h2 { font-size: 1.5rem; margin-bottom: 12px; }
 .bv-root .bv-workspace-editor .bv-reading-form fieldset { padding: 0; gap: 12px; }
 .bv-root .bv-workspace-editor .bv-form-actions { gap: 10px; }
 .bv-root .bv-editor-actions { margin-top: 16px; }
 .bv-root .bv-editor-caption { color: var(--bv-muted); }
 .bv-root .bv-workspace-memory .bv-reading-draft { border: 0; }
 .bv-root .bv-home-next .bv-workspace-next { padding: 0; }
-.bv-root .bv-home-next .bv-workspace-next h2 { font-size: 28px; }
+.bv-root .bv-home-next .bv-workspace-next h2 { font-size: 1.75rem; }
 @media (min-width: 761px) {
   /* A taller progress form must not make the book's whole left column wait.
      Span the existing content rows while keeping the same mounted editor. */
@@ -134,3 +134,8 @@
   .bv-root .bv-editor-actions > [type=submit] { flex: 1; }
   .bv-root .bv-workspace-more { padding-top: 18px; }
 }
+/* Quiet undo on a finished or stopped book: a text action inside a sentence, still a 44px target. */
+.bv-root .bv-workspace-undo { margin: 4px 0 0; color: var(--bv-muted); font-size: 0.9375rem; }
+.bv-root .bv-workspace-undo .bv-inline-action { min-height: 44px; padding: 0 4px; color: var(--bv-green); font-size: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-workspace-forget { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-workspace-forget .bv-help { margin-bottom: 0; }

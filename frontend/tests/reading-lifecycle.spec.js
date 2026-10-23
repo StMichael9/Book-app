@@ -376,7 +376,7 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   await page.goto("/my-books/101");
   await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const label of ["I own it", "Want to read", "Resume reading", "Finish book", "Update progress"]) {
+  for (const label of ["Want to read", "I own it", "Resume reading", "Finish book", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
   }
@@ -462,11 +462,11 @@ test("M3 confirmed removal distinguishes a reading from the whole book; failure 
   await openDisclosure(page, "Reading history");
   await page.getByRole("button", { name: /^Delete this reading: / }).click();
   app.removeFails = true;
-  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete this reading", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("couldn’t confirm the removal");
   expect(app.attempt).not.toBeNull();
   app.removeFails = false;
-  await dialog.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await dialog.getByRole("button", { name: "Delete this reading", exact: true }).click();
   await expect(dialog).not.toBeVisible();
   await expect(page.getByRole("heading", { name: "Not started", exact: true })).toBeVisible();
   expect(app.entries.get(101).is_owned).toBe(true);
@@ -555,7 +555,7 @@ test("M3 late download never leaves a departed account", async ({ page, app }) =
   expect(count).toBe(0);
 });
 
-for (const flag of ["I own it", "Want to read"]) {
+for (const flag of ["Want to read", "I own it"]) {
   test(`${flag} success preserves progress/date drafts across refresh without silently rebasing`, async ({ page, app }) => {
     await page.goto("/my-books/101");
     await page.getByRole("button", { name: /^(Update progress|Edit dates and progress|View progress and dates)$/ }).click();
@@ -1166,7 +1166,7 @@ test("minimalist deleting one reading clears its drafts and retains the book's s
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await openDisclosure(page, "Reading history");
   await page.getByRole("button", { name: /^Delete this reading: / }).click();
-  await page.getByRole("button", { name: "Delete reading record", exact: true }).click();
+  await page.getByRole("button", { name: "Delete this reading", exact: true }).click();
   await page.getByRole("button", { name: "Continue save-reason draft", exact: true }).click();
   await expect(page.getByLabel("Save reason (optional)", { exact: true })).toHaveValue("Keep this separate book-level thought");
   await page.getByRole("button", { name: "Save reason", exact: true }).click();
