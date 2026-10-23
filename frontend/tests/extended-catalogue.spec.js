@@ -21,7 +21,7 @@ const test = base.extend({
       const reply = json => route.fulfill({ status: 200, json });
       const currentEntry = appEntry(state);
       if (path === '/auth/refresh') return state.authenticated ? reply({}) : route.fulfill({ status: 401, json: {} });
-      if (path === '/me/reading-capabilities') { if (state.holdCapabilities) await state.holdCapabilities; if (state.failCapabilities) return route.fulfill({ status: 503, json: {} }); return reply({ enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } }); }
+      if (path === '/me/reading-capabilities') { if (state.holdCapabilities) await state.holdCapabilities; if (state.failCapabilities) return route.fulfill({ status: 503, json: {} }); return reply({ enabled: true, writable: state.writable !== false, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } }); }
       if (path === '/me/books' || path === '/me/preferences' || path.startsWith('/autocomplete/')) return reply([]);
       if (path === '/books') { if (state.holdLocal) await state.holdLocal; return reply({ items: state.localItems, total: state.localItems.length, page: 1, size: 20 }); }
       if (path === '/me/library/lookup') return reply({ items: request.postDataJSON().book_ids.map(id => ({ book_id: id, entry_id: null, is_owned: false, is_wanted: false, version: null })) });
@@ -224,4 +224,27 @@ test('failed capability check does not claim that an additional catalogue was se
   await expect(page.getByText('Additional books couldn’t be checked.', { exact: false })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
   expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
+});
+
+test('with the extended catalogue off, an empty search offers a prefilled private book', async ({ page, app }) => {
+  app.enabled = false; app.localItems = [];
+  await page.goto('/browse?book=My%20missing%20title');
+  await expect(page.getByRole('heading', { name: 'No books found.', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Add it to your library yourself', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Add one book manually' })).toBeVisible();
+  await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My missing title');
+  await expect(page.getByRole('link', { name: 'Back to search' })).toHaveAttribute('href', '/browse?book=My%20missing%20title');
+  expect(app.requests.filter(x => x.path === '/me/catalogue/search')).toHaveLength(0);
+});
+
+test('the missing-book action is hidden for read-only and signed-out readers', async ({ page, app }) => {
+  app.enabled = false; app.localItems = []; app.writable = false;
+  await page.goto('/browse?book=My%20missing%20title');
+  await expect(page.getByRole('heading', { name: 'No books found.', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add it to your library yourself' })).toHaveCount(0);
+  app.authenticated = false; app.writable = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('bookvane:session-expired')));
+  await page.goto('/browse?book=My%20missing%20title');
+  await expect(page.getByRole('heading', { name: 'No books found.', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add it to your library yourself' })).toHaveCount(0);
 });
