@@ -360,3 +360,26 @@ test("M4 late private choices cannot reappear after account departure", async ({
     expect(app.requests.filter(item => item.method === "PUT")).toHaveLength(0);
   } finally { release(); }
 });
+
+test.describe("Next Read start dates use the reader's local calendar day", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+
+  // 23:59:30 on 22 Oct in Los Angeles is already 23 Oct in UTC.
+  test("Start reading sends today's local date and a retry after midnight sends the same body", async ({ page, app }) => {
+    await page.clock.setFixedTime(new Date("2026-10-22T23:59:30-07:00"));
+    app.startFails = true;
+    await page.goto("/home");
+    await page.getByRole("button", { name: "Choose next", exact: true }).click();
+    const start = page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true });
+    await start.click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.clock.setFixedTime(new Date("2026-10-23T00:00:30-07:00"));
+    app.startFails = false;
+    await start.click();
+    await expect.poll(() => app.requests.filter(item => item.method === "PUT" && item.path.startsWith("/me/reading-attempts/")).length).toBe(2);
+    const [first, second] = app.requests.filter(item => item.method === "PUT" && item.path.startsWith("/me/reading-attempts/"));
+    expect(first.body).toMatchObject({ started_via: "next_read", started_on: "2026-10-22" });
+    expect(second.path).toBe(first.path);
+    expect(second.body).toEqual(first.body);
+  });
+});

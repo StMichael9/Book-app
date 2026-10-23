@@ -9,6 +9,7 @@ import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
+import { localToday } from "./localToday.js";
 import ImportedSources from "./imports/ImportedSources.jsx";
 import { CurrentReadingCard, SlowReadingNotice } from "./ReadingCards.jsx";
 import { ReadingBookDetails, ReadingBookIdentity, ReadingProgress } from "./ReadingBookContext.jsx";
@@ -104,12 +105,13 @@ function FinishMoment({ title, attempt, headingRef, onNote, noteDisabled }) {
 function RereadDialog({ entry, editionId, onClose, onSaved }) {
   const library = useUserBooks(), command = useReadingCommand();
   const identity = useRef(crypto.randomUUID());
+  const startedOn = useRef(localToday());
   return <NativeDialog open title="Start a new reading?" onClose={() => { if (!command.pending) onClose(); }}>
     <p><strong>{displayBook(entry).title}</strong></p><p>This creates a new reading record for this book. Your earlier dates, notes and progress stay in history.</p>
     <p>To continue the same reading, cancel and choose Mark as reading instead.</p>
     {command.error && <p role="alert">{command.error}</p>}
     <div className="bv-dialog-actions"><Button variant="secondary" disabled={command.pending} onClick={onClose}>Cancel</Button><Button disabled={command.pending || library.readOnly} onClick={() => command.run(() => createReadingAttempt(identity.current, {
-      entry_id: entry.id, expected_version: entry.version, state: "reading", ...(editionId ? { edition_id: Number(editionId) } : {}),
+      entry_id: entry.id, expected_version: entry.version, state: "reading", started_on: startedOn.current, ...(editionId ? { edition_id: Number(editionId) } : {}),
     }), onSaved)}>{command.pending ? "Starting…" : "Start a new reading"}</Button></div>
   </NativeDialog>;
 }
@@ -182,8 +184,10 @@ export function ReadingWorkspacePage() {
   }
   function create(entry, state = "reading") {
     const key = `${entry.id}:${state}`;
-    if (intent.current?.key !== key) intent.current = { key, id: crypto.randomUUID() };
+    // Only a live start is dated, and the day is fixed with the intent so a retry sends the same body.
+    if (intent.current?.key !== key) intent.current = { key, id: crypto.randomUUID(), startedOn: state === "reading" ? localToday() : null };
     command.run(() => createReadingAttempt(intent.current.id, { entry_id: entry.id, expected_version: entry.version, state,
+      ...(intent.current.startedOn ? { started_on: intent.current.startedOn } : {}),
       ...(editionId ? { edition_id: Number(editionId) } : {}) }), accept);
   }
   function acceptReadingAction(result, message) {
@@ -232,7 +236,12 @@ export function ReadingWorkspacePage() {
   const blocked = readingUnavailable || Boolean(reread);
   const progressAction = attempt && <Button key="progress" variant={attempt.state === "paused" || terminal ? "quiet" : "primary"} disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openEditor(attempt)}>{library.readOnly ? "View progress and dates" : terminal ? "Edit dates and progress" : "Update progress"}</Button>;
   function changeState(state) {
-    command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state }), result => {
+    let ended_on;
+    if (state === "finished" || state === "dnf") {
+      const today = localToday();
+      ended_on = attempt.started_on && attempt.started_on > today ? attempt.started_on : today;
+    }
+    command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state, ...(ended_on ? { ended_on } : {}) }), result => {
       accept(result);
       if (state === "finished") setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration });
     });
@@ -341,6 +350,7 @@ export function StartReadingPage() {
     "We couldn’t confirm your reading started. Please try again.",
     { conflictMessage: "Your library changed while we were starting this reading. Check its current state and try again." });
   const identity = useRef(crypto.randomUUID());
+  const startedOn = useRef(localToday());
   const started = useRef(false);
   const begin = () => command.run(async assertCurrent => {
     await library.waitForBookWrites(Number(bookId));
@@ -359,7 +369,7 @@ export function StartReadingPage() {
     // A deep link opens existing history; only an explicit Start again in the
     // workspace may create a reread of an already recorded book.
     if (workspace.current_attempt) return { entry };
-    return createReadingAttempt(identity.current, { entry_id: entry.id, expected_version: entry.version, started_via: "discovery" });
+    return createReadingAttempt(identity.current, { entry_id: entry.id, expected_version: entry.version, started_via: "discovery", started_on: startedOn.current });
   }, result => { library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`, { replace: true }); });
   const beginCurrent = useEffectEvent(begin);
   useEffect(() => { if (!started.current && !library.readOnly) { started.current = true; beginCurrent(); } }, [library.readOnly]);

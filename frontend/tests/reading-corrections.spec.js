@@ -254,7 +254,7 @@ for (const width of [390, 1440]) test(`same book Finish → Mark as reading upda
   expect(app.attempts[1]).toEqual(original[1]);
   expect(app.entry).toMatchObject({ id: 101, is_owned: true, is_wanted: true });
   expect(writes(app)).toEqual([
-    { path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'finished' } },
+    { path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 4, state: 'finished', ended_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) } },
     { path: `/me/reading-attempts/${originalId}`, method: 'PATCH', body: { expected_version: 5, state: 'reading' } },
   ]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

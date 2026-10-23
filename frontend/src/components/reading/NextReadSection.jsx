@@ -6,6 +6,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
 import { BookCover, Button, TextLink } from "../ui-v2/primitives.jsx";
+import { localToday } from "./localToday.js";
 
 function reasonText(reason) {
   switch (reason.code) {
@@ -19,7 +20,7 @@ function reasonText(reason) {
   }
 }
 
-async function startChoice(choice, source, identity, assertCurrent) {
+async function startChoice(choice, source, identity, startedOn, assertCurrent) {
     let entryId = choice.entry_id;
     if (!entryId) {
       const existing = (await lookupLibraryBooks([choice.book.id])).items[0];
@@ -38,7 +39,7 @@ async function startChoice(choice, source, identity, assertCurrent) {
         (source === "catalogue" && workspace.current_attempt)) {
       throw Object.assign(new Error("Choice changed"), { detail: "This book changed. Reload choices before starting a new reading." });
     }
-    return createReadingAttempt(identity, { entry_id: entryId, expected_version: workspace.entry.version, started_via: "next_read" });
+    return createReadingAttempt(identity, { entry_id: entryId, expected_version: workspace.entry.version, started_via: "next_read", started_on: startedOn });
 }
 
 function NextReadCard({ choice, disabled, pending, onStart }) {
@@ -105,9 +106,9 @@ export default function NextReadSection({ preview = false, home = false, current
     setSettings(current => ({ ...current, source, rotation: 0, exclude: [] }));
   }
   function begin(choice) {
-    if (intent.current?.key !== choice.key) intent.current = { key: choice.key, id: crypto.randomUUID() };
+    if (intent.current?.key !== choice.key) intent.current = { key: choice.key, id: crypto.randomUUID(), startedOn: localToday() };
     setChosen(choice.key);
-    command.run(assertCurrent => startChoice(choice, settings.source, intent.current.id, assertCurrent), result => {
+    command.run(assertCurrent => startChoice(choice, settings.source, intent.current.id, intent.current.startedOn, assertCurrent), result => {
       library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`);
     });
   }
