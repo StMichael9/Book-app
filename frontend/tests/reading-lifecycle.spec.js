@@ -25,7 +25,7 @@ const test = base.extend({
       attempt: { id: attemptId, state: "reading", started_on: null, ended_on: null,
         progress_unit: "percent", progress_value: 40, total_pages: 200,
         edition_id: null, edition_source_id: null, edition_format: null, created_at: stamp, updated_at: stamp },
-      requests: [], errors: [], authenticated: true,
+      requests: [], errors: [], authenticated: true, createdAttempts: new Map(),
     };
     page.on("pageerror", error => state.errors.push(error.message));
     await page.route("**/*", async route => {
@@ -86,7 +86,7 @@ const test = base.extend({
         if (state.holdWorkspace) await state.holdWorkspace;
         const id = Number(workspace[1]);
         if (!state.entries.has(id)) return reply(404, { detail: "Library entry not found" });
-        return reply(200, { entry: state.entries.get(id), current_attempt: id === 101 ? state.attempt : null, editions: [] });
+        return reply(200, { entry: state.entries.get(id), current_attempt: state.createdAttempts.get(id) ?? (id === 101 ? state.attempt : null), editions: [] });
       }
       if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: path.includes("/101/") && state.attempt ? [state.attempt, ...(state.historicalAttempt ? [state.historicalAttempt] : [])] : [], next_cursor: null });
       if (state.historicalAttempt && path === `/me/reading-attempts/${state.historicalAttempt.id}` && method === "GET") {
@@ -130,6 +130,16 @@ const test = base.extend({
       if (path === `/me/reading-attempts/${attemptId}` && method === "GET") {
         if (state.holdMemory) await state.holdMemory;
         return reply(200, { entry: state.entries.get(101), attempt: state.attempt });
+      }
+      const created = path.match(/^\/me\/reading-attempts\/([0-9a-f-]{36})$/);
+      if (created && method === "PUT") {
+        if (state.createFailOnce) { state.createFailOnce = false; return reply(503, { detail: "Temporary failure" }); }
+        const saved = state.entries.get(body.entry_id);
+        saved.version += 1; saved.reading_state = body.state || "reading";
+        const made = { id: created[1], state: body.state || "reading", started_on: body.started_on ?? null, ended_on: body.ended_on ?? null,
+          progress_unit: null, progress_value: null, total_pages: null, edition_id: null, edition_source_id: null, edition_format: null, created_at: stamp, updated_at: stamp };
+        state.createdAttempts.set(saved.id, made);
+        return reply(200, { entry: saved, attempt: made });
       }
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
@@ -1202,4 +1212,117 @@ test("minimalist note save preserves focus deliberately moved outside its pendin
     await expect(page.locator(".bv-workspace-memory .bv-private-text")).toHaveText("Save without taking focus");
     await expect(back).toBeFocused();
   } finally { release(); }
+});
+
+// 23:59:30 on 22 Oct in Los Angeles is already 23 Oct in UTC, so a UTC date would be a day ahead.
+const beforeLocalMidnight = new Date("2026-10-22T23:59:30-07:00"), afterLocalMidnight = new Date("2026-10-23T00:00:30-07:00");
+const liveWrites = app => app.requests.filter(item => ["PUT", "PATCH"].includes(item.method) && item.path.startsWith("/me/reading-attempts/"));
+
+test.describe("live reading dates use the reader's local calendar day", () => {
+  test.use({ timezoneId: "America/Los_Angeles" });
+  test.beforeEach(async ({ page }) => { await page.clock.setFixedTime(beforeLocalMidnight); });
+
+  test("Start reading on the workspace sends today's local date", async ({ page, app }) => {
+    await page.goto("/my-books/102");
+    await page.getByRole("button", { name: "Start reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ entry_id: 102, state: "reading", started_on: "2026-10-22" });
+    expect(liveWrites(app)[0].body).not.toHaveProperty("ended_on");
+  });
+
+  test("a retried start after midnight reuses the first date so the body is identical", async ({ page, app }) => {
+    app.createFailOnce = true;
+    await page.goto("/my-books/102");
+    await page.getByRole("button", { name: "Start reading", exact: true }).click();
+    await expect(page.getByRole("alert")).toBeVisible();
+    await page.clock.setFixedTime(afterLocalMidnight);
+    await page.getByRole("button", { name: "Start reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(2);
+    const [first, second] = liveWrites(app);
+    expect(first.path).toBe(second.path);
+    expect(second.body).toEqual(first.body);
+    expect(second.body.started_on).toBe("2026-10-22");
+  });
+
+  test("Discover start sends today's local date", async ({ page, app }) => {
+    await page.goto("/my-books/start/102");
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ entry_id: 102, started_via: "discovery", started_on: "2026-10-22" });
+  });
+
+  test("Read it again stamps only the new attempt with today's date", async ({ page, app }) => {
+    Object.assign(app.attempt, { state: "finished", started_on: "2026-09-01", ended_on: "2026-10-01" });
+    app.entries.get(101).reading_state = "finished";
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Read it again", exact: true }).click();
+    await page.getByRole("button", { name: "Start a new reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0]).toMatchObject({ method: "PUT", body: { entry_id: 101, state: "reading", started_on: "2026-10-22" } });
+    expect(app.attempt).toMatchObject({ started_on: "2026-09-01", ended_on: "2026-10-01" });
+  });
+
+  test("Finish and Stop send today's local date as the end date and leave the start alone", async ({ page, app }) => {
+    app.attempt.started_on = "2026-10-01";
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Finish book", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ state: "finished", ended_on: "2026-10-22" });
+    expect(liveWrites(app)[0].body).not.toHaveProperty("started_on");
+    Object.assign(app.attempt, { state: "reading", ended_on: null }); app.entries.get(101).reading_state = "reading";
+    await page.goto("/my-books/101");
+    await openDisclosure(page, "Manage this book");
+    await page.getByRole("button", { name: "Stop reading this book", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(2);
+    expect(liveWrites(app)[1].body).toMatchObject({ state: "dnf", ended_on: "2026-10-22" });
+    expect(liveWrites(app)[1].body).not.toHaveProperty("started_on");
+  });
+
+  test("Finish on a reader-entered future start date ends on that start date", async ({ page, app }) => {
+    app.attempt.started_on = "2026-12-01";
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Finish book", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ state: "finished", ended_on: "2026-12-01" });
+  });
+
+  test("Pause and Resume send no dates", async ({ page, app }) => {
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Pause reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    await page.getByRole("button", { name: "Resume reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(2);
+    expect(liveWrites(app).map(item => item.body.state)).toEqual(["paused", "reading"]);
+    for (const { body } of liveWrites(app)) { expect(body).not.toHaveProperty("started_on"); expect(body).not.toHaveProperty("ended_on"); }
+  });
+
+  test("Mark as reading on a finished record sends no dates", async ({ page, app }) => {
+    Object.assign(app.attempt, { state: "finished", started_on: "2026-09-01", ended_on: "2026-10-01" });
+    app.entries.get(101).reading_state = "finished";
+    await page.goto("/my-books/101");
+    await page.getByRole("button", { name: "Mark as reading", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ state: "reading" });
+    expect(liveWrites(app)[0].body).not.toHaveProperty("started_on");
+    expect(liveWrites(app)[0].body).not.toHaveProperty("ended_on");
+  });
+
+  test("Log an earlier read keeps dates unknown", async ({ page, app }) => {
+    await page.goto("/my-books/102");
+    await openDisclosure(page, "Manage this book");
+    await page.getByRole("button", { name: "Log an earlier read I finished", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ entry_id: 102, state: "finished" });
+    expect(liveWrites(app)[0].body).not.toHaveProperty("started_on");
+    expect(liveWrites(app)[0].body).not.toHaveProperty("ended_on");
+  });
+
+  test("Log an earlier read I stopped keeps dates unknown", async ({ page, app }) => {
+    await page.goto("/my-books/102");
+    await openDisclosure(page, "Manage this book");
+    await page.getByRole("button", { name: "Log an earlier read I stopped", exact: true }).click();
+    await expect.poll(() => liveWrites(app).length).toBe(1);
+    expect(liveWrites(app)[0].body).toMatchObject({ entry_id: 102, state: "dnf" });
+    expect(liveWrites(app)[0].body).not.toHaveProperty("started_on");
+    expect(liveWrites(app)[0].body).not.toHaveProperty("ended_on");
+  });
 });
