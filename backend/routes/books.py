@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
 from sqlalchemy.orm import selectinload, Session
 
@@ -13,11 +13,21 @@ from fastapi_pagination import Page, Params
 
 router = APIRouter()
 
+PUBLIC_CACHE = "public, max-age=60, stale-while-revalidate=300"
+
+
+def cache_if_anonymous(response: Response, current_user: User | None) -> None:
+    # Signed-in responses are personalised (preference order, saved-book access), so only anonymous reads are shareable.
+    if current_user is None:
+        response.headers["Cache-Control"] = PUBLIC_CACHE
+        response.headers["Vary"] = "Cookie"
+
 
 @router.get("/books", response_model=Page[BookSchema])
 @limiter.limit("30/minute")
 def get_books(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
     book: str = None,
@@ -27,6 +37,7 @@ def get_books(
     shelf_status: UserBookStatus | None = None,
     params: Params = Depends(),
 ):
+    cache_if_anonymous(response, current_user)
     service = search.SearchService(db)
     query = service.search_books(
         book=book,
@@ -60,6 +71,7 @@ def get_books(
 @limiter.limit("30/minute")
 def get_book(
     request: Request,
+    response: Response,
     book_id: int,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
@@ -79,4 +91,5 @@ def get_book(
 
      if not book:
          raise HTTPException(status_code=404, detail="Book not found")
+     cache_if_anonymous(response, current_user)
      return book
