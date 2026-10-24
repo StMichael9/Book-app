@@ -89,7 +89,7 @@ export function getBookById(id) {
   const request = apiRequest(`/books/${id}`).then(payload => {
     if (!payload || !Number.isSafeInteger(payload.id)) throw new Error("Invalid catalogue response.");
     const value = Object.fromEntries(["id", "title", "subtitle", "description", "published_year",
-      "cover_image_url", "page_count", "isbn13", "authors", "tags", "owned_count", "want_count"]
+      "cover_image_url", "page_count", "isbn13", "english_title", "authors", "tags", "owned_count", "want_count"]
       .filter(field => Object.hasOwn(payload, field)).map(field => [field, payload[field]]));
     bookDetailsCache.set(key, { value, expiresAt: Date.now() + PUBLIC_CACHE_TTL });
     while (bookDetailsCache.size > MAX_BOOK_DETAILS) bookDetailsCache.delete(bookDetailsCache.keys().next().value);

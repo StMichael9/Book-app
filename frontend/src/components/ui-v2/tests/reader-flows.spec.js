@@ -436,3 +436,25 @@ test("guest Discover leads with covered, plain-title books; a slow cover shows i
   await expect(page.getByRole("img", { name: "Cover of Slow cover", exact: true })).toBeVisible();
 });
 
+test("an English title shows under the title on cards and the book page only when it adds something", async ({ page, app }) => {
+  app.catalogue = [
+    { ...books[0], title: "Ὀδύσσεια", english_title: "The Odyssey" },
+    { ...books[1], english_title: " frankenstein " },
+    { ...books[2], english_title: "" },
+    { ...books[3], english_title: null },
+    { ...books[4] },
+  ];
+  await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await expect(page.locator(".bv-english-title")).toHaveCount(1);
+  const card = page.locator(".bv-book-card").filter({ hasText: "Ὀδύσσεια" });
+  await expect(card.locator(".bv-english-title")).toHaveText("The Odyssey");
+  await expect(card.locator(".bv-english-title")).toHaveAttribute("lang", "en");
+  await expect(card.locator("h3 + .bv-english-title + .bv-author")).toHaveCount(1);
+  await page.goto("/book/1");
+  await expect(page.locator(".bv-detail-body h1 + .bv-english-title")).toHaveText("The Odyssey");
+  await expect(page.locator(".bv-english-title")).toHaveAttribute("lang", "en");
+  for (const id of [2, 3, 4, 5]) {
+    await page.goto(`/book/${id}`); await expect(page.locator(".bv-detail-body h1")).toBeVisible();
+    await expect(page.locator(".bv-english-title")).toHaveCount(0);
+  }
+});

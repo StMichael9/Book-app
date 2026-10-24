@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useReader } from "./readerState.js";
-import { authorLabel } from "./data.js";
+import { authorLabel, englishTitle } from "./data.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -41,6 +41,11 @@ function Jacket({ book, className = "", ...props }) {
     <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
     <span aria-hidden="true">{authorLabel(book)}</span>
   </div>;
+}
+
+export function EnglishTitle({ book }) {
+  const text = englishTitle(book);
+  return text ? <p className="bv-english-title" lang="en">{text}</p> : null;
 }
 
 export function BookCover({ book, priority = false }) {
@@ -119,6 +124,7 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
     {/* The title link is the keyboard stop; the cover stays a pointer shortcut. */}
     <Link className="bv-book-link" to={`/book/${book.id}`} state={state} tabIndex={-1} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>
+    <EnglishTitle book={book} />
     <p className="bv-author">{authorLabel(book)}</p>
     {!preview && <ShelfActions book={book} compact />}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop <ArrowRight aria-hidden="true" /></a>}

@@ -53,7 +53,7 @@ test("M5 real file import, source privacy, replay, CSV and cross-account isolati
   expect(history.items[0].ended_on).toBe("2025-05-05");
   const run = (await (await page.request.get(`${api}/me/library-imports`)).json()).items[0];
   await page.goto(`/my-books/${catalogueEntry.id}`);
-  await page.getByText("Imported source details (1) · private", { exact: true }).click();
+  await page.getByText("From your import (1) · private", { exact: true }).click();
   await expect(page.getByText("Owner-only imported review", { exact: true })).toBeVisible();
   await page.goto("/my-books/import");
   await upload();

@@ -9,7 +9,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { SUBJECTS, authorLabel, catalogueResponse, errorText, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
-import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
+import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
@@ -209,6 +209,7 @@ export function BookPage() {
     {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
       <div className="bv-detail-art"><BookCover book={book} priority /></div>
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
+        <EnglishTitle book={book} />
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {/* Shelf choices come before subjects so they're on a phone's first screen. */}

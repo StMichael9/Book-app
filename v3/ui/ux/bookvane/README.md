@@ -2,6 +2,9 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [October 23 release fix 3e: English-title subtitle](2026-10-23-3e-english-title.md)
+- [October 23: reader copy never names data sources](2026-10-23-no-data-sources.md)
+- [October 23 release fix 4c: library CSV download on My Data](2026-10-23-4c-my-data-csv.md)
 - [October 23 follow-up: immediate undo in the finish and stop moment](2026-10-23-refine-8-undo-moment.md)
 - [October 23 follow-up: P2 fixes from the re-critique](2026-10-23-refine-7-p2-fixes.md)
 - [October 23 follow-up: P1 fixes from the re-critique](2026-10-23-refine-6-p1-fixes.md)

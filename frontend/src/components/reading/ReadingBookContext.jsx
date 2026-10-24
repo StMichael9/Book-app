@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { getBookById } from "../../api/books.js";
-import { BookCover, Button, TextLink } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
 import { authorLabel, subjectLabel, useRequest } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-workspace.css";
 
@@ -9,7 +9,7 @@ export function ReadingBookIdentity({ entry, flags, headingRef }) {
   return <article className="bv-workspace-book" aria-labelledby="bv-reading-book-title">
     <div className="bv-workspace-cover"><BookCover book={book} priority /></div>
     <div className="bv-workspace-identity">
-      <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><p className="bv-detail-author">{authorLabel(book)}</p>
+      <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><EnglishTitle book={book} /><p className="bv-detail-author">{authorLabel(book)}</p>
       {!entry.book && <p className="bv-help">Private book, only in your library. No description or edition details have been confirmed.</p>}
       {flags}
     </div>
@@ -44,11 +44,11 @@ export function ReadingBookDetails({ bookId }) {
       : <>
         {request.data.tags?.length > 0 && <p className="bv-book-subjects">{request.data.tags.slice(0, 4).map(tag => subjectLabel(tag.name)).join(" · ")}</p>}
         {(request.data.published_year != null || request.data.page_count > 0) && <p className="bv-help">
-          {request.data.published_year != null && `Published ${request.data.published_year}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `Catalogue: ${request.data.page_count} pages · your copy may differ`}
+          {request.data.published_year != null && `Published ${request.data.published_year}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `About ${request.data.page_count} pages · your copy may differ`}
         </p>}
         {request.data.description ? <Synopsis text={request.data.description} /> : <p className="bv-muted">A description isn’t available for this book yet.</p>}
       </>}
-    {bookId && <TextLink to={`/book/${bookId}`}>Full catalogue details</TextLink>}
+    {bookId && <TextLink to={`/book/${bookId}`}>Full book details</TextLink>}
   </section>;
 }
 
