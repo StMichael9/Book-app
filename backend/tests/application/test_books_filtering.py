@@ -9,8 +9,10 @@ def test_get_books_without_filters_returns_all_books(client, seeded_books):
     payload = response.json()
     assert payload["page"] == 1
     assert payload["size"] == 50
-    assert payload["total"] == len(seeded_books)
-    assert _titles(payload) == set(seeded_books)
+    complete = {title for title, book in seeded_books.items() if book.is_complete}
+    assert "The Lost Codex" not in complete and len(complete) == len(seeded_books) - 1
+    assert payload["total"] == len(complete)
+    assert _titles(payload) == complete
 
 
 def test_book_filter_matches_partial_title(client):

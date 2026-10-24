@@ -50,14 +50,12 @@ def test_empty_collection_returns_200_not_404(client):
     assert payload["total"] == 0
 
 
-def test_author_filter_returns_both_stoker_books_and_null_year_serializes(client):
+def test_author_filter_returns_only_the_complete_stoker_book(client):
     response = client.get("/books", params={"author": "Stoker"})
 
     assert response.status_code == 200
     payload = response.json()
     titles = {item["title"] for item in payload["items"]}
 
-    assert titles == {"Dracula", "The Lost Codex"}
-
-    lost_codex = next(item for item in payload["items"] if item["title"] == "The Lost Codex")
-    assert lost_codex["published_year"] is None
+    # The Lost Codex has no published year, so discovery no longer shows it.
+    assert titles == {"Dracula"}
