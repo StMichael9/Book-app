@@ -438,7 +438,7 @@ test("guest Discover leads with covered, plain-title books; a slow cover shows i
 
 test("an English title shows under the title on cards and the book page only when it adds something", async ({ page, app }) => {
   app.catalogue = [
-    { ...books[0], title: "Ὀδύσσεια", english_title: "The Odyssey" },
+    { ...books[0], title: "Ὀδύσσεια", english_title: "The Odyssey", published_year: -700 },
     { ...books[1], english_title: " frankenstein " },
     { ...books[2], english_title: "" },
     { ...books[3], english_title: null },
@@ -453,8 +453,11 @@ test("an English title shows under the title on cards and the book page only whe
   await page.goto("/book/1");
   await expect(page.locator(".bv-detail-body h1 + .bv-english-title")).toHaveText("The Odyssey");
   await expect(page.locator(".bv-english-title")).toHaveAttribute("lang", "en");
+  await expect(page.locator(".bv-book-metadata")).toContainText("700 BCE");
+  await expect(page.locator(".bv-book-metadata")).not.toContainText("-700");
   for (const id of [2, 3, 4, 5]) {
     await page.goto(`/book/${id}`); await expect(page.locator(".bv-detail-body h1")).toBeVisible();
+    if (id === 2) await expect(page.locator(".bv-book-metadata")).toContainText("Published1818");
     await expect(page.locator(".bv-english-title")).toHaveCount(0);
   }
 });
