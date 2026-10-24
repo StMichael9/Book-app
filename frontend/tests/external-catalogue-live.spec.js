@@ -1,0 +1,58 @@
+import { test, expect } from '@playwright/test';
+
+// No API mocks: public Turso reads, local FastAPI, fresh synthetic PostgreSQL.
+test('live catalogue lookup confirms one private entry and preserves it on repeat selection', async ({ page }) => {
+  const api = 'http://127.0.0.1:8007';
+  const errors = [], browserProviderCalls = [], selections = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('request', request => {
+    if (new URL(request.url()).hostname.endsWith('turso.io')) browserProviderCalls.push(request.url());
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/me/catalogue/select') selections.push(request.postDataJSON());
+  });
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto('/register?returnTo=/browse');
+  await page.getByLabel('Email address', { exact: true }).fill('catalogue-live-reader@example.com');
+  await page.getByLabel('Password', { exact: true }).fill('synthetic-catalogue-browser-password');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page).toHaveURL(url => url.pathname === '/browse');
+  const response = page.waitForResponse(response => new URL(response.url()).pathname === '/me/catalogue/search');
+  await page.goto('/browse?book=pride');
+  const results = await response;
+  expect(results.status()).toBe(200);
+  const found = await results.json();
+  expect(found.available).toBe(true);
+  expect(found.items.length).toBeGreaterThan(0);
+  expect(found.items.length).toBeLessThanOrEqual(30);
+  await page.getByRole('button', { name: 'Review this book', exact: true }).first().click();
+  await expect(page.getByRole('dialog', { name: 'Is this your book?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(selections).toHaveLength(0);
+  expect((await (await page.request.get(`${api}/me/library`)).json()).total).toBe(0);
+  await page.getByRole('button', { name: 'Review this book', exact: true }).first().click();
+  await page.getByRole('button', { name: 'Confirm and open', exact: true }).click();
+  await expect(page).toHaveURL(url => /^\/my-books\/\d+$/.test(url.pathname));
+  expect(selections).toHaveLength(1);
+  const library = await (await page.request.get(`${api}/me/library`)).json();
+  expect(library.total).toBe(1);
+  const entry = library.items[0];
+  expect(entry.book_id).toBeNull();
+  expect(entry.private_catalogue.work_id).toMatch(/^\/works\/OL\d+W$/);
+  expect(entry.private_catalogue.source).toBe('openlibrary');
+  expect(entry.is_wanted).toBe(true);
+  await expect(page.getByRole('heading', { name: entry.private_title, exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: entry.private_title, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Start reading', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Reading', exact: true })).toBeVisible();
+  const before = await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json();
+  const repeat = await page.request.post(`${api}/me/catalogue/select`, { data: selections[0] });
+  expect(repeat.status()).toBe(200);
+  expect((await repeat.json()).id).toBe(entry.id);
+  const after = await (await page.request.get(`${api}/me/library/${entry.id}/reading`)).json();
+  expect(after.current_attempt.id).toBe(before.current_attempt.id);
+  expect(after.entry.is_wanted).toBe(false);
+  expect((await (await page.request.get(`${api}/me/library`)).json()).total).toBe(1);
+  expect(browserProviderCalls).toEqual([]);
+  expect(errors).toEqual([]);
+  await page.screenshot({ path: test.info().outputPath('live-catalogue-private-reading-phone.png'), fullPage: true });
+});

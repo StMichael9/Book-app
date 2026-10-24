@@ -4,14 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/bookvane-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Shelfbound</title>
+    <title>Bookvane</title>
     <script>
-      try {
-        const savedTheme = window.localStorage.getItem("shelfbound-theme");
-        if (savedTheme === "light" || savedTheme === "dark") {
-          document.documentElement.setAttribute("data-theme", savedTheme);
-        }
-      } catch {}
+      (() => {
+        const valid = value => value === "light" || value === "dark";
+        let theme;
+        try {
+          const current = window.localStorage.getItem("bookvane-theme");
+          if (valid(current)) theme = current;
+          else {
+            const legacy = window.localStorage.getItem("shelfbound-theme");
+            if (valid(legacy)) {
+              theme = legacy;
+              window.localStorage.setItem("bookvane-theme", theme);
+            }
+          }
+        } catch { /* Storage is optional; apply the selected theme even if persistence fails. */ }
+        theme ||= window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", theme);
+        document.documentElement.style.colorScheme = theme;
+      })();
     </script>
   </head>
   <body>

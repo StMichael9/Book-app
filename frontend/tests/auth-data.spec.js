@@ -17,6 +17,7 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       app.requests.push({ path, method, body });
       const reply = (status, json, headers) => route.fulfill({ status, json, headers });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: false, contract_version: 1 });
       if (path === "/auth/refresh") {
         if (app.refreshNetworkFails) return route.abort("failed");
         if (app.refreshStatus) return reply(app.refreshStatus, { detail: "Service temporarily unavailable" });
@@ -58,6 +59,7 @@ const test = base.extend({
       }
       if (path === "/books/1/status") {
         if (app.holdSave) await app.holdSave;
+        if (app.lateWrite401) return reply(401, { detail: "Previous session expired" });
         app.saved = method === "DELETE" ? [] : [{ id: 1, book_id: 1, book, status: body.status }];
         return method === "DELETE" ? route.fulfill({ status: 204 }) : reply(200, app.saved[0]);
       }
@@ -136,14 +138,14 @@ test("a stalled startup has a finite deadline and a safe retry", async ({ page, 
 test("a refresh outage does not silently sign out or overwrite a saved shelf", async ({ page, app }) => {
   app.saved = [{ id: 1, book_id: 1, book, status: "want" }];
   await page.goto("/book/1");
-  const own = page.getByRole("button", { name: "Add Browser-only book to Own" });
+  const own = page.getByRole("button", { name: "Add Browser-only book to Owned" });
   await expect(own).toBeEnabled();
   app.expireNext = true; app.refreshNetworkFails = true;
   await own.click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
   await expect(own).toBeEnabled();
   await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove Browser-only book from Want" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Browser-only book from Want to read" })).toBeVisible();
   expect(app.saved[0].status).toBe("want");
 });
 
@@ -185,9 +187,9 @@ test("startup cookie response completes before a newer login cookie", async ({ p
 
 test("expired access refreshes once; permanent expiry removes private UI", async ({ page, app }) => {
   await page.goto("/book/1");
-  const own = page.getByRole("button", { name: "Add Browser-only book to Own" });
+  const own = page.getByRole("button", { name: "Add Browser-only book to Owned" });
   await expect(own).toBeEnabled(); app.expireNext = true; await own.click();
-  const owned = page.getByRole("button", { name: "Remove Browser-only book from Own" });
+  const owned = page.getByRole("button", { name: "Remove Browser-only book from Owned" });
   await expect(owned).toBeEnabled(); expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(2);
   app.expireNext = true; app.refreshFails = true; await owned.click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(3);
@@ -236,8 +238,33 @@ test("a reset link can be consumed once through the production entry", async ({ 
 
 test("ordinary discovery has one shared library read and one startup refresh", async ({ page, app }) => {
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Add Browser-only book to Want" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Add Browser-only book to Want to read" })).toBeEnabled();
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(1);
   expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
   expect(app.requests.filter(r => r.path === "/books")).toHaveLength(1);
+});
+
+test("a departed account's late write 401 cannot replay under a new account", async ({ page, app }) => {
+  app.saved = [{ id: 1, book_id: 1, book, status: "want" }];
+  await page.goto("/book/1");
+  await expect(page.getByRole("button", { name: "Add Browser-only book to Owned" })).toBeEnabled();
+  let release;
+  app.holdSave = new Promise(resolve => { release = resolve; });
+  app.lateWrite401 = true;
+  try {
+    await page.getByRole("button", { name: "Add Browser-only book to Owned" }).click();
+    await expect.poll(() => app.requests.filter(r => r.path === "/books/1/status").length).toBe(1);
+    app.authenticated = false;
+    await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+    await page.getByRole("link", { name: "Sign in", exact: true }).click();
+    app.saved = [];
+    await login(page);
+    await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
+    release();
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 100)));
+    expect(app.requests.filter(r => r.path === "/books/1/status")).toHaveLength(1);
+    expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
+    expect(app.saved).toEqual([]);
+    await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  } finally { release(); }
 });

@@ -1,0 +1,113 @@
+/* Shared finish: the existing palette, typefaces and navigation remain intact. */
+.bv-root :is(h1, h2, h3) { text-wrap: pretty; }
+.bv-root :is(p, label, a) { overflow-wrap: anywhere; }
+/* Headings and buttons break only between words, so enlarged text wraps lines rather than splitting a word. */
+.bv-root :is(h1, h2, h3, button, .bv-button) { overflow-wrap: break-word; }
+.bv-root .bv-button { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease; }
+.bv-root :is(input:not([type=checkbox]), select, textarea) { transition: border-color 150ms ease, box-shadow 150ms ease; }
+.bv-root :is(input, select, textarea):focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bv-green) 14%, transparent); }
+.bv-root .bv-book-card { min-width: 0; }
+.bv-root .bv-cover { transition: box-shadow 180ms ease; }
+.bv-root .bv-button:active:not(:disabled) { box-shadow: inset 0 2px 3px #00000018; }
+.bv-root .bv-button:disabled { cursor: not-allowed; }
+.bv-root :is(.bv-empty, .bv-auth-card, .bv-filter-dialog) { box-shadow: 0 3px 14px color-mix(in srgb, var(--bv-ink) 4%, transparent); }
+.bv-root .bv-empty { max-width: 48rem; margin-inline: auto; }
+.bv-root .bv-empty-actions { gap: 12px; }
+.bv-root .bv-field-error { border-left: 3px solid var(--bv-danger); padding-left: 12px; }
+.bv-root summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+.bv-root details > summary { transition: color 140ms ease; }
+.bv-root .bv-reading-form :is(input, select, textarea) { width: 100%; min-width: 0; }
+.bv-root .bv-reading-form input[type=checkbox] { width: auto; }
+.bv-root .bv-editorial-workspace .bv-reading-draft h2:focus { outline-offset: 5px; }
+.bv-root .bv-import-confirm { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; }
+.bv-root .bv-import-page .bv-section { border-top: 1px solid var(--bv-line); }
+.bv-root .bv-landing-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+/* Benefit titles sit below the section heading in the type scale, so the section has an anchor. */
+.bv-root .bv-landing-benefits h3 { font: 600 1.1875rem/1.3 var(--bv-body); margin-bottom: 8px; }
+.bv-root .bv-landing-benefits p { color: var(--bv-muted); margin-bottom: 0; max-width: 36rem; }
+.bv-root .bv-landing-story { border-top: 1px solid var(--bv-line); }
+.bv-root .bv-landing-loading { padding-block: 36px; }
+.bv-root .bv-hero .bv-eyebrow { max-width: 32ch; }
+.bv-root .bv-library-facets { gap: 8px; }
+.bv-root .bv-library-search-row input { min-width: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .bv-root .bv-button:hover:not(:disabled) { box-shadow: 0 2px 6px color-mix(in srgb, var(--bv-ink) 8%, transparent); }
+  .bv-root .bv-button--saved:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bv-green), 0 2px 6px color-mix(in srgb, var(--bv-ink) 8%, transparent); }
+  .bv-root a:hover .bv-cover { box-shadow: 0 10px 22px color-mix(in srgb, var(--bv-ink) 14%, transparent); }
+  .bv-root details > summary:hover { color: var(--bv-green); }
+  .bv-root .bv-book-card h3 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bv-root .bv-toast { transition: opacity 150ms ease; }
+  .bv-root progress::-webkit-progress-value { transition: width 180ms ease; }
+  .bv-root progress::-moz-progress-bar { transition: width 180ms ease; }
+  .bv-root details[open] > :not(summary) { animation: bv-disclose 140ms ease-out; }
+  @keyframes bv-disclose { from { opacity: .55; } to { opacity: 1; } }
+}
+@media (max-width: 700px) {
+  .bv-root--landing { padding-bottom: 0; }
+  .bv-root--landing .bv-desktop-theme { display: inline-flex; }
+  .bv-root--landing .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
+  .bv-root--landing .bv-hero-actions { flex-direction: column; }
+  .bv-root--landing .bv-header-inner { gap: 12px; }
+  .bv-root:not(.bv-root--landing) .bv-header-actions a[aria-label="Your account"] { display: none; }
+  .bv-root .bv-landing-benefits { grid-template-columns: 1fr; gap: 24px; }
+  .bv-root .bv-landing-benefits h3 { font-size: 1.125rem; }
+  .bv-root .bv-import-confirm { padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bv-root *, .bv-root *::before, .bv-root *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+/* Allow text enlargement to wrap chrome instead of pushing it off screen. */
+.bv-root .bv-footer-inner { flex-wrap: wrap; row-gap: 16px; }
+.bv-root .bv-header-inner { flex-wrap: wrap; row-gap: 8px; padding-block: 12px; }
+.bv-root .bv-field textarea { min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
+.bv-root .bv-field textarea:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
+@media (max-width: 700px) {
+  .bv-root .bv-detail-art .bv-detail-cover-placeholder { width: 158px; margin-inline: auto; }
+}
+@media (max-width: 700px) {
+  .bv-root .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
+}
+.bv-root .bv-landing-subjects { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-top: 20px; }
+
+/* A collection starts with its books, without another introductory block. */
+.bv-root .bv-reading-library .bv-library-heading .bv-page-heading { padding: 28px 0 16px; }
+.bv-root .bv-reading-library .bv-library-search { margin: 0 0 16px; }
+.bv-root .bv-reading-library .bv-library-caption { margin-bottom: 16px; }
+.bv-root .bv-library-pagination { flex-wrap: wrap; }
+@media (max-width: 700px) {
+  .bv-root .bv-reading-library .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .bv-root .bv-reading-library .bv-library-heading .bv-page-heading { flex: 1 1 auto; padding: 18px 0 12px; }
+  .bv-root .bv-reading-library .bv-library-heading h1 { margin-bottom: 0; }
+  .bv-root .bv-reading-library .bv-library-heading > .bv-button { margin: 0; min-height: 44px; padding: 8px 10px; font-size: 0.875rem; white-space: normal; }
+  .bv-root .bv-reading-library .bv-library-search { margin: 0 0 12px; }
+  .bv-root .bv-reading-library .bv-library-search label { margin-bottom: 6px; }
+  .bv-root .bv-reading-library .bv-library-search-row { gap: 8px; }
+  .bv-root .bv-reading-library .bv-library-search-row { flex-wrap: wrap; }
+  .bv-root .bv-reading-library .bv-library-search-row input { flex-basis: min(100%, 10em); }
+  .bv-root .bv-reading-library .bv-library-search-row .bv-button { padding-inline: 14px; }
+  .bv-root .bv-reading-library .bv-filter-groups { gap: 4px; margin-bottom: 8px; }
+  .bv-root .bv-reading-library .bv-library-facets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4.2em), 1fr)); align-items: stretch; gap: 6px; font-size: 0.9375rem; }
+  .bv-root .bv-reading-library .bv-library-facets .bv-button { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: 0.9375rem; min-height: 52px; }
+  .bv-root .bv-reading-library .bv-library-facets .bv-button span { font-size: 0.8125rem; font-weight: 400; }
+  .bv-root .bv-reading-library .bv-library-caption { margin-bottom: 12px; }
+  /* Navigation stays one row at any text size: equal columns, labels shorten rather than wrap or split. */
+  .bv-root:not(.bv-root--landing) { padding-bottom: var(--bv-mobile-nav-clearance, calc(4em + 24px + env(safe-area-inset-bottom))); }
+  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); font-size: 0.75rem; gap: 4px; padding-inline: 8px; }
+  .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
+  .bv-root .bv-mobile-nav a span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* Signed-in phone headers have room for the theme toggle; guests reach it from You. */
+  .bv-root .bv-header-actions:not(.bv-header-actions--guest) .bv-desktop-theme { display: inline-flex; }
+  .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }
+}
+/* Short intro lines avoid a single orphaned word on narrow screens. */
+.bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }
+/* English title: a quiet second line that reads as one group with the title and author. */
+.bv-root .bv-english-title { margin: 0 0 2px; font: 400 0.875rem/1.35 var(--bv-body); color: var(--bv-muted); overflow-wrap: anywhere; }
+.bv-root :is(.bv-detail-body, .bv-workspace-identity) .bv-english-title { font-size: 1.125rem; }
+.bv-root :is(.bv-detail-body, .bv-workspace-identity) h1:has(+ .bv-english-title) { margin-bottom: 4px; }
+/* My Data: each download is its own small block, so the two formats read as a choice. */
+.bv-root .bv-data-download { padding-block: 16px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-data-download h3 { font: 500 1.25rem/1.3 var(--bv-display); margin-bottom: 8px; }
+.bv-root .bv-data-download [role="status"], .bv-root .bv-data-download [role="alert"] { margin-top: 12px; }

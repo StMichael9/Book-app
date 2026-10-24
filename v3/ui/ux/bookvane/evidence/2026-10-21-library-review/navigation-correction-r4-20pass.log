@@ -1,0 +1,46 @@
+[WebServer] (node:78309) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:78322) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+[WebServer] (node:78346) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:78359) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 20 tests using 1 worker
+
+(node:78378) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 frontend/tests/reading-library.spec.js:182:1 › large library pagination, search and both facets use bounded server queries (5.7s)
+  ✓   2 frontend/tests/reading-library.spec.js:313:3 › empty later library page retains recovery after mutation (light) (4.4s)
+  ✓   3 frontend/tests/reading-library.spec.js:313:3 › empty later library page retains recovery after mutation (dark) (4.4s)
+  ✓   4 frontend/tests/reading-library.spec.js:360:1 › a concurrent change on page three preserves history and first-page recovery (43.2s)
+LIBRARY_GEOMETRY {"width":390,"firstBookTop":375.390625}
+  ✓   5 frontend/tests/reading-library.spec.js:386:1 › independent review: mobile collection reaches books without a wall of controls (3.2s)
+  ✓   6 frontend/tests/reading-library.spec.js:400:1 › independent review: workspace returns to the searched filtered library page (4.3s)
+  ✓   7 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 320 (2.8s)
+  ✓   8 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 390 (2.8s)
+  ✓   9 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 768 (2.9s)
+  ✓  10 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers light 1440 (3.3s)
+  ✓  11 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 320 (3.1s)
+  ✓  12 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 390 (2.9s)
+  ✓  13 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 768 (3.2s)
+  ✓  14 frontend/tests/reading-library.spec.js:420:3 › independent review: library controls and missing covers dark 1440 (3.4s)
+  ✓  15 frontend/tests/reading-library.spec.js:463:1 › independent review: known previous page survives book return and browser navigation (5.8s)
+  ✓  16 frontend/tests/reading-library.spec.js:493:37 › independent review: refreshed later page has truthful bounded recovery (4.5s)
+  ✓  17 frontend/tests/reading-library.spec.js:493:37 › independent review: direct later page has truthful bounded recovery (3.4s)
+  ✓  18 frontend/tests/reading-library.spec.js:513:1 › independent review: another account cannot recover old library navigation metadata (6.8s)
+  ✓  19 frontend/tests/reading-library.spec.js:532:1 › independent review: paging from the bottom reveals the new page instead of its footer (3.6s)
+  ✓  20 frontend/tests/reading-library.spec.js:545:1 › independent review: workspace history pagination retains the collection return context (3.9s)
+
+  20 passed (2.1m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

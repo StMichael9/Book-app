@@ -1,0 +1,7 @@
+{
+  "file": "before-library-390-0.png",
+  "source_commit": "915bee78c6b4def6ec7b62d86eda336cfb5018f3",
+  "fixture": "synthetic in-memory API; 30 entries with import enabled",
+  "capture": "full page; first card at629.39px",
+  "sha256": "0f8be0a7ead1ea04bc9d1d296723bdfeb0b66199c5fcdcfa5679158359eadeb8"
+}

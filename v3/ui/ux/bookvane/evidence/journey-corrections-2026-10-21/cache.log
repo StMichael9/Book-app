@@ -1,0 +1,14 @@
+✔ concurrent public detail consumers share one request (176.448217ms)
+✔ expired details refetch after 45 seconds (15.30749ms)
+✔ a failed shared request is never cached and retry is a real request (10.633912ms)
+✔ the detail cache is bounded to 64 successful public records (98.455235ms)
+✔ only BookSchema fields enter the public detail cache (52.835871ms)
+✔ malformed responses do not poison a later retry (13.134677ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 402.865955

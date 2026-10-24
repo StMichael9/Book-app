@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useReader } from "./readerState.js";
-import { authorLabel } from "./data.js";
+import { authorLabel, englishTitle } from "./data.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -28,17 +28,39 @@ export function EmptyState({ title, children, action, error = false, icon: Icon 
   </section>;
 }
 
+const jacketTones = ["sage", "ivory", "rust", "forest", "ink"];
+// A stable tint per title, so a book keeps the same jacket everywhere it appears.
+function jacketTone(title = "") {
+  let hash = 0;
+  for (const character of title) hash = (hash * 31 + character.codePointAt(0)) >>> 0;
+  return jacketTones[hash % jacketTones.length];
+}
+
+function Jacket({ book, className = "", ...props }) {
+  return <div className={`bv-jacket bv-jacket--${jacketTone(book.title || "")} ${className}`} {...props}>
+    <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
+    <span aria-hidden="true">{authorLabel(book)}</span>
+  </div>;
+}
+
+export function EnglishTitle({ book }) {
+  const text = englishTitle(book);
+  return text ? <p className="bv-english-title" lang="en">{text}</p> : null;
+}
+
 export function BookCover({ book, priority = false }) {
   const [failedUrl, setFailedUrl] = useState(null);
-  const failed = failedUrl === book.cover_image_url;
-  return <div className="bv-cover">
-    {book.cover_image_url && !failed ? <img
-      src={book.cover_image_url} alt={`Cover of ${book.title || "this book"}`}
-      loading={priority ? "eager" : "lazy"} decoding="async" onError={() => setFailedUrl(book.cover_image_url)}
-    /> : <div className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`}>
-      <BookOpen aria-hidden="true" /><strong>{book.title || "Untitled book"}</strong>
-      <span>{authorLabel(book)}</span><small>Cover unavailable</small>
-    </div>}
+  const [loadedUrl, setLoadedUrl] = useState(null);
+  const url = book.cover_image_url;
+  const failed = failedUrl === url, loaded = loadedUrl === url;
+  // While artwork loads, its jacket stands in, so a slow cover never shows as a blank slab.
+  return <div className={`bv-cover${url && !failed && !loaded ? " bv-cover--loading" : ""}`}>
+    {url && !failed ? <>
+      {!loaded && <Jacket book={book} className="bv-cover-placeholder" aria-hidden="true" />}
+      <img ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(url); }}
+        src={url} alt={`Cover of ${book.title || "this book"}`} loading={priority ? "eager" : "lazy"} decoding="async"
+        onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)} />
+    </> : <Jacket book={book} className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`} />}
   </div>;
 }
 
@@ -49,9 +71,16 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const library = useUserBooks();
   const reader = useReader();
   const status = library.booksById[book.id]?.status;
+  const entry = library.booksById[book.id];
+  const lookupError = library.lookupErrors[book.id];
+  const { mode, loadVisibleBooks } = library;
+  useEffect(() => {
+    if (auth.isAuthenticated && mode === "v3") loadVisibleBooks([book.id]).catch(() => {});
+  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id]);
   const busy = reader.busyIds.includes(book.id);
-  const blocked = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error)));
-  const known = !blocked;
+  const unknown = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error) || (library.mode === "v3" && !entry?.known)));
+  const blocked = unknown || library.readOnly;
+  const known = !unknown;
   const helperId = useId();
   async function saveToShelf(value) {
     const success = await reader.saveBook(book, value);
@@ -64,41 +93,47 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   return <div className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
     <div className="bv-shelf-actions" role="group" aria-label={`Shelf for ${book.title}`}>
       {["want", "owned"].map((value) => {
-        const selected = known && status === value;
+        const selected = known && (library.mode === "v3" ? entry?.[value === "owned" ? "is_owned" : "is_wanted"] : status === value);
         const Icon = selected ? Check : value === "want" ? Bookmark : BookOpen;
+        // Compact cards are too narrow for the full wording; the accessible name always carries it.
+        const visible = busy ? "Saving…" : value === "want" ? compact ? "Want" : "Want to read" : selected ? "Owned" : compact ? "Own" : "I own it";
+        const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
           disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
-          aria-label={`${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Own" : "Want"}`}
+          aria-label={action.toLowerCase().includes(visible.toLowerCase()) ? action : `${visible}: ${action}`}
           onClick={() => saveToShelf(value)}>
-          <Icon aria-hidden="true" />
-          {busy ? "Saving…" : value === "want" ? selected ? "Wanted" : compact ? "Want" : "Want this" : selected ? "Owned" : compact ? "Own" : "I own this"}
+          <Icon aria-hidden="true" />{visible}
         </Button>;
       })}
     </div>
     <span id={helperId} className={compact ? "bv-sr-only" : "bv-help"}>
-      {busy ? "Updating your shelf…" : blocked ? "Checking your saved books before making changes." : status ?
+      {busy ? "Updating your shelf…" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
+        "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
+    {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
     {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
   </div>;
 }
 
-export function BookCard({ book, priority, buyUrl }) {
+export function BookCard({ book, priority, buyUrl, preview = false }) {
   const location = useLocation();
   const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse" };
   return <article className="bv-book-card">
-    <Link className="bv-book-link" to={`/book/${book.id}`} state={state} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
+    {/* The title link is the keyboard stop; the cover stays a pointer shortcut. */}
+    <Link className="bv-book-link" to={`/book/${book.id}`} state={state} tabIndex={-1} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>
+    <EnglishTitle book={book} />
     <p className="bv-author">{authorLabel(book)}</p>
-    <ShelfActions book={book} compact />
+    {!preview && <ShelfActions book={book} compact />}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop <ArrowRight aria-hidden="true" /></a>}
   </article>;
 }
 
-export function BookGrid({ books, bookshop = false }) {
+export function BookGrid({ books, bookshop = false, preview = false }) {
   const hasAffiliate = bookshop && books.some((book) => bookshopAffiliateUrl(book));
-  return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
+  return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} preview={preview} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
     {hasAffiliate && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}</>;
 }
 

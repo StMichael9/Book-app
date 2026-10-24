@@ -8,6 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+dist-catalogue
+dist-journey
+dist-shelf
+dist-catalogue-live
 dist
 dist-ssr
 test-results/

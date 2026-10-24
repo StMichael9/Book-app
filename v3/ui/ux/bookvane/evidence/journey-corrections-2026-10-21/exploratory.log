@@ -1,0 +1,165 @@
+[WebServer] (node:93605) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:93618) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] npm notice
+[WebServer] npm notice New major version of npm available! 11.9.0 -> 12.2.0
+[WebServer] npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+[WebServer] npm notice To update run: npm install -g npm@12.2.0
+[WebServer] npm notice
+
+[WebServer] (node:93652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:93670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 18 tests using 1 worker
+
+(node:93708) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1/18] tests/extended-catalogue.spec.js:38:1 › automatic lookup preserves Neon and confirms before private selection
+[2/18] tests/extended-catalogue.spec.js:56:1 › outage keeps Neon results and manual fallback
+[3/18] tests/extended-catalogue.spec.js:64:1 › off feature makes no catalogue requests
+[4/18] tests/extended-catalogue.spec.js:71:1 › subject filters never silently include unclassified external results
+[5/18] tests/extended-catalogue.spec.js:77:1 › malformed results fail closed without crashing or hiding Neon
+[6/18] tests/extended-catalogue.spec.js:85:1 › phone layout and keyboard confirmation stay accessible
+[7/18] tests/extended-catalogue.spec.js:97:1 › local search completes first, then additional loading replaces premature no-match
+  1) tests/extended-catalogue.spec.js:97:1 › local search completes first, then additional loading replaces premature no-match 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByText('Loading books…')
+    Expected: visible
+    Error: strict mode violation: getByText('Loading books…') resolved to 2 elements:
+        1) <span>Loading books…</span> aka getByText('Loading books…').first()
+        2) <span class="bv-sr-only">Loading books…</span> aka getByLabel('Loading books').getByText('Loading books…')
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByText('Loading books…')
+
+
+      101 |   app.holdExtended = new Promise(resolve => { releaseExtended = resolve; });
+      102 |   await page.goto('/browse?book=missing');
+    > 103 |   await expect(page.getByText('Loading books…')).toBeVisible();
+          |                                                  ^
+      104 |   expect(app.requests.filter(x => x.path === '/me/catalogue/search')).toHaveLength(0);
+      105 |   releaseLocal();
+      106 |   await expect(page.getByText('Checking more books…')).toBeVisible();
+        at /workspace/Book-app-ui-journey/frontend/tests/extended-catalogue.spec.js:103:50
+
+    Error Context: test-results/tests-extended-catalogue-l-f4262-replaces-premature-no-match/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-extended-catalogue-l-f4262-replaces-premature-no-match/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-extended-catalogue-l-f4262-replaces-premature-no-match/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:94141) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[8/18] tests/extended-catalogue.spec.js:113:1 › both sources empty has one honest final empty state
+[9/18] tests/extended-catalogue.spec.js:120:1 › failed A selection cannot leak its error into B confirmation
+[10/18] tests/extended-catalogue.spec.js:139:1 › manual fallback keeps bibliographic input and distinguishes CSV import
+[11/18] tests/extended-catalogue.spec.js:155:1 › prefill is document-only and cannot survive an account switch
+  2) tests/extended-catalogue.spec.js:155:1 › prefill is document-only and cannot survive an account switch 
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test timeout of 60000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: 'Account', exact: true })
+
+
+      158 |   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Private query');
+      159 |   const oldState = await page.evaluate(() => history.state);
+    > 160 |   await page.getByRole('link', { name: 'Account', exact: true }).click();
+          |                                                                  ^
+      161 |   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+      162 |   await page.getByRole('link', { name: 'Sign in', exact: true }).first().click();
+      163 |   await page.getByLabel('Email', { exact: true }).fill('different@example.invalid');
+        at /workspace/Book-app-ui-journey/frontend/tests/extended-catalogue.spec.js:160:66
+
+    Error Context: test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-extended-catalogue-p-b4443-t-survive-an-account-switch/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:94534) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[12/18] tests/reading-corrections.spec.js:60:34 › Undo finish reopens the same record without creating a reread at 390px
+[13/18] tests/reading-corrections.spec.js:60:34 › Undo finish reopens the same record without creating a reread at 1440px
+[14/18] tests/reading-corrections.spec.js:74:1 › reread requires explicit confirmation; Cancel and Escape make no writes and restore focus
+  3) tests/reading-corrections.spec.js:74:1 › reread requires explicit confirmation; Cancel and Escape make no writes and restore focus 
+
+    Error: expect(locator).toBeFocused() failed
+
+    Locator:  getByRole('button', { name: 'Read it again', exact: true })
+    Expected: focused
+    Received: inactive
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toBeFocused" with timeout 5000ms
+      - waiting for getByRole('button', { name: 'Read it again', exact: true })
+        13 × locator resolved to <button type="button" class="bv-button bv-button--quiet ">Read it again</button>
+           - unexpected value "inactive"
+
+
+      78 |   const trigger = page.getByRole('button', { name: 'Read it again', exact: true });
+      79 |   await trigger.focus(); await page.keyboard.press('Enter');
+    > 80 |   await expect(page.getByRole('dialog', { name: 'Start a new reading?' })).toBeVisible();
+         |                         ^
+      81 |   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      82 |   await expect(trigger).toBeFocused();
+      83 |   expect(writes(app)).toHaveLength(0);
+        at /workspace/Book-app-ui-journey/frontend/tests/reading-corrections.spec.js:80:25
+
+    Error Context: test-results/tests-reading-corrections--1edf5-no-writes-and-restore-focus/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/tests-reading-corrections--1edf5-no-writes-and-restore-focus/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/tests-reading-corrections--1edf5-no-writes-and-restore-focus/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+(node:94797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[15/18] tests/reading-corrections.spec.js:96:1 › mistaken active reread can be explicitly removed, then previous finish undone without losing older history
+[16/18] tests/reading-corrections.spec.js:123:1 › Finished facet honestly explains an active reread without duplicating library entries
+[17/18] tests/reading-corrections.spec.js:135:1 › failed or stale reread retains visible history and captured version rather than rebasing
+[18/18] tests/reading-corrections.spec.js:148:1 › read-only workspace cannot reopen, reread or delete
+  3 failed
+    tests/extended-catalogue.spec.js:97:1 › local search completes first, then additional loading replaces premature no-match 
+    tests/extended-catalogue.spec.js:155:1 › prefill is document-only and cannot survive an account switch 
+    tests/reading-corrections.spec.js:74:1 › reread requires explicit confirmation; Cancel and Escape make no writes and restore focus 
+  15 passed (3.3m)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

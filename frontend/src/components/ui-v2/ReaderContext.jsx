@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { errorText } from "./data.js";
 import { ReaderContext } from "./readerState.js";
 
 function initialTheme() {
+  // The inline bootstrap applies the preference before CSS/React can paint.
+  const bootstrapped = document.documentElement.getAttribute("data-theme");
+  if (bootstrapped === "light" || bootstrapped === "dark") return bootstrapped;
   try {
     const stored = localStorage.getItem("bookvane-theme");
     if (stored === "light" || stored === "dark") return stored;
+    const legacy = localStorage.getItem("shelfbound-theme");
+    if (legacy === "light" || legacy === "dark") return legacy;
   } catch { /* The interface also works when storage is unavailable. */ }
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
@@ -21,19 +26,26 @@ export function ReaderProvider({ children }) {
   const [busyIds, setBusyIds] = useState([]);
   const busy = useRef(new Set());
   const [saveErrors, setSaveErrors] = useState({});
-  const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, ready: false });
+  const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
   const [preferencesVersion, setPreferencesVersion] = useState(0);
   const session = useRef(0);
   const authenticated = useRef(auth.isAuthenticated);
+  const preferenceAccount = useRef(auth.sessionGeneration);
+  useLayoutEffect(() => {
+    preferenceAccount.current = auth.sessionGeneration;
+    return () => { preferenceAccount.current = null; };
+  }, [auth.sessionGeneration]);
   // Reset session-scoped UI before rendering a different authentication state.
-  if (readiness.authenticated !== auth.isAuthenticated) {
-    setReadiness({ authenticated: auth.isAuthenticated, ready: false });
+  if (readiness.authenticated !== auth.isAuthenticated || readiness.generation !== auth.sessionGeneration) {
+    setReadiness({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
     setSaveErrors({});
     setGate(null);
+    setMessage("");
   }
-  const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.ready;
+  const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.generation === auth.sessionGeneration && readiness.ready;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
     document.documentElement.style.colorScheme = theme;
     try { localStorage.setItem("bookvane-theme", theme); } catch { /* Optional persistence. */ }
   }, [theme]);
@@ -42,10 +54,14 @@ export function ReaderProvider({ children }) {
   // Its previous anonymous loading=false value must never enable a write.
   useEffect(() => {
     session.current += 1;
+    busy.current.clear();
     authenticated.current = auth.isAuthenticated;
-    const timer = auth.isAuthenticated ? setTimeout(() => setReadiness({ authenticated: true, ready: true }), 0) : null;
+    const timer = setTimeout(() => {
+      setBusyIds([]);
+      if (auth.isAuthenticated) setReadiness({ authenticated: true, generation: auth.sessionGeneration, ready: true });
+    }, 0);
     return () => { if (timer !== null) clearTimeout(timer); };
-  }, [auth.isAuthenticated]);
+  }, [auth.isAuthenticated, auth.sessionGeneration]);
 
   useEffect(() => {
     if (!message) return undefined;
@@ -63,15 +79,16 @@ export function ReaderProvider({ children }) {
     setBusyIds([...busy.current]);
     setSaveErrors((current) => ({ ...current, [book.id]: "" }));
     try {
-      const currentStatus = library.booksById[book.id]?.status;
-      if (ensure && currentStatus === status) {
-        announce(`Already on your ${status === "owned" ? "Own" : "Want"} shelf.`);
-      } else if (!ensure && currentStatus === status) {
-        await library.clearStatus(book.id);
-        if (generation === session.current && authenticated.current) announce("Removed from your library.");
+      const state = library.booksById[book.id];
+      const selected = library.mode === "v3" ? state?.[status === "owned" ? "is_owned" : "is_wanted"] : state?.status === status;
+      if (ensure && selected) {
+        announce(`Already marked ${status === "owned" ? "Owned" : "Want to read"}.`);
+      } else if (!ensure && selected) {
+        await library.clearStatus(book.id, status);
+        if (generation === session.current && authenticated.current) announce(library.mode === "v3" ? `Removed from ${status === "owned" ? "Owned" : "Want to read"}. Your other saved information is unchanged.` : "Removed from your library.");
       } else {
         await library.updateStatus(book.id, status);
-        if (generation === session.current && authenticated.current) announce(`Added to your ${status === "owned" ? "Own" : "Want"} shelf.`);
+        if (generation === session.current && authenticated.current) announce(`Added to ${status === "owned" ? "Owned" : "Want to read"}.`);
       }
       return generation === session.current && authenticated.current;
     } catch (error) {
@@ -80,14 +97,17 @@ export function ReaderProvider({ children }) {
       }
       return false;
     } finally {
-      busy.current.delete(book.id);
-      setBusyIds([...busy.current]);
+      if (generation === session.current) { busy.current.delete(book.id); setBusyIds([...busy.current]); }
     }
   }
 
   return <ReaderContext.Provider value={{
     theme, setTheme, gate, setGate, message, announce, saveBook, busyIds, saveErrors,
     libraryReady, preferencesVersion,
-    preferencesSaved: () => setPreferencesVersion((value) => value + 1),
+    // A completed write still invalidates discovery after leaving Preferences,
+    // but a callback captured by a departed account cannot publish to its successor.
+    preferencesSaved: () => {
+      if (auth.isAuthenticated && preferenceAccount.current === auth.sessionGeneration) setPreferencesVersion(value => value + 1);
+    },
   }}>{children}</ReaderContext.Provider>;
 }

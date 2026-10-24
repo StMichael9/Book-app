@@ -1,10 +1,10 @@
 import enum
 import uuid
-from sqlalchemy import String, Text, Integer, BigInteger, Boolean, Float, Table, Column, ForeignKey, UniqueConstraint, UUID, DateTime, Index, func, select
+from sqlalchemy import String, Text, Integer, BigInteger, Boolean, Float, Table, Column, ForeignKey, UniqueConstraint, CheckConstraint, Computed, UUID, Date, DateTime, Index, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from sqlalchemy.dialects.postgresql import JSONB
 from database import Base
-from datetime import datetime
+from datetime import date, datetime
 
 # ASSOCIATION (JOIN) TABLES
 
@@ -103,8 +103,15 @@ class EmailSignup(Base):
 
 
 
+# Blank means missing: trim spaces, tabs and line breaks (btrim alone strips only spaces).
+_BLANK_CHARS = "chr(32) || chr(9) || chr(13) || chr(10)"
+IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' AND description IS NOT NULL "
+                   f"AND btrim(description, {_BLANK_CHARS}) <> '' AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
+
+
 class Book(Base):
     __tablename__ = 'books'
+    __table_args__ = (Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -119,6 +126,8 @@ class Book(Base):
     preferred_edition_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("editions.id", ondelete="SET NULL", use_alter=True), nullable=True
     )
+    # Derived by the database; discovery shows only complete books (authors are guaranteed by the importer).
+    is_complete: Mapped[bool] = mapped_column(Boolean, Computed(IS_COMPLETE_SQL, persisted=True), nullable=False)
 
     # Relationships
     authors: Mapped[list["Author"]] = relationship(
@@ -131,11 +140,38 @@ class Book(Base):
     )
     user_books: Mapped[list["UserBook"]] = relationship(
         back_populates="book",
-        cascade="all, delete-orphan"
+        passive_deletes="all"
     )
     editions: Mapped[list["Edition"]] = relationship(
         back_populates="book", foreign_keys="Edition.book_id"
     )
+    title_aliases: Mapped[list["BookTitleAlias"]] = relationship(
+        lazy="selectin", order_by="BookTitleAlias.id", passive_deletes="all"
+    )
+
+    @property
+    def english_title(self) -> str | None:
+        own = self.title.lower()
+        return next((alias.title for alias in self.title_aliases if alias.language == "eng" and alias.title.lower() != own), None)
+
+
+class BookTitleAlias(Base):
+    __tablename__ = 'book_title_aliases'
+    __table_args__ = (
+        CheckConstraint('char_length(btrim(title)) BETWEEN 1 AND 500', name='ck_book_title_aliases_title_length'),
+        CheckConstraint("source IN ('openlibrary_edition')", name='ck_book_title_aliases_source'),
+        Index('uq_book_title_alias', 'book_id', func.lower(text('title')), unique=True),
+        Index('ix_book_title_aliases_book', 'book_id'),
+        Index('ix_book_title_aliases_title_trgm', 'title', postgresql_using='gin', postgresql_ops={'title': 'gin_trgm_ops'}),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
 
 class UserBookStatus(str, enum.Enum):
     owned = "owned"
@@ -144,18 +180,94 @@ class UserBookStatus(str, enum.Enum):
 
 class UserBook(Base):
     __tablename__ = 'user_books'
-    __table_args__ = (UniqueConstraint('user_id', 'book_id', name='uq_user_book'),)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'book_id', name='uq_user_book'),
+        UniqueConstraint('id', 'user_id', name='uq_user_book_owner'),
+        UniqueConstraint('user_id', 'create_request_id', name='uq_user_book_request'),
+        Index('uq_private_catalogue_work', 'user_id', text("(private_catalogue ->> 'work_id')"), unique=True,
+              postgresql_where=text('private_catalogue IS NOT NULL')),
+        CheckConstraint("version >= 1", name="ck_user_book_version"),
+        CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
+        CheckConstraint("(book_id IS NOT NULL AND private_title IS NULL AND private_author IS NULL) OR "
+                        "(book_id IS NULL AND private_title IS NOT NULL AND char_length(btrim(private_title)) BETWEEN 1 AND 500)",
+                        name="ck_user_book_identity"),
+        CheckConstraint("private_author IS NULL OR char_length(private_author) <= 500", name="ck_user_book_author"),
+        CheckConstraint("(create_request_id IS NULL) = (creation_fingerprint IS NULL)", name="ck_user_book_request"),
+        CheckConstraint("status::text IS NOT DISTINCT FROM (CASE WHEN is_owned THEN 'owned' WHEN is_wanted THEN 'want' ELSE NULL END)",
+                        name="ck_user_book_projection"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False, index=True)
-    status: Mapped[UserBookStatus] = mapped_column(nullable=False)
+    book_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("books.id", ondelete="RESTRICT"), nullable=True, index=True)
+    status: Mapped[UserBookStatus | None] = mapped_column(nullable=True)
+    is_owned: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    is_wanted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    save_note: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    private_title: Mapped[str | None] = mapped_column(Text)
+    private_author: Mapped[str | None] = mapped_column(Text)
+    private_catalogue: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    create_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
+    creation_fingerprint: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
     # relationships
     user: Mapped["User"] = relationship(back_populates="books")
-    book: Mapped["Book"] = relationship(back_populates="user_books")
+    book: Mapped["Book | None"] = relationship(back_populates="user_books")
+    attempts: Mapped[list["ReadingAttempt"]] = relationship(back_populates="entry", cascade="all, delete-orphan", passive_deletes=True)
+
+    def __init__(self, **kwargs):
+        # Preserve legacy ORM construction while canonical writers set both flags.
+        status = kwargs.get("status")
+        kwargs.setdefault("is_owned", status == UserBookStatus.owned)
+        kwargs.setdefault("is_wanted", status == UserBookStatus.want)
+        if "status" not in kwargs:
+            kwargs["status"] = UserBookStatus.owned if kwargs["is_owned"] else UserBookStatus.want if kwargs["is_wanted"] else None
+        super().__init__(**kwargs)
+
+
+class ReadingAttempt(Base):
+    __tablename__ = "reading_attempts"
+    __table_args__ = (
+        UniqueConstraint('id', 'user_book_id', name='uq_attempt_entry'),
+        CheckConstraint("state IN ('reading','paused','finished','dnf')", name="ck_attempt_state"),
+        CheckConstraint("origin IN ('native','import')", name="ck_attempt_origin"),
+        CheckConstraint("started_via IS NULL OR started_via IN ('library','discovery','next_read')", name="ck_attempt_started_via"),
+        CheckConstraint("started_on IS NULL OR ended_on IS NULL OR ended_on >= started_on", name="ck_attempt_dates"),
+        CheckConstraint("ended_on IS NULL OR state IN ('finished','dnf')", name="ck_attempt_end_state"),
+        CheckConstraint("note IS NULL OR char_length(note) <= 2000", name="ck_attempt_note"),
+        CheckConstraint("reaction IS NULL OR reaction IN ('loved','liked','not_for_me')", name="ck_attempt_reaction"),
+        CheckConstraint("total_pages IS NULL OR total_pages > 0", name="ck_attempt_total_pages"),
+        CheckConstraint("(progress_unit IS NULL AND progress_value IS NULL) OR "
+                        "(progress_unit IS NOT NULL AND progress_value IS NOT NULL AND "
+                        "((progress_unit = 'percent' AND progress_value BETWEEN 0 AND 100) OR "
+                        "(progress_unit = 'pages' AND progress_value >= 0 AND (total_pages IS NULL OR progress_value <= total_pages))))",
+                        name="ck_attempt_progress"),
+        Index("uq_attempt_active", "user_book_id", unique=True, postgresql_where=text("state IN ('reading','paused')")),
+        Index("ix_attempt_entry_created", "user_book_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True)
+    user_book_id: Mapped[int] = mapped_column(ForeignKey("user_books.id", ondelete="CASCADE"), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False)
+    started_on: Mapped[date | None] = mapped_column(Date)
+    ended_on: Mapped[date | None] = mapped_column(Date)
+    progress_unit: Mapped[str | None] = mapped_column(String(10))
+    progress_value: Mapped[int | None] = mapped_column(Integer)
+    total_pages: Mapped[int | None] = mapped_column(Integer)
+    edition_id: Mapped[int | None] = mapped_column(ForeignKey("editions.id", ondelete="SET NULL"))
+    edition_source_id: Mapped[str | None] = mapped_column(String(100))
+    edition_format: Mapped[str | None] = mapped_column(String(200))
+    note: Mapped[str | None] = mapped_column(Text)
+    reaction: Mapped[str | None] = mapped_column(String(16))
+    creation_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    started_via: Mapped[str | None] = mapped_column(String(16))
+    origin: Mapped[str] = mapped_column(String(10), nullable=False, default="native", server_default="native")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    entry: Mapped["UserBook"] = relationship(back_populates="attempts")
 
 class Author(Base):
     __tablename__ = 'authors'
@@ -364,14 +476,14 @@ Index("ix_catalogue_stage_works_title_hash", func.md5(CatalogueStageWork.title))
 
 Book.owned_count = column_property(
     select(func.count(UserBook.id))
-    .where(UserBook.book_id == Book.id, UserBook.status == UserBookStatus.owned)
+    .where(UserBook.book_id == Book.id, UserBook.is_owned.is_(True))
     .correlate_except(UserBook)
     .scalar_subquery()
 )
 
 Book.want_count = column_property(
     select(func.count(UserBook.id))
-    .where(UserBook.book_id == Book.id, UserBook.status == UserBookStatus.want)
+    .where(UserBook.book_id == Book.id, UserBook.is_wanted.is_(True))
     .correlate_except(UserBook)
     .scalar_subquery()
 )
@@ -382,3 +494,7 @@ Index("ix_books_title_trgm", Book.title, postgresql_using="gin", postgresql_ops=
 Index("ix_authors_name_trgm", Author.name, postgresql_using="gin", postgresql_ops={"name": "gin_trgm_ops"})
 Index("ix_book_tags_tag_book", book_tags.c.tag_id, book_tags.c.book_id)
 Index("ix_user_books_user_status", UserBook.user_id, UserBook.status)
+Index("ix_user_books_user_id_page", UserBook.user_id, UserBook.id)
+
+# Register the separate private-import responsibility with the shared metadata.
+from library_import_models import ImportedLibraryRecord, ImportedReadLink, LibraryImportRow, LibraryImportRun  # noqa: E402,F401

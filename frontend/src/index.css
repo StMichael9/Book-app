@@ -9,3 +9,8 @@
 @import "./styles/mobile.css";
 @import "./styles/browse-shelves.css";
 @import "./styles/my-books.css";
+
+/* Match the document canvas to Bookvane before and after the app paints. */
+html[data-theme] { --bv-canvas: #faf8f2; background: var(--bv-canvas); }
+html[data-theme="dark"] { --bv-canvas: #1e1d1b; }
+html[data-theme] body, html[data-theme] #root { background: var(--bv-canvas); }

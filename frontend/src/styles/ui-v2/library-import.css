@@ -1,0 +1,31 @@
+.bv-import-page { padding-block: 2rem 4rem; }
+.bv-import-page .bv-narrow { max-width: 52rem; }
+.bv-import-page details { margin-block: 1rem; }
+.bv-import-page summary { cursor: pointer; font-weight: 600; padding-block: .5rem; }
+.bv-import-page fieldset { border: 0; padding: 0; margin-block: 1rem; min-width: 0; }
+.bv-import-page .bv-import-check { display: flex; align-items: flex-start; gap: .65rem; margin-block: 1rem; font-weight: 400; }
+.bv-import-page .bv-import-check input { width: 1.15rem; min-width: 1.15rem; height: 1.15rem; margin-top: .15rem; }
+.bv-import-row { padding-block: 1.25rem; border-bottom: 1px solid var(--bv-line); overflow-wrap: anywhere; }
+.bv-import-row h3 { margin-bottom: .4rem; }
+.bv-import-context { margin: .5rem 0 1rem; }
+.bv-import-context dt { font-weight: 600; margin-top: .75rem; }
+.bv-import-context dd { margin: .3rem 0; white-space: pre-wrap; }
+.bv-import-page textarea { width: 100%; resize: vertical; min-height: 9rem; font: inherit; padding: 14px; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
+.bv-import-page :is(textarea, summary):focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-import-page .bv-field select { width: 100%; max-width: 100%; }
+.bv-import-page input[type="file"] { max-width: 100%; }
+.bv-root .bv-import-journey { display: flex; list-style: none; padding: 0; margin: 0 0 32px; border-bottom: 1px solid var(--bv-line); gap: 16px; }
+.bv-root .bv-import-journey li { flex: 1; color: var(--bv-muted); font-size: 0.875rem; padding-bottom: 16px; }
+.bv-root .bv-import-journey li > span:first-child { display: block; font-weight: 600; margin-bottom: 4px; }
+.bv-root .bv-import-journey [aria-current] { color: var(--bv-green); box-shadow: 0 2px var(--bv-green); font-weight: 600; }
+.bv-root .bv-import-advanced { margin-top: 20px; }
+.bv-root .bv-import-page summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.bv-root .bv-import-page :is(textarea, summary):focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-root .bv-import-confirm { border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; background: var(--bv-panel); margin: 24px 0; }
+.bv-root .bv-import-page .bv-import-check { display: flex; align-items: flex-start; gap: 12px; margin-block: 16px; font-weight: 400; }
+.bv-root .bv-import-page .bv-import-check input { width: 20px; min-width: 20px; height: 20px; margin-top: 3px; flex-shrink: 0; }
+@media (max-width: 700px) {
+  .bv-root .bv-import-journey { gap: 8px; }
+  .bv-root .bv-import-journey li { font-size: 0.75rem; }
+  .bv-root .bv-import-confirm { padding: 20px; }
+}

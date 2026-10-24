@@ -7,7 +7,7 @@ from sqlalchemy.engine import make_url
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, text
+from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.orm import Session
 
 
@@ -19,6 +19,23 @@ if str(PROJECT_ROOT) not in sys.path:
 
 def _resolve_test_database_url() -> str | None:
     return os.getenv("TEST_DATABASE_URL")
+
+
+MIGRATION_TRIGGERS = (
+    "bookvane_library_compatibility",
+    "bookvane_import_entry_removal",
+    "bookvane_import_attempt_removal",
+)
+
+
+def missing_migration_objects(connection) -> list[str]:
+    if connection.execute(text("SELECT to_regclass('alembic_version')")).scalar() is None:
+        return ["table alembic_version"]
+    present = set(connection.execute(
+        text("SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname = ANY(:names)"),
+        {"names": list(MIGRATION_TRIGGERS)},
+    ).scalars())
+    return [f"trigger {name}" for name in MIGRATION_TRIGGERS if name not in present]
 
 
 @pytest.fixture(scope="session")
@@ -40,6 +57,17 @@ def test_database_url() -> str:
             live_url.host, live_url.port, live_url.database
         ):
             pytest.fail("TEST_DATABASE_URL resolves to the configured application database.")
+    engine = create_engine(database_url)
+    try:
+        with engine.connect() as connection:
+            missing = missing_migration_objects(connection)
+    finally:
+        engine.dispose()
+    if missing:
+        pytest.fail(
+            "TEST_DATABASE_URL is not migrated to Alembic head; run alembic upgrade head against it "
+            f"(missing: {', '.join(missing)})."
+        )
     return database_url
 
 
@@ -70,6 +98,9 @@ def db_session(app_modules) -> Session:
 
     session = database.SessionLocal()
 
+    # Catalogue deletion is now restricted while any reader entry refers to it.
+    # These rows belong only to the explicitly isolated test database.
+    session.execute(delete(models.UserBook))
     session.execute(delete(models.Book))
     session.execute(delete(models.Author))
     session.execute(delete(models.Tag))
@@ -99,6 +130,7 @@ def db_session(app_modules) -> Session:
             description="A young wizard starts his education.",
             published_year=1997,
             page_count=309,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "fellowship": models.Book(
             title="The Fellowship of the Ring",
@@ -106,6 +138,7 @@ def db_session(app_modules) -> Session:
             description="The first part of the journey to destroy the ring.",
             published_year=1954,
             page_count=423,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "dracula": models.Book(
             title="Dracula",
@@ -113,6 +146,7 @@ def db_session(app_modules) -> Session:
             description="A gothic horror novel.",
             published_year=1897,
             page_count=418,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "good_omens": models.Book(
             title="Good Omens",
@@ -120,6 +154,7 @@ def db_session(app_modules) -> Session:
             description="An apocalypse comedy with two authors.",
             published_year=1990,
             page_count=288,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
         "unknown_year": models.Book(
             title="The Lost Codex",
@@ -127,6 +162,7 @@ def db_session(app_modules) -> Session:
             description="A deliberately yearless fixture.",
             published_year=None,
             page_count=123,
+            cover_image_url="https://covers.example/seed.jpg",
         ),
     }
 

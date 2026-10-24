@@ -20,6 +20,12 @@ export function authorLabel(book) {
     "Author not listed";
 }
 
+export function englishTitle(book) {
+  const english = typeof book?.english_title === "string" ? book.english_title.trim() : "";
+  if (!english) return null;
+  return english.toLowerCase() === (book.title || "").trim().toLowerCase() ? null : english;
+}
+
 export function validBookId(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : null;
@@ -37,6 +43,7 @@ export function errorText(error, fallback) {
   if (error?.status === 429) return "Too many requests just now. Please try again shortly.";
   if (error?.status >= 500 || error instanceof TypeError) return fallback;
   if (typeof error?.detail === "string") return error.detail;
+  if (typeof error?.detail?.message === "string") return error.detail.message;
   return fallback;
 }
 
@@ -85,4 +92,9 @@ export function loadSubjectOptions() {
     });
   }
   return subjectOptionsPromise;
+}
+
+// Names the browser tab after the book once it is known; routes set a generic title first.
+export function useDocumentTitle(title) {
+  useEffect(() => { if (title) document.title = `${title} · Bookvane`; }, [title]);
 }

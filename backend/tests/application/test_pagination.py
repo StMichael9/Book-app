@@ -9,8 +9,9 @@ def test_default_page_and_size_are_returned(client, seeded_books):
     payload = response.json()
     assert payload["page"] == 1
     assert payload["size"] == 50
-    assert payload["total"] == len(seeded_books)
-    assert len(payload["items"]) == len(seeded_books)
+    complete = [book for book in seeded_books.values() if book.is_complete]
+    assert payload["total"] == len(complete)
+    assert len(payload["items"]) == len(complete)
 
 
 def test_total_is_not_inflated_by_join_duplicates(client):
