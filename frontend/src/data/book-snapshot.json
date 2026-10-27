@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T03:24:07.423Z",
+  "generatedAt": "2026-10-27T04:48:28.940Z",
   "source": "https://api.bookvane.me/books?size=30",
   "total": 44075,
   "items": [
@@ -13,7 +13,7 @@
           "name": "Sue Grafton"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/7888268-L.jpg",
+      "cover_image_url": "/covers/snapshot/1769.webp",
       "published_year": 1982,
       "page_count": 416,
       "english_title": null
@@ -32,7 +32,7 @@
           "name": "Robert Julian Yeatman"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/14861758-L.jpg",
+      "cover_image_url": "/covers/snapshot/1770.webp",
       "published_year": 1930,
       "page_count": 125,
       "english_title": null
@@ -47,7 +47,7 @@
           "name": "Mark Twain"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/10637325-L.jpg",
+      "cover_image_url": "/covers/snapshot/1771.webp",
       "published_year": 1880,
       "page_count": 38,
       "english_title": null
@@ -62,7 +62,7 @@
           "name": "Agatha Christie"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/13151352-L.jpg",
+      "cover_image_url": "/covers/snapshot/1772.webp",
       "published_year": 1957,
       "page_count": 189,
       "english_title": null
@@ -81,7 +81,7 @@
           "name": "Charles Dickens"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/12875748-L.jpg",
+      "cover_image_url": "/covers/snapshot/1773.webp",
       "published_year": 1843,
       "page_count": 2,
       "english_title": null
@@ -96,7 +96,7 @@
           "name": "Mark Twain"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/9168732-L.jpg",
+      "cover_image_url": "/covers/snapshot/1774.webp",
       "published_year": 1889,
       "page_count": 64,
       "english_title": null
@@ -111,7 +111,7 @@
           "name": "Agatha Christie"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/14578204-L.jpg",
+      "cover_image_url": "/covers/snapshot/1776.webp",
       "published_year": 1950,
       "page_count": 221,
       "english_title": null
@@ -142,7 +142,7 @@
           "name": "J Joyce"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/9328410-L.jpg",
+      "cover_image_url": "/covers/snapshot/1777.webp",
       "published_year": 1818,
       "page_count": 284,
       "english_title": null
@@ -157,7 +157,7 @@
           "name": "Virginia Woolf"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/6559057-L.jpg",
+      "cover_image_url": "/covers/snapshot/1779.webp",
       "published_year": 1929,
       "page_count": 114,
       "english_title": null
@@ -172,7 +172,7 @@
           "name": "Arthur Conan Doyle"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/13405534-L.jpg",
+      "cover_image_url": "/covers/snapshot/1781.webp",
       "published_year": 1887,
       "page_count": 200,
       "english_title": null
@@ -187,7 +187,7 @@
           "name": "H. Rider Haggard"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/2009339-L.jpg",
+      "cover_image_url": "/covers/snapshot/1782.webp",
       "published_year": 2004,
       "page_count": 56,
       "english_title": null
@@ -206,7 +206,7 @@
           "name": "Charles Dickens"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/13301713-L.jpg",
+      "cover_image_url": "/covers/snapshot/1783.webp",
       "published_year": 1800,
       "page_count": 64,
       "english_title": null
@@ -221,7 +221,7 @@
           "name": "Bill Bryson"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/12725620-L.jpg",
+      "cover_image_url": "/covers/snapshot/1785.webp",
       "published_year": 2003,
       "page_count": 939,
       "english_title": null
@@ -236,7 +236,7 @@
           "name": "Anna Katharine Green"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/12657405-L.jpg",
+      "cover_image_url": "/covers/snapshot/1786.webp",
       "published_year": 1879,
       "page_count": 152,
       "english_title": null
@@ -251,7 +251,7 @@
           "name": "Titus Livius"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/6657951-L.jpg",
+      "cover_image_url": "/covers/snapshot/1787.webp",
       "published_year": 1481,
       "page_count": 328,
       "english_title": null
@@ -266,7 +266,7 @@
           "name": "Mark Twain"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/8157718-L.jpg",
+      "cover_image_url": "/covers/snapshot/1788.webp",
       "published_year": 1876,
       "page_count": 258,
       "english_title": null
@@ -281,7 +281,7 @@
           "name": "Richard Jefferies"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/2841895-L.jpg",
+      "cover_image_url": "/covers/snapshot/1790.webp",
       "published_year": 1885,
       "page_count": 224,
       "english_title": null
@@ -296,7 +296,7 @@
           "name": "Lewis Carroll"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/10527843-L.jpg",
+      "cover_image_url": "/covers/snapshot/1792.webp",
       "published_year": 1865,
       "page_count": 240,
       "english_title": null
@@ -311,7 +311,7 @@
           "name": "Lewis Carroll"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/8595966-L.jpg",
+      "cover_image_url": "/covers/snapshot/1793.webp",
       "published_year": 1889,
       "page_count": 254,
       "english_title": null
@@ -330,7 +330,7 @@
           "name": "William Shakespeare"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/7338455-L.jpg",
+      "cover_image_url": "/covers/snapshot/1794.webp",
       "published_year": 1734,
       "page_count": 216,
       "english_title": null
@@ -345,7 +345,7 @@
           "name": "Veronica Roth"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/7276393-L.jpg",
+      "cover_image_url": "/covers/snapshot/1795.webp",
       "published_year": 2011,
       "page_count": 526,
       "english_title": null
@@ -368,7 +368,7 @@
           "name": "Diana C. Archibald"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/8236357-L.jpg",
+      "cover_image_url": "/covers/snapshot/1797.webp",
       "published_year": 1800,
       "page_count": 256,
       "english_title": null
@@ -383,7 +383,7 @@
           "name": "John Green"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/14559681-L.jpg",
+      "cover_image_url": "/covers/snapshot/1798.webp",
       "published_year": 2006,
       "page_count": 227,
       "english_title": null
@@ -398,7 +398,7 @@
           "name": "George Bernard Shaw"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/6046060-L.jpg",
+      "cover_image_url": "/covers/snapshot/1800.webp",
       "published_year": 1887,
       "page_count": 376,
       "english_title": null
@@ -421,7 +421,7 @@
           "name": "classics jifara"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/802982-L.jpg",
+      "cover_image_url": "/covers/snapshot/1803.webp",
       "published_year": 1936,
       "page_count": 92,
       "english_title": null
@@ -436,7 +436,7 @@
           "name": "Judy Blume"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/12388102-L.jpg",
+      "cover_image_url": "/covers/snapshot/1806.webp",
       "published_year": 1970,
       "page_count": 124,
       "english_title": null
@@ -451,7 +451,7 @@
           "name": "Wilkie Collins"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/780215-L.jpg",
+      "cover_image_url": "/covers/snapshot/1807.webp",
       "published_year": 1866,
       "page_count": 672,
       "english_title": null
@@ -466,7 +466,7 @@
           "name": "George MacDonald"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/8245161-L.jpg",
+      "cover_image_url": "/covers/snapshot/1809.webp",
       "published_year": 1871,
       "page_count": 272,
       "english_title": null
@@ -485,7 +485,7 @@
           "name": "Edgar Rice Burroughs"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/9317372-L.jpg",
+      "cover_image_url": "/covers/snapshot/1810.webp",
       "published_year": 1914,
       "page_count": 128,
       "english_title": null
@@ -500,7 +500,7 @@
           "name": "Anthony Trollope"
         }
       ],
-      "cover_image_url": "https://covers.openlibrary.org/b/id/1468666-L.jpg",
+      "cover_image_url": "/covers/snapshot/1811.webp",
       "published_year": 1815,
       "page_count": 432,
       "english_title": null

@@ -356,6 +356,8 @@ test("minimalist root does not flash marketing during auth/capability checks and
   let releaseAuth, releaseCapabilities;
   app.holdRefresh = new Promise(resolve => { releaseAuth = resolve; });
   app.holdCapabilities = new Promise(resolve => { releaseCapabilities = resolve; });
+  // A reader who was signed in last time keeps the opening screen; a first-time guest sees the public books at once (instant-paint spec).
+  await page.addInitScript(() => localStorage.setItem("bookvane:session-hint:v1", "1"));
   await page.addInitScript(() => {
     window.marketingSeen = false;
     new MutationObserver(() => { if (document.querySelector(".bv-hero")) window.marketingSeen = true; }).observe(document, { childList: true, subtree: true });
@@ -421,7 +423,7 @@ for (const width of [320, 390]) test(`browser default font size scales text and 
   await expect(page.getByRole("button", { name: /^Add .+ to Want to read$/ }).first()).toBeVisible();
 });
 
-test("guest Discover leads with covered, plain-title books; a slow cover shows its jacket until it loads", async ({ page, app }) => {
+test("guest Discover leads with covered, plain-title books; a slow cover shows a plain tinted block until it loads", async ({ page, app }) => {
   app.catalogue = [
     { ...books[0], id: 1, title: "Ἰλιάς", cover_image_url: "/test-cover/1.jpg" },
     { ...books[1], id: 2, title: "No cover yet", cover_image_url: null },
@@ -433,10 +435,13 @@ test("guest Discover leads with covered, plain-title books; a slow cover shows i
   await page.goto("/browse");
   await expect(page.locator(".bv-book-card h3")).toHaveText(["Slow cover", "Ἰλιάς", "No cover yet"]);
   const slow = page.locator(".bv-book-card").first().locator(".bv-cover");
-  await expect(slow.locator(".bv-cover-placeholder")).toContainText("Slow cover");
+  await expect(slow).toHaveClass(/bv-cover--loading/);
+  await expect(slow.locator(".bv-jacket")).toHaveCount(0);
   await expect(slow.locator("img")).toHaveCSS("opacity", "0");
+  await expect(page.locator(".bv-book-card").nth(2).locator(".bv-jacket")).toHaveCount(1);
   release();
-  await expect(slow.locator(".bv-cover-placeholder")).toHaveCount(0);
+  await expect(slow).not.toHaveClass(/bv-cover--loading/);
+  await expect(slow.locator(".bv-jacket")).toHaveCount(0);
   await expect(slow.locator("img")).toHaveCSS("opacity", "1");
   await expect(page.getByRole("img", { name: "Cover of Slow cover", exact: true })).toBeVisible();
 });

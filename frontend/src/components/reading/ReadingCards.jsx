@@ -23,13 +23,13 @@ export function CurrentReadingCard({ entry, attempt }) {
     ? `${attempt.progress_value}%` : `Page ${attempt.progress_value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
   const progressMax = attempt.progress_unit === "percent" ? 100 : attempt.total_pages;
   return <article className="bv-current-book">
-    <Link to={`/my-books/${entry.id}`} tabIndex={-1} aria-hidden="true"><BookCover book={book} priority /></Link>
+    <Link to={`/my-books/${entry.id}`} state={{ entry }} tabIndex={-1} aria-hidden="true"><BookCover book={book} priority /></Link>
     <div><p className="bv-reading-state">Reading{!entry.book ? " · Private book" : ""}</p>
-      <h3><Link to={`/my-books/${entry.id}`}>{book.title}</Link></h3>
+      <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
       <p className="bv-author">{authorLabel(book)}</p>
       {progress && <p className="bv-reading-progress">{progress}</p>}
       {progress && progressMax > 0 && attempt.progress_value >= 0 && attempt.progress_value <= progressMax && <progress className="bv-reading-meter" value={attempt.progress_value} max={progressMax} aria-label={`Reading progress for ${book.title}`} />}
-      <ActionLink to={`/my-books/${entry.id}`} aria-label={`Continue your reading: ${book.title}`}>Continue reading</ActionLink>
+      <ActionLink to={`/my-books/${entry.id}`} state={{ entry }} aria-label={`Continue your reading: ${book.title}`}>Continue reading</ActionLink>
     </div>
   </article>;
 }
@@ -43,6 +43,8 @@ function StatusLine({ labels }) {
 export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navigationState, onOpen }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
+  // The entry travels with the click, so the workspace can draw the book's identity before its own request returns.
+  navigationState = readingActions ? { ...navigationState, entry } : navigationState;
   return <article className="bv-book-card bv-personal-book">
     {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} tabIndex={-1} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
     <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3>

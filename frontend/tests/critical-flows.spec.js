@@ -219,7 +219,7 @@ for (const changeAccount of [false, true]) test(`M6 departed preference save inv
   } finally { release(); }
 });
 
-for (const status of [404, 503]) for (const keyboard of [false, true]) for (const retryFailure of [false, true]) for (const moveFocus of [false, true]) test(`M6 book error and retry respect subsequent focus; status=${status}; keyboard=${keyboard}; retryFailure=${retryFailure}; moveFocus=${moveFocus}`, async ({ page, app }) => {
+for (const status of [404, 503]) for (const keyboard of [false, true]) for (const retryFailure of [false, true]) for (const moveFocus of [false, true]) test(`M6 book error and retry respect subsequent focus (opened from a card); status=${status}; keyboard=${keyboard}; retryFailure=${retryFailure}; moveFocus=${moveFocus}`, async ({ page, app }) => {
   let release;
   app.bookFailure = status;
   app.holdBook = new Promise(resolve => { release = resolve; });
@@ -227,7 +227,7 @@ for (const status of [404, 503]) for (const keyboard of [false, true]) for (cons
     await page.goto("/browse");
     await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
     release();
     await expect(page.getByRole("heading", { name: status === 404 ? "This book couldn’t be found." : "This book couldn’t load.", exact: true })).toBeFocused();
     app.bookFailure = retryFailure ? status : 0;
@@ -235,7 +235,7 @@ for (const status of [404, 503]) for (const keyboard of [false, true]) for (cons
     const retry = page.getByRole("button", { name: "Try again", exact: true });
     if (keyboard) { await retry.focus(); await page.keyboard.press("Enter"); }
     else await retry.click();
-    await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+    await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
     const back = page.getByRole("link", { name: "Back to discovery", exact: true });
     if (moveFocus) await back.focus();
     release();
@@ -252,7 +252,7 @@ for (const moveFocus of [false, true]) test(`M6 delayed book focus preserves key
   await page.goto("/browse");
   await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("heading", { name: "Loading your book…", exact: true })).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
   if (moveFocus) await page.getByRole("link", { name: "Back to discovery", exact: true }).focus();
   release();
   await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeVisible();
