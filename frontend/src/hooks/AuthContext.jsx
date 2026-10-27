@@ -6,7 +6,7 @@ import {
   refreshSession,
   registerUser,
 } from "../api/auth.js";
-import { clearBookCache } from "../api/bookCache.js";
+import { clearBookCache, rememberSignedIn } from "../api/bookCache.js";
 
 const AuthContext = createContext(null);
 
@@ -64,6 +64,9 @@ export function AuthProvider({ children }) {
     checkSession();
     return () => { sessionVersion.current += 1; };
   }, [checkSession]);
+
+  // Once the account check has answered, remember only the yes/no, so the next landing can paint before it returns.
+  useEffect(() => { if (!isLoading) rememberSignedIn(isAuthenticated); }, [isAuthenticated, isLoading]);
 
   const value = useMemo(
     () => ({

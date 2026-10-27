@@ -49,7 +49,7 @@ export function WelcomePage() {
       </div>
       <div className="bv-hero-display">
         <div className="bv-hero-covers">{books.loading ? Array.from({ length: 3 }, (_, i) => <div key={i} className="bv-skeleton bv-skeleton--cover" aria-hidden="true" />) :
-          heroBooks.length ? heroBooks.map((book) => <Link key={book.id} to={`/book/${book.id}`} aria-label={`Explore ${book.title}`}><BookCover book={book} priority /></Link>) :
+          heroBooks.length ? heroBooks.map((book) => <Link key={book.id} to={`/book/${book.id}`} aria-label={`Explore ${book.title}`}><BookCover book={book} hero /></Link>) :
             <div className="bv-hero-placeholder"><BookOpen aria-hidden="true" /><p>Explore the catalogue to find your next book.</p></div>}
         </div><div className="bv-shelf-rule" />
       </div>
@@ -211,7 +211,7 @@ export function BookPage() {
   return <section className="bv-container">
     <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
     {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
-      <div className="bv-detail-art"><BookCover book={book} priority /></div>
+      <div className="bv-detail-art"><BookCover book={book} priority size="large" /></div>
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         <EnglishTitle book={book} />
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}

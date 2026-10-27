@@ -6,6 +6,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useReader } from "./readerState.js";
 import { authorLabel, englishTitle } from "./data.js";
+import { coverSrc } from "../../api/coverUrl.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -48,19 +49,18 @@ export function EnglishTitle({ book }) {
   return text ? <p className="bv-english-title" lang="en">{text}</p> : null;
 }
 
-export function BookCover({ book, priority = false }) {
+export function BookCover({ book, priority = false, hero = false, size = "medium" }) {
   const [failedUrl, setFailedUrl] = useState(null);
   const [loadedUrl, setLoadedUrl] = useState(null);
   const url = book.cover_image_url;
   const failed = failedUrl === url, loaded = loadedUrl === url;
-  // While artwork loads, its jacket stands in, so a slow cover never shows as a blank slab.
+  // While artwork loads the cover is a plain tinted block that fades the image in; the typographic jacket is only
+  // for books with no artwork or whose image failed, so a cover never flashes from jacket text to a picture.
   return <div className={`bv-cover${url && !failed && !loaded ? " bv-cover--loading" : ""}`}>
-    {url && !failed ? <>
-      {!loaded && <Jacket book={book} className="bv-cover-placeholder" aria-hidden="true" />}
-      <img ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(url); }}
-        src={url} alt={`Cover of ${book.title || "this book"}`} loading={priority ? "eager" : "lazy"} decoding="async"
-        onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)} />
-    </> : <Jacket book={book} className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`} />}
+    {url && !failed ? <img ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(url); }}
+      src={coverSrc(url, size)} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
+      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)} />
+      : <Jacket book={book} className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`} />}
   </div>;
 }
 

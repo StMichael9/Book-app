@@ -165,8 +165,7 @@ body:has(.bv-root) { margin: 0; }
 /* Typographic jacket for books without artwork: the cover itself carries title and author.
    One of five palette tints is chosen per title; type scales with the cover's own width. */
 .bv-root .bv-cover { container-type: inline-size; position: relative; }
-.bv-root .bv-cover-placeholder { position: absolute; inset: 0; }
-.bv-root .bv-cover img { position: relative; transition: opacity 200ms ease-out; }
+.bv-root .bv-cover img { position: relative; transition: opacity 150ms ease-out; }
 .bv-root .bv-cover--loading img { opacity: 0; }
 .bv-root .bv-jacket { position: relative; height: 100%; display: flex; flex-direction: column; gap: 6cqi; padding: 12cqi 10cqi 10cqi 16cqi; overflow: hidden; background: var(--bv-jacket-bg); color: var(--bv-jacket-ink); box-shadow: inset 5cqi 0 0 color-mix(in srgb, var(--bv-jacket-ink) 14%, transparent); }
 .bv-root .bv-jacket::after { content: ""; position: absolute; left: 7.5cqi; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--bv-jacket-ink) 22%, transparent); }
