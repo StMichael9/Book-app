@@ -165,9 +165,10 @@ test("reduced motion means no fade", async ({ page, app }) => {
   app.cover = index => `/test-cover/still-${index}.png`;
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/browse");
-  const image = page.locator(".bv-book-card img").first();
+  await expect(page.getByRole("heading", { level: 3, name: "Live One 1", exact: true })).toBeVisible();
+  const image = page.locator(".bv-book-card").filter({ has: page.getByRole("heading", { level: 3, name: "Live One 1", exact: true }) }).locator("img");
   await expect(image).toHaveCSS("opacity", "1");
-  expect(await image.evaluate(node => getComputedStyle(node).transitionDuration)).toBe("0s");
+  await expect(image).toHaveCSS("transition-duration", "0s");
 });
 
 test("the signed-in hint is a bare flag that follows the account check", async ({ page, app }) => {
