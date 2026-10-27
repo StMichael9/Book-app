@@ -621,11 +621,15 @@ test("an English title shows on My Books cards and the reading page; private boo
   await expect(card.locator(".bv-english-title")).toHaveText("The Odyssey");
   await expect(card.locator(".bv-english-title")).toHaveAttribute("lang", "en");
   await expect(card.locator("h3 + .bv-english-title + .bv-author")).toHaveCount(1);
+  books[0].published_year = -700; books[1].published_year = 1813;
   await page.goto("/my-books/1");
   await expect(page.locator("#bv-reading-book-title + .bv-english-title")).toHaveText("The Odyssey");
+  await expect(page.getByText("Published 700 BCE")).toBeVisible();
   await expect(page.locator(".bv-english-title")).toHaveAttribute("lang", "en");
   for (const id of [2, 3, 4, 5]) {
     await page.goto(`/my-books/${id}`); await expect(page.locator("#bv-reading-book-title")).toBeVisible();
     await expect(page.locator(".bv-english-title")).toHaveCount(0);
+    if (id === 2) await expect(page.getByText("Published 1813")).toBeVisible();
   }
+  delete books[0].published_year; delete books[1].published_year;
 });

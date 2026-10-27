@@ -15,6 +15,7 @@ Catalogue books whose stored title differs from their English title show the Eng
 - **Private books** (`entry.book == null`) never have one.
 - **Spacing:** 2 to 4px between title, English title and author, so they read as one group. Styles are in `refinement.css`, with rem and `--bv-*` tokens only.
 - **Also changed:** `getBookById` (`api/books.js`) keeps an explicit list of response fields for the book-detail cache, so `english_title` was dropped on `/books/:id`. It is now in that list. Without it the book page could never show the line.
+- **BCE years (display only, Michael approved):** `formatYear(year)` in `ui-v2/data.js` shows a negative year as "700 BCE" and any other as is. Used on the book page "Published" line and the reading page About line. No change to data, API or sorting.
 - **Not changed:** copy, headings, accessible names, ranking. The Current reading card on My Books home isn't in the brief's list and was left alone.
 - Today the API returns `english_title: null` everywhere until titles are loaded, so with real data nothing changes yet.
 
