@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useReader } from "./readerState.js";
-import { authorLabel, englishTitle } from "./data.js";
+import { authorLabel, bookSummary, englishTitle, prefetchBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
@@ -117,10 +117,29 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   </div>;
 }
 
+// Books that scroll into view are fetched ahead of a tap, a few per screen so a long grid does not flood the API.
+const VISIBLE_PREFETCH_LIMIT = 8;
+let visiblePrefetch = { path: "", ids: new Set() };
+function prefetchWhenVisible(id) {
+  if (visiblePrefetch.path !== window.location.pathname) visiblePrefetch = { path: window.location.pathname, ids: new Set() };
+  if (visiblePrefetch.ids.size >= VISIBLE_PREFETCH_LIMIT || visiblePrefetch.ids.has(id)) return;
+  visiblePrefetch.ids.add(id);
+  prefetchBook(id);
+}
+
 export function BookCard({ book, priority, buyUrl, preview = false }) {
   const location = useLocation();
-  const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse" };
-  return <article className="bv-book-card">
+  const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse", book: bookSummary(book) };
+  const card = useRef(null);
+  useEffect(() => {
+    const node = card.current;
+    if (!node || typeof IntersectionObserver === "undefined" || !Number.isSafeInteger(book.id)) return undefined;
+    const observer = new IntersectionObserver(entries => { if (entries.some(item => item.isIntersecting)) { prefetchWhenVisible(book.id); observer.disconnect(); } });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [book.id]);
+  const warm = () => prefetchBook(book.id);
+  return <article className="bv-book-card" ref={card} onPointerEnter={warm} onTouchStart={warm} onFocus={warm}>
     {/* The title link is the keyboard stop; the cover stays a pointer shortcut. */}
     <Link className="bv-book-link" to={`/book/${book.id}`} state={state} tabIndex={-1} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>

@@ -68,6 +68,8 @@ const test = base.extend({
       if (path === "/books") return reply(200, { items: [book], total: 1, page: 1, size: 20 });
       if (path === "/autocomplete/tags/batch") return reply(200, [tag]);
       if (path === "/autocomplete/tags") return reply(200, url.searchParams.get("q") === "fantasy" ? [tag] : []);
+      // Cards prefetch their book when seen; these fixtures hold no book pages, so the prefetch is answered with a quiet 404.
+      if (/^\/books\/\d+$/.test(path)) return reply(404, { detail: "Not found" });
       app.errors.push(`Unhandled API: ${path}`); return reply(500, {});
     });
     await provide(app); expect(app.errors).toEqual([]);

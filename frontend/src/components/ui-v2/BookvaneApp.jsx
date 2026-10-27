@@ -17,7 +17,10 @@ import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx"
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 
-const LibraryImportPage = lazy(() => import("../reading/imports/LibraryImportPage.jsx"));
+const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");
+const LibraryImportPage = lazy(loadLibraryImportPage);
+// Once the page is idle, fetch the one split-off route so opening it later never waits on a download.
+const preloadRoutes = () => { loadLibraryImportPage().catch(() => {}); };
 
 function Brand() {
   const { readingActions } = useUserBooks();
@@ -147,6 +150,12 @@ function Shell() {
   const reader = useReader();
   const location = useLocation();
   const auth = useAuth();
+  useEffect(() => {
+    const idle = window.requestIdleCallback || (callback => setTimeout(callback, 1500));
+    const cancel = window.cancelIdleCallback || clearTimeout;
+    const handle = idle(preloadRoutes);
+    return () => cancel(handle);
+  }, []);
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>

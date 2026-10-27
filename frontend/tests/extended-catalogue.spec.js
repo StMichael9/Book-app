@@ -35,6 +35,8 @@ const test = base.extend({
       if (path === '/me/library') return reply({ items: state.showLibrary ? [currentEntry] : [], total: state.showLibrary ? 1 : 0, counts: {}, next_cursor: null });
       if (path === '/me/library/44/reading') return reply({ entry: currentEntry, current_attempt: null, editions: [], imported_sources_count: 0 });
       if (path === '/me/library/44/attempts') return reply({ items: [], next_cursor: null });
+      // Cards prefetch their book when seen; these fixtures hold no book pages, so the prefetch is answered with a quiet 404.
+      if (/^\/books\/\d+$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       state.errors.push(`Unhandled ${path}`); return route.fulfill({ status: 500, json: {} });
     });
     await provide(state);

@@ -137,6 +137,8 @@ export function ReadingWorkspacePage() {
   const workspaceSession = `${auth.sessionGeneration}:${entryId}`;
   if (request.data && (lastWorkspace?.key !== workspaceSession || lastWorkspace.data !== request.data)) setLastWorkspace({ key: workspaceSession, data: request.data });
   const workspace = request.data || (lastWorkspace?.key === workspaceSession ? lastWorkspace.data : null);
+  // Opened from My Books or Home: the entry already known there draws the book's identity before the workspace request returns.
+  const seed = String(location.state?.entry?.id) === String(entryId) ? location.state.entry : null;
   const [reasonOpen, setReasonOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [removal, setRemoval] = useState(null);
@@ -263,7 +265,8 @@ export function ReadingWorkspacePage() {
     <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous } : null}>Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
     <div className={`bv-workspace-layout${moment ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
-      {!entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
+      {!entry && request.loading && seed ? <div key="seed" ref={trackLoading} className="bv-workspace-seed" aria-busy="true"><ReadingBookIdentity entry={seed} /><div className="bv-workspace-reading"><BookSkeletons count={1} /></div></div>
+        : !entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
         : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
         : <>
           <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_wanted", "Want to read"], ["is_owned", "I own it"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending || request.loading || Boolean(request.error)} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{entry[flag] && <Check aria-hidden="true" />}{label}</Button>)}</div>} />

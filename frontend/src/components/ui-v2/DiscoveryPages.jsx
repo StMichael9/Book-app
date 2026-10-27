@@ -9,7 +9,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
-import { SUBJECTS, authorLabel, catalogueResponse, errorText, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
+import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
@@ -49,7 +49,7 @@ export function WelcomePage() {
       </div>
       <div className="bv-hero-display">
         <div className="bv-hero-covers">{books.loading ? Array.from({ length: 3 }, (_, i) => <div key={i} className="bv-skeleton bv-skeleton--cover" aria-hidden="true" />) :
-          heroBooks.length ? heroBooks.map((book) => <Link key={book.id} to={`/book/${book.id}`} aria-label={`Explore ${book.title}`}><BookCover book={book} hero /></Link>) :
+          heroBooks.length ? heroBooks.map((book) => <Link key={book.id} to={`/book/${book.id}`} state={{ book: bookSummary(book) }} onPointerEnter={() => prefetchBook(book.id)} onTouchStart={() => prefetchBook(book.id)} aria-label={`Explore ${book.title}`}><BookCover book={book} hero /></Link>) :
             <div className="bv-hero-placeholder"><BookOpen aria-hidden="true" /><p>Explore the catalogue to find your next book.</p></div>}
         </div><div className="bv-shelf-rule" />
       </div>
@@ -181,8 +181,10 @@ export function BookPage() {
   const candidate = safeReturnTo(new URLSearchParams(location.search).get("from") || location.state?.browseFrom, "/browse");
   const browseFrom = candidate.split("?")[0] === "/browse" ? candidate : "/browse";
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`);
-  const book = request.data;
-  const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
+  // Opened from a card: draw its title, cover and facts at once; the description and subjects fill in when the request returns.
+  const seed = String(location.state?.book?.id) === String(bookId) ? location.state.book : null;
+  const book = request.data || seed;
+  const loadingNode = useRef(null), errorNode = useRef(null), articleNode = useRef(null), restoreHeadingFocus = useRef(false);
   const completeFocusTransition = useCallback(node => {
     if (!node) return;
     const restore = restoreHeadingFocus.current;
@@ -198,6 +200,11 @@ export function BookPage() {
     loadingNode.current = node;
     completeFocusTransition(node);
   }, [completeFocusTransition]);
+  // The card-seeded page is an article from the first frame; if its request then fails, the error panel inherits its focus.
+  const trackArticle = useCallback(node => {
+    if (!node && articleNode.current?.contains(document.activeElement)) restoreHeadingFocus.current = true;
+    articleNode.current = node;
+  }, []);
   const trackError = useCallback(node => {
     // Safari pointer activation may focus main rather than the Retry button.
     // Preserve the explicit retry intent until the next loading mount consumes it.
@@ -210,7 +217,7 @@ export function BookPage() {
   useDocumentTitle(book?.title);
   return <section className="bv-container">
     <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
-    {request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : request.error || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title">
+    {!book && request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div></div> : (request.error && !request.data) || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title" ref={trackArticle}>
       <div className="bv-detail-art"><BookCover book={book} priority size="large" /></div>
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         <EnglishTitle book={book} />
@@ -218,13 +225,15 @@ export function BookPage() {
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {/* Shelf choices come before subjects so they're on a phone's first screen. */}
         <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
+        {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}
         {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">
           {book.published_year != null && <div><dt>Published</dt><dd>{formatYear(book.published_year)}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
         </dl>}
         {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink><p className="bv-help">Open an existing reading, or start your first. Starting keeps Owned and clears Want to read. A new reread is always your choice.</p></div>}
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
-        <section className="bv-description"><h2>About this book</h2><p>{book.description || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p></section>
+        {request.data ? <section className="bv-description"><h2>About this book</h2><p>{book.description || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p></section>
+          : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
         <div className="bv-share"><ShareBookButton book={book} /></div>
       </div>
     </article>}

@@ -296,6 +296,10 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-skeleton { background: var(--bv-wash); border-radius: 4px; }
 .bv-root .bv-skeleton--cover { aspect-ratio: 2/3; }
 .bv-root .bv-skeleton--title { width: 80%; height: 20px; margin-top: 14px; }
+.bv-root .bv-skeleton--line { width: 100%; height: 16px; margin-top: 12px; }
+.bv-root .bv-skeleton--short { width: 60%; }
+/* Reserve the room the subjects will take, so they do not push the page down when they arrive. */
+.bv-root .bv-book-tags--pending { min-height: 44px; }
 .bv-root .bv-skeleton--author { width: 55%; height: 15px; margin-top: 10px; }
 .bv-root .bv-skeleton--action { width: 100%; height: 44px; margin-top: 20px; }
 .bv-root .bv-toast:empty { display: none; }
