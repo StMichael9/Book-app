@@ -262,6 +262,10 @@ def test_other_database_errors_are_not_retried(app_modules, monkeypatch):
     assert len(calls) == 1
 
 
-def test_the_engine_recycles_connections_instead_of_pinging_them(app_modules):
-    engine = app_modules["database"].engine
-    assert engine.pool._pre_ping is False and engine.pool._recycle == 240
+def test_reads_skip_the_ping_and_writes_keep_it(app_modules):
+    database = app_modules["database"]
+    assert database.read_engine.pool._pre_ping is False and database.read_engine.pool._recycle == 240
+    # Writes must not fail because the connection went stale while the tab sat idle.
+    assert database.engine.pool._pre_ping is True and database.engine.pool._recycle == 240
+    assert database.SessionLocal.kw["bind"] is database.engine
+    assert database.engine.pool is not database.read_engine.pool

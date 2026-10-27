@@ -65,17 +65,23 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# The API runs far from the database (about 60 ms per round trip), so a ping on every checkout is too dear. Connections
-# are recycled before Neon's idle suspend can drop them, and a read whose connection died is retried once (ReadSession).
+# The API runs far from the database (about 60 ms per round trip). Writes are rare and must not fail because the tab sat
+# idle, so they ping each connection before use; the ping also recycles anything older than Neon's idle suspend.
 engine = create_engine(
     settings.database_url,
+    pool_pre_ping=True,
     pool_recycle=240,
 )
 
 SessionLocal = sessionmaker(bind=engine)
 
-# Read-only requests need no BEGIN/ROLLBACK round trips: they run on an autocommit connection from the same pool.
-read_engine = engine.execution_options(isolation_level="AUTOCOMMIT")
+# Reads are many and cheap to repeat, so they skip the ping: connections are recycled before Neon's idle suspend can
+# drop them, and a read whose connection died is retried once (ReadSession). They also need no BEGIN/ROLLBACK round
+# trips, so they run on an autocommit connection from their own pool.
+read_engine = create_engine(
+    settings.database_url,
+    pool_recycle=240,
+).execution_options(isolation_level="AUTOCOMMIT")
 
 # Only routes that never write or stream may use it. Exports stream with server-side cursors, and imports and
 # every non-GET request keep ordinary transactions.
