@@ -234,64 +234,43 @@ def refresh(
         refresh_token.encode()
     ).hexdigest()
 
-    statement = select(RefreshToken).where(
-        RefreshToken.token_hash == refresh_token_hash
-    )
-
-    stored_token = (
-        db.execute(statement)
-        .scalars()
-        .first()
-    )
-
-    if not stored_token:
+    # Three statements, since each database round trip is slow: lock the owning user (every session issuance or reset
+    # locks the user before touching a token), claim the presented token atomically so simultaneous refreshes cannot
+    # both mint a replacement, then store the replacement. Why a claim failed is worked out only on that rare path.
+    user = db.execute(
+        select(User).join(RefreshToken, RefreshToken.user_id == User.id)
+        .where(RefreshToken.token_hash == refresh_token_hash).with_for_update(of=User)
+        .execution_options(populate_existing=True)
+    ).scalar_one_or_none()
+    if user is None:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
 
-    # All session issuance/reset operations lock the user before mutating a
-    # token. Reload both rows: a reset or another refresh may have committed
-    # since the initial token lookup, including in this Session's identity map.
-    user = db.execute(
-        select(User).where(User.id == stored_token.user_id).with_for_update()
-        .execution_options(populate_existing=True)
-    ).scalar_one_or_none()
-    if user is None:
-        db.rollback()
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-    stored_token = db.execute(
-        statement.with_for_update().execution_options(populate_existing=True)
-    ).scalar_one_or_none()
-    if stored_token is None:
-        db.rollback()
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
-
-    if stored_token.revoked:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token has been revoked",
-        )
-
-    if stored_token.expires_at <= datetime.now(timezone.utc):
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token has expired",
-        )
-
-    # Consume the presented token atomically: simultaneous refreshes must not
-    # both mint a valid replacement.
     claimed = db.execute(
         update(RefreshToken)
-        .where(RefreshToken.id == stored_token.id, RefreshToken.revoked.is_(False))
+        .where(
+            RefreshToken.token_hash == refresh_token_hash,
+            RefreshToken.revoked.is_(False),
+            RefreshToken.expires_at > datetime.now(timezone.utc),
+        )
         .values(revoked=True)
         .returning(RefreshToken.id)
     ).scalar_one_or_none()
     if claimed is None:
+        stored_token = db.execute(
+            select(RefreshToken).where(RefreshToken.token_hash == refresh_token_hash)
+        ).scalars().first()
         db.rollback()
-        raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+        if stored_token is None:
+            detail = "Invalid refresh token"
+        elif stored_token.revoked:
+            detail = "Refresh token has been revoked"
+        else:
+            detail = "Refresh token has expired"
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
     # Create new access token
     payload = {

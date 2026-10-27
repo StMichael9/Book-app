@@ -8,13 +8,14 @@ import { getPreferences, savePreferences } from "../../api/preferences.js";
 import { requestPasswordReset, resetPassword } from "../../api/auth.js";
 import { useReader } from "./readerState.js";
 import { errorText, loadSubjectOptions, safeReturnTo, subjectLabel, useRequest, validBookId } from "./data.js";
-import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageHeading, TextLink } from "./primitives.jsx";
+import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageFrame, PageHeading, TextLink } from "./primitives.jsx";
 import LibraryPage from "../reading/LibraryPage.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 
-export function RequireAccount({ children }) {
+export function RequireAccount({ children, title }) {
   const auth = useAuth();
   const location = useLocation();
+  if (auth.isLoading && title && !auth.sessionError) return <PageFrame title={title} />;
   if (auth.isLoading) return auth.sessionError ? null : <section className="bv-container bv-section" role="status"><p className="bv-muted">Checking your account…</p></section>;
   if (!auth.isAuthenticated) return <Navigate replace to={`/login?returnTo=${encodeURIComponent(location.pathname + location.search)}`} />;
   return children;

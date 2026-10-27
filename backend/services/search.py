@@ -1,6 +1,6 @@
 from sqlalchemy import case, select, exists, or_, union
-from sqlalchemy.orm import Session, selectinload
-from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, book_tags
+from sqlalchemy.orm import Session
+from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, UserPreference, book_tags
 
 
 class SearchService:
@@ -19,7 +19,6 @@ class SearchService:
         query = (
             select(Book)
             .where(Book.is_complete.is_(True))
-            .options(selectinload(Book.authors), selectinload(Book.tags))
             .order_by(Book.id)
         )
         title_rank = None
@@ -62,14 +61,15 @@ class SearchService:
                 )
                 query = query.where(status_match)
 
-            preferred_tag_ids = [p.tag_id for p in current_user.preferences]
-            if preferred_tag_ids:
-                preference_match = exists(
-                    select(book_tags.c.book_id)
-                    .where(book_tags.c.book_id == Book.id)
-                    .where(book_tags.c.tag_id.in_(preferred_tag_ids))
-                )
-                query = query.order_by(None).order_by(
-                    *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
+            # The reader's subjects are matched inside the same statement; reading them first would cost a round trip.
+            # A reader with no saved subjects matches nothing, so the order is simply by id as before.
+            preference_match = exists(
+                select(book_tags.c.book_id)
+                .where(book_tags.c.book_id == Book.id)
+                .where(book_tags.c.tag_id.in_(
+                    select(UserPreference.tag_id).where(UserPreference.user_id == current_user.id)))
+            )
+            query = query.order_by(None).order_by(
+                *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
 
         return query
