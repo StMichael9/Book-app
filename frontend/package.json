@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "snapshot:books": "node scripts/snapshot-books.mjs",
     "test": "playwright test",
     "test:mobile": "playwright test --config playwright.mobile.config.js",
     "preview": "vite preview"
