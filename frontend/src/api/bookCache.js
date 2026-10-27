@@ -66,6 +66,23 @@ export function writeBookCache(view, scope, payload) {
   }
 }
 
+// A bare "was signed in" flag, with no account data. It only lets the landing page decide, before the account check
+// returns, whether to paint the public books at once (a guest) or keep waiting (a reader about to be sent Home).
+const SESSION_HINT = "bookvane:session-hint:v1";
+
+export function likelySignedIn() {
+  try { return localStorage.getItem(SESSION_HINT) === "1"; } catch { return false; }
+}
+
+export function rememberSignedIn(signedIn) {
+  try {
+    if (signedIn) localStorage.setItem(SESSION_HINT, "1");
+    else localStorage.removeItem(SESSION_HINT);
+  } catch {
+    // Optional: without it a returning reader just sees the public books a moment sooner.
+  }
+}
+
 // With a scope, only that account scope's copies go ("member" when an anonymous start finds no session).
 export function clearBookCache(scope = null) {
   try {

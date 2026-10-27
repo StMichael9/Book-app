@@ -35,7 +35,7 @@ function Synopsis({ text }) {
 }
 
 export function ReadingBookDetails({ bookId }) {
-  const request = useRequest(() => getBookById(bookId), `reading-book-details:${bookId}`, Boolean(bookId));
+  const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
   return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
     <h3 id="bv-reading-about-title">About this book</h3>
     {!bookId ? <p className="bv-muted">No description is available for this private book. You can still keep your reading and memories here.</p>

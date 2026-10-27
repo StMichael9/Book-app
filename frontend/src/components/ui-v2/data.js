@@ -1,5 +1,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { apiRequest } from "../../api/client.js";
+import { getBookById } from "../../api/books.js";
+import { prefetchRequest, readRequestCache, requestCacheEpoch, writeRequestCache } from "../../api/requestCache.js";
 
 export const SUBJECTS = [
   ["fantasy", "Fantasy"], ["mystery", "Mystery"], ["history", "History"],
@@ -52,6 +54,8 @@ export function errorText(error, fallback) {
 }
 
 // Old requests may finish, but may never replace the current screen's data.
+// Stale-while-revalidate: an answer seen before (this tab, this session) is shown at once and the request still runs,
+// so revisits and Back never start from an empty page. The store is memory only; see api/requestCache.js.
 export function useRequest(load, key, enabled = true) {
   const loadCurrent = useEffectEvent(load);
   const [attempt, setAttempt] = useState(0);
@@ -60,19 +64,30 @@ export function useRequest(load, key, enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
+    const epoch = requestCacheEpoch();
     Promise.resolve().then(() => loadCurrent()).then(
-      (data) => { if (active) setState({ token, data, error: null }); },
+      (data) => { if (epoch === requestCacheEpoch()) writeRequestCache(key, data); if (active) setState({ token, data, error: null }); },
       (error) => { if (active) setState({ token, data: null, error }); },
     );
     return () => { active = false; };
-  }, [token, enabled]);
+  }, [token, enabled, key]);
   const current = state.token === token;
+  const stale = current ? null : readRequestCache(key);
   return {
-    data: current ? state.data : null,
-    loading: !enabled || !current,
+    data: current ? state.data : stale?.data ?? null,
+    loading: enabled ? !(current || stale) : !stale,
     error: current ? state.error : null,
     retry: () => setAttempt((value) => value + 1),
   };
+}
+
+// Starts the book request ahead of a click; the book page finds the answer in the cache under the same key.
+export const prefetchBook = id => prefetchRequest(`book:${id}`, () => getBookById(id));
+
+// The card fields a book page can draw before its own request returns.
+export function bookSummary(book) {
+  return { id: book.id, title: book.title, subtitle: book.subtitle ?? null, authors: book.authors || [], cover_image_url: book.cover_image_url ?? null,
+    published_year: book.published_year ?? null, page_count: book.page_count ?? null, english_title: book.english_title ?? null };
 }
 
 export function catalogueResponse(payload) {

@@ -8,6 +8,7 @@ import { AccountPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, Requ
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
+import { likelySignedIn } from "../../api/bookCache.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
@@ -16,7 +17,10 @@ import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx"
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 
-const LibraryImportPage = lazy(() => import("../reading/imports/LibraryImportPage.jsx"));
+const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");
+const LibraryImportPage = lazy(loadLibraryImportPage);
+// Once the page is idle, fetch the one split-off route so opening it later never waits on a download.
+const preloadRoutes = () => { loadLibraryImportPage().catch(() => {}); };
 
 function Brand() {
   const { readingActions } = useUserBooks();
@@ -62,7 +66,10 @@ function Header() {
 
 function LandingRoute() {
   const auth = useAuth(), library = useUserBooks();
-  if (auth.isLoading || (auth.isAuthenticated && library.loading)) return <section className="bv-container bv-landing-loading" aria-busy="true"><p role="status">Opening Bookvane…</p><BookSkeletons count={3} /></section>;
+  // A guest sees the public books at once while the account check runs. A reader who was signed in last time is about to
+  // be sent Home, so they keep the short opening screen instead of seeing the guest page flash first.
+  const [wasSignedIn] = useState(likelySignedIn);
+  if ((auth.isLoading && wasSignedIn) || (auth.isAuthenticated && library.loading)) return <section className="bv-container bv-landing-loading" aria-busy="true"><p role="status">Opening Bookvane…</p><BookSkeletons count={3} /></section>;
   return library.readingActions ? <Navigate to="/home" replace /> : <WelcomePage />;
 }
 
@@ -143,6 +150,12 @@ function Shell() {
   const reader = useReader();
   const location = useLocation();
   const auth = useAuth();
+  useEffect(() => {
+    const idle = window.requestIdleCallback || (callback => setTimeout(callback, 1500));
+    const cancel = window.cancelIdleCallback || clearTimeout;
+    const handle = idle(preloadRoutes);
+    return () => cancel(handle);
+  }, []);
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>

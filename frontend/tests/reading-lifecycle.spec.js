@@ -426,7 +426,8 @@ for (const moveFocus of [false, true]) test(`editorial workspace delayed identit
     await page.goto("/my-books");
     const link = page.getByRole("link", { name: "Reading fixture 101", exact: true });
     await link.focus(); await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Loading your reading…", exact: true })).toBeFocused();
+    // Opened from My Books, the book's own title is drawn at once and takes the focus while the reading loads.
+    await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeFocused();
     const back = page.getByRole("link", { name: "Back to My Books", exact: true });
     if (moveFocus) await back.focus();
     release();

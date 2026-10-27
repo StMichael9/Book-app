@@ -6,7 +6,8 @@ import {
   refreshSession,
   registerUser,
 } from "../api/auth.js";
-import { clearBookCache } from "../api/bookCache.js";
+import { clearBookCache, rememberSignedIn } from "../api/bookCache.js";
+import { clearRequestCache } from "../api/requestCache.js";
 
 const AuthContext = createContext(null);
 
@@ -20,7 +21,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const handleSessionExpired = () => {
-      clearBookCache();
+      clearBookCache(); clearRequestCache();
       sessionVersion.current += 1;
       setSessionGeneration(sessionVersion.current);
       setIsAuthenticated(false);
@@ -65,6 +66,9 @@ export function AuthProvider({ children }) {
     return () => { sessionVersion.current += 1; };
   }, [checkSession]);
 
+  // Once the account check has answered, remember only the yes/no, so the next landing can paint before it returns.
+  useEffect(() => { if (!isLoading) rememberSignedIn(isAuthenticated); }, [isAuthenticated, isLoading]);
+
   const value = useMemo(
     () => ({
       isAuthenticated,
@@ -73,7 +77,7 @@ export function AuthProvider({ children }) {
       sessionGeneration,
       retrySession: checkSession,
       async login(credentials) {
-        clearBookCache();
+        clearBookCache(); clearRequestCache();
         // A startup refresh belongs to the previous session state. Its late
         // response must not override an explicit login or registration.
         const version = ++sessionVersion.current;
@@ -90,7 +94,7 @@ export function AuthProvider({ children }) {
         }
       },
       async register(credentials) {
-        clearBookCache();
+        clearBookCache(); clearRequestCache();
         const version = ++sessionVersion.current;
         setSessionGeneration(version);
         setSessionError(null);
@@ -104,7 +108,7 @@ export function AuthProvider({ children }) {
         }
       },
       async logout() {
-        clearBookCache();
+        clearBookCache(); clearRequestCache();
         sessionVersion.current += 1;
         setSessionGeneration(sessionVersion.current);
         await logoutUser();
