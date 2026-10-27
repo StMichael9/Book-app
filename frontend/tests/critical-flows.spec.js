@@ -29,6 +29,7 @@ const test = base.extend({
     await page.route("**/*", async (route) => {
       const request = route.request();
       const url = new URL(request.url());
+      if (url.origin === "https://covers.openlibrary.org") return route.abort(); // cover art in the book snapshot; never a data request
       if (url.origin !== new URL(baseURL).origin) {
         state.errors.push(`Unexpected external request: ${url.origin}`);
         return route.abort();

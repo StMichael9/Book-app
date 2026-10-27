@@ -8,6 +8,7 @@ import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
+import { useInstantBooks } from "./instantBooks.js";
 import { SUBJECTS, authorLabel, catalogueResponse, errorText, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
@@ -31,7 +32,8 @@ export function WelcomePage() {
   // Personalized catalogue ordering and in-flight requests belong to one
   // session, not to every account that happens to be signed in in this SPA.
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
-  const books = useRequest(async () => catalogueResponse(await getBooks({ size: 30, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
+  const live = useRequest(async () => catalogueResponse(await getBooks({ size: 30, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
+  const books = useInstantBooks({ view: "landing", eligible: true, auth, live });
   const items = books.data?.items || [];
   const { hero: heroBooks, row: rowBooks } = landingSelection(items);
   const subjects = ["fantasy", "mystery", "romance", "science_fiction"];
@@ -109,7 +111,9 @@ export function BrowsePage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const shelfRevision = shelf || exclude ? library.revision : 0;
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}:${reader.preferencesVersion}:${shelfRevision}` : "public";
-  const request = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
+  const live = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
+  // Only the plain first page (no search, filters or paging) may start from the snapshot or this browser's last copy.
+  const request = useInstantBooks({ view: "browse", eligible: queryKey === "", auth, live });
   // Guests browsing without a search get the landing's first-impression order within each page.
   // Signed-in readers keep server order, which puts their preferred subjects first.
   const items = !auth.isAuthenticated && !book && !author ? firstImpressionOrder(request.data?.items || []) : request.data?.items || [];
