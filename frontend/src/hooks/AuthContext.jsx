@@ -6,6 +6,7 @@ import {
   refreshSession,
   registerUser,
 } from "../api/auth.js";
+import { clearBookCache } from "../api/bookCache.js";
 
 const AuthContext = createContext(null);
 
@@ -19,6 +20,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const handleSessionExpired = () => {
+      clearBookCache();
       sessionVersion.current += 1;
       setSessionGeneration(sessionVersion.current);
       setIsAuthenticated(false);
@@ -47,6 +49,7 @@ export function AuthProvider({ children }) {
       .catch(error => {
         if (!isCurrent()) return;
         if (error.status === 401) {
+          clearBookCache("member"); // a signed-in copy must not outlive its session; the guest copy stays
           setIsAuthenticated(false);
           setIsLoading(false);
         } else {
@@ -70,6 +73,7 @@ export function AuthProvider({ children }) {
       sessionGeneration,
       retrySession: checkSession,
       async login(credentials) {
+        clearBookCache();
         // A startup refresh belongs to the previous session state. Its late
         // response must not override an explicit login or registration.
         const version = ++sessionVersion.current;
@@ -86,6 +90,7 @@ export function AuthProvider({ children }) {
         }
       },
       async register(credentials) {
+        clearBookCache();
         const version = ++sessionVersion.current;
         setSessionGeneration(version);
         setSessionError(null);
@@ -99,6 +104,7 @@ export function AuthProvider({ children }) {
         }
       },
       async logout() {
+        clearBookCache();
         sessionVersion.current += 1;
         setSessionGeneration(sessionVersion.current);
         await logoutUser();

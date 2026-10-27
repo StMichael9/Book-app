@@ -1,0 +1,509 @@
+{
+  "generatedAt": "2026-10-27T03:24:07.423Z",
+  "source": "https://api.bookvane.me/books?size=30",
+  "total": 44075,
+  "items": [
+    {
+      "id": 1769,
+      "title": "\"A\" is for Alibi",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1233,
+          "name": "Sue Grafton"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/7888268-L.jpg",
+      "published_year": 1982,
+      "page_count": 416,
+      "english_title": null
+    },
+    {
+      "id": 1770,
+      "title": "1066 and All That",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1234,
+          "name": "Walter Carruthers Sellar"
+        },
+        {
+          "id": 47083,
+          "name": "Robert Julian Yeatman"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/14861758-L.jpg",
+      "published_year": 1930,
+      "page_count": 125,
+      "english_title": null
+    },
+    {
+      "id": 1771,
+      "title": "1601",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1235,
+          "name": "Mark Twain"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/10637325-L.jpg",
+      "published_year": 1880,
+      "page_count": 38,
+      "english_title": null
+    },
+    {
+      "id": 1772,
+      "title": "4:50 from Paddington",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1236,
+          "name": "Agatha Christie"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/13151352-L.jpg",
+      "published_year": 1957,
+      "page_count": 189,
+      "english_title": null
+    },
+    {
+      "id": 1773,
+      "title": "A Christmas Carol",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1237,
+          "name": "Charles Dickens"
+        },
+        {
+          "id": 2333,
+          "name": "Charles Dickens"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/12875748-L.jpg",
+      "published_year": 1843,
+      "page_count": 2,
+      "english_title": null
+    },
+    {
+      "id": 1774,
+      "title": "A Connecticut Yankee in King Arthur's Court",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1235,
+          "name": "Mark Twain"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/9168732-L.jpg",
+      "published_year": 1889,
+      "page_count": 64,
+      "english_title": null
+    },
+    {
+      "id": 1776,
+      "title": "A Murder Is Announced",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1236,
+          "name": "Agatha Christie"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/14578204-L.jpg",
+      "published_year": 1950,
+      "page_count": 221,
+      "english_title": null
+    },
+    {
+      "id": 1777,
+      "title": "A Portrait of the Artist as a Young Man",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1239,
+          "name": "James Joyce"
+        },
+        {
+          "id": 9720,
+          "name": "James Joyce"
+        },
+        {
+          "id": 47593,
+          "name": "James Joyce"
+        },
+        {
+          "id": 48024,
+          "name": "james joyce"
+        },
+        {
+          "id": 48450,
+          "name": "J Joyce"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/9328410-L.jpg",
+      "published_year": 1818,
+      "page_count": 284,
+      "english_title": null
+    },
+    {
+      "id": 1779,
+      "title": "A Room of One's Own",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1241,
+          "name": "Virginia Woolf"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/6559057-L.jpg",
+      "published_year": 1929,
+      "page_count": 114,
+      "english_title": null
+    },
+    {
+      "id": 1781,
+      "title": "A Study in Scarlet",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1243,
+          "name": "Arthur Conan Doyle"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/13405534-L.jpg",
+      "published_year": 1887,
+      "page_count": 200,
+      "english_title": null
+    },
+    {
+      "id": 1782,
+      "title": "A Tale of Three Lions",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1244,
+          "name": "H. Rider Haggard"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/2009339-L.jpg",
+      "published_year": 2004,
+      "page_count": 56,
+      "english_title": null
+    },
+    {
+      "id": 1783,
+      "title": "A Tale of Two Cities",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1237,
+          "name": "Charles Dickens"
+        },
+        {
+          "id": 2333,
+          "name": "Charles Dickens"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/13301713-L.jpg",
+      "published_year": 1800,
+      "page_count": 64,
+      "english_title": null
+    },
+    {
+      "id": 1785,
+      "title": "A short history of nearly everything",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1246,
+          "name": "Bill Bryson"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/12725620-L.jpg",
+      "published_year": 2003,
+      "page_count": 939,
+      "english_title": null
+    },
+    {
+      "id": 1786,
+      "title": "A strange disappearance",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1247,
+          "name": "Anna Katharine Green"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/12657405-L.jpg",
+      "published_year": 1879,
+      "page_count": 152,
+      "english_title": null
+    },
+    {
+      "id": 1787,
+      "title": "Ab urbe condita",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1248,
+          "name": "Titus Livius"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/6657951-L.jpg",
+      "published_year": 1481,
+      "page_count": 328,
+      "english_title": null
+    },
+    {
+      "id": 1788,
+      "title": "Adventures of Huckleberry Finn",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1235,
+          "name": "Mark Twain"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/8157718-L.jpg",
+      "published_year": 1876,
+      "page_count": 258,
+      "english_title": null
+    },
+    {
+      "id": 1790,
+      "title": "After London",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1250,
+          "name": "Richard Jefferies"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/2841895-L.jpg",
+      "published_year": 1885,
+      "page_count": 224,
+      "english_title": null
+    },
+    {
+      "id": 1792,
+      "title": "Alice's Adventures in Wonderland",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1252,
+          "name": "Lewis Carroll"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/10527843-L.jpg",
+      "published_year": 1865,
+      "page_count": 240,
+      "english_title": null
+    },
+    {
+      "id": 1793,
+      "title": "Alice's Adventures in Wonderland / Through the Looking Glass",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1252,
+          "name": "Lewis Carroll"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/8595966-L.jpg",
+      "published_year": 1889,
+      "page_count": 254,
+      "english_title": null
+    },
+    {
+      "id": 1794,
+      "title": "All's Well That Ends Well",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1238,
+          "name": "William Shakespeare"
+        },
+        {
+          "id": 2294,
+          "name": "William Shakespeare"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/7338455-L.jpg",
+      "published_year": 1734,
+      "page_count": 216,
+      "english_title": null
+    },
+    {
+      "id": 1795,
+      "title": "Allegiant",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1253,
+          "name": "Veronica Roth"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/7276393-L.jpg",
+      "published_year": 2011,
+      "page_count": 526,
+      "english_title": null
+    },
+    {
+      "id": 1797,
+      "title": "American notes",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1237,
+          "name": "Charles Dickens"
+        },
+        {
+          "id": 2333,
+          "name": "Charles Dickens"
+        },
+        {
+          "id": 47429,
+          "name": "Diana C. Archibald"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/8236357-L.jpg",
+      "published_year": 1800,
+      "page_count": 256,
+      "english_title": null
+    },
+    {
+      "id": 1798,
+      "title": "An Abundance of Katherines",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1255,
+          "name": "John Green"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/14559681-L.jpg",
+      "published_year": 2006,
+      "page_count": 227,
+      "english_title": null
+    },
+    {
+      "id": 1800,
+      "title": "An Unsocial Socialist",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1257,
+          "name": "George Bernard Shaw"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/6046060-L.jpg",
+      "published_year": 1887,
+      "page_count": 376,
+      "english_title": null
+    },
+    {
+      "id": 1803,
+      "title": "Anthem",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1260,
+          "name": "Ayn Rand"
+        },
+        {
+          "id": 47161,
+          "name": "Spectrum Spectrum Classics"
+        },
+        {
+          "id": 47294,
+          "name": "classics jifara"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/802982-L.jpg",
+      "published_year": 1936,
+      "page_count": 92,
+      "english_title": null
+    },
+    {
+      "id": 1806,
+      "title": "Are You There God? It's Me, Margaret",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1262,
+          "name": "Judy Blume"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/12388102-L.jpg",
+      "published_year": 1970,
+      "page_count": 124,
+      "english_title": null
+    },
+    {
+      "id": 1807,
+      "title": "Armadale",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1263,
+          "name": "Wilkie Collins"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/780215-L.jpg",
+      "published_year": 1866,
+      "page_count": 672,
+      "english_title": null
+    },
+    {
+      "id": 1809,
+      "title": "At the Back of the North Wind",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1265,
+          "name": "George MacDonald"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/8245161-L.jpg",
+      "published_year": 1871,
+      "page_count": 272,
+      "english_title": null
+    },
+    {
+      "id": 1810,
+      "title": "At the Earth's Core",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1240,
+          "name": "Edgar Rice Burroughs"
+        },
+        {
+          "id": 8840,
+          "name": "Edgar Rice Burroughs"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/9317372-L.jpg",
+      "published_year": 1914,
+      "page_count": 128,
+      "english_title": null
+    },
+    {
+      "id": 1811,
+      "title": "Barchester Towers",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1266,
+          "name": "Anthony Trollope"
+        }
+      ],
+      "cover_image_url": "https://covers.openlibrary.org/b/id/1468666-L.jpg",
+      "published_year": 1815,
+      "page_count": 432,
+      "english_title": null
+    }
+  ]
+}

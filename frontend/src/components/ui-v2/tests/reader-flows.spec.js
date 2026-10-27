@@ -16,6 +16,7 @@ const test = base.extend({
     page.on("pageerror", (error) => state.errors.push(error.message));
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
+      if (url.origin === "https://covers.openlibrary.org") return route.abort(); // cover art in the book snapshot; never a data request
       if (url.origin !== "http://127.0.0.1:5189") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.brokenCover) return route.fulfill({ status: 404, body: "" });
@@ -378,11 +379,15 @@ test("minimalist landing retains existing legacy fallback and scoped catalogue r
   app.authenticated = true; app.catalogueFails = true;
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toBeVisible();
+  // The committed book snapshot keeps the page populated when the catalogue request fails, so there is no error panel.
+  await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toHaveCount(0);
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await expect(page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Return to your library", exact: true })).toHaveAttribute("href", "/my-books");
   await expect(page.getByRole("link", { name: "Explore books", exact: true })).toBeVisible();
   app.catalogueFails = false;
-  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true })).toBeVisible();
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
 });
 

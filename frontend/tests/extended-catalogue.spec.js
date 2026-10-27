@@ -13,6 +13,7 @@ const test = base.extend({
     page.on('pageerror', error => state.errors.push(error.message));
     await page.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
+      if (url.origin === "https://covers.openlibrary.org") return route.abort(); // cover art in the book snapshot; never a data request
       if (url.origin !== new URL(baseURL).origin) { state.errors.push('Unexpected external request'); return route.abort(); }
       if (url.pathname === '/fixture-cover.svg') return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="180"><rect width="120" height="180" fill="#263d34"/></svg>' });
       if (!url.pathname.startsWith('/test-api/')) return route.continue();
