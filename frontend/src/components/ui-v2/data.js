@@ -26,6 +26,10 @@ export function englishTitle(book) {
   return english.toLowerCase() === (book.title || "").trim().toLowerCase() ? null : english;
 }
 
+export function formatYear(year) {
+  return Number.isInteger(year) && year < 0 ? `${-year} BCE` : String(year);
+}
+
 export function validBookId(value) {
   const number = Number(value);
   return Number.isSafeInteger(number) && number > 0 ? number : null;
