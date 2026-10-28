@@ -5,6 +5,11 @@ import "./index.css";
 import App from "./components/ui-v2/BookvaneApp.jsx";
 import { AuthProvider } from "./hooks/AuthContext.jsx";
 import { UserBooksProvider } from "./hooks/UserBooksContext.jsx";
+import { installAnalytics, startObservability } from "./observability.js";
+
+// Both are no-ops unless their keys were set for this build.
+startObservability().catch(() => {});
+installAnalytics();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
