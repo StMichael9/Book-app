@@ -64,6 +64,7 @@ def import_env(app_modules, test_database_url, monkeypatch):
     database.Base.metadata.create_all(bind=database.engine)
     with database.SessionLocal.begin() as session:
         session.execute(delete(models.CatalogueImportIssue))
+        session.execute(delete(models.CatalogueStagePopularity))
         session.execute(delete(models.CatalogueStageAuthorCount))
         session.execute(delete(models.CatalogueStageCandidate))
         session.execute(delete(models.CatalogueStageWorkAuthor))
@@ -120,6 +121,7 @@ def test_staging_measurement_is_exact_in_one_query(import_env):
     names = (
         "catalogue_stage_works", "catalogue_stage_work_authors", "catalogue_stage_authors",
         "catalogue_stage_editions", "catalogue_stage_candidates", "catalogue_stage_author_counts",
+        "catalogue_stage_popularity",
     )
     with factory() as session:
         statements = []

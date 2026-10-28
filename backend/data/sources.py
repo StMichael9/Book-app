@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 import requests
 
-KINDS = ("works", "authors", "editions", "redirects", "deletes")
+KINDS = ("works", "authors", "editions", "redirects", "deletes", "ratings", "reading-log")
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/"
 MIN_COMPRESSED_BYTES = {
@@ -26,6 +26,8 @@ MIN_COMPRESSED_BYTES = {
     "editions": 100_000_000,
     "redirects": 1_000_000,
     "deletes": 1_000_000,
+    "ratings": 500_000,
+    "reading-log": 1_000_000,
 }
 
 
@@ -149,7 +151,7 @@ class _HashingReader:
 def stream_dump(
     url: str, *, start_line: int = 0, user_agent: str, timeout: int = 120,
     expected_size: int | None = None, expected_md5: str | None = None,
-    progress_callback: Callable[[], None] | None = None,
+    progress_callback: Callable[[], None] | None = None, tabular: bool = False,
 ) -> Iterator[DumpRow]:
     """Decode a pinned TSV gzip stream and verify compressed bytes at EOF.
 
@@ -184,6 +186,15 @@ def stream_dump(
                             yield DumpRow(number, None, "record exceeds four million characters", 4_000_001)
                         continue
                     if number <= start_line:
+                        continue
+                    if tabular:
+                        # Ratings and reading-log: work key, edition key (may be empty), value, date.
+                        fields = line.rstrip("\n").split("\t")
+                        if len(fields) < 3 or not fields[0]:
+                            yield DumpRow(number, None, "expected at least three TSV fields", len(line))
+                        else:
+                            yield DumpRow(number, {"work": fields[0], "edition": fields[1], "value": fields[2]},
+                                          byte_size=len(line))
                         continue
                     try:
                         fields = line.rstrip("\n").split("\t", 4)
