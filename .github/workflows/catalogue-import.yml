@@ -25,6 +25,11 @@ on:
         description: Optional JSON percentage weights; blank means equal weights
         required: false
         type: string
+      dry_run:
+        description: Dry run - stage and predict what the merge would add and fill, write no book, upload the report
+        required: false
+        default: false
+        type: boolean
   repository_dispatch:
     types: [bookvane-catalogue-continue]
 
@@ -56,6 +61,7 @@ jobs:
       CATALOGUE_USER_AGENT: ${{ vars.CATALOGUE_USER_AGENT }}
       INPUT_RUN_ID: ${{ github.event.client_payload.run_id }}
       INPUT_TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env }}
+      INPUT_DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}
       INPUT_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
       INPUT_SNAPSHOT: ${{ inputs.snapshot }}
       INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
@@ -90,6 +96,9 @@ jobs:
         run: |
           [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" || "$INPUT_TARGET_ENV" == "catalogue-production" ]] || exit 1
           args=(--mode production --time-budget-seconds 17400 --max-database-mb 700)
+          if [[ "$INPUT_DRY_RUN" == "true" ]]; then
+            args+=(--dry-run --dry-run-report "$RUNNER_TEMP/dry-run-report.json")
+          fi
           if [[ "$GITHUB_EVENT_NAME" == "repository_dispatch" ]]; then
             args+=(--run-id "$INPUT_RUN_ID")
           else
@@ -99,6 +108,13 @@ jobs:
             fi
           fi
           python -m data.load "${args[@]}"
+      - name: Upload the dry-run report
+        if: ${{ always() && env.INPUT_DRY_RUN == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-dry-run-report
+          path: ${{ runner.temp }}/dry-run-report.json
+          if-no-files-found: ignore
 
   continue:
     needs: import
@@ -112,11 +128,13 @@ jobs:
       RUN_ID: ${{ needs.import.outputs.run_id }}
       SOURCE_SHA: ${{ needs.import.outputs.source_sha }}
       TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env }}
+      DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}
     steps:
       - name: Dispatch the next checkpointed segment
         run: |
           payload=$(jq -n --arg run_id "$RUN_ID" --arg source_sha "$SOURCE_SHA" --arg target_env "$TARGET_ENV" \
-            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha, target_env:$target_env}}')
+            --arg dry_run "$DRY_RUN" \
+            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha, target_env:$target_env, dry_run:$dry_run}}')
           curl --fail-with-body --retry 3 --retry-delay 3 \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \

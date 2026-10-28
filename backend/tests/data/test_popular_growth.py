@@ -378,3 +378,34 @@ def test_workflow_selects_environment_and_carries_it_through_continuations():
     assert "--max-database-mb 700" in text
     assert re.search(r"client_payload:\{[^}]*target_env:\$target_env", text)
     assert "environment: catalogue-production" not in text
+
+
+def test_workflow_dry_run_input_flag_artifact_and_continuation():
+    text = (ROOT / ".github" / "workflows" / "catalogue-import.yml").read_text(encoding="utf-8")
+    block = text.split("dry_run:", 1)[1].split("repository_dispatch:", 1)[0]
+    assert "type: boolean" in block and "default: false" in block
+    assert re.search(r'INPUT_DRY_RUN" == "true" \]\];? then\s+args\+=\(--dry-run --dry-run-report', text)
+    assert "actions/upload-artifact@" in text and "dry-run-report.json" in text
+    assert re.search(r"client_payload:\{[^}]*dry_run:\$dry_run", text)
+    assert "DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}" in text
+
+
+def test_dry_run_command_writes_the_report_file(import_env, monkeypatch, tmp_path):
+    models, factory, importer, config = import_env
+    source = dumps([work(1), work(2)], [edition(1), edition(2)], readers={1: 3, 2: 2})
+    fake_stream(monkeypatch, source)
+    cfg = popular(config)
+    out = tmp_path / "report.json"
+    monkeypatch.setenv("CATALOGUE_DATABASE_URL", cfg.database_url)
+    monkeypatch.setenv("CATALOGUE_USER_AGENT", cfg.user_agent)
+    monkeypatch.setattr("sys.argv", [
+        "load", "--mode", "test", "--run-id", "cli-dry", "--dry-run", "--dry-run-report", str(out),
+        "--works-url", WORKS_URL, "--authors-url", AUTHORS_URL, "--editions-url", EDITIONS_URL,
+        "--redirects-url", REDIRECTS_URL, "--deletes-url", DELETES_URL,
+        "--ratings-url", RATINGS_URL, "--reading-log-url", READING_URL])
+    importer.main()
+    import json
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["run_id"] == "cli-dry" and data["dry_run"]["new_books"] == 2
+    with factory() as session:
+        assert session.scalar(select(func.count()).select_from(models.Book)) == 0

@@ -429,6 +429,7 @@ def main() -> None:
                         help="Popular works kept as the allowlist when ratings and reading-log dumps are used")
     parser.add_argument("--dry-run", action="store_true",
                         help="Stop after hydrate and report what the merge would add and fill; writes no book")
+    parser.add_argument("--dry-run-report", help="With --dry-run, write the prediction to this JSON file")
     parser.add_argument("--mode", choices=("test", "production"), required=True)
     parser.add_argument("--target-books", type=int)
     parser.add_argument("--weights-json", default=None,
@@ -451,6 +452,16 @@ def main() -> None:
     result = run_import(config, one_phase=args.one_phase,
                         time_budget_seconds=args.time_budget_seconds)
     log.info("Import %s snapshot=%s phase=%s", config.run_id, config.snapshot_id, result)
+    if result == "dry_run" and args.dry_run_report:
+        engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            with Session(engine) as session:
+                prediction = (session.get(CatalogueImportRun, config.run_id).report or {}).get("dry_run")
+        finally:
+            engine.dispose()
+        with open(args.dry_run_report, "w", encoding="utf-8") as handle:
+            json.dump({"run_id": config.run_id, "snapshot_id": config.snapshot_id, "dry_run": prediction},
+                      handle, indent=2)
     output_path = os.getenv("GITHUB_OUTPUT")
     if output_path:
         with open(output_path, "a", encoding="utf-8") as output:
