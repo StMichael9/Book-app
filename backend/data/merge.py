@@ -14,26 +14,65 @@ from data.config import ImportConfig
 from data.reporting import _check_storage, _issue
 from data.staging import _existing_book_aliases, select_useful_editions
 from models import (
-    Author, Book, CatalogueImportRun, CatalogueStageAuthor,
+    Author, Book, BookTitleAlias, CatalogueImportRun, CatalogueStageAuthor,
     CatalogueStageEdition, CatalogueStageWork, CatalogueStageWorkAuthor,
     Edition, EditionISBN, Tag, TagType, book_authors, book_tags,
 )
 
 log = logging.getLogger("bookvane.catalogue")
 FIELD_TITLE, FIELD_DESCRIPTION, FIELD_YEAR, FIELD_COVER, FIELD_ISBN, FIELD_PAGES = (1, 2, 4, 8, 16, 32)
+MAX_ALIASES_PER_BOOK = 3
+
+
+def _blank(value: object) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip(" \t\r\n"))
+
+
+def median_pages(editions: list[dict]) -> int | None:
+    """Median page count of the staged editions, English ones first; an even count rounds half up."""
+    english = [item["page_count"] for item in editions
+               if item["page_count"] and item["page_count"] > 0 and "/languages/eng" in item["languages"]]
+    pages = sorted(english or [item["page_count"] for item in editions
+                               if item["page_count"] and item["page_count"] > 0])
+    if not pages:
+        return None
+    middle = len(pages) // 2
+    return pages[middle] if len(pages) % 2 else (pages[middle - 1] + pages[middle] + 1) // 2
 
 
 def _set_work_value(session: Session, run: CatalogueImportRun, book: Book,
-                    field_name: str, value: object, bit: int, source_id: str) -> None:
+                    field_name: str, value: object, bit: int, source_id: str, fill_only: bool = False) -> None:
     if value is None:
         return
     old = getattr(book, field_name)
+    if fill_only:
+        # Existing books in a popular-growth run: only a missing (NULL or blank) value is ever written.
+        if _blank(old):
+            setattr(book, field_name, value)
+            book.source_managed_fields |= bit
+        return
     if old is None or book.source_managed_fields & bit:
         setattr(book, field_name, value)
         book.source_managed_fields |= bit
     elif old != value:
         _issue(session, run.id, "legacy_field_conflict", source_id,
                f"Preserved existing {field_name}; Open Library has a different value")
+
+
+def _load_title_aliases(session: Session, works: list[CatalogueStageWork], book_for_work: dict[str, Book]) -> None:
+    """Fill-only: an alias already present for the book (case-insensitively) is left as it is."""
+    rows = []
+    for work in works:
+        book = book_for_work.get(work.source_id)
+        if book is None:
+            continue
+        own = " ".join(book.title.split()).lower()
+        for item in sorted(work.title_aliases or [], key=lambda entry: -entry["count"])[:MAX_ALIASES_PER_BOOK]:
+            if " ".join(item["title"].split()).lower() != own:
+                rows.append({"book_id": book.id, "title": item["title"], "source": "openlibrary_edition",
+                             "language": "eng" if item["english"] else None})
+    for start in range(0, len(rows), 500):
+        session.execute(insert(BookTitleAlias).values(rows[start:start + 500]).on_conflict_do_nothing())
 
 
 def _merge_batch(session: Session, config: ImportConfig) -> int:
@@ -87,6 +126,8 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
     books_by_source = {book.source_id: book for book in existing_books if book.source_id}
     books_by_id = {book.id: book for book in existing_books}
     book_for_work: dict[str, Book] = {}
+    popular = config.popular
+    new_sources: set[str] = set()
     for work in works:
         candidates = {book.id: book for source in [work.source_id, *old_by_new[work.source_id]]
                       if (book := books_by_source.get(source))}
@@ -104,15 +145,18 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             book = Book(title=work.title, source_id=work.source_id,
                         source_managed_fields=FIELD_TITLE)
             session.add(book)
+            new_sources.add(work.source_id)
         elif book.source_id != work.source_id:
             book.source_id = work.source_id
+        fill_only = popular and work.source_id not in new_sources
         for field_name, value, bit in (
             ("title", work.title, FIELD_TITLE),
             ("description", work.description, FIELD_DESCRIPTION),
             ("published_year", work.published_year, FIELD_YEAR),
             ("cover_image_url", work.cover_image_url, FIELD_COVER),
         ):
-            _set_work_value(session, run, book, field_name, value, bit, work.source_id)
+            _set_work_value(session, run, book, field_name, value, bit, work.source_id,
+                            fill_only=fill_only and field_name != "title")
         book_for_work[work.source_id] = book
     session.flush()
     if not book_for_work:
@@ -205,20 +249,31 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         items = selected_by_work[source_id]
         if not items:
             continue
+        fill_only = popular and source_id not in new_sources
         preferred = items[0]
         preferred_isbn = next((item["isbn13"] for item in preferred["isbns"]
                                if not item["derived_from_isbn10"]), None)
         preferred_isbn = preferred_isbn or next((item["isbn13"] for item in preferred["isbns"]), None)
-        _set_work_value(session, run, book, "isbn13", preferred_isbn, FIELD_ISBN, source_id)
-        _set_work_value(session, run, book, "page_count", preferred["page_count"], FIELD_PAGES, source_id)
-        if not book.cover_image_url:
+        _set_work_value(session, run, book, "isbn13", preferred_isbn, FIELD_ISBN, source_id, fill_only=fill_only)
+        median_filled = False
+        if popular:
+            # One book-level page count for the whole work: the median of every staged edition, so a book is
+            # complete even when its preferred edition has no page count.
+            had_pages = book.page_count is not None
+            _set_work_value(session, run, book, "page_count", median_pages(editions_by_work[source_id]),
+                            FIELD_PAGES, source_id, fill_only=True)
+            median_filled = not had_pages and book.page_count is not None
+        else:
+            _set_work_value(session, run, book, "page_count", preferred["page_count"], FIELD_PAGES, source_id)
+        if _blank(book.cover_image_url):
             _set_work_value(session, run, book, "cover_image_url",
-                            preferred["cover_image_url"], FIELD_COVER, source_id)
-        if book.isbn13 == preferred_isbn and book.page_count == preferred["page_count"]:
+                            preferred["cover_image_url"], FIELD_COVER, source_id, fill_only=fill_only)
+        if book.isbn13 == preferred_isbn and (book.page_count == preferred["page_count"] or median_filled):
             book.preferred_edition_id = persisted[preferred["edition_key"]].id
         else:
             _issue(session, run.id, "preferred_edition_conflict", source_id,
                    "Legacy ISBN/page values were preserved; preferred edition link remains pending")
+    _load_title_aliases(session, works, book_for_work)
     run.merged_count += len(book_for_work)
     run.merge_cursor = works[-1].source_id
     _check_storage(session, run, config)

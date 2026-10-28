@@ -21,6 +21,8 @@ from data.config import (
     percentage_quotas, validate_database_target,
 )
 from data.merge import _merge_batch
+from data.popularity import run_popularity
+from data.preview import dry_run_report
 from data.reporting import (
     CapacityPause, _build_report, _check_storage, _count_skipped, _issue,
     _release_staging, _stage_mb,
@@ -87,6 +89,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         raise RuntimeError("Import phase changed while processing")
     _check_storage(session, run, config)
     records = [row.record for row in batch if row.record is not None]
+    popular = {"popular": True} if config.popular else {}
     malformed = [row for row in batch if row.error]
     if phase != "hydrate":
         run.error_count += len(malformed)
@@ -96,14 +99,14 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
     if phase in ("redirects", "deletes"):
         _write_aliases(session, run, records, phase)
     elif phase == "works":
-        _write_works(session, run, records)
+        _write_works(session, run, records, **popular)
         boundary = config.batch_size * 100
         if batch[0].line_number // boundary != batch[-1].line_number // boundary:
             _prune_candidates(session, run, config)
     elif phase == "authors":
         _write_authors(session, run, records)
     elif phase == "editions":
-        _write_editions(session, run, records)
+        _write_editions(session, run, records, **popular)
     elif phase == "hydrate":
         _write_hydrate(session, run, records)
     _check_storage(session, run, config)
@@ -189,7 +192,7 @@ def _pause_capacity(factory: sessionmaker, config: ImportConfig, message: str) -
         _issue(session, run.id, "capacity_pause", None, message)
         run.last_error = message
         run.report = _build_report(session, run)
-        _release_staging(session, run)
+        _release_staging(session, run, keep_popularity=True)
         run.phase = "paused_capacity"
 
 
@@ -265,7 +268,9 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                 if deadline is not None and time.monotonic() >= deadline:
                     return _continuation_status(factory, config, initial)
                 try:
-                    if phase in ("redirects", "deletes", "works", "authors", "editions", "hydrate"):
+                    if phase == "popularity":
+                        run_popularity(factory, config, heartbeat)
+                    elif phase in ("redirects", "deletes", "works", "authors", "editions", "hydrate"):
                         urls = {
                             "redirects": config.redirects_url, "deletes": config.deletes_url,
                             "works": config.works_url, "authors": config.authors_url,
@@ -281,6 +286,10 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                     elif phase == "select":
                         with factory.begin() as session:
                             _select_works(session, config)
+                    elif phase == "merge" and config.dry_run:
+                        result = dry_run_report(factory, config)
+                        log.info("Dry run: %s", result)
+                        return "dry_run"
                     elif phase == "merge":
                         with factory() as session:
                             merge_cursor = session.get(CatalogueImportRun, config.run_id).merge_cursor
@@ -328,6 +337,8 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
                         "phase": existing.phase,
                         "urls": {kind: getattr(existing, f"{kind}_url") for kind in
                                  ("works", "authors", "editions", "redirects", "deletes")},
+                        "popularity": {kind: ((existing.source_manifest or {}).get("files") or {}).get(
+                            kind, {}).get("url") for kind in ("ratings", "reading-log")},
                     }
         finally:
             engine.dispose()
@@ -354,7 +365,7 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
                 run_id=args.run_id, database_url=database_url, mode=args.mode,
                 user_agent=user_agent, target_books=existing["target"],
                 category_weights=weights,
-                max_database_mb=args.max_database_mb if args.max_database_mb is not None else 400,
+                max_database_mb=args.max_database_mb if args.max_database_mb is not None else 700,
                 batch_size=args.batch_size, restart_paused=args.restart_paused,
                 **{f"{kind}_url": url for kind, url in existing["urls"].items()},
             )
@@ -363,10 +374,12 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
             run_id=args.run_id, database_url=database_url, mode=args.mode,
             user_agent=user_agent, target_books=existing["target"],
             category_weights=existing["weights"], max_database_mb=(
-                args.max_database_mb if args.max_database_mb is not None else existing["guard"] or 400
+                args.max_database_mb if args.max_database_mb is not None else existing["guard"] or 700
             ),
             batch_size=args.batch_size, restart_paused=args.restart_paused,
             snapshot_id=existing["snapshot_id"], source_manifest=existing["manifest"],
+            ratings_url=existing["popularity"]["ratings"], reading_log_url=existing["popularity"]["reading-log"],
+            popularity_top=getattr(args, "popularity_top", 400_000), dry_run=getattr(args, "dry_run", False),
             **{f"{kind}_url": url for kind, url in existing["urls"].items()},
         )
     if getattr(args, "resume_only", False):
@@ -380,10 +393,13 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
             raise ValueError("Production requires automatically verified snapshot metadata")
         snapshot_id, manifest = None, {}
         urls = legacy_urls
+        popularity = {"ratings_url": getattr(args, "ratings_url", None),
+                      "reading_log_url": getattr(args, "reading_log_url", None)}
     else:
         snapshot = resolve_snapshot(args.snapshot, user_agent=user_agent)
         snapshot_id, manifest = snapshot.identifier, snapshot.manifest()
         urls = {kind: snapshot.url(kind) for kind in legacy_urls}
+        popularity = {"ratings_url": snapshot.url("ratings"), "reading_log_url": snapshot.url("reading-log")}
         log.info("Pinned Open Library snapshot %s: %s", snapshot.identifier,
                  ", ".join(f"{kind}={urls[kind]} ({manifest['files'][kind]['size']} bytes)" for kind in urls))
     run_id = args.run_id or f"ol-{(manifest.get('date') or 'test').replace('-', '')}-{uuid.uuid4().hex[:10]}"
@@ -392,8 +408,9 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
         target_books=args.target_books if args.target_books is not None else 50000,
         category_weights=json.loads(args.weights_json) if args.weights_json else equal_percentage_weights(),
         batch_size=args.batch_size,
-        max_database_mb=args.max_database_mb if args.max_database_mb is not None else 400,
+        max_database_mb=args.max_database_mb if args.max_database_mb is not None else 700,
         restart_paused=args.restart_paused, snapshot_id=snapshot_id, source_manifest=manifest,
+        popularity_top=getattr(args, "popularity_top", 400_000), dry_run=getattr(args, "dry_run", False), **popularity,
         **{f"{kind}_url": url for kind, url in urls.items()},
     )
 
@@ -406,12 +423,18 @@ def main() -> None:
     parser.add_argument("--snapshot", default="auto", help="'auto' or explicit YYYY-MM-DD")
     for kind in ("works", "authors", "editions", "redirects", "deletes"):
         parser.add_argument(f"--{kind}-url", help="Legacy test-only URL override")
+    for flag in ("ratings", "reading-log"):
+        parser.add_argument(f"--{flag}-url", help="Legacy test-only URL override (give both or neither)")
+    parser.add_argument("--popularity-top", type=int, default=400_000,
+                        help="Popular works kept as the allowlist when ratings and reading-log dumps are used")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Stop after hydrate and report what the merge would add and fill; writes no book")
     parser.add_argument("--mode", choices=("test", "production"), required=True)
     parser.add_argument("--target-books", type=int)
     parser.add_argument("--weights-json", default=None,
                         help="JSON map of category percentage weights; defaults to equal weights")
     parser.add_argument("--batch-size", type=int, default=500)
-    parser.add_argument("--max-database-mb", type=int)
+    parser.add_argument("--max-database-mb", type=int, help="Pause when the database reaches this size (default 700)")
     parser.add_argument("--time-budget-seconds", type=int,
                         help="Soft checkpoint deadline for automatic job continuation")
     parser.add_argument("--one-phase", action="store_true")

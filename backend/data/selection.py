@@ -5,17 +5,17 @@ from __future__ import annotations
 import logging
 from collections import Counter, defaultdict
 
-from sqlalchemy import and_, case, delete, func, select, text, update
+from sqlalchemy import and_, case, delete, exists, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from data.config import ImportConfig, percentage_quotas
 from data.reporting import _check_storage, _issue
-from data.staging import _existing_book_aliases, _prune_candidates
+from data.staging import DERIVATIVE_PATTERN, _existing_book_aliases, _prune_candidates
 from models import (
     Author, Book, CatalogueImportRun,
     CatalogueStageAuthor, CatalogueStageAuthorCount, CatalogueStageCandidate,
-    CatalogueStageEdition, CatalogueStageWork, CatalogueStageWorkAuthor,
+    CatalogueStageEdition, CatalogueStagePopularity, CatalogueStageWork, CatalogueStageWorkAuthor,
     book_authors,
 )
 
@@ -128,7 +128,7 @@ def _clear_unverified_forced(session: Session, run: CatalogueImportRun, batch_si
 
 
 def _choose_category_batch(session: Session, run: CatalogueImportRun,
-                           category: str | None, count: int) -> int:
+                           category: str | None, count: int, popular: bool = False) -> int:
     candidate = CatalogueStageCandidate
     work = CatalogueStageWork
     link = CatalogueStageWorkAuthor
@@ -143,12 +143,25 @@ def _choose_category_batch(session: Session, run: CatalogueImportRun,
              .where(work.run_id == run.id, work.selected.is_(False), work.forced.is_(False)))
     if category:
         query = query.where(candidate.category == category)
-    author_turn = func.row_number().over(
-        partition_by=link.author_key, order_by=(candidate.tie_hash, work.source_id)
-    )
-    query = query.order_by(candidate.quality.desc(),
-                           func.coalesce(author_count.selected_count, 0) + author_turn,
-                           candidate.tie_hash, work.source_id).limit(max(count * 3, 50))
+    if popular:
+        # Complete books only (description, cover and year are in candidate quality; pages come from an edition),
+        # never a derivative, most popular first, and no cap per author.
+        popularity = CatalogueStagePopularity
+        edition = CatalogueStageEdition
+        query = (query.outerjoin(popularity, and_(popularity.run_id == work.run_id,
+                                                  popularity.source_id == work.source_id))
+                 .where(candidate.quality >= 3, work.title.op("!~*")(DERIVATIVE_PATTERN),
+                        exists().where(edition.run_id == work.run_id, edition.source_id == work.source_id,
+                                       edition.page_count > 0)))
+        query = query.order_by(func.coalesce(popularity.score, 0).desc(), candidate.quality.desc(),
+                               candidate.tie_hash, work.source_id).limit(max(count * 3, 50))
+    else:
+        author_turn = func.row_number().over(
+            partition_by=link.author_key, order_by=(candidate.tie_hash, work.source_id)
+        )
+        query = query.order_by(candidate.quality.desc(),
+                               func.coalesce(author_count.selected_count, 0) + author_turn,
+                               candidate.tie_hash, work.source_id).limit(max(count * 3, 50))
     rows = query.with_only_columns(work.source_id, link.author_key, candidate.category).limit(max(count * 3, 50))
     # Preserve the ordering expression when materializing the bounded candidate page.
     chosen: dict[str, tuple[str, str]] = {}
@@ -207,13 +220,14 @@ def _select_works(session: Session, config: ImportConfig) -> None:
     for category in sorted(quotas, key=lambda name: (scarcity[name], name)):
         while selected_per_category[category] < quotas[category]:
             count = _choose_category_batch(session, run, category,
-                                           min(config.batch_size, quotas[category] - selected_per_category[category]))
+                                           min(config.batch_size, quotas[category] - selected_per_category[category]),
+                                           config.popular)
             if not count:
                 break
             selected_per_category[category] += count
     while run.selected_count < remaining:
         count = _choose_category_batch(session, run, None,
-                                       min(config.batch_size, remaining - run.selected_count))
+                                       min(config.batch_size, remaining - run.selected_count), config.popular)
         if not count:
             break
     for category, quota in quotas.items():
@@ -230,7 +244,8 @@ def _select_works(session: Session, config: ImportConfig) -> None:
             next_phase = "redirects" if (run.report or {}).get("alias_scope") == "shortlist" else "works"
             run.phase, run.checkpoint_line, run.category_seen_counts = next_phase, 0, {}
             run.selected_count = 0
-            run.report = {"capacity_replays": list((run.report or {}).get("capacity_replays", []))}
+            run.report = {"capacity_replays": list((run.report or {}).get("capacity_replays", [])),
+                          "popularity_ready": bool((run.report or {}).get("popularity_ready"))}
             session.execute(update(CatalogueStageWork).where(
                 CatalogueStageWork.run_id == run.id
             ).values(selected=False, allocation_category=None))

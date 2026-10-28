@@ -396,6 +396,19 @@ class CatalogueStageWork(Base):
     forced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     allocation_category: Mapped[str | None] = mapped_column(String(80))
     legacy_book_id: Mapped[int | None] = mapped_column(Integer)
+    # English edition titles seen so far: [{"title", "english", "count"}], merged into book_title_aliases.
+    title_aliases: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
+
+
+class CatalogueStagePopularity(Base):
+    """Allowlist of the most popular works (Open Library ratings and reading log), kept across pauses."""
+    __tablename__ = "catalogue_stage_popularity"
+
+    run_id: Mapped[str] = mapped_column(
+        String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    score: Mapped[float] = mapped_column(Float, nullable=False)
 
 
 class CatalogueStageAuthorCount(Base):

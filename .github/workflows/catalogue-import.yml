@@ -8,10 +8,18 @@ on:
         required: true
         default: auto
         type: string
+      target_env:
+        description: GitHub environment, which selects the database secret (rehearsal branch or production)
+        required: true
+        default: catalogue-rehearsal
+        type: choice
+        options:
+          - catalogue-rehearsal
+          - catalogue-production
       target_books:
         description: Total Book rows including existing rows
         required: true
-        default: "50000"
+        default: "150000"
         type: string
       weights_json:
         description: Optional JSON percentage weights; blank means equal weights
@@ -31,7 +39,7 @@ jobs:
   import:
     runs-on: ubuntu-latest
     timeout-minutes: 350
-    environment: catalogue-production
+    environment: ${{ inputs.target_env || github.event.client_payload.target_env }}
     outputs:
       run_id: ${{ steps.ingest.outputs.run_id }}
       status: ${{ steps.ingest.outputs.status }}
@@ -47,6 +55,7 @@ jobs:
       CATALOGUE_IMPORT_PRODUCTION: "yes"
       CATALOGUE_USER_AGENT: ${{ vars.CATALOGUE_USER_AGENT }}
       INPUT_RUN_ID: ${{ github.event.client_payload.run_id }}
+      INPUT_TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env }}
       INPUT_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
       INPUT_SNAPSHOT: ${{ inputs.snapshot }}
       INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
@@ -79,7 +88,8 @@ jobs:
       - name: Run or resume the checkpointed import
         id: ingest
         run: |
-          args=(--mode production --time-budget-seconds 17400)
+          [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" || "$INPUT_TARGET_ENV" == "catalogue-production" ]] || exit 1
+          args=(--mode production --time-budget-seconds 17400 --max-database-mb 700)
           if [[ "$GITHUB_EVENT_NAME" == "repository_dispatch" ]]; then
             args+=(--run-id "$INPUT_RUN_ID")
           else
@@ -101,11 +111,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RUN_ID: ${{ needs.import.outputs.run_id }}
       SOURCE_SHA: ${{ needs.import.outputs.source_sha }}
+      TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env }}
     steps:
       - name: Dispatch the next checkpointed segment
         run: |
-          payload=$(jq -n --arg run_id "$RUN_ID" --arg source_sha "$SOURCE_SHA" \
-            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha}}')
+          payload=$(jq -n --arg run_id "$RUN_ID" --arg source_sha "$SOURCE_SHA" --arg target_env "$TARGET_ENV" \
+            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha, target_env:$target_env}}')
           curl --fail-with-body --retry 3 --retry-delay 3 \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \

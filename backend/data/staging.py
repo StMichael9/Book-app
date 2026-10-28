@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 
 from sqlalchemy import delete, func, or_, select, text, update
@@ -11,12 +12,26 @@ from sqlalchemy.orm import Session
 
 from data import clean
 from data.config import ImportConfig, percentage_quotas
+from data.extract_title_aliases import _edition as _alias_edition
 from data.reporting import _count_skipped, _issue
 from models import (
     Book, CatalogueImportRun, CatalogueSourceAlias, CatalogueStageAuthor,
-    CatalogueStageCandidate, CatalogueStageEdition, CatalogueStageWork,
-    CatalogueStageWorkAuthor,
+    CatalogueStageCandidate, CatalogueStageEdition, CatalogueStagePopularity,
+    CatalogueStageWork, CatalogueStageWorkAuthor,
 )
+
+# Box sets, omnibuses, study aids and similar derivatives are not the book itself. One pattern serves the Python
+# check on raw titles/subjects and the PostgreSQL ~* check on staged titles.
+DERIVATIVE_PATTERN = (r"box(ed)? set|omnibus|collection|complete works|summary of|study guide"
+                      r"|sparknotes|cliffsnotes|workbook for")
+_DERIVATIVE = re.compile(DERIVATIVE_PATTERN, re.IGNORECASE)
+COMPLETE_QUALITY = 3  # description, cover and year all present (see clean.normalize_work)
+
+
+def is_derivative(record: dict) -> bool:
+    subjects = record.get("subjects")
+    values = [record.get("title")] + (subjects if isinstance(subjects, list) else [])
+    return any(isinstance(value, str) and _DERIVATIVE.search(value) for value in values)
 
 
 def _resolve_aliases(session: Session, keys: set[str]) -> dict[str, str | None]:
@@ -138,12 +153,21 @@ def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_short
     }
 
 
-def _write_works(session: Session, run: CatalogueImportRun, records: list[dict]) -> None:
-    normalized = [item for record in records if (item := clean.normalize_work(record))]
+def _write_works(session: Session, run: CatalogueImportRun, records: list[dict], popular: bool = False) -> None:
+    kept = [record for record in records if not (popular and is_derivative(record))]
+    normalized = [item for record in kept if (item := clean.normalize_work(record))]
     _count_skipped(run, "works", len(records) - len(normalized))
     if not normalized:
         return
     aliases = _resolve_aliases(session, {item["source_id"] for item in normalized})
+    allowed: set[str] = set()
+    if popular:
+        scored = set(session.execute(select(CatalogueStagePopularity.source_id).where(
+            CatalogueStagePopularity.run_id == run.id,
+            CatalogueStagePopularity.source_id.in_(set(aliases) | {key for key in aliases.values() if key}),
+        )).scalars())
+        allowed = {canonical for raw, canonical in aliases.items()
+                   if canonical and (raw in scored or canonical in scored)}
     works: dict[str, dict] = {}
     for item in normalized:
         canonical = aliases[item["source_id"]]
@@ -179,6 +203,12 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict])
         canonical = old_aliases.get(old_key)
         if canonical:
             forced_keys.add(canonical)
+    if popular:
+        # Only popular works that are complete, plus books we already have (their gaps get filled at merge).
+        works = {key: work for key, work in works.items()
+                 if key in forced_keys or (key in allowed and work["quality"] >= COMPLETE_QUALITY)}
+        if not works:
+            return
     legacy_titles = set(session.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_({w["title"] for w in works.values()}))).scalars())
     values = [{"run_id": run.id, "source_id": key, "title": work["title"],
                "description": None, "published_year": work["published_year"],
@@ -196,7 +226,8 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict])
     ))
     candidates = [{"run_id": run.id, "category": category, "source_id": key,
                    "quality": work["quality"], "tie_hash": hashlib.sha256(key.encode()).hexdigest()}
-                  for key, work in works.items() for category in work["categories"]]
+                  for key, work in works.items() for category in work["categories"]
+                  if not popular or work["quality"] >= COMPLETE_QUALITY]
     for start in range(0, len(candidates), 500):
         statement = insert(CatalogueStageCandidate).values(candidates[start:start + 500])
         session.execute(statement.on_conflict_do_update(
@@ -219,12 +250,14 @@ def _prune_candidates(session: Session, run: CatalogueImportRun, config: ImportC
     quotas = percentage_quotas(remaining, config.category_weights)
     for category, quota in quotas.items():
         limit = max(10, quota * run.shortlist_factor)
+        # Most popular first (a work without a score ranks as 0, so a run without popularity orders as before).
         session.execute(text("""
             DELETE FROM catalogue_stage_candidates
             WHERE run_id = :run_id AND category = :category AND source_id IN (
-                SELECT source_id FROM catalogue_stage_candidates
-                WHERE run_id = :run_id AND category = :category
-                ORDER BY quality DESC, tie_hash, source_id OFFSET :limit
+                SELECT c.source_id FROM catalogue_stage_candidates c
+                LEFT JOIN catalogue_stage_popularity p ON p.run_id = c.run_id AND p.source_id = c.source_id
+                WHERE c.run_id = :run_id AND c.category = :category
+                ORDER BY coalesce(p.score, 0) DESC, c.quality DESC, c.tie_hash, c.source_id OFFSET :limit
             )
         """), {"run_id": run.id, "category": category, "limit": limit})
     session.execute(text("""
@@ -326,7 +359,43 @@ def select_useful_editions(editions: list[dict], limit: int = 5) -> list[dict]:
     return chosen
 
 
-def _write_editions(session: Session, run: CatalogueImportRun, records: list[dict]) -> None:
+def _collect_title_aliases(session: Session, run: CatalogueImportRun, records: list[dict],
+                           resolved: dict[str, str | None], eligible: set[str]) -> None:
+    """Keep the English edition titles seen for each staged work, to load as search aliases at merge."""
+    found: dict[str, dict[str, dict]] = defaultdict(dict)
+    for record in records:
+        item = _alias_edition(record)
+        key = resolved.get(item[0]) if item else None
+        if key not in eligible:
+            continue
+        _, title, english = item
+        entry = found[key].setdefault(title.lower(), {"title": title, "english": False, "count": 0})
+        entry["count"] += 1
+        entry["english"] = entry["english"] or english
+    if not found:
+        return
+    rows = session.execute(select(
+        CatalogueStageWork.source_id, CatalogueStageWork.title, CatalogueStageWork.title_aliases
+    ).where(CatalogueStageWork.run_id == run.id, CatalogueStageWork.source_id.in_(found))).all()
+    updates = []
+    for source_id, work_title, previous in rows:
+        own = " ".join(work_title.split()).lower()
+        merged = {item["title"].lower(): dict(item) for item in previous}
+        for lowered, entry in found[source_id].items():
+            if lowered == own:
+                continue
+            old = merged.get(lowered)
+            if old:
+                old["count"] += entry["count"]
+                old["english"] = old["english"] or entry["english"]
+            else:
+                merged[lowered] = entry
+        ranked = sorted(merged.values(), key=lambda item: -item["count"])[:10]
+        updates.append({"run_id": run.id, "source_id": source_id, "title_aliases": ranked})
+    session.execute(update(CatalogueStageWork), updates)
+
+
+def _write_editions(session: Session, run: CatalogueImportRun, records: list[dict], popular: bool = False) -> None:
     candidates: dict[str, list[dict]] = defaultdict(list)
     skipped = 0
     for record in records:
@@ -355,6 +424,8 @@ def _write_editions(session: Session, run: CatalogueImportRun, records: list[dic
     )).scalars())
     if not eligible:
         return
+    if popular:
+        _collect_title_aliases(session, run, records, aliases, eligible)
     existing = session.execute(select(CatalogueStageEdition).where(
         CatalogueStageEdition.run_id == run.id,
         CatalogueStageEdition.source_id.in_(eligible),
