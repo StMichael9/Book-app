@@ -384,10 +384,24 @@ def test_workflow_dry_run_input_flag_artifact_and_continuation():
     text = (ROOT / ".github" / "workflows" / "catalogue-import.yml").read_text(encoding="utf-8")
     block = text.split("dry_run:", 1)[1].split("repository_dispatch:", 1)[0]
     assert "type: boolean" in block and "default: false" in block
-    assert re.search(r'INPUT_DRY_RUN" == "true" \]\];? then\s+args\+=\(--dry-run --dry-run-report', text)
+    assert re.search(r'EFFECTIVE_DRY_RUN" == "true" \]\];? then\s+args\+=\(--dry-run --dry-run-report', text)
     assert "actions/upload-artifact@" in text and "dry-run-report.json" in text
     assert re.search(r"client_payload:\{[^}]*dry_run:\$dry_run", text)
-    assert "DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}" in text
+    assert "DRY_RUN: ${{ needs.import.outputs.dry_run }}" in text
+
+
+def test_workflow_resume_run_id_resumes_the_same_run_without_dry_run():
+    text = (ROOT / ".github" / "workflows" / "catalogue-import.yml").read_text(encoding="utf-8")
+    block = text.split("resume_run_id:", 1)[1].split("dry_run:", 1)[0]
+    assert "required: false" in block and "type: string" in block
+    assert "INPUT_RESUME_RUN_ID: ${{ inputs.resume_run_id }}" in text
+    # validated, forces dry_run off, and the import step passes --run-id with --resume-only (no snapshot/target)
+    assert re.search(r'INPUT_RESUME_RUN_ID" \]\];? then.*?\^\[A-Za-z0-9_-\]\{1,80\}\$.*?dry_run=false', text, re.S)
+    assert re.search(r'-n "\$RESUME_ID" \]\];? then\s+args\+=\(--run-id "\$RESUME_ID" --resume-only\)\s+else\s+'
+                     r'args\+=\(--snapshot', text)
+    # the effective flag, not the raw input, drives the report upload and the continuation payload
+    assert "steps.source.outputs.dry_run == 'true'" in text
+    assert "dry_run: ${{ steps.source.outputs.dry_run }}" in text
 
 
 def test_dry_run_command_writes_the_report_file(import_env, monkeypatch, tmp_path):
