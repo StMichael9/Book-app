@@ -55,6 +55,7 @@ const test = base.extend({
         state.entry.reading_state = current()?.state || null;
         return reply(method === 'DELETE' ? state.entry : { entry: state.entry, attempt: current() });
       }
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: {} });
     });

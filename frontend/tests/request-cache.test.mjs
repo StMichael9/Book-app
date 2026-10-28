@@ -87,3 +87,27 @@ test("the epoch moves on every clear, so a page can tell its answer is from befo
   cache.clearRequestCache();
   assert.equal(cache.requestCacheEpoch(), before + 1);
 });
+
+test("a page and a prefetch for the same key share one request and one stored answer", async () => {
+  const cache = await load();
+  let calls = 0;
+  const loader = async () => { calls += 1; await new Promise(done => setTimeout(done, 10)); return { id: 7 }; };
+  cache.prefetchRequest("book:7", loader);
+  const page = await cache.sharedRequest("book:7", loader);
+  assert.deepEqual(page, { id: 7 });
+  assert.equal(calls, 1);
+  assert.deepEqual(cache.readRequestCache("book:7").data, { id: 7 });
+  const first = cache.sharedRequest("home:1", loader), second = cache.sharedRequest("home:1", loader);
+  assert.equal(first, second);
+  await first;
+  assert.equal(calls, 2);
+});
+
+test("a failed shared request is forgotten so the next ask starts again", async () => {
+  const cache = await load();
+  let calls = 0;
+  await assert.rejects(cache.sharedRequest("book:9", async () => { calls += 1; throw new Error("offline"); }));
+  await cache.sharedRequest("book:9", async () => { calls += 1; return { id: 9 }; });
+  assert.equal(calls, 2);
+  assert.deepEqual(cache.readRequestCache("book:9").data, { id: 9 });
+});

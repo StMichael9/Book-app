@@ -146,6 +146,7 @@ const test = base.extend({
         state.createdAttempts.set(saved.id, made);
         return reply(200, { entry: saved, attempt: made });
       }
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
     });
@@ -403,10 +404,11 @@ test("editorial workspace read-only progress is a view with no writable controls
 
 for (const status of [404, 503]) for (const moved of [false, true]) test(`editorial workspace retry preserves deliberate focus; ${status}; moved=${moved}`, async ({ page, app }) => {
   await page.route("**/test-api/me/library/101/reading", route => route.fulfill({ status, json: {} }), { times: 1 });
-  await page.goto("/my-books/101");
-  await expect(page.getByRole("heading", { name: "This reading couldn’t load.", exact: true })).toBeVisible();
+  // Held from the start so the background prefetch of this workspace cannot fill the cache before the retry.
   let release;
   app.holdWorkspace = new Promise(done => { release = done; });
+  await page.goto("/my-books/101");
+  await expect(page.getByRole("heading", { name: "This reading couldn’t load.", exact: true })).toBeVisible();
   try {
     await page.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Loading your reading…", exact: true })).toBeFocused();
