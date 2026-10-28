@@ -77,6 +77,7 @@ const test = base.extend({
         if (state.loseStartResponse) { state.loseStartResponse = false; return route.abort("failed"); }
         return reply(200, { entry: saved, attempt: created });
       }
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled ${method} ${path}`); return reply(500, {});
     });
     await provide(state);

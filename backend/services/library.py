@@ -52,7 +52,9 @@ def legacy_write_guard(db: Session, user_id, book_id):
 
 
 def _summary_options():
-    return joinedload(UserBook.book).load_only(Book.id, Book.title, Book.cover_image_url, Book.page_count, Book.isbn13).selectinload(Book.authors).load_only(Author.id, Author.name)
+    # The book, its authors and its alternate titles ride in the same statement as the entries (a round trip costs ~60 ms).
+    book = joinedload(UserBook.book).load_only(Book.id, Book.title, Book.cover_image_url, Book.page_count, Book.isbn13)
+    return (book.joinedload(Book.authors).load_only(Author.id, Author.name), joinedload(UserBook.book).joinedload(Book.title_aliases))
 
 
 def _reading_state():
@@ -83,7 +85,7 @@ class LibraryService:
     def detail(self, user_id, entry_id):
         row = self.db.execute(select(UserBook, _reading_state()).where(
             UserBook.user_id == user_id, UserBook.id == entry_id,
-        ).options(_summary_options())).one_or_none()
+        ).options(*_summary_options())).unique().one_or_none()
         if row is None:
             raise HTTPException(404, detail="Library entry not found")
         return entry_dto(*row, detail=True)
@@ -131,22 +133,26 @@ class LibraryService:
         current = select(ranked.c.user_book_id, ranked.c.state).where(ranked.c.position == 1).subquery()
         facet_conditions.update({state: UserBook.id.in_(select(current.c.user_book_id).where(current.c.state == state))
             for state in ("reading", "paused", "finished", "dnf")})
-        count_query = select(*[func.count(UserBook.id).filter(facet_conditions[name]).label(name)
-            for name in ("all", "owned", "want")]).where(*conditions)
+        # One statement: the facet counts, the per-state counts (each entry counted under its current/latest reading) and
+        # the newest entry id that anchors a first page's cursor.
+        newest = select(func.max(UserBook.id)).where(UserBook.user_id == user_id).scalar_subquery()
+        count_query = select(
+            *[func.count(UserBook.id).filter(facet_conditions[name]).label(name) for name in ("all", "owned", "want")],
+            *[func.count(UserBook.id).filter(current.c.state == state).label(state) for state in ("reading", "paused", "finished", "dnf")],
+            newest.label("newest"),
+        ).select_from(UserBook).outerjoin(current, current.c.user_book_id == UserBook.id).where(*conditions)
         counts = dict(self.db.execute(count_query).mappings().one())
-        history_counts = dict(self.db.execute(select(current.c.state, func.count(UserBook.id))
-            .join(UserBook, current.c.user_book_id == UserBook.id).where(*conditions).group_by(current.c.state)).all())
-        counts.update({state: history_counts.get(state, 0) for state in ("reading", "paused", "finished", "dnf")})
+        newest_id = counts.pop("newest") or 0
         cursor_scope = [str(user_id), q.strip(), facet] + ([label] if label else [])
         scope = hashlib.sha256(json.dumps(cursor_scope, separators=(",", ":")).encode()).hexdigest()
         if cursor:
             anchor, last = self._decode_cursor(cursor, scope)
         else:
-            anchor = self.db.scalar(select(func.max(UserBook.id)).where(UserBook.user_id == user_id)) or 0
+            anchor = newest_id
             last = anchor + 1
         query = select(UserBook, _reading_state()).where(*conditions, facet_conditions[facet],
-            UserBook.id <= anchor, UserBook.id < last).options(_summary_options()).order_by(UserBook.id.desc()).limit(limit + 1)
-        rows = self.db.execute(query).all()
+            UserBook.id <= anchor, UserBook.id < last).options(*_summary_options()).order_by(UserBook.id.desc()).limit(limit + 1)
+        rows = self.db.execute(query).unique().all()
         items = [entry_dto(*row) for row in rows[:limit]]
         next_cursor = self._encode_cursor(anchor, items[-1].id, scope) if len(rows) > limit else None
         return LibraryPage(items=items, counts=counts, total=counts[facet], next_cursor=next_cursor)

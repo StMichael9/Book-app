@@ -159,10 +159,11 @@ test("Home to the reading workspace never shows an empty page", async ({ page, a
 
 test("My Books to the workspace opens from the library data, and the actions wait for the live reading", async ({ page, app }) => {
   signedIn(app);
+  // Held from the start so the background prefetch of this workspace is still pending when the card is clicked.
+  let release; app.hold.workspace = new Promise(done => { release = () => { app.hold.workspace = null; done(); }; });
   await page.goto("/my-books");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
   await reset(page);
-  let release; app.hold.workspace = new Promise(done => { release = () => { app.hold.workspace = null; done(); }; });
   await page.getByRole("link", { name: "Nav Book 1", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Nav Book 1", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start reading", exact: true })).toHaveCount(0);

@@ -9,6 +9,7 @@ import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
 import { likelySignedIn } from "../../api/bookCache.js";
+import { usePageWarmers } from "./pagePrefetch.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
@@ -31,6 +32,8 @@ function Header() {
   const auth = useAuth();
   const reader = useReader();
   const { readingActions } = useUserBooks();
+  const warm = usePageWarmers();
+  const warmProps = to => ({ onPointerEnter: () => warm(to), onFocus: () => warm(to), onTouchStart: () => warm(to) });
   const location = useLocation();
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
   const library = location.pathname.startsWith("/my-books");
@@ -55,12 +58,12 @@ function Header() {
     return () => { active = false; observer.disconnect(); root.style.removeProperty("--bv-mobile-nav-clearance"); };
   }, [publicLanding]);
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
-    <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home">Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse">Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books">My Books</Link>}{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
+    <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className={`bv-header-actions${auth.isAuthenticated ? "" : " bv-header-actions--guest"}`}><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
       {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink>{!publicLanding && <ActionLink variant="secondary" to="/register">Join free</ActionLink>}</>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${readingActions ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
-    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
   </nav>}</>;
 }
 
@@ -163,14 +166,14 @@ function Shell() {
         <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
-        <Route path="/my-books" element={<RequireAccount><MyBooksPage /></RequireAccount>} />
+        <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />
         <Route path="/my-books/import" element={<RequireAccount><ReadingGate><Suspense fallback={<p className="bv-container" role="status">Opening your library import…</p>}><LibraryImportPage /></Suspense></ReadingGate></RequireAccount>} />
-        <Route path="/home" element={<RequireAccount><ReadingGate><ReadingHomePage /></ReadingGate></RequireAccount>} />
+        <Route path="/home" element={<RequireAccount title="Pick up where you left off."><ReadingGate title="Pick up where you left off."><ReadingHomePage /></ReadingGate></RequireAccount>} />
         <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/privacy" element={<ReadingPrivacyPage />} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
-        <Route path="/my-books/:entryId" element={<RequireAccount><ReadingGate><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>Try discovery or return to your library.</EmptyState></section>} />

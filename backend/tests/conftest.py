@@ -206,6 +206,8 @@ def client(app_modules, db_session: Session):
         yield db_session
 
     main.app.dependency_overrides[database.get_db] = override_get_db
+    from services import catalogue_cache
+    catalogue_cache.clear()  # each test seeds its own catalogue; nothing may carry over
 
     try:
         with TestClient(main.app) as test_client:

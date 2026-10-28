@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingHistory, getReadingHome, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
-import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
+import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, PageFrame, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
 import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
@@ -22,9 +22,9 @@ const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished",
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
 const displayBook = entry => entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
 
-export function ReadingGate({ children }) {
+export function ReadingGate({ children, title }) {
   const library = useUserBooks();
-  if (library.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
+  if (library.loading) return title ? <PageFrame title={title} /> : <section className="bv-container"><BookSkeletons count={3} /></section>;
   if (library.error) return <section className="bv-container"><EmptyState error title="Your reading couldn’t load." action={<Button onClick={library.retryLoad}>Try again</Button>}>Your saved reading is unchanged.</EmptyState></section>;
   if (!library.readingActions) return <Navigate to="/my-books" replace />;
   return children;

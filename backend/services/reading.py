@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, select, tuple_
+from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 
@@ -74,7 +75,7 @@ class ReadingService(LibraryService):
         row = self.db.execute(select(UserBook, ReadingAttempt, _reading_state())
             .join(ReadingAttempt, ReadingAttempt.user_book_id == UserBook.id)
             .where(UserBook.user_id == user_id, ReadingAttempt.id == attempt_id)
-            .options(_summary_options()).execution_options(populate_existing=True)).one_or_none()
+            .options(*_summary_options()).execution_options(populate_existing=True)).unique().one_or_none()
         if row is None:
             raise HTTPException(404, detail="Reading record not found")
         entry, attempt, state = row
@@ -196,21 +197,31 @@ class ReadingService(LibraryService):
         # Suggestions only; names are never identities and nothing is merged.
         entries = self.db.scalars(select(UserBook).where(UserBook.user_id == user_id,
             UserBook.book_id.is_(None), func.lower(UserBook.private_title) == title.strip().lower())
-            .options(_summary_options()).order_by(UserBook.id.desc()).limit(5)).all()
+            .options(*_summary_options()).order_by(UserBook.id.desc()).limit(5)).unique().all()
         return [entry_dto(entry) for entry in entries]
 
     def workspace(self, user_id, entry_id):
-        entry = self.detail(user_id, entry_id)
-        attempt = self.db.scalar(select(ReadingAttempt).where(ReadingAttempt.user_book_id == entry_id)
+        # One statement carries the entry (with its book, authors and alternate titles), its current reading and the
+        # imported-source count; the book's editions are the only other trip.
+        current_attempt_id = (select(ReadingAttempt.id).where(ReadingAttempt.user_book_id == UserBook.id)
             .order_by(case((ReadingAttempt.state.in_(["reading", "paused"]), 0), else_=1),
-                ReadingAttempt.created_at.desc(), ReadingAttempt.id.desc()).limit(1))
+                ReadingAttempt.created_at.desc(), ReadingAttempt.id.desc()).limit(1).correlate(UserBook).scalar_subquery())
+        imported = (select(func.count()).select_from(ImportedLibraryRecord)
+            .where(ImportedLibraryRecord.user_id == UserBook.user_id, ImportedLibraryRecord.user_book_id == UserBook.id,
+                ImportedLibraryRecord.removed.is_(False), ImportedLibraryRecord.context != {}).correlate(UserBook).scalar_subquery())
+        current = aliased(ReadingAttempt)
+        row = self.db.execute(select(UserBook, current, _reading_state(), imported)
+            .outerjoin(current, current.id == current_attempt_id)
+            .where(UserBook.user_id == user_id, UserBook.id == entry_id).options(*_summary_options())).unique().one_or_none()
+        if row is None:
+            raise HTTPException(404, detail="Library entry not found")
+        entry, attempt, state, imported_count = row
         editions = [] if entry.book_id is None else self.db.execute(select(Edition.id, Edition.source_id,
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
-        return ReadingWorkspace(entry=entry, current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
-            editions=[dict(row) for row in editions], imported_sources_count=self.db.scalar(select(func.count()).select_from(ImportedLibraryRecord)
-                .where(ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.user_book_id == entry_id,
-                    ImportedLibraryRecord.removed.is_(False), ImportedLibraryRecord.context != {})))
+        return ReadingWorkspace(entry=entry_dto(entry, state, detail=True),
+            current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
+            editions=[dict(item) for item in editions], imported_sources_count=imported_count)
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):
         self.detail(user_id, entry_id)  # Owner predicate before any history lookup.
@@ -226,11 +237,17 @@ class ReadingService(LibraryService):
             next_cursor=rows[limit - 1].id if len(rows) > limit else None)
 
     def home(self, user_id):
-        counts = dict(self.db.execute(select(ReadingAttempt.state, func.count()).join(UserBook)
-            .where(UserBook.user_id == user_id, ReadingAttempt.state.in_(["reading", "paused"]))
-            .group_by(ReadingAttempt.state)).all())
-        rows = self.db.execute(select(UserBook, ReadingAttempt).join(ReadingAttempt)
+        def count(state):
+            return (select(func.count()).select_from(ReadingAttempt).join(UserBook, ReadingAttempt.user_book_id == UserBook.id)
+                .where(UserBook.user_id == user_id, ReadingAttempt.state == state).scalar_subquery())
+        # One statement: the books being read plus both counts as columns. Only a reader with nothing in progress
+        # (no rows to carry the counts) needs a second.
+        rows = self.db.execute(select(UserBook, ReadingAttempt, count("reading"), count("paused")).join(ReadingAttempt)
             .where(UserBook.user_id == user_id, ReadingAttempt.state == "reading")
-            .options(_summary_options()).order_by(ReadingAttempt.updated_at.desc(), ReadingAttempt.id.desc()).limit(3)).all()
+            .options(*_summary_options()).order_by(ReadingAttempt.updated_at.desc(), ReadingAttempt.id.desc()).limit(3)).unique().all()
+        if rows:
+            reading_count, paused_count = rows[0][2], rows[0][3]
+        else:
+            reading_count, paused_count = self.db.execute(select(count("reading"), count("paused"))).one()
         return {"current_reads": [{"entry": entry_dto(entry, "reading"), "attempt": AttemptView.model_validate(attempt)}
-            for entry, attempt in rows], "reading_count": counts.get("reading", 0), "paused_count": counts.get("paused", 0)}
+            for entry, attempt, *_ in rows], "reading_count": reading_count, "paused_count": paused_count}

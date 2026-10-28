@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
-from sqlalchemy.orm import selectinload, Session
+from fastapi.encoders import jsonable_encoder
+from sqlalchemy.orm import joinedload, Session
 
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import search
+from services import catalogue_cache, search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
 
@@ -23,6 +24,11 @@ def cache_if_anonymous(response: Response, current_user: User | None) -> None:
         response.headers["Vary"] = "Cookie"
 
 
+def _with_details():
+    # Authors, subjects and alternate titles come back in the same statement as the books themselves.
+    return (joinedload(Book.authors), joinedload(Book.tags), joinedload(Book.title_aliases))
+
+
 @router.get("/books", response_model=Page[BookSchema])
 @limiter.limit("30/minute")
 def get_books(
@@ -38,6 +44,10 @@ def get_books(
     params: Params = Depends(),
 ):
     cache_if_anonymous(response, current_user)
+    # Anonymous pages are the same for everyone, so they are kept for a minute; signed-in pages are personalised.
+    cache_key = ("list", tuple(sorted(request.query_params.multi_items()))) if current_user is None else None
+    if cache_key is not None and (hit := catalogue_cache.get(cache_key)) is not None:
+        return hit
     service = search.SearchService(db)
     query = service.search_books(
         book=book,
@@ -47,24 +57,29 @@ def get_books(
         exclude_owned=exclude_owned,
         shelf_status=shelf_status,
     )
-    # Page IDs first. Selecting full Book rows before OFFSET evaluates the
-    # correlated Own/Want counters for skipped rows on deep catalogue pages.
-    id_query = query.with_only_columns(Book.id)
-    total = db.execute(
-        select(func.count()).select_from(id_query.order_by(None).subquery())
-    ).scalar_one()
-    ids = db.execute(
-        id_query.limit(params.size).offset((params.page - 1) * params.size)
-    ).scalars().all()
+    # Page the ids first (with the total counted in the same statement), then load just those books. Selecting full
+    # rows before OFFSET evaluates the correlated Own/Want counters for skipped rows on deep catalogue pages.
+    rows = db.execute(
+        query.with_only_columns(Book.id, func.count().over().label("total"))
+        .limit(params.size).offset((params.page - 1) * params.size)
+    ).all()
+    if rows:
+        total = rows[0].total
+    elif params.page == 1:
+        total = 0
+    else:  # a page past the end carries no rows to read the total from
+        total = db.execute(select(func.count()).select_from(
+            query.with_only_columns(Book.id).order_by(None).subquery())).scalar_one()
+    ids = [row.id for row in rows]
     if not ids:
-        return Page.create(items=[], total=total, params=params)
-    books = db.execute(
-        select(Book)
-        .where(Book.id.in_(ids))
-        .options(selectinload(Book.authors), selectinload(Book.tags))
-    ).scalars().all()
-    by_id = {book.id: book for book in books}
-    return Page.create(items=[by_id[book_id] for book_id in ids], total=total, params=params)
+        result = Page.create(items=[], total=total, params=params)
+    else:
+        books = db.execute(select(Book).where(Book.id.in_(ids)).options(*_with_details())).unique().scalars().all()
+        by_id = {item.id: item for item in books}
+        result = Page.create(items=[BookSchema.model_validate(by_id[book_id]) for book_id in ids], total=total, params=params)
+    if cache_key is not None:
+        catalogue_cache.put(cache_key, jsonable_encoder(result), catalogue_cache.LIST_TTL)
+    return result
 
 
 @router.get("/books/{book_id}", response_model=BookSchema)
@@ -76,20 +91,22 @@ def get_book(
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
 ):
-     query = (
-         select(Book)
-         .where(Book.id == book_id)
-         .options(selectinload(Book.authors), selectinload(Book.tags))
-     )
-     result = db.execute(query)
-     book = result.scalars().one_or_none()
+    cache_key = ("book", book_id) if current_user is None else None
+    if cache_key is not None and (hit := catalogue_cache.get(cache_key)) is not None:
+        cache_if_anonymous(response, current_user)
+        return hit
+    book = db.execute(
+        select(Book).where(Book.id == book_id).options(*_with_details())
+    ).unique().scalar_one_or_none()
 
-     # Discovery shows only complete books, but never break a reader's own saved book.
-     if book and not book.is_complete and not (current_user and db.scalar(select(exists().where(
-             UserBook.book_id == book.id, UserBook.user_id == current_user.id)))):
-         book = None
+    # Discovery shows only complete books, but never break a reader's own saved book.
+    if book and not book.is_complete and not (current_user and db.scalar(select(exists().where(
+            UserBook.book_id == book.id, UserBook.user_id == current_user.id)))):
+        book = None
 
-     if not book:
-         raise HTTPException(status_code=404, detail="Book not found")
-     cache_if_anonymous(response, current_user)
-     return book
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    cache_if_anonymous(response, current_user)
+    if cache_key is not None:
+        catalogue_cache.put(cache_key, BookSchema.model_validate(book).model_dump(mode="json"), catalogue_cache.BOOK_TTL)
+    return book

@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useReader } from "./readerState.js";
-import { authorLabel, bookSummary, englishTitle, prefetchBook } from "./data.js";
+import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
@@ -117,16 +117,6 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   </div>;
 }
 
-// Books that scroll into view are fetched ahead of a tap, a few per screen so a long grid does not flood the API.
-const VISIBLE_PREFETCH_LIMIT = 8;
-let visiblePrefetch = { path: "", ids: new Set() };
-function prefetchWhenVisible(id) {
-  if (visiblePrefetch.path !== window.location.pathname) visiblePrefetch = { path: window.location.pathname, ids: new Set() };
-  if (visiblePrefetch.ids.size >= VISIBLE_PREFETCH_LIMIT || visiblePrefetch.ids.has(id)) return;
-  visiblePrefetch.ids.add(id);
-  prefetchBook(id);
-}
-
 export function BookCard({ book, priority, buyUrl, preview = false }) {
   const location = useLocation();
   const state = { browseFrom: location.pathname === "/browse" ? location.pathname + location.search : "/browse", book: bookSummary(book) };
@@ -134,7 +124,7 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
   useEffect(() => {
     const node = card.current;
     if (!node || typeof IntersectionObserver === "undefined" || !Number.isSafeInteger(book.id)) return undefined;
-    const observer = new IntersectionObserver(entries => { if (entries.some(item => item.isIntersecting)) { prefetchWhenVisible(book.id); observer.disconnect(); } });
+    const observer = new IntersectionObserver(entries => { if (entries.some(item => item.isIntersecting)) { queueBook(book.id); observer.disconnect(); } });
     observer.observe(node);
     return () => observer.disconnect();
   }, [book.id]);
@@ -154,6 +144,11 @@ export function BookGrid({ books, bookshop = false, preview = false }) {
   const hasAffiliate = bookshop && books.some((book) => bookshopAffiliateUrl(book));
   return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} preview={preview} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
     {hasAffiliate && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}</>;
+}
+
+// A page's real heading with skeletons where its data will go, for the moments before the page itself can render.
+export function PageFrame({ title }) {
+  return <section className="bv-container" aria-busy="true"><PageHeading title={title} /><BookSkeletons count={3} /></section>;
 }
 
 export function BookSkeletons({ count = 5 }) {

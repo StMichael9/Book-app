@@ -1,7 +1,8 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { apiRequest } from "../../api/client.js";
 import { getBookById } from "../../api/books.js";
-import { prefetchRequest, readRequestCache, requestCacheEpoch, writeRequestCache } from "../../api/requestCache.js";
+import { prefetchWhenIdle } from "../../api/prefetchQueue.js";
+import { prefetchRequest, readRequestCache, sharedRequest } from "../../api/requestCache.js";
 
 export const SUBJECTS = [
   ["fantasy", "Fantasy"], ["mystery", "Mystery"], ["history", "History"],
@@ -64,9 +65,9 @@ export function useRequest(load, key, enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
-    const epoch = requestCacheEpoch();
-    Promise.resolve().then(() => loadCurrent()).then(
-      (data) => { if (epoch === requestCacheEpoch()) writeRequestCache(key, data); if (active) setState({ token, data, error: null }); },
+    // Shares the request with any prefetch already under way for this key; a failed request is forgotten, so retry asks again.
+    sharedRequest(key, () => loadCurrent()).then(
+      (data) => { if (active) setState({ token, data, error: null }); },
       (error) => { if (active) setState({ token, data: null, error }); },
     );
     return () => { active = false; };
@@ -83,6 +84,8 @@ export function useRequest(load, key, enabled = true) {
 
 // Starts the book request ahead of a click; the book page finds the answer in the cache under the same key.
 export const prefetchBook = id => prefetchRequest(`book:${id}`, () => getBookById(id));
+// A card in view: fetched when the browser is idle, a few at a time (see api/prefetchQueue.js).
+export const queueBook = id => prefetchWhenIdle(`book:${id}`, () => getBookById(id));
 
 // The card fields a book page can draw before its own request returns.
 export function bookSummary(book) {

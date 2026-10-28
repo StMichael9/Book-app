@@ -86,6 +86,7 @@ const test = base.extend({
         return reply(200, { items: entries.slice(offset, offset + 25), counts, total: entries.length,
           next_cursor: entries.length > offset + 25 ? String(offset + 25) : null });
       }
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);

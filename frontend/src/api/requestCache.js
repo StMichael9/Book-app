@@ -32,11 +32,27 @@ export function requestCacheSize() {
   return entries.size;
 }
 
-// Starts a request ahead of a click and keeps the answer for the page that needs it. One request per key at a time,
-// and nothing when the answer is already cached; a failed prefetch is silent and the page simply asks again.
-export function prefetchRequest(key, load) {
-  if (entries.has(key) || inFlight.has(key)) return;
-  const pending = Promise.resolve().then(load).then(data => { if (inFlight.get(key) === pending) writeRequestCache(key, data); }, () => {})
-    .finally(() => { if (inFlight.get(key) === pending) inFlight.delete(key); });
+// One request per key at a time, shared by the page and by prefetching: whichever asks first starts it, and the answer
+// is stored for the next visit unless the cache was cleared (logout, session change) in the meantime.
+function track(key, load) {
+  const startedIn = epoch;
+  const pending = Promise.resolve().then(load);
   inFlight.set(key, pending);
+  const settle = data => {
+    if (inFlight.get(key) === pending) inFlight.delete(key);
+    return data;
+  };
+  pending.then(data => { settle(); if (epoch === startedIn) writeRequestCache(key, data); }, () => { settle(); });
+  return pending;
+}
+
+export function sharedRequest(key, load) {
+  return inFlight.get(key) ?? track(key, load);
+}
+
+// Starts a request ahead of a click and keeps the answer for the page that needs it. Nothing when the answer is already
+// cached or already being fetched; a failed prefetch is silent and the page simply asks again.
+export function prefetchRequest(key, load) {
+  if (entries.has(key) || inFlight.has(key)) return undefined;
+  return track(key, load).then(() => {}, () => {});
 }

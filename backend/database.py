@@ -1,9 +1,12 @@
+import re
 from pathlib import Path
 from typing import Generator, Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from fastapi import Request
 from sqlalchemy import create_engine
+from sqlalchemy.exc import DisconnectionError, OperationalError
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -62,20 +65,52 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# The API runs far from the database (about 60 ms per round trip). Writes are rare and must not fail because the tab sat
+# idle, so they ping each connection before use; the ping also recycles anything older than Neon's idle suspend.
 engine = create_engine(
     settings.database_url,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    pool_recycle=240,
 )
 
 SessionLocal = sessionmaker(bind=engine)
+
+# Reads are many and cheap to repeat, so they skip the ping: connections are recycled before Neon's idle suspend can
+# drop them, and a read whose connection died is retried once (ReadSession). They also need no BEGIN/ROLLBACK round
+# trips, so they run on an autocommit connection from their own pool.
+read_engine = create_engine(
+    settings.database_url,
+    pool_recycle=240,
+).execution_options(isolation_level="AUTOCOMMIT")
+
+# Only routes that never write or stream may use it. Exports stream with server-side cursors, and imports and
+# every non-GET request keep ordinary transactions.
+AUTOCOMMIT_READS = re.compile(
+    r"^/(books(/\d+)?|autocomplete/[a-z/]+|me/(reading-capabilities|library|home|next-read|preferences|books"
+    r"|library/\d+(/reading|/attempts)?|reading-attempts/[0-9a-fA-F-]+))$"
+)
+
+
+class ReadSession(Session):
+    """A session for read-only requests: if the pooled connection was dropped, ask once more on a fresh one."""
+
+    def execute(self, *args, **kwargs):
+        try:
+            return super().execute(*args, **kwargs)
+        except (OperationalError, DisconnectionError) as error:
+            if not (isinstance(error, DisconnectionError) or error.connection_invalidated):
+                raise
+            self.rollback()  # hands the dead connection back so the pool discards it
+            return super().execute(*args, **kwargs)
 
 
 class Base(DeclarativeBase):
     pass
 
 
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
+def get_db(request: Request) -> Generator[Session, None, None]:
+    reading = request.method == "GET" and AUTOCOMMIT_READS.match(request.url.path)
+    db = ReadSession(bind=read_engine) if reading else SessionLocal()
     try:
         yield db
     finally:

@@ -66,6 +66,7 @@ const test = base.extend({
       if (/^\/books\/\d+$/.test(path)) return state.catalogue.find((book) => book.id === Number(path.split("/")[2])) ? reply(200, state.catalogue.find((book) => book.id === Number(path.split("/")[2]))) : reply(404, {});
       if (path === "/autocomplete/tags/batch") return reply(200, subjects.filter(item => url.searchParams.getAll("name").includes(item.name)));
       if (path === "/autocomplete/tags") return reply(200, subjects.filter((item) => item.name.includes(url.searchParams.get("q"))));
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await runFixture(state); expect(state.errors).toEqual([]);

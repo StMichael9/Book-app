@@ -61,6 +61,7 @@ const test = base.extend({
         source: { title: state.rows[0]?.[0], author: state.rows[0]?.[1], context: {}, events: [], warnings: [] }, candidates: [], plan: { kind: "private" }, disposition: "ready" }] });
       if (path.endsWith("/confirm")) { state.run.phase = "applying"; return reply(state.run); }
       if (path.endsWith("/cancel")) { state.run.phase = "cancelled"; return reply(state.run); }
+      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: { detail: "Unhandled engineering fixture" } });
     });
