@@ -17,6 +17,7 @@ def _stage_mb(session: Session) -> float:
     names = (
         "catalogue_stage_works", "catalogue_stage_work_authors", "catalogue_stage_authors",
         "catalogue_stage_editions", "catalogue_stage_candidates", "catalogue_stage_author_counts",
+        "catalogue_stage_popularity",
     )
     # One round trip for the same exact measurements; missing migrations must
     # still fail rather than silently understating staging usage.
@@ -50,12 +51,15 @@ def _count_skipped(run: CatalogueImportRun, phase: str, count: int) -> None:
         run.report = report
 
 
-def _release_staging(session: Session, run: CatalogueImportRun) -> None:
+def _release_staging(session: Session, run: CatalogueImportRun, *, keep_popularity: bool = False) -> None:
+    """A capacity pause keeps the (small) popularity allowlist so the replay need not stream those dumps again."""
     session.execute(text("""
         TRUNCATE catalogue_stage_author_counts, catalogue_stage_candidates,
                  catalogue_stage_work_authors, catalogue_stage_editions,
                  catalogue_stage_authors, catalogue_stage_works
     """))
+    if not keep_popularity:
+        session.execute(text("TRUNCATE catalogue_stage_popularity"))
     run.checkpoint_line = 0
 
 
@@ -81,6 +85,8 @@ def _build_report(session: Session, run: CatalogueImportRun) -> dict:
     """)).all())
     return {
         "capacity_replays": list((run.report or {}).get("capacity_replays", [])),
+        "popularity_ready": bool((run.report or {}).get("popularity_ready")),
+        "dry_run": (run.report or {}).get("dry_run"),
         "alias_scope": (run.report or {}).get("alias_scope", "full"),
         "aliases_before_compaction": (run.report or {}).get("aliases_before_compaction"),
         "alias_retained_count": (run.report or {}).get("alias_retained_count"),

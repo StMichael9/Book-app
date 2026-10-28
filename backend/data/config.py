@@ -36,10 +36,24 @@ class ImportConfig:
     target_books: int = 50000
     category_weights: dict[str, float] = field(default_factory=equal_percentage_weights)
     batch_size: int = 500
-    max_database_mb: int = 400
+    max_database_mb: int = 700
     restart_paused: bool = False
     snapshot_id: str | None = None
     source_manifest: dict = field(default_factory=dict)
+    # Popular, complete growth: both dumps set means the run ranks works by popularity first and only stages and
+    # selects popular, complete works. Neither set keeps the original quality-ordered behaviour.
+    ratings_url: str | None = None
+    reading_log_url: str | None = None
+    popularity_top: int = 400_000
+    dry_run: bool = False  # stop after hydrate and report what the merge would add and fill
+
+    @property
+    def popular(self) -> bool:
+        return bool(self.ratings_url and self.reading_log_url)
+
+    @property
+    def popularity_urls(self) -> dict[str, str]:
+        return {"ratings": self.ratings_url, "reading-log": self.reading_log_url} if self.popular else {}
 
     def validate(self) -> None:
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", self.run_id):
@@ -54,7 +68,12 @@ class ImportConfig:
             raise ValueError("Category percentage weights must be positive and finite")
         if abs(sum(self.category_weights.values()) - 100.0) > 0.00001:
             raise ValueError("Category percentage weights must total 100")
-        for url in (self.works_url, self.authors_url, self.editions_url, self.redirects_url, self.deletes_url):
+        if bool(self.ratings_url) != bool(self.reading_log_url):
+            raise ValueError("Provide both the ratings and reading-log dumps, or neither")
+        if self.popularity_top < 1:
+            raise ValueError("popularity_top must be positive")
+        for url in (self.works_url, self.authors_url, self.editions_url, self.redirects_url, self.deletes_url,
+                    *self.popularity_urls.values()):
             parsed = urlparse(url)
             if (parsed.scheme != "https" or "latest" in url.casefold()
                     or not parsed.path.endswith(".txt.gz")
@@ -65,9 +84,11 @@ class ImportConfig:
             files = self.source_manifest.get("files")
             if self.source_manifest.get("identifier") != self.snapshot_id or not isinstance(files, dict):
                 raise ValueError("Pinned snapshot metadata is incomplete")
-            for kind in ("works", "authors", "editions", "redirects", "deletes"):
+            urls = {"works": self.works_url, "authors": self.authors_url, "editions": self.editions_url,
+                    "redirects": self.redirects_url, "deletes": self.deletes_url, **self.popularity_urls}
+            for kind, expected_url in urls.items():
                 entry = files.get(kind)
-                if (not isinstance(entry, dict) or entry.get("url") != getattr(self, f"{kind}_url")
+                if (not isinstance(entry, dict) or entry.get("url") != expected_url
                         or not isinstance(entry.get("size"), int) or entry["size"] < 1
                         or not re.fullmatch(r"[a-f0-9]{32}", str(entry.get("md5", "")))):
                     raise ValueError(f"Pinned {kind} metadata does not match the import URL")
@@ -101,7 +122,7 @@ def _config_hash(config: ImportConfig) -> str:
     payload = {
         "subjects": clean.SUBJECT_ALIASES, "types": clean.CATEGORY_TYPES,
         "mood_theme": clean.MOOD_THEME_ALIASES, "weights": config.category_weights,
-        "selection_version": 2,
+        "selection_version": 3,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
@@ -134,7 +155,9 @@ def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImport
             source_manifest=config.source_manifest, category_weights=config.category_weights,
             max_database_mb=config.max_database_mb, category_hash=_config_hash(config),
             target_books=config.target_books, baseline_count=baseline,
-            shortlist_factor=2, phase="redirects", checkpoint_line=0,
+            # A wider shortlist because some popular works lack pages and drop out at selection.
+            shortlist_factor=3 if config.popular else 2,
+            phase="popularity" if config.popular else "redirects", checkpoint_line=0,
             selected_count=0, merged_count=0, error_count=0,
             peak_database_mb=0, peak_staging_mb=0, category_seen_counts={},
         )
@@ -180,12 +203,15 @@ def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImport
             # rows have already been restored by this replay.
             verified.pop("redirects", None)
             verified.pop("deletes", None)
+        if config.popular and not previous.get("popularity_ready"):
+            phase = "popularity"
         run.phase, run.checkpoint_line, run.selected_count, run.merged_count = phase, 0, 0, 0
         run.merge_cursor = None
         run.baseline_count = baseline
         run.max_database_mb = config.max_database_mb
-        run.shortlist_factor = 2
+        run.shortlist_factor = 3 if config.popular else 2
         run.category_seen_counts = {}
-        run.report = {"verified_dumps": verified, "capacity_replays": replays}
+        run.report = {"verified_dumps": verified, "capacity_replays": replays,
+                      "popularity_ready": bool(previous.get("popularity_ready"))}
         run.last_error = None
     return run
