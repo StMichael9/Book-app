@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from database import get_db, settings, SessionLocal
+from observability import environment_name, init_sentry
 
 from routes import books
 from routes import catalogue
@@ -48,6 +49,9 @@ async def app_lifespan(_app):
             logging.getLogger(__name__).warning("Import staging cleanup deferred; next import activity can retry.")
     yield
 
+
+# Error reporting starts only when SENTRY_DSN is set; with no key nothing is initialised and nothing is sent.
+init_sentry(settings.sentry_dsn, environment_name(settings))
 
 app = FastAPI(lifespan=app_lifespan)
 

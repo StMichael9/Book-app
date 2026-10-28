@@ -10,6 +10,7 @@ import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarnin
 import { safeReturnTo } from "./data.js";
 import { likelySignedIn } from "../../api/bookCache.js";
 import { usePageWarmers } from "./pagePrefetch.js";
+import RouteErrorBoundary from "./RouteErrorBoundary.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
@@ -162,7 +163,7 @@ function Shell() {
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>
-      <Routes>
+      <RouteErrorBoundary resetKey={location.key}><Routes>
         <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
@@ -177,7 +178,7 @@ function Shell() {
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>Try discovery or return to your library.</EmptyState></section>} />
-      </Routes>
+      </Routes></RouteErrorBoundary>
     </main><Footer /><AccountPrompt /><div className="bv-toast" role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
   </div>;
 }
