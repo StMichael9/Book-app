@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
-import { BookCover, Button, TextLink } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, GetACopy, TextLink } from "../ui-v2/primitives.jsx";
 import { localToday } from "./localToday.js";
 
 function reasonText(reason) {
@@ -51,6 +51,7 @@ function NextReadCard({ choice, disabled, pending, onStart }) {
     {!choice.book && <p className="bv-help">Private book · only in your library</p>}
     <Button disabled={disabled} aria-label={`Start reading ${book.title}`} onClick={onStart}>{pending ? "Opening…" : "Start reading"}</Button>
     <TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>{choice.entry_id ? "Open your book" : "About this book"}</TextLink>
+    {choice.book && <GetACopy book={book} />}
   </article>;
 }
 
@@ -120,7 +121,7 @@ export default function NextReadSection({ preview = false, home = false, current
     return <section className="bv-workspace-next" aria-label={home ? "Choose your next read" : "Next after this"}><h2>{home ? "Your next read" : "Next after this"}</h2>
       {choice && <p className="bv-help">From your Want to read list.</p>}
       {request.loading ? <p role="status" className="bv-help">Finding a choice…</p> : request.error ? <><p role="status" className="bv-muted">Choices couldn’t load. Your reading is unchanged.</p><Button variant="quiet" onClick={request.retry}>Try choices again</Button></> : choice ?
-        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink></div></article>
+        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink>{choice.book && <GetACopy book={book} />}</div></article>
         : <p className="bv-muted">Nothing is on your Want to read list yet. Mark a book Want to read, or explore other choices.</p>}
       <Button ref={previewButton} variant="quiet" onClick={() => setExpanded(true)}>{home ? "Choose next" : "Explore more choices"}</Button>
     </section>;

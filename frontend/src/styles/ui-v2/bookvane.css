@@ -211,7 +211,7 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-book-metadata div { display: flex; align-items: baseline; gap: 8px; }
 .bv-root .bv-book-metadata dt { color: var(--bv-muted); }
 .bv-root .bv-book-metadata dd { margin: 0; overflow-wrap: anywhere; }
-.bv-root .bv-description { max-width: 680px; margin-top: 28px; }
+.bv-root .bv-description { max-width: 70ch; margin-top: 28px; }
 .bv-root .bv-description h2 { font-size: 1.4375rem; }
 .bv-root .bv-description p { line-height: 1.65; white-space: pre-line; }
 .bv-root .bv-share button { font: 600 0.9375rem var(--bv-body); padding: 10px 12px; min-height: 44px; border-radius: 6px; border: 1px solid var(--bv-control); background: transparent; color: var(--bv-ink); cursor: pointer; }
