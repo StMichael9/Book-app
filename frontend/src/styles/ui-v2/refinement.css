@@ -128,3 +128,8 @@
   .bv-root--landing .bv-header-actions .bv-icon-button { min-width: 36px; padding-inline: 4px; }
   .bv-root--landing .bv-header-actions .bv-button { padding-inline: 8px; }
 }
+/* First-run Home. */
+.bv-root .bv-first-run-paths { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 28px; }
+.bv-root .bv-first-run-done { margin-top: 28px; }
+.bv-root .bv-first-run h2 { margin-bottom: 14px; }
+.bv-root .bv-first-run-done { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 18px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }

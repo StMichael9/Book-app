@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [October 29 journey overhaul PR 2: first-run Home](2026-10-29-journey-2-first-run-home.md)
 - [October 28 journey overhaul PR 1: quick wins](2026-10-28-journey-1-quick-wins.md)
 - [October 23 release fix 3e: English-title subtitle](2026-10-23-3e-english-title.md)
 - [October 23: reader copy never names data sources](2026-10-23-no-data-sources.md)
