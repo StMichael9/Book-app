@@ -28,6 +28,7 @@
 
 - `reader-flows.spec.js` landing test: help line is now "Free. Private. No account needed to explore."
 - `get-a-copy.spec.js`: the book page link name is now "Find it at Bookshop.org".
+- `critical-flows.spec.js` phone landing test: the register and login URLs now end in `?src=landing`.
 
 ## Verification (executed)
 
@@ -39,7 +40,7 @@ New tests, red first (8 failed on the old behaviour), then green:
 - description width ≤ 70ch;
 - next-read Get a copy (link, target, rel, disclosure, accessible name), and none without an affiliate ID.
 
-Lint exit 0, 12 warnings (unchanged). Build passes. The full suite result is in the PR description.
+Lint exit 0, 12 warnings (unchanged). Build passes. Full mocked suite: 365 passed and 1 failed on the first run; the one failure was the `?src=landing` URL assertion above, fixed and re-run green (366 of 366 in total).
 
 Screenshots (390 and 1440, light and dark; landing, no-results, save dialog, register) were taken for review and are not committed.
 
