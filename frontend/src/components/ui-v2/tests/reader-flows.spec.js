@@ -341,7 +341,7 @@ for (const theme of ["light", "dark"]) test(`minimalist landing is clear, respon
     const explore = page.getByRole("link", { name: "Explore books", exact: true });
     await expect(explore).toHaveAttribute("href", "/browse");
     expect((await explore.boundingBox()).y).toBeLessThan(650);
-    await expect(page.getByText("No account needed to explore.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Free. Private. No account needed to explore.", { exact: true })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true })).toHaveCount(0);
     await expect(page.locator(".bv-hero-actions").getByRole("link", { name: "Create your library", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -471,4 +471,68 @@ test("an English title shows under the title on cards and the book page only whe
     if (id === 2) await expect(page.locator(".bv-book-metadata")).toContainText("Published1818");
     await expect(page.locator(".bv-english-title")).toHaveCount(0);
   }
+});
+
+test("a guest whose search finds nothing is told a free account can add any book", async ({ page, app }) => {
+  await page.goto("/browse?book=Project+Hail+Mary");
+  const panel = page.locator(".bv-guest-noresults");
+  await expect(panel).toContainText("Can’t find it here? With a free account you can add any book to your library yourself.");
+  await expect(panel.getByRole("link", { name: "Create free account" })).toHaveAttribute("href", `/register?src=noresults&returnTo=${encodeURIComponent("/browse?book=Project+Hail+Mary")}`);
+  await expect(panel.getByRole("link", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByText("Try a shorter title, search by author, or remove a subject filter.")).toBeVisible();
+  await expect(page.getByText(/look further/i)).toHaveCount(0);
+  app.authenticated = true;
+  await page.goto("/browse?book=Project+Hail+Mary"); await expect(page.getByRole("heading", { name: "No books found." })).toBeVisible();
+  await expect(page.locator(".bv-guest-noresults")).toHaveCount(0);
+});
+
+test("register and the save dialog reassure the reader at the point of decision", async ({ page, app }) => {
+  app.authenticated = false;
+  await page.goto("/register?bookId=1&save=want&returnTo=%2Fbook%2F1");
+  await expect(page.getByText("Saves to Want to read as soon as your account is ready.")).toBeVisible();
+  await expect(page.getByText("after you sign in")).toHaveCount(0);
+  await expect(page.getByText("Free. Your library is private. We only email you for password resets.")).toBeVisible();
+  await expect(page.locator(".bv-auth-card").getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
+  await page.goto("/book/1");
+  const want = page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" });
+  await want.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Free · private · takes a moment");
+  expect(await dialog.getByRole("link", { name: "Create an account" }).getAttribute("href")).toContain("src=saveprompt");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden(); await expect(want).toBeFocused();
+  await want.click(); await dialog.getByRole("button", { name: "Keep browsing" }).click(); await expect(want).toBeFocused();
+});
+
+test("the landing page invites guests to join free and carries its source", async ({ page, app }) => {
+  app.authenticated = false;
+  await page.goto("/"); await expect(page.locator(".bv-book-card").first()).toBeVisible();
+  await expect(page.getByText("Free. Private. No account needed to explore.", { exact: true })).toBeVisible();
+  for (const link of [page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true }), page.getByRole("link", { name: "Create your library", exact: true }), page.getByRole("link", { name: "Start your free library", exact: true })])
+    await expect(link).toHaveAttribute("href", "/register?src=landing");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".bv-header").getByRole("link", { name: "Discover", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("/discover reaches Discover and the 404 does not mention a library to guests", async ({ page, app }) => {
+  await page.goto("/discover"); await expect(page).toHaveURL(/\/browse$/);
+  await page.goto("/nowhere"); await expect(page.getByRole("heading", { name: "This page isn’t on the shelf." })).toBeVisible();
+  await expect(page.locator("#bv-main").getByText(/library/i)).toHaveCount(0);
+  app.authenticated = true; await page.goto("/nowhere");
+  await expect(page.getByText("Try discovery or return to your library.")).toBeVisible();
+});
+
+test("book descriptions stay within about seventy characters per line", async ({ page, app }) => {
+  app.authenticated = false;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/book/1"); await expect(page.locator(".bv-description p")).toBeVisible();
+  const fits = await page.evaluate(() => {
+    const probe = document.createElement("span"); probe.style.cssText = "width:70ch;position:absolute;visibility:hidden";
+    const target = document.querySelector(".bv-description"); target.append(probe);
+    const limit = probe.getBoundingClientRect().width; probe.remove();
+    return target.getBoundingClientRect().width <= limit + 1;
+  });
+  expect(fits).toBe(true);
 });
