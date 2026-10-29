@@ -28,6 +28,7 @@ async function mock(page, { signedIn = false, isbn13 = ISBN } = {}) {
     return route.fulfill({ status: 404, json: { detail: "Not found" } });
   });
 }
+const buyUrl = id => `https://bookshop.org/search?keywords=${encodeURIComponent(`Copy fixture ${id} Fixture Author`)}&affiliate=130585`;
 const copyLink = page => page.getByRole("link", { name: /Bookshop\.org — supports independent bookstores/ });
 
 for (const signedIn of [false, true]) {
@@ -36,7 +37,7 @@ for (const signedIn of [false, true]) {
     await page.goto(`${WITH_ID}/book/7`);
     await expect(page.getByRole("heading", { name: "Copy fixture 7" })).toBeVisible();
     const link = copyLink(page);
-    await expect(link).toHaveAttribute("href", `https://bookshop.org/a/130585/${ISBN}`);
+    await expect(link).toHaveAttribute("href", buyUrl(7));
     await expect(link).toHaveAttribute("target", "_blank");
     expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "noreferrer", "sponsored"]);
     await expect(page.getByText("Bookvane may earn a small commission.")).toBeVisible();
@@ -44,13 +45,10 @@ for (const signedIn of [false, true]) {
   });
 }
 
-test("the Get a copy row is hidden without an ISBN-13", async ({ page }) => {
+test("the Get a copy row still shows without an ISBN-13", async ({ page }) => {
   await mock(page, { isbn13: null });
   await page.goto(`${WITH_ID}/book/7`);
-  await expect(page.getByRole("heading", { name: "Copy fixture 7" })).toBeVisible();
-  await expect(page.getByText("About this book")).toBeVisible();
-  await expect(copyLink(page)).toHaveCount(0);
-  await expect(page.getByText("Bookvane may earn a small commission.")).toHaveCount(0);
+  await expect(copyLink(page)).toHaveAttribute("href", buyUrl(7));
 });
 
 test("the Get a copy row is hidden without an affiliate ID", async ({ page }) => {
@@ -67,7 +65,7 @@ test("Want to read cards keep their link; Own, Reading, Finished and Discover ha
   await page.goto(`${WITH_ID}/my-books?status=want`);
   const buy = page.getByRole("link", { name: /Find on Bookshop/ });
   await expect(buy).toHaveCount(1);
-  await expect(buy).toHaveAttribute("href", `https://bookshop.org/a/130585/${ISBN}`);
+  await expect(buy).toHaveAttribute("href", buyUrl(1));
   for (const facet of ["owned", "reading", "finished"]) {
     await page.goto(`${WITH_ID}/my-books?status=${facet}`);
     await expect(page.getByText(/Copy fixture \d/).first()).toBeVisible();
