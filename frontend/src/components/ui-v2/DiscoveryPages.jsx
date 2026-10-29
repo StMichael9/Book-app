@@ -10,18 +10,12 @@ import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
-import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
+import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
 // covered books with plain English-alphabet titles first, never repeating hero and row.
-const plainTitle = title => Boolean(title) && /^[ -~\u2018\u2019\u201C\u201D\u2013\u2014]+$/.test(title);
-// Stable first-impression order: covered books with plain titles first, then the rest in catalogue order.
-function firstImpressionOrder(items) {
-  const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
-  return items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
-}
 function landingSelection(items) {
   const ordered = firstImpressionOrder(items);
   // A very small catalogue can't fill both without repeating; then the row shows the first five.
@@ -45,8 +39,8 @@ export function WelcomePage() {
         <h1>Your personal<br /><em>reading home.</em></h1>
         <p className="bv-lead bv-muted">Discover books, keep your library together, and track what you’re reading. At your own pace.</p>
         <div className="bv-hero-actions"><ActionLink to="/browse">Explore books <ArrowRight aria-hidden="true" /></ActionLink>
-          <TextLink to={auth.isAuthenticated ? "/my-books" : "/register"}>{auth.isAuthenticated ? "Return to your library" : "Create your library"}</TextLink></div>
-        <p className="bv-help">{!auth.isAuthenticated ? "No account needed to explore." : "Your books are right where you left them."}</p>
+          <TextLink to={auth.isAuthenticated ? "/my-books" : "/register?src=landing"}>{auth.isAuthenticated ? "Return to your library" : "Create your library"}</TextLink></div>
+        <p className="bv-help">{!auth.isAuthenticated ? "Free. Private. No account needed to explore." : "Your books are right where you left them."}</p>
       </div>
       <div className="bv-hero-display">
         <div className="bv-hero-covers">{books.loading ? Array.from({ length: 3 }, (_, i) => <div key={i} className="bv-skeleton bv-skeleton--cover" aria-hidden="true" />) :
@@ -62,7 +56,7 @@ export function WelcomePage() {
     <section className="bv-container bv-section bv-landing-story" aria-label="Your reading life"><SectionHeading title="Make room for your reading life." />
       <div className="bv-landing-benefits"><div><h3>Keep your books together.</h3><p>The books you own, the ones you want, and the stories you’ve already spent time with.</p></div><div><h3>Pick up where you left off.</h3><p>A place for your current books, with optional progress and private notes.</p></div><div><h3>Find your next beginning.</h3><p>Finish a book, then choose what calls to you next. There’s no required rating or journal.</p></div></div>
     </section>
-    <section className="bv-container"><div className="bv-library-banner"><div><h2>Your next book is waiting.</h2><p>Bookvane is free. Save what catches your eye, track what you’re reading, and keep notes only you can see.</p></div><ActionLink to={auth.isAuthenticated ? "/my-books" : "/register"}>{auth.isAuthenticated ? "Open your library" : "Start your free library"}</ActionLink></div></section>
+    <section className="bv-container"><div className="bv-library-banner"><div><h2>Your next book is waiting.</h2><p>Bookvane is free. Save what catches your eye, track what you’re reading, and keep notes only you can see.</p></div><ActionLink to={auth.isAuthenticated ? "/my-books" : "/register?src=landing"}>{auth.isAuthenticated ? "Open your library" : "Start your free library"}</ActionLink></div></section>
   </>;
 }
 
@@ -168,7 +162,7 @@ export function BrowsePage() {
       <BookGrid books={items} />{(!extendedEligible || pages > 1) && <div className="bv-pagination">{!extendedEligible && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()} of {total.toLocaleString()} books</span>}
         {pages > 1 && <nav aria-label="Results pages"><Button variant="secondary" disabled={page <= 1} onClick={() => movePage(page - 1)}><ArrowLeft aria-hidden="true" /><span>Previous</span></Button><span aria-current="page">Page {page} of {pages.toLocaleString()}</span><Button variant="secondary" disabled={page >= pages} onClick={() => movePage(page + 1)}><span>Next</span><ArrowRight aria-hidden="true" /></Button></nav>}
       </div>}
-    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : !extendedEligible ? <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}</EmptyState> : null}
+    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : !extendedEligible ? <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}{!auth.isAuthenticated && Boolean(book.trim() || author.trim()) && <div className="bv-guest-noresults"><p>Can’t find it here? With a free account you can add any book to your library yourself.</p><div className="bv-form-actions"><ActionLink to={`/register?${new URLSearchParams({ src: "noresults", returnTo: `/browse?${params}` })}`}>Create free account</ActionLink><ActionLink variant="secondary" to={`/login?${new URLSearchParams({ returnTo: `/browse?${params}` })}`}>Sign in</ActionLink></div></div>}</EmptyState> : null}
     {extendedEligible && !request.loading && !request.error && <ExtendedCatalogue key={`${auth.sessionGeneration}:${book}:${author}`} title={book} author={author} hasLocalResults={items.length > 0} />}
     {filterOpen && <FilterDialog onClose={() => setFilterOpen(false)} onApply={applyFilters} initial={{ tags, exclude, shelf }} authenticated={auth.isAuthenticated} />}
   </section>;
@@ -227,7 +221,7 @@ export function BookPage() {
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {/* Shelf choices come before subjects so they're on a phone's first screen. */}
         <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
-        {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored">Bookshop.org — supports independent bookstores</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
+        {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored">Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
         {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}
         {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, Search, X } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, ExternalLink, Search, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
@@ -42,6 +42,11 @@ function Jacket({ book, className = "", ...props }) {
     <strong aria-hidden="true">{book.title || "Untitled book"}</strong>
     <span aria-hidden="true">{authorLabel(book)}</span>
   </div>;
+}
+
+export function GetACopy({ book }) {
+  const url = bookshopAffiliateUrl(book);
+  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
 }
 
 export function EnglishTitle({ book }) {

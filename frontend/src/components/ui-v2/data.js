@@ -120,3 +120,11 @@ export function loadSubjectOptions() {
 export function useDocumentTitle(title) {
   useEffect(() => { if (title) document.title = `${title} · Bookvane`; }, [title]);
 }
+
+// Covered books with plain English-alphabet titles first, then the rest in catalogue order.
+const plainTitle = title => Boolean(title) && /^[ -~\u2018\u2019\u201C\u201D\u2013\u2014]+$/.test(title);
+// Stable first-impression order: covered books with plain titles first, then the rest in catalogue order.
+export function firstImpressionOrder(items) {
+  const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
+  return items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
+}
