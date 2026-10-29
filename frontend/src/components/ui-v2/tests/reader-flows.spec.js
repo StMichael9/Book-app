@@ -510,10 +510,14 @@ test("the landing page invites guests to join free and carries its source", asyn
   await expect(page.getByText("Free. Private. No account needed to explore.", { exact: true })).toBeVisible();
   for (const link of [page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true }), page.getByRole("link", { name: "Create your library", exact: true }), page.getByRole("link", { name: "Start your free library", exact: true })])
     await expect(link).toHaveAttribute("href", "/register?src=landing");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator(".bv-header").getByRole("link", { name: "Discover", exact: true })).toBeVisible();
-  await expect(page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const header = page.locator(".bv-header");
+    await expect(header.getByRole("link", { name: "Join free", exact: true })).toBeVisible();
+    await expect(header.getByRole("link", { name: "Discover", exact: true })).toHaveCount(0);
+    expect((await header.boundingBox()).height).toBeLessThan(90);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
 });
 
 test("/discover reaches Discover and the 404 does not mention a library to guests", async ({ page, app }) => {
