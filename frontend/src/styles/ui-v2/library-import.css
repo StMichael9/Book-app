@@ -42,3 +42,9 @@
 .bv-root .bv-import-review { margin-top: 24px; border-top: 1px solid var(--bv-line); padding-top: 16px; }
 .bv-root .bv-import-done .bv-form-actions { margin-top: 16px; }
 @media (max-width: 700px) { .bv-root .bv-import-sources { grid-template-columns: 1fr; } }
+.bv-root .bv-import-waiting { border: 1px solid var(--bv-line); border-radius: 8px; padding: 20px; background: var(--bv-panel); margin-block: 20px; }
+.bv-root .bv-import-waiting p { margin: 0 0 12px; }
+.bv-root .bv-import-choice { margin-top: 32px; }
+.bv-root .bv-import-choice h2 { font-size: 1.25rem; margin-bottom: 8px; }
+.bv-root .bv-import-removed { border: 1px solid var(--bv-line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
+.bv-root .bv-import-removed legend { font-weight: 600; padding-inline: 4px; }
