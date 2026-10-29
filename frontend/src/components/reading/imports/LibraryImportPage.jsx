@@ -10,7 +10,6 @@ import "../../../styles/ui-v2/library-import.css";
 
 const workHeadings = { uploading: "Reading your file", analyzing: "Finding your books", grouping: "Checking for duplicates", applying: "Adding your books", failed: "Import needs attention" };
 const endHeadings = { cancelled: "Import stopped", expired: "This import expired" };
-const fileNames = { goodreads: "your Goodreads file", storygraph: "your StoryGraph file", bookvane: "your Bookvane CSV file", generic: "your file", paste: "your pasted list" };
 const dispositionLabels = { ready: "Ready", approved: "Ready", skipped: "Skipped", applied: "Added", review: "Needs a choice", invalid: "Needs a choice" };
 const finished = phase => ["completed", "completed_with_issues"].includes(phase);
 const readable = value => value.replaceAll("_", " ");
@@ -274,11 +273,11 @@ function ImportSession() {
     </section>}
     {run?.phase === "preview_ready" && <section className="bv-section bv-import-confirm" aria-busy={command.pending}><h2>Ready to add your books</h2>
       <ul className="bv-import-summary">
-        <li>{books(summary.distinct_targets ?? run.row_count)} in {fileNames[run.source] || "your file"}</li>
-        {(kinds.catalogue || 0) > 0 && <li>{books(kinds.catalogue)} match books on Bookvane</li>}
-        {(kinds.private || 0) > 0 && <li>{books(kinds.private)} will be added as your own entries, private to you, with your shelves and dates</li>}
-        {(kinds.existing || 0) > 0 && <li>{books(kinds.existing)} already in your library — kept as they are</li>}
-        {needChoice > 0 && <li>{books(needChoice)} need a choice from you</li>}
+        <li>{books(summary.distinct_targets ?? run.row_count)} in your file</li>
+        {(kinds.catalogue || 0) > 0 && <li>{kinds.catalogue} found on Bookvane</li>}
+        {(kinds.private || 0) > 0 && <li>{kinds.private} added as your own {kinds.private === 1 ? "entry" : "entries"} — private, with your shelves and dates</li>}
+        {(kinds.existing || 0) > 0 && <li>{kinds.existing} already in your library, kept as {kinds.existing === 1 ? "it is" : "they are"}</li>}
+        {needChoice > 0 && <li>{needChoice} {needChoice === 1 ? "needs" : "need"} a choice from you</li>}
       </ul>
       {summary.ignored_columns?.length > 0 && <details><summary>Fields not imported</summary><p>{summary.ignored_columns.join(", ")}. These fields remain in your original file, not in Bookvane.</p></details>}
       <div className="bv-form-actions"><Button disabled={command.pending} onClick={() => { setOneClick(true); confirm({ accept_warnings: true, approve_private: true, skip_unresolved: true }); }}>Add everything I don’t have yet</Button>

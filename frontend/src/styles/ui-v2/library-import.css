@@ -32,7 +32,10 @@
 .bv-root .bv-import-source li { display: list-item; list-style: decimal; margin-bottom: 6px; }
 .bv-root .bv-import-page .bv-narrow { max-width: 58rem; }
 .bv-root .bv-import-file { margin-block: 24px; }
-.bv-root .bv-import-file input[type="file"] { padding: 12px; border: 1px dashed var(--bv-control); border-radius: 8px; width: 100%; background: var(--bv-panel); }
+.bv-root .bv-import-page .bv-import-file .bv-field input[type="file"] { width: auto; max-width: 100%; padding: 0; border: 0; background: none; color: var(--bv-muted); font: inherit; }
+.bv-root .bv-import-file input[type="file"]::file-selector-button { min-height: 44px; margin-right: 12px; padding: 9px 18px; border: 1px solid var(--bv-control); border-radius: 6px; background: var(--bv-panel); color: var(--bv-ink); font: 600 0.9375rem var(--bv-body); cursor: pointer; }
+.bv-root .bv-import-file input[type="file"]:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-root .bv-import-page .bv-button--quiet { padding-inline: 0; justify-content: flex-start; }
 .bv-root .bv-import-summary { list-style: none; padding: 0; margin: 12px 0 20px; }
 .bv-root .bv-import-summary li { padding-block: 8px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-import-page progress { width: 100%; height: 12px; accent-color: var(--bv-green); margin-block: 8px 12px; }

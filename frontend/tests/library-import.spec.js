@@ -238,10 +238,10 @@ test("one click adds everything: the preview summary comes from the run and conf
   await openReady(page, app);
   const summary = page.locator(".bv-import-summary");
   await expect(summary).toContainText("5 books in your file");
-  await expect(summary).toContainText("2 books match books on Bookvane");
-  await expect(summary).toContainText("2 books will be added as your own entries, private to you, with your shelves and dates");
-  await expect(summary).toContainText("1 book already in your library — kept as they are");
-  await expect(summary).toContainText("2 books need a choice from you");
+  await expect(summary).toContainText("2 found on Bookvane");
+  await expect(summary).toContainText("2 added as your own entries — private, with your shelves and dates");
+  await expect(summary).toContainText("1 already in your library, kept as it is");
+  await expect(summary).toContainText("2 need a choice from you");
   await expect(page.locator(".bv-import-row")).toHaveCount(0);
   await expect(page.getByLabel("Add books I don’t have a match for as my own private entries.")).toHaveCount(0);
   expect((await page.locator("#bv-main").innerText()).match(bannedWords)).toBeNull();
@@ -302,4 +302,18 @@ test("the done screen says how many were left for review after one click, and ho
   await page.getByRole("button", { name: "Confirm import", exact: true }).click();
   await expect(page.getByText("3 skipped.")).toBeVisible();
   await expect(page.getByText("left for you to review")).toHaveCount(0);
+});
+
+test("the preview and done screens use singular wording for one book", async ({ page, app }) => {
+  app.summary = { distinct_targets: 1, targets_by_kind: { catalogue: 1, private: 1, existing: 1 }, dispositions: { review: 1, invalid: 0 } };
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "one.csv", mimeType: "text/csv", buffer: Buffer.from("title,author\r\nOnly Book,Someone\r\n") });
+  const summary = page.locator(".bv-import-summary");
+  await expect(summary).toContainText("1 book in your file");
+  await expect(summary).toContainText("1 found on Bookvane");
+  await expect(summary).toContainText("1 added as your own entry — private, with your shelves and dates");
+  await expect(summary).toContainText("1 already in your library, kept as it is");
+  await expect(summary).toContainText("1 needs a choice from you");
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Brought home 1 book.", exact: true })).toBeVisible();
 });
