@@ -17,9 +17,14 @@ on:
           - catalogue-rehearsal
           - catalogue-production
       target_books:
-        description: Total Book rows including existing rows
-        required: true
-        default: "150000"
+        description: Total Book rows including existing rows; blank means 150000 on production and current books + 2000 on the rehearsal branch
+        required: false
+        default: ""
+        type: string
+      production_size_mb:
+        description: Rehearsal only - size of the production database counted against the 750 MB project guard
+        required: false
+        default: "250"
         type: string
       weights_json:
         description: Optional JSON percentage weights; blank means equal weights
@@ -71,6 +76,7 @@ jobs:
       INPUT_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
       INPUT_SNAPSHOT: ${{ inputs.snapshot }}
       INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
+      INPUT_PRODUCTION_SIZE_MB: ${{ inputs.production_size_mb || '250' }}
       INPUT_WEIGHTS_JSON: ${{ inputs.weights_json }}
     steps:
       - name: Pin checkout to the original import code
@@ -108,6 +114,15 @@ jobs:
       - run: python -m pip install -r requirements.txt
       # Migrations remain a separate reviewed deployment action. The importer
       # must never migrate the production application database implicitly.
+      # The popularity file is runner-local scratch; carry it between segments. If it is missing the importer
+      # rebuilds it from the dumps, so a failed download is not an error.
+      - name: Restore the popularity file
+        if: ${{ steps.source.outputs.run_id != '' }}
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: catalogue-state-${{ steps.source.outputs.run_id }}
+          path: ${{ runner.temp }}/catalogue-state
       - name: Run or resume the checkpointed import
         id: ingest
         env:
@@ -115,19 +130,39 @@ jobs:
           EFFECTIVE_DRY_RUN: ${{ steps.source.outputs.dry_run }}
         run: |
           [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" || "$INPUT_TARGET_ENV" == "catalogue-production" ]] || exit 1
-          args=(--mode production --time-budget-seconds 17400 --max-database-mb 700)
+          args=(--mode production --time-budget-seconds 17400 --max-database-mb 700 --state-dir "$RUNNER_TEMP/catalogue-state")
+          if [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" ]]; then
+            [[ "$INPUT_PRODUCTION_SIZE_MB" =~ ^[0-9]{1,4}$ ]] || exit 1
+            args+=(--production-size-mb "$INPUT_PRODUCTION_SIZE_MB" --max-project-mb 750)
+          fi
           if [[ "$EFFECTIVE_DRY_RUN" == "true" ]]; then
             args+=(--dry-run --dry-run-report "$RUNNER_TEMP/dry-run-report.json")
           fi
           if [[ -n "$RESUME_ID" ]]; then
             args+=(--run-id "$RESUME_ID" --resume-only)
           else
-            args+=(--snapshot "$INPUT_SNAPSHOT" --target-books "$INPUT_TARGET_BOOKS")
+            args+=(--snapshot "$INPUT_SNAPSHOT")
+            if [[ -n "$INPUT_TARGET_BOOKS" ]]; then
+              args+=(--target-books "$INPUT_TARGET_BOOKS")
+            elif [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" ]]; then
+              args+=(--add-books 2000)
+            else
+              args+=(--target-books 150000)
+            fi
             if [[ -n "$INPUT_WEIGHTS_JSON" ]]; then
               args+=(--weights-json "$INPUT_WEIGHTS_JSON")
             fi
           fi
           python -m data.load "${args[@]}"
+      - name: Keep the popularity file for the next segment
+        if: ${{ always() && steps.ingest.outputs.run_id != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-state-${{ steps.ingest.outputs.run_id }}
+          path: ${{ runner.temp }}/catalogue-state
+          retention-days: 3
+          overwrite: true
+          if-no-files-found: ignore
       - name: Upload the dry-run report
         if: ${{ always() && steps.source.outputs.dry_run == 'true' }}
         uses: actions/upload-artifact@v4
