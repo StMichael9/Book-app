@@ -2,18 +2,18 @@ import { apiRequest } from "./client.js";
 
 const root = "/me/library-imports";
 const messages = {
-  active_import_exists: "You already have a saved import. Resume it or cancel its future work before starting another.",
-  batch_content_changed: "This file differs from the saved upload. Reselect the original file, or cancel and start a separate import.",
+  active_import_exists: "You already have an import waiting. Continue it or start over.",
+  batch_content_changed: "This file is different from the one you started with. Choose the original file, or start over.",
   column_clarification_required: "Choose the ambiguous columns before checking your file.",
-  upload_manifest_mismatch: "The upload was incomplete or did not match its acknowledgements. Reselect the same file to resume safely.",
-  preview_changed: "Your preview changed. Reload the saved import and review it before confirming.",
-  unresolved_rows_require_decision: "Resolve the exceptions, approve private entries, or explicitly choose to skip unresolved rows.",
-  import_capacity_pause: "Importing is paused to preserve database space for your existing books and other readers. No existing data was removed.",
-  import_staging_limit_cancel_or_use_smaller_file: "This file’s preview exceeds the temporary-data limit. Cancel this import and split the file into smaller collections. Nothing was silently truncated.",
-  import_input_limit: "This upload exceeds the supported row, text or data-size limits. Use a smaller file; nothing was truncated.",
-  import_expired: "The seven-day resume window expired. Your committed books remain. Start another import with your original file.",
+  upload_manifest_mismatch: "Your upload didn’t finish cleanly. Choose the same file again to carry on.",
+  preview_changed: "Your import changed while you were looking. Open it again and review it before adding.",
+  unresolved_rows_require_decision: "Some books still need a choice. Make a choice, or skip them.",
+  import_capacity_pause: "Importing is paused for a little while to keep Bookvane running smoothly. Your library hasn’t changed.",
+  import_staging_limit_cancel_or_use_smaller_file: "This file is too large to check in one go. Split it into smaller files and import them one at a time.",
+  import_input_limit: "This file is too large. Use a smaller file; nothing was cut off.",
+  import_expired: "This import expired. Books already added stay. Start again with your original file.",
   import_not_found: "This saved import is unavailable for your account.",
-  private_title_required: "A private book needs a title. Supply a title in your source file or skip the row.",
+  private_title_required: "A book needs a title. Add a title in your file or skip it.",
 };
 async function request(path, options) {
   try { return await apiRequest(path, options); }

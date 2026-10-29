@@ -102,7 +102,7 @@ export default function LibraryImportPage() {
 
 function ImportSession() {
   const library = useUserBooks();
-  const command = useReadingCommand("The import paused. Your committed books are safe. Retry or resume from the saved checkpoint.");
+  const command = useReadingCommand("Something went wrong on our side. Your library hasn’t changed — try again.");
   const controller = useRef(null);
   const lastRequest = useRef({ upload: -Infinity, advance: -Infinity });
   const [recent, setRecent] = useState([]), [run, setRun] = useState(null), [page, setPage] = useState(null);
@@ -173,7 +173,14 @@ function ImportSession() {
             ...(current ? { scope: current.scope, mapping: current.upload_config.mapping, status_map: current.upload_config.status_map,
               encoding: current.upload_config.encoding || "UTF-8", source: current.source === "paste" ? "paste" : "auto" }
               : { encoding, mapping: { ...inspection.mapping, ...mapping } }) };
-          current = await retry(() => imports.startImport(data, activeSignal), activeSignal);
+          try { current = await retry(() => imports.startImport(data, activeSignal), activeSignal); }
+          catch (failure) {
+            // An unfinished import already exists (another tab, or an older visit): show it instead of an error.
+            if (failure.status !== 409) throw failure;
+            const waiting = await imports.recentImports(activeSignal);
+            assertCurrent(); setRecent(waiting.items); setFile(null); setInspection(null);
+            throw failure;
+          }
           assertCurrent(); setRun(current);
         },
         async onBatch(ordinal, rows) {
@@ -217,8 +224,10 @@ function ImportSession() {
   const total = run?.row_count || 0;
   const done = run?.phase === "analyzing" ? run.analyze_cursor : run?.phase === "grouping" && !run.rechecking ? run.group_cursor : null;
   const added = summary.applied?.added_entries || 0, skipped = dispositions.skipped || 0;
-  const saved = !run && recent[0];
-  const savedOpen = saved && !["completed", "completed_with_issues", "cancelled", "expired"].includes(saved.phase);
+  const isOpen = item => !["completed", "completed_with_issues", "cancelled", "expired"].includes(item.phase);
+  const saved = !run && (recent.find(isOpen) || recent[0]);
+  const savedOpen = Boolean(saved) && isOpen(saved);
+  const [confirmReset, setConfirmReset] = useState(false);
   const savedDate = saved && (saved.updated_at || saved.created_at) ? new Date(saved.updated_at || saved.created_at).toLocaleDateString() : "";
   const confirm = flags => command.run(async assertCurrent => {
     const activeSignal = signal();
@@ -234,8 +243,11 @@ function ImportSession() {
     <TextLink to="/my-books">Back to My Books</TextLink>
     <PageHeading title="Import from Goodreads or StoryGraph">Bring your shelves, reading dates and notes. Everything stays private to you.</PageHeading>
     {notice && <p role="status">{notice}</p>}
-    {saved && <p className="bv-import-saved">{savedOpen ? `You have an import in progress${savedDate ? ` from ${savedDate}` : ""}.` : `Your last import${savedDate ? ` was on ${savedDate}` : ""}.`} <Button variant="quiet" disabled={command.pending} onClick={() => command.run(async () => imports.getImport(saved.id), current => { setRun(current); setPage(null); setFile(null); setInspection(null); if (current.upload_config) setEncoding(current.upload_config.encoding || "UTF-8"); })}>{savedOpen ? "Continue" : "View results"}</Button></p>}
-    {startVisible && <>
+    {saved && savedOpen && <div className="bv-import-waiting"><p>{`You have an import${savedDate ? ` from ${savedDate}` : ""} ${saved.phase === "preview_ready" ? "ready to review" : "waiting"}.`}</p>
+      {confirmReset ? <><p role="status">Start over? Books already added stay in your library.</p><div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={() => command.run(async () => { await imports.cancelImport(saved.id); return imports.recentImports(signal()); }, waiting => { setRecent(waiting.items); setConfirmReset(false); library.importChanged(); })}>Yes, start over</Button><Button variant="quiet" disabled={command.pending} onClick={() => setConfirmReset(false)}>Keep it</Button></div></>
+        : <div className="bv-form-actions"><Button disabled={command.pending} onClick={() => command.run(async () => imports.getImport(saved.id), current => { setRun(current); setPage(null); setFile(null); setInspection(null); if (current.upload_config) setEncoding(current.upload_config.encoding || "UTF-8"); })}>Continue</Button><Button variant="quiet" disabled={command.pending} onClick={() => setConfirmReset(true)}>Start over</Button></div>}</div>}
+    {saved && !savedOpen && <p className="bv-import-saved">{savedOpen ? `You have an import in progress${savedDate ? ` from ${savedDate}` : ""}.` : `Your last import${savedDate ? ` was on ${savedDate}` : ""}.`} <Button variant="quiet" disabled={command.pending} onClick={() => command.run(async () => imports.getImport(saved.id), current => { setRun(current); setPage(null); setFile(null); setInspection(null); if (current.upload_config) setEncoding(current.upload_config.encoding || "UTF-8"); })}>{savedOpen ? "Continue" : "View results"}</Button></p>}
+    {startVisible && !(saved && savedOpen) && <>
       <div className="bv-import-sources">
         <article className="bv-import-source"><h2>Goodreads</h2><ol><li>In My Books, open Import and Export.</li><li>Choose Export Library.</li><li>Save the CSV and return here.</li></ol><p className="bv-help">Bookvane never asks for your Goodreads login.</p><a className="bv-text-link" href="https://www.goodreads.com/review/import" target="_blank" rel="noopener noreferrer">Open Goodreads Import and Export ↗</a></article>
         <article className="bv-import-source"><h2>StoryGraph</h2><ol><li>In your account menu, open Manage Account.</li><li>Choose Export StoryGraph Library.</li><li>Generate and download your CSV, then return here.</li></ol><a className="bv-text-link" href="https://app.thestorygraph.com/user-export" target="_blank" rel="noopener noreferrer">Open StoryGraph export ↗</a></article>
@@ -243,7 +255,7 @@ function ImportSession() {
       <section className="bv-import-file"><div className="bv-field"><label htmlFor="import-file">Choose your export file (.csv)</label><input id="import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" disabled={command.pending} onChange={event => selectFile(event.target.files?.[0])} />
         <p className="bv-help">Up to 20 MiB or 20,000 rows. You’ll see a summary before anything is added.</p></div>
         {command.pending && !run && <p role="status">Checking your file…</p>}
-        {run?.phase === "uploading" && <p className="bv-notice">To resume, reselect the same file. Every acknowledged batch is checked; a different file cannot replace this import.</p>}
+        {run?.phase === "uploading" && <p className="bv-notice">To carry on, choose the same file again. A different file can’t replace this import.</p>}
         {run?.phase === "uploading" && <Button variant="quiet" disabled={command.pending} onClick={() => command.run(async () => imports.cancelImport(run.id), current => { setRun(current); setPage(null); library.importChanged(); })}>Cancel import</Button>}
         {inspection && (needsQuestions || run) && <div className="bv-field">{needsQuestions && <p>Your file needs a couple of answers first.</p>}{Object.entries(inspection.ambiguous).map(([field, columns]) => <div key={field}><label htmlFor={`map-${field}`}>Which column means {readable(field)}?</label><select id={`map-${field}`} value={mapping[field] ?? ""} onChange={event => setMapping(value => ({ ...value, [field]: Number(event.target.value) }))}><option value="" disabled>Choose a column</option>{columns.map(index => <option value={index} key={index}>{inspection.headers[index]}</option>)}</select></div>)}
           {inspection.missing_identity && <><label htmlFor="map-title">Which column contains the book title?</label><select id="map-title" value={mapping.title ?? ""} onChange={event => setMapping(value => ({ ...value, title: Number(event.target.value) }))}><option value="" disabled>Choose a title column</option>{inspection.headers.map((header, index) => <option key={index} value={index}>{header}</option>)}</select></>}
@@ -298,7 +310,7 @@ function ImportSession() {
         <Button variant="quiet" onClick={() => { setRun(null); setPage(null); setFile(null); setInspection(null); setApprovePrivate(false); setAcceptWarnings(false); setSkipUnresolved(false); setOneClick(false); setReviewOpen(false); setRowsOpen(false); }}>Start another import</Button></div>
       {page && <details className="bv-import-results" open={rowsOpen} onToggle={event => setRowsOpen(event.currentTarget.open)}><summary>Your results</summary>{rowList}</details>}
     </section>}
-    {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}
+    {command.error && !(saved && savedOpen) && <div className="bv-field-error" role="alert"><p>{command.error}</p><Button variant="secondary" disabled={command.pending} onClick={() => { setRun(null); setPage(null); setFile(null); setInspection(null); command.run(() => imports.recentImports(signal()), waiting => setRecent(waiting.items)); }}>Try again</Button></div>}
     {forgetMarkers && <NativeDialog open title="Forget removed import markers?" onClose={() => { if (!command.pending) setForgetMarkers(false); }}>
       <p>This deletes only replay markers for books and readings you already removed. It does not delete your current books, source context, native history or notes. Later imports may re-add forgotten books or readings, and this cannot be undone.</p>
       <label className="bv-import-check"><input type="checkbox" checked={understandsMarkers} onChange={event => setUnderstandsMarkers(event.target.checked)} />I understand that future uploads may add removed books or readings again.</label>

@@ -30,6 +30,8 @@ const test = base.extend({
       if (path === `${root}/forget-removed-markers`) return reply({ removed_markers: 2, removed_read_markers: 3 });
       if (path === root && method === "GET") return reply({ items: state.run ? [state.run] : [] });
       if (path === root && method === "POST") {
+        if (state.failStart) return route.fulfill({ status: 500, json: { detail: "boom" } });
+        if (state.conflictOnStart) { state.conflictOnStart = false; state.run = { id: "active-run", source: "goodreads", phase: "preview_ready", row_count: 20, revision: 2, manifest_hash: "m", summary: {}, expires_at: "2026-11-05T00:00:00Z" }; return route.fulfill({ status: 409, json: { detail: { code: "active_import_exists" } } }); }
         if (state.run?.id === body.id) return reply(state.run);
         state.run = { id: body.id, source: body.source === "paste" ? "paste" : "generic", scope: "default", phase: "uploading", row_count: 0, batch_count: 0,
           analyze_cursor: 0, group_cursor: 0, revision: 1, manifest_hash: null, summary: {},
@@ -207,7 +209,7 @@ test("cancelled partial import still shows committed book and reading totals", a
   expect(app.requests.some(request => request.path.endsWith("/advance") || request.path.endsWith("/confirm"))).toBe(false);
 });
 
-const bannedWords = /unmatched|invalid|error|disposition|catalogue|book group|source rows/i;
+const bannedWords = /unmatched|invalid|error|disposition|catalogue|book group|source rows|checkpoint|committed|staging|batch/i;
 const csv = (rows = 2) => ({ name: "export.csv", mimeType: "text/csv", buffer: Buffer.from(["title,author", ...Array.from({ length: rows }, (_, i) => `Book ${i + 1},Author ${i + 1}`)].join("\r\n") + "\r\n") });
 const openReady = async (page, app) => {
   app.summary = { distinct_targets: 5, targets_by_kind: { catalogue: 2, private: 2, existing: 1 }, dispositions: { review: 1, invalid: 1 } };
@@ -280,7 +282,7 @@ test("Review conflicts is hidden when nothing needs a choice, and the preview ne
 test("the working screen names the phase in plain words with N of M and a progress bar", async ({ page, app }) => {
   app.run = { id: "saved-analyze", source: "goodreads", phase: "analyzing", row_count: 200, analyze_cursor: 50, revision: 2, summary: {}, expires_at: "2026-10-23T00:00:00Z" };
   await page.goto("/my-books/import");
-  await expect(page.getByText("You have an import in progress")).toBeVisible();
+  await expect(page.getByText(/You have an import.*waiting\./)).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finding your books", exact: true })).toBeVisible();
   await expect(page.getByRole("status")).toContainText("50 of 200");
@@ -316,4 +318,52 @@ test("the preview and done screens use singular wording for one book", async ({ 
   await expect(summary).toContainText("1 needs a choice from you");
   await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Brought home 1 book.", exact: true })).toBeVisible();
+});
+
+const waitingRun = { id: "waiting-run", source: "goodreads", phase: "preview_ready", row_count: 20, revision: 2, manifest_hash: "m", expires_at: "2026-11-05T00:00:00Z",
+  summary: { distinct_targets: 20, targets_by_kind: { private: 20 }, dispositions: {} } };
+
+test("an import waiting for review shows Continue and Start over instead of the file picker", async ({ page, app }) => {
+  app.run = structuredClone(waitingRun);
+  await page.goto("/my-books/import");
+  await expect(page.getByText("ready to review.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Choose your export file", { exact: false })).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
+  expect(app.requests.some(request => request.method === "POST" && request.path === root)).toBe(false);
+});
+
+test("Start over asks first, cancels the old run, and returns to the cards", async ({ page, app }) => {
+  app.run = structuredClone(waitingRun);
+  await page.goto("/my-books/import");
+  await page.getByRole("button", { name: "Start over", exact: true }).click();
+  await expect(page.getByText("Start over? Books already added stay in your library.")).toBeVisible();
+  expect(app.requests.some(request => request.path.endsWith("/cancel"))).toBe(false);
+  await page.getByRole("button", { name: "Yes, start over", exact: true }).click();
+  await expect(page.getByLabel("Choose your export file", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Goodreads", exact: true })).toBeVisible();
+  expect(app.requests.filter(request => request.path === `${root}/waiting-run/cancel`)).toHaveLength(1);
+});
+
+test("a 409 on start shows the waiting box, not an error", async ({ page, app }) => {
+  app.conflictOnStart = true;
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "export.csv", mimeType: "text/csv", buffer: Buffer.from("title,author\r\nBook,Someone\r\n") });
+  await expect(page.getByText("ready to review.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
+});
+
+test("a server failure shows a plain message with Try again, never paused or checkpoint wording", async ({ page, app }) => {
+  app.failStart = true;
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "export.csv", mimeType: "text/csv", buffer: Buffer.from("title,author\r\nBook,Someone\r\n") });
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("Something went wrong on our side. Your library hasn’t changed — try again.");
+  expect((await page.locator("#bv-main").innerText()).match(/paused|checkpoint|committed|staging|batch/i)).toBeNull();
+  app.failStart = false;
+  await alert.getByRole("button", { name: "Try again", exact: true }).click();
+  await expect(page.getByLabel("Choose your export file", { exact: false })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
 });
