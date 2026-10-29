@@ -320,19 +320,18 @@ def import_api(importing, client, app_modules, monkeypatch):
     user, workflow = importing
     monkeypatch.setattr(app_modules["database"].settings, "reading_v3_enabled", True)
     monkeypatch.setattr(app_modules["database"].settings, "reading_v3_user_ids", "")
-    monkeypatch.setattr(app_modules["database"].settings, "library_import_enabled", True)
     app_modules["main"].app.dependency_overrides[get_current_user] = lambda: user
     limiter.reset()
     yield user, workflow, client
     limiter.reset()
 
 
-def test_http_requires_feature_and_refuses_owner_in_request(import_api, app_modules, monkeypatch):
+def test_http_requires_reading_and_refuses_owner_in_request(import_api, app_modules, monkeypatch):
     user, workflow, client = import_api
     body = {"id": str(uuid4()), "headers": ["title"]}
-    monkeypatch.setattr(app_modules["database"].settings, "library_import_enabled", False)
+    monkeypatch.setattr(app_modules["database"].settings, "reading_v3_enabled", False)
     assert client.post("/me/library-imports", json=body).status_code == 403
-    monkeypatch.setattr(app_modules["database"].settings, "library_import_enabled", True)
+    monkeypatch.setattr(app_modules["database"].settings, "reading_v3_enabled", True)
     assert client.post("/me/library-imports", json={**body, "user_id": str(uuid4())}).status_code == 422
     response = client.post("/me/library-imports", json=body)
     assert response.status_code == 200
