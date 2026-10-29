@@ -60,6 +60,9 @@ const test = base.extend({
         if (state.run.phase === "completed") state.run.summary = { applied: { added_entries: state.rows.length, added_reads: 0 }, dispositions: state.completedDispositions || {} };
         return reply(state.run);
       }
+      if (method === "PATCH" && /\/rows\/\d+$/.test(path)) { state.run.phase = "grouping"; state.run.revision += 1; return reply(state.run); }
+      if (path.endsWith("/rows") && url.searchParams.get("only_review") === "true" && state.removedRows) return reply({ revision: state.run.revision, next_after: null, items: state.removedRows.map((candidates, index) => ({ ordinal: index + 2,
+        source: { title: "Removed book", author: "Someone", context: {}, events: [], warnings: [] }, candidates, plan: { kind: "removed" }, disposition: "review" })) });
       if (path.endsWith("/rows") && url.searchParams.get("only_review") === "true" && state.reviewRows) return reply({ revision: 1, next_after: null, items: [{ ordinal: 2,
         source: { title: "A hard one", author: "Someone", context: {}, events: [], warnings: [] }, candidates: [], plan: { kind: "private" }, disposition: "review" }] });
       if (path.endsWith("/rows")) return reply({ revision: 1, next_after: null, items: state.run.phase === "completed" ? [] : [{ ordinal: 1,
@@ -96,18 +99,6 @@ test("My Books entry and real local CSV parser preserve Unicode, quotes and embe
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => /import|csv|review/i.test(key)))).toEqual([]);
 });
 
-test("pasted list shares the preview engine and does not invent history", async ({ page, app }) => {
-  await page.goto("/my-books/import");
-  await page.getByText("Other ways to import and options", { exact: true }).click();
-  await page.getByText("Paste a book list", { exact: true }).click();
-  await page.getByLabel("One title, title — author, or ISBN per line").fill("A-B\nA Title — An Author\n9781250313195");
-  await page.getByRole("button", { name: "Check this list" }).click();
-  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
-  expect(app.rows).toEqual([["A-B", "", ""], ["A Title", "An Author", ""], ["", "", "9781250313195"]]);
-  expect(app.run.source).toBe("paste");
-  expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
-});
-
 test("large TSV upload stays in 100-row batches with explicit confirmation", async ({ page, app }) => {
   await page.goto("/my-books/import");
   const content = "title\tauthor\n" + Array.from({ length: 1000 }, (_, index) => `Engineering ${index}\tAn Author`).join("\n");
@@ -133,7 +124,6 @@ test("paused file resumes after reload by verifying acknowledged batches without
   const runId = app.run.id;
   await page.reload();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByLabel("Text encoding", { exact: true })).toBeDisabled();
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(file);
   await page.getByRole("button", { name: "Resume upload", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible({ timeout: 20_000 });
@@ -142,21 +132,6 @@ test("paused file resumes after reload by verifying acknowledged batches without
   expect(app.run.batch_count).toBe(10);
   expect(app.requests.filter(request => request.path.endsWith("/batches/0"))).toHaveLength(2);
   expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
-});
-
-test("forgetting removed markers requires an explicit warning and confirmation", async ({ page, app }) => {
-  await page.goto("/my-books/import");
-  await page.getByText("Other ways to import and options", { exact: true }).click();
-  await page.getByText("Advanced import privacy", { exact: true }).click();
-  await page.getByRole("button", { name: "Forget removed import markers", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Forget removed markers", exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: "Keep markers", exact: true }).click();
-  expect(app.requests.some(request => request.path.endsWith("/forget-removed-markers"))).toBe(false);
-  await page.getByRole("button", { name: "Forget removed import markers", exact: true }).click();
-  await page.getByLabel("I understand that future uploads may add removed books or readings again.").check();
-  await page.getByRole("button", { name: "Forget removed markers", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("2 removed-book and 3 removed-reading");
-  expect(app.requests.filter(request => request.path.endsWith("/forget-removed-markers")).map(request => request.body)).toEqual([{ confirmed: true }]);
 });
 
 test("malformed CSV quoting cannot finalize an import", async ({ page, app }) => {
@@ -228,11 +203,11 @@ test("the start screen is one calm path with Goodreads and StoryGraph cards and 
   await expect(page.getByLabel("Choose your export file (.csv)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Check my library" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Bring your library" })).toHaveCount(0);
-  await expect(page.getByLabel("Text encoding")).toBeHidden();
-  await expect(page.getByLabel("One title, title — author, or ISBN per line")).toBeHidden();
-  await page.getByText("Other ways to import and options", { exact: true }).click();
-  await expect(page.getByLabel("Text encoding")).toBeVisible();
-  for (const name of ["Paste a book list", "Bookvane CSV v1 / another spreadsheet", "Export my Bookvane library", "Advanced import privacy"]) await expect(page.getByText(name, { exact: true })).toBeVisible();
+  for (const name of ["CSV / spreadsheet", "Export my Bookvane library"]) await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Bookvane CSV template" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download library CSV" })).toBeVisible();
+  for (const gone of ["Text encoding", "Paste a book list", "Advanced import privacy", "Other ways to import and options", "Forget removed import markers"]) await expect(page.getByText(gone, { exact: false })).toHaveCount(0);
+  await expect(page.locator("#bv-main select, #bv-main textarea")).toHaveCount(0);
   expect((await page.locator("#bv-main").innerText()).match(bannedWords)).toBeNull();
 });
 
@@ -366,4 +341,52 @@ test("a server failure shows a plain message with Try again, never paused or che
   await alert.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(page.getByLabel("Choose your export file", { exact: false })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("a file that is not UTF-8 is read as windows-1252 without asking", async ({ page, app }) => {
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "latin.csv", mimeType: "text/csv", buffer: Buffer.from("title,author\r\nCaf\u00e9 Society,Zo\u00eb Author\r\n", "latin1") });
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
+  expect(app.rows).toEqual([["Caf\u00e9 Society", "Zo\u00eb Author"]]);
+  expect(app.requests.find(request => request.method === "POST" && request.path === root).body.encoding).toBe("windows-1252");
+});
+
+const removedSummary = { distinct_targets: 3, targets_by_kind: { private: 2 }, dispositions: { review: 1, invalid: 0 } };
+const openRemoved = async (page, app, candidates) => {
+  app.summary = removedSummary; app.removedRows = [candidates];
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
+  await expect(page.getByText("1 book you removed earlier is in this file")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Review conflicts/ })).toHaveCount(0);
+  await expect(page.getByText(/need a choice from you|needs a choice from you/)).toHaveCount(0);
+};
+
+test("books you removed earlier are skipped by default, with nothing extra sent", async ({ page, app }) => {
+  await openRemoved(page, app, [{ book_id: 42, title: "Old", authors: ["A"] }]);
+  await expect(page.getByLabel("Skip them")).toBeChecked();
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Brought home/ })).toBeVisible();
+  expect(app.requests.some(request => request.method === "PATCH")).toBe(false);
+  expect(app.requests.find(request => request.path.endsWith("/confirm")).body).toEqual(expect.objectContaining({ skip_unresolved: true }));
+});
+
+test("Add them back matches each removed book to its top candidate before confirming", async ({ page, app }) => {
+  await openRemoved(page, app, [{ book_id: 42, title: "Old", authors: ["A"] }]);
+  await page.getByLabel("Add them back").check();
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Brought home/ })).toBeVisible();
+  const order = app.requests.map(request => `${request.method} ${request.path.split("/").slice(-1)[0]}`);
+  const patch = app.requests.find(request => request.method === "PATCH");
+  expect(patch.body).toEqual(expect.objectContaining({ action: "match", book_id: 42 }));
+  expect(order.indexOf("PATCH 2")).toBeLessThan(order.indexOf("POST confirm"));
+});
+
+test("a removed book with no match on Bookvane says it could not be added back and sends no decision", async ({ page, app }) => {
+  await openRemoved(page, app, []);
+  await page.getByLabel("Add them back").check();
+  await expect(page.getByText("1 couldn’t be added back.")).toBeVisible();
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Brought home/ })).toBeVisible();
+  expect(app.requests.some(request => request.method === "PATCH")).toBe(false);
 });

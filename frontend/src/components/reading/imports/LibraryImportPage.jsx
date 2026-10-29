@@ -4,8 +4,8 @@ import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import * as imports from "../../../api/libraryImports.js";
-import { ActionLink, Button, NativeDialog, PageHeading, TextLink } from "../../ui-v2/primitives.jsx";
-import { fileHeaders, importDigest, pastedRows, streamFile } from "./parsing.js";
+import { ActionLink, Button, PageHeading, TextLink } from "../../ui-v2/primitives.jsx";
+import { fileHeaders, streamFile } from "./parsing.js";
 import "../../../styles/ui-v2/library-import.css";
 
 const workHeadings = { uploading: "Reading your file", analyzing: "Finding your books", grouping: "Checking for duplicates", applying: "Adding your books", failed: "Import needs attention" };
@@ -106,11 +106,10 @@ function ImportSession() {
   const controller = useRef(null);
   const lastRequest = useRef({ upload: -Infinity, advance: -Infinity });
   const [recent, setRecent] = useState([]), [run, setRun] = useState(null), [page, setPage] = useState(null);
-  const [file, setFile] = useState(null), [encoding, setEncoding] = useState("UTF-8"), [paste, setPaste] = useState("");
+  const [file, setFile] = useState(null), [encoding, setEncoding] = useState("UTF-8");
   const [inspection, setInspection] = useState(null), [mapping, setMapping] = useState({});
   const [approvePrivate, setApprovePrivate] = useState(false), [acceptWarnings, setAcceptWarnings] = useState(false), [skipUnresolved, setSkipUnresolved] = useState(false);
   const [onlyReview, setOnlyReview] = useState(false), [notice, setNotice] = useState("");
-  const [forgetMarkers, setForgetMarkers] = useState(false), [understandsMarkers, setUnderstandsMarkers] = useState(false);
   useEffect(() => {
     const initial = new AbortController();
     imports.recentImports(initial.signal).then(result => setRecent(result.items)).catch(error => {
@@ -142,8 +141,13 @@ function ImportSession() {
       const preview = await imports.importRows(result.id, 0, false, activeSignal);
       assertCurrent(); setPage(preview); setOnlyReview(false);
     }
-    if (["completed", "completed_with_issues"].includes(result.phase)) { library.readingChanged(); setFile(null); setPaste(""); }
+    if (["completed", "completed_with_issues"].includes(result.phase)) { library.readingChanged(); setFile(null); }
     return result;
+  }
+  // UTF-8 first; if the file is not valid UTF-8 it is read as windows-1252. The reader is never asked.
+  async function detectEncoding(selected) {
+    try { new TextDecoder("utf-8", { fatal: true }).decode(await selected.arrayBuffer()); return "UTF-8"; }
+    catch { return "windows-1252"; }
   }
   async function selectFile(selected) {
     setInspection(null); setMapping({}); setNotice(""); setFile(selected);
@@ -155,7 +159,9 @@ function ImportSession() {
     }
     command.run(async assertCurrent => {
       const activeSignal = signal();
-      const headers = await fileHeaders(selected, encoding, activeSignal);
+      const detected = run ? encoding : await detectEncoding(selected);
+      assertCurrent(); setEncoding(detected);
+      const headers = await fileHeaders(selected, detected, activeSignal);
       assertCurrent();
       const checked = await imports.inspectImport(headers, undefined, activeSignal);
       assertCurrent();
@@ -195,23 +201,6 @@ function ImportSession() {
       return walk(current, assertCurrent, activeSignal);
     }, setRun);
   }
-  function uploadPaste() {
-    command.run(async assertCurrent => {
-      const activeSignal = signal(), rows = pastedRows(paste), manifest = [];
-      let current = await imports.startImport({ id: crypto.randomUUID(), headers: ["title", "author", "isbn13"], source: "paste" }, activeSignal);
-      assertCurrent(); setRun(current);
-      for (let offset = 0; offset < rows.length; offset += 100) {
-        assertCurrent();
-        const batch = rows.slice(offset, offset + 100), ordinal = offset / 100;
-        const result = await paced("upload", () => imports.uploadImport(current.id, ordinal, batch, activeSignal), assertCurrent, activeSignal);
-        assertCurrent(); current = result.status; setRun(current);
-        manifest.push({ ordinal, hash: result.batch_hash, length: batch.length });
-      }
-      current = await imports.finalizeImport(current.id, { row_count: rows.length, batch_count: manifest.length, manifest_hash: await importDigest(manifest) }, activeSignal);
-      assertCurrent(); setRun(current);
-      return walk(current, assertCurrent, activeSignal);
-    }, setRun);
-  }
   const [oneClick, setOneClick] = useState(false), [reviewOpen, setReviewOpen] = useState(false), [rowsOpen, setRowsOpen] = useState(false);
   const autoStart = useEffectEvent(() => uploadFile());
   const needsQuestions = Boolean(inspection) && (Object.keys(inspection.ambiguous).length > 0 || inspection.missing_identity);
@@ -229,6 +218,42 @@ function ImportSession() {
   const savedOpen = Boolean(saved) && isOpen(saved);
   const [confirmReset, setConfirmReset] = useState(false);
   const savedDate = saved && (saved.updated_at || saved.created_at) ? new Date(saved.updated_at || saved.created_at).toLocaleDateString() : "";
+  // Books the reader removed earlier come back as rows needing a choice; they get their own line, skipped unless asked.
+  const [addBack, setAddBack] = useState(false), [removedState, setRemovedState] = useState({ key: "", items: [] });
+  const removedKey = run?.phase === "preview_ready" && needChoice > 0 ? `${run.id}:${run.revision}` : "";
+  useEffect(() => {
+    if (!removedKey) return undefined;
+    const controller = new AbortController();
+    (async () => {
+      const found = [];
+      for (let after = 0, pages = 0; pages < 50; pages += 1) {
+        const result = await imports.importRows(removedKey.split(":")[0], after, true, controller.signal);
+        for (const row of result.items) if (row.plan?.kind === "removed") found.push({ ordinal: row.ordinal, bookId: row.candidates?.find(candidate => candidate.book_id != null && !candidate.entry_id)?.book_id ?? null });
+        if (!result.next_after) break;
+        after = result.next_after;
+      }
+      setRemovedState({ key: removedKey, items: found });
+    })().catch(() => {});
+    return () => controller.abort();
+  }, [removedKey]);
+  const removedRows = removedState.key === removedKey ? removedState.items : [];
+  const cannotAddBack = removedRows.filter(row => row.bookId == null).length;
+  const otherChoices = needChoice - removedRows.length;
+  const addEverything = flags => command.run(async assertCurrent => {
+    const activeSignal = signal();
+    let current = run;
+    if (addBack) {
+      for (const row of removedRows.filter(item => item.bookId != null)) {
+        const fresh = await imports.importRows(current.id, 0, true, activeSignal);
+        assertCurrent();
+        current = await imports.decideImport(current.id, row.ordinal, { expected_revision: fresh.revision, action: "match", book_id: row.bookId }, activeSignal);
+        assertCurrent(); setRun(current);
+        current = await walk(current, assertCurrent, activeSignal);
+      }
+    }
+    const confirmed = await imports.confirmImport(current.id, { expected_revision: current.revision, manifest_hash: current.manifest_hash, ...flags }, activeSignal);
+    assertCurrent(); setRun(confirmed); return walk(confirmed, assertCurrent, activeSignal);
+  }, setRun);
   const confirm = flags => command.run(async assertCurrent => {
     const activeSignal = signal();
     const current = await imports.confirmImport(run.id, { expected_revision: run.revision, manifest_hash: run.manifest_hash, ...flags }, activeSignal);
@@ -262,20 +287,12 @@ function ImportSession() {
           <Button disabled={command.pending || Object.keys(inspection.ambiguous).some(field => mapping[field] === undefined) || (inspection.missing_identity && mapping.title === undefined)} onClick={uploadFile}>{run ? "Resume upload" : "Check my library"}</Button>
         </div>}
       </section>
-      <details className="bv-import-other"><summary>Other ways to import and options</summary>
-        <label htmlFor="import-encoding">Text encoding</label><select id="import-encoding" value={encoding} disabled={command.pending || Boolean(run)} onChange={event => { setEncoding(event.target.value); setInspection(null); setFile(null); }}><option value="UTF-8">UTF-8 (usual)</option><option value="windows-1252">Windows-1252 (only if your export uses it)</option></select>
-        {!run && <>
-          <details className="bv-field"><summary>Paste a book list</summary><label htmlFor="import-paste">One title, title — author, or ISBN per line</label><textarea id="import-paste" rows={6} value={paste} maxLength={480000} disabled={command.pending} onChange={event => setPaste(event.target.value)} placeholder={"A book title\nAnother title — An author"} /><p className="bv-help">Up to 1,000 lines. No reading history will be invented.</p><Button disabled={command.pending || !paste.trim()} onClick={uploadPaste}>Check this list</Button></details>
-          <details><summary>Bookvane CSV v1 / another spreadsheet</summary><p>Use ISO dates (YYYY-MM-DD), separate ownership from reading status, and JSON arrays for labels, such as ["favourites","night reading"]. Blank values stay unknown. Stable record and attempt IDs make repeated imports safer. The CSV format is not a full database backup.</p><Button variant="secondary" onClick={downloadTemplate}>Download Bookvane CSV template</Button></details>
-          <details><summary>Export my Bookvane library</summary><p>CSV v1 includes book identity, Want to read and Owned, supported reading statuses, dates, copy/page information and reading notes. It is not a full backup: use your private reading-data JSON download for save reasons, reactions, progress, preferences and preserved source context.</p>
-            <Button disabled={command.pending} variant="secondary" onClick={() => command.run(async assertCurrent => {
-              const response = await imports.exportLibraryCsv(signal());
-              await downloadCsv(response, "bookvane-library-v1.csv", assertCurrent);
-            }, () => setNotice("Your supported library CSV was downloaded."))}>Download library CSV</Button><TextLink to="/my-data">Private reading-data JSON</TextLink>
-          </details>
-          <details><summary>Advanced import privacy</summary><p>Deleted books and readings keep minimal replay markers so an old file cannot restore them. Forgetting these markers means a future upload may add those books or readings again.</p><Button variant="quiet" disabled={command.pending} onClick={() => { setForgetMarkers(true); setUnderstandsMarkers(false); }}>Forget removed import markers</Button></details>
-        </>}
-      </details>
+      <section className="bv-import-choice"><h2>CSV / spreadsheet</h2><p>A Bookvane CSV, or any spreadsheet saved as CSV or TSV. Use dates like 2026-10-29; blank values stay unknown.</p><Button variant="secondary" onClick={downloadTemplate}>Download Bookvane CSV template</Button></section>
+      {!run && <section className="bv-import-choice"><h2>Export my Bookvane library</h2><p>A CSV of your books, shelves, reading statuses, dates and notes. It isn’t a full backup: your private reading-data download has the rest.</p>
+        <div className="bv-form-actions"><Button disabled={command.pending} variant="secondary" onClick={() => command.run(async assertCurrent => {
+          const response = await imports.exportLibraryCsv(signal());
+          await downloadCsv(response, "bookvane-library-v1.csv", assertCurrent);
+        }, () => setNotice("Your library CSV was downloaded."))}>Download library CSV</Button><TextLink to="/my-data">Private reading-data download</TextLink></div></section>}
     </>}
     {working && <section className="bv-section" aria-busy={command.pending}><h2>{run.phase === "grouping" && run.rechecking ? "Checking your updated decision" : workHeadings[run.phase] || "Import progress"}</h2>
       {done !== null && total > 0 ? <><p role="status">{done} of {total}</p><progress max={total} value={Math.min(done, total)} aria-label="Import progress" /></> : <><p role="status">{run.phase === "uploading" ? `${total} rows read` : "Working…"}</p><progress aria-label="Import progress" /></>}
@@ -289,11 +306,15 @@ function ImportSession() {
         {(kinds.catalogue || 0) > 0 && <li>{kinds.catalogue} found on Bookvane</li>}
         {(kinds.private || 0) > 0 && <li>{kinds.private} added as your own {kinds.private === 1 ? "entry" : "entries"} — private, with your shelves and dates</li>}
         {(kinds.existing || 0) > 0 && <li>{kinds.existing} already in your library, kept as {kinds.existing === 1 ? "it is" : "they are"}</li>}
-        {needChoice > 0 && <li>{needChoice} {needChoice === 1 ? "needs" : "need"} a choice from you</li>}
+        {otherChoices > 0 && <li>{otherChoices} {otherChoices === 1 ? "needs" : "need"} a choice from you</li>}
       </ul>
       {summary.ignored_columns?.length > 0 && <details><summary>Fields not imported</summary><p>{summary.ignored_columns.join(", ")}. These fields remain in your original file, not in Bookvane.</p></details>}
-      <div className="bv-form-actions"><Button disabled={command.pending} onClick={() => { setOneClick(true); confirm({ accept_warnings: true, approve_private: true, skip_unresolved: true }); }}>Add everything I don’t have yet</Button>
-        {needChoice > 0 && <Button variant="secondary" aria-expanded={reviewOpen} disabled={command.pending} onClick={() => reviewOpen ? setReviewOpen(false) : command.run(async () => imports.importRows(run.id, 0, true), result => { setPage(result); setOnlyReview(true); setReviewOpen(true); })}>Review conflicts ({needChoice})</Button>}
+      {removedRows.length > 0 && <fieldset className="bv-import-removed" disabled={command.pending}><legend>{removedRows.length === 1 ? "1 book you removed earlier is in this file" : `${removedRows.length} books you removed earlier are in this file`}</legend>
+        <label className="bv-import-check"><input type="radio" name="removed-choice" checked={!addBack} onChange={() => setAddBack(false)} />Skip them</label>
+        <label className="bv-import-check"><input type="radio" name="removed-choice" checked={addBack} onChange={() => setAddBack(true)} />Add them back</label>
+        {addBack && cannotAddBack > 0 && <p className="bv-help">{cannotAddBack} couldn’t be added back.</p>}</fieldset>}
+      <div className="bv-form-actions"><Button disabled={command.pending} onClick={() => { setOneClick(true); addEverything({ accept_warnings: true, approve_private: true, skip_unresolved: true }); }}>Add everything I don’t have yet</Button>
+        {otherChoices > 0 && <Button variant="secondary" aria-expanded={reviewOpen} disabled={command.pending} onClick={() => reviewOpen ? setReviewOpen(false) : command.run(async () => imports.importRows(run.id, 0, true), result => { setPage(result); setOnlyReview(true); setReviewOpen(true); })}>Review conflicts ({otherChoices})</Button>}
         <Button variant="quiet" disabled={command.pending} onClick={() => command.run(async () => imports.cancelImport(run.id), current => { setRun(current); setPage(null); library.importChanged(); })}>Cancel import</Button></div>
       {reviewOpen && <div className="bv-import-review"><h3>Review conflicts</h3>{rowList}
         <div className="bv-field"><label className="bv-import-check"><input type="checkbox" checked={approvePrivate} onChange={event => setApprovePrivate(event.target.checked)} disabled={command.pending} />Add books I don’t have a match for as my own private entries.</label>
@@ -311,11 +332,5 @@ function ImportSession() {
       {page && <details className="bv-import-results" open={rowsOpen} onToggle={event => setRowsOpen(event.currentTarget.open)}><summary>Your results</summary>{rowList}</details>}
     </section>}
     {command.error && !(saved && savedOpen) && <div className="bv-field-error" role="alert"><p>{command.error}</p><Button variant="secondary" disabled={command.pending} onClick={() => { setRun(null); setPage(null); setFile(null); setInspection(null); command.run(() => imports.recentImports(signal()), waiting => setRecent(waiting.items)); }}>Try again</Button></div>}
-    {forgetMarkers && <NativeDialog open title="Forget removed import markers?" onClose={() => { if (!command.pending) setForgetMarkers(false); }}>
-      <p>This deletes only replay markers for books and readings you already removed. It does not delete your current books, source context, native history or notes. Later imports may re-add forgotten books or readings, and this cannot be undone.</p>
-      <label className="bv-import-check"><input type="checkbox" checked={understandsMarkers} onChange={event => setUnderstandsMarkers(event.target.checked)} />I understand that future uploads may add removed books or readings again.</label>
-      <div className="bv-form-actions"><Button variant="secondary" disabled={command.pending} onClick={() => setForgetMarkers(false)}>Keep markers</Button><Button disabled={command.pending || !understandsMarkers} onClick={() => command.run(() => imports.forgetRemovedMarkers(signal()), result => { setForgetMarkers(false); setNotice(`${result.removed_markers} removed-book and ${result.removed_read_markers} removed-reading import markers forgotten.`); })}>Forget removed markers</Button></div>
-      {command.error && <p role="alert">{command.error}</p>}
-    </NativeDialog>}
   </div></section>;
 }
