@@ -193,6 +193,10 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-pagination nav { display: flex; align-items: center; gap: 10px; }
 .bv-root .bv-pagination .bv-button { padding: 9px 14px; min-height: 44px; font-size: 0.9375rem; }
 .bv-root .bv-buy-link { display: inline-flex; min-height: 44px; align-items: center; font-size: 0.875rem; color: var(--bv-green); }
+.bv-root .bv-get-copy { margin-top: 1rem; font-size: 0.875rem; }
+.bv-root .bv-get-copy h2 { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin: 0 0 0.25rem; color: var(--bv-muted, inherit); }
+.bv-root .bv-get-copy a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-get-copy .bv-help { margin: 0; }
 
 .bv-root .bv-breadcrumb { font-size: 0.9375rem; padding: 24px 0; }
 .bv-root .bv-detail { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 64px; align-items: start; padding: 6px 0 32px; }
