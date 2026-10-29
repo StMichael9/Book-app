@@ -1,0 +1,53 @@
+name: Refresh first-page book snapshot
+
+# Weekly (and on demand): fetches the public first page once, anonymously and read-only, rebuilds
+# frontend/src/data/book-snapshot.json and the self-hosted covers, and pushes them to a branch for review.
+# It never touches v3. Open the pull request from the link in the run summary; a person merges it.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snapshot-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Rebuild the snapshot
+        working-directory: frontend
+        run: npm run snapshot:books
+      - name: Push a review branch when the books changed
+        run: |
+          git add frontend/src/data/book-snapshot.json frontend/public/covers/snapshot
+          # generatedAt changes every run; only a change to the books or covers counts.
+          if git diff --cached --quiet --ignore-matching-lines='"generatedAt"'; then
+            echo "The first page is unchanged. Nothing to do." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "bookvane-snapshot-bot"
+          git config user.email "snapshot-bot@users.noreply.github.com"
+          git checkout -B bot/snapshot-refresh
+          git commit -m "Refresh the first-page book snapshot"
+          git push --force-with-lease origin bot/snapshot-refresh || git push --force origin bot/snapshot-refresh
+          echo "The first page changed. [Open a pull request into v3](https://github.com/${{ github.repository }}/compare/v3...bot/snapshot-refresh?expand=1)." >> "$GITHUB_STEP_SUMMARY"
