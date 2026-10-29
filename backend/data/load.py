@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import logging
 import os
@@ -10,7 +11,7 @@ import uuid
 from contextlib import contextmanager
 
 import requests
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from urllib3.exceptions import HTTPError as Urllib3HTTPError
@@ -21,11 +22,12 @@ from data.config import (
     percentage_quotas, validate_database_target,
 )
 from data.merge import _merge_batch
-from data.popularity import run_popularity
+from data.aliases import relevant_delete_keys, run_redirects
+from data.popularity import active_store, ensure_store, run_popularity
 from data.preview import dry_run_report
 from data.reporting import (
     CapacityPause, _build_report, _check_storage, _count_skipped, _issue,
-    _release_staging, _stage_mb,
+    _record_phase_size, _release_staging, _stage_mb,
 )
 from data.selection import _backfill_authors, _select_works
 from data.sources import resolve_snapshot
@@ -33,7 +35,7 @@ from data.staging import (
     _compact_aliases, _prune_candidates, _write_aliases, _write_authors, _write_editions,
     _write_hydrate, _write_works, select_useful_editions,
 )
-from models import CatalogueImportRun
+from models import Book, CatalogueImportRun
 
 log = logging.getLogger("bookvane.catalogue")
 TRANSIENT_ERRORS = (requests.RequestException, Urllib3HTTPError, EOFError, OSError)
@@ -83,13 +85,16 @@ def _import_lock(engine):
                 log.warning("Import lock connection closed; explicit unlock unavailable")
 
 
+_DELETE_KEEP: dict[str, set[str]] = {}  # per run: deletions worth writing, computed once per deletes phase
+
+
 def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch: list[clean.DumpRow]) -> None:
     run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
     if run.phase != phase:
         raise RuntimeError("Import phase changed while processing")
     _check_storage(session, run, config)
     records = [row.record for row in batch if row.record is not None]
-    popular = {"popular": True} if config.popular else {}
+    popular = {"popular": active_store(config.run_id) or True} if config.popular else {}
     malformed = [row for row in batch if row.error]
     if phase != "hydrate":
         run.error_count += len(malformed)
@@ -97,7 +102,8 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         run.last_error = f"{phase} line {malformed[-1].line_number}: {malformed[-1].error}"
         _issue(session, run.id, "malformed_dump", str(malformed[-1].line_number), run.last_error)
     if phase in ("redirects", "deletes"):
-        _write_aliases(session, run, records, phase)
+        keep = {"keep": _DELETE_KEEP[config.run_id]} if phase == "deletes" and config.popular else {}
+        _write_aliases(session, run, records, phase, **keep)
     elif phase == "works":
         _write_works(session, run, records, **popular)
         boundary = config.batch_size * 100
@@ -270,7 +276,13 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                 try:
                     if phase == "popularity":
                         run_popularity(factory, config, heartbeat)
+                    elif phase == "redirects" and config.popular:
+                        run_redirects(factory, config, ensure_store(factory, config, heartbeat), heartbeat)
                     elif phase in ("redirects", "deletes", "works", "authors", "editions", "hydrate"):
+                        if config.popular and phase in ("deletes", "works"):
+                            store = ensure_store(factory, config, heartbeat)
+                            if phase == "deletes":
+                                _DELETE_KEEP[config.run_id] = relevant_delete_keys(factory, store)
                         urls = {
                             "redirects": config.redirects_url, "deletes": config.deletes_url,
                             "works": config.works_url, "authors": config.authors_url,
@@ -286,6 +298,10 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                     elif phase == "select":
                         with factory.begin() as session:
                             _select_works(session, config)
+                            if config.popular:
+                                # Selection is done: ordering inputs are no longer needed, and merge never reads them.
+                                session.execute(text("TRUNCATE catalogue_stage_candidates, "
+                                                     "catalogue_stage_author_counts, catalogue_stage_popularity"))
                     elif phase == "merge" and config.dry_run:
                         result = dry_run_report(factory, config)
                         log.info("Dry run: %s", result)
@@ -310,6 +326,10 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                 except CapacityPause as exc:
                     _pause_capacity(factory, config, str(exc))
                     raise
+                if config.popular and phase not in ("cleanup", "complete"):
+                    with factory.begin() as session:
+                        run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
+                        _record_phase_size(session, run, phase)
                 if one_phase:
                     with factory() as session:
                         return session.get(CatalogueImportRun, config.run_id).phase
@@ -318,6 +338,22 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
 
 
 def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfig:
+    add_books = getattr(args, "add_books", None)
+    if add_books and not args.run_id and getattr(args, "target_books", None) is None:
+        engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            with Session(engine) as session:
+                args.target_books = (session.scalar(select(func.count()).select_from(Book)) or 0) + add_books
+        finally:
+            engine.dispose()
+    config = _pinned_config_for_command(args, database_url, user_agent)
+    return dataclasses.replace(
+        config, state_dir=getattr(args, "state_dir", None),
+        production_size_mb=getattr(args, "production_size_mb", None),
+        max_project_mb=getattr(args, "max_project_mb", None) or 750)
+
+
+def _pinned_config_for_command(args, database_url: str, user_agent: str) -> ImportConfig:
     """Resume exclusively from PostgreSQL; discover metadata only for new runs."""
     validate_database_target(database_url, args.mode)
     existing = None
@@ -435,6 +471,11 @@ def main() -> None:
     parser.add_argument("--weights-json", default=None,
                         help="JSON map of category percentage weights; defaults to equal weights")
     parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--add-books", type=int, help="New run: target = current book count + this many")
+    parser.add_argument("--state-dir", help="Runner-local scratch directory (holds the popularity file)")
+    parser.add_argument("--production-size-mb", type=int,
+                        help="Branch runs: size of the production database, counted against --max-project-mb")
+    parser.add_argument("--max-project-mb", type=int, help="Project-wide guard for branch runs (default 750)")
     parser.add_argument("--max-database-mb", type=int, help="Pause when the database reaches this size (default 700)")
     parser.add_argument("--time-budget-seconds", type=int,
                         help="Soft checkpoint deadline for automatic job continuation")

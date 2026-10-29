@@ -36,6 +36,30 @@ def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConf
     run.peak_staging_mb = max(run.peak_staging_mb or 0, _stage_mb(session))
     if total >= config.max_database_mb:
         raise CapacityPause(f"Database reached {total:.1f} MiB, guard is {config.max_database_mb} MiB")
+    if config.production_size_mb is not None and total + config.production_size_mb > config.max_project_mb:
+        raise CapacityPause(f"Branch {total:.1f} MiB plus production {config.production_size_mb} MiB would pass "
+                            f"the {config.max_project_mb} MiB project guard")
+
+
+PHASE_SIZE_TABLES = (
+    "books", "editions", "catalogue_source_aliases", "catalogue_stage_works", "catalogue_stage_work_authors",
+    "catalogue_stage_authors", "catalogue_stage_editions", "catalogue_stage_candidates",
+    "catalogue_stage_author_counts", "catalogue_stage_popularity",
+)
+
+
+def _record_phase_size(session: Session, run: CatalogueImportRun, phase: str) -> None:
+    """Remember the database size and the biggest tables once a phase has finished."""
+    sizes = session.execute(text("""
+        SELECT name, coalesce(pg_total_relation_size(to_regclass(name)), 0) / 1048576.0
+        FROM unnest(CAST(:names AS text[])) AS tables(name)
+    """), {"names": list(PHASE_SIZE_TABLES)}).all()
+    total = float(session.execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+    run.peak_database_mb = max(run.peak_database_mb or 0, total)
+    report = dict(run.report or {})
+    report["phase_sizes"] = dict(report.get("phase_sizes", {})) | {
+        phase: {"database_mb": round(total, 1), "tables_mb": {name: round(float(mb), 1) for name, mb in sizes}}}
+    run.report = report
 
 
 def _issue(session: Session, run_id: str, code: str, source_id: str | None, detail: str) -> None:
@@ -56,10 +80,8 @@ def _release_staging(session: Session, run: CatalogueImportRun, *, keep_populari
     session.execute(text("""
         TRUNCATE catalogue_stage_author_counts, catalogue_stage_candidates,
                  catalogue_stage_work_authors, catalogue_stage_editions,
-                 catalogue_stage_authors, catalogue_stage_works
+                 catalogue_stage_authors, catalogue_stage_works, catalogue_stage_popularity
     """))
-    if not keep_popularity:
-        session.execute(text("TRUNCATE catalogue_stage_popularity"))
     run.checkpoint_line = 0
 
 
@@ -86,6 +108,8 @@ def _build_report(session: Session, run: CatalogueImportRun) -> dict:
     return {
         "capacity_replays": list((run.report or {}).get("capacity_replays", [])),
         "popularity_ready": bool((run.report or {}).get("popularity_ready")),
+        "phase_sizes": dict((run.report or {}).get("phase_sizes", {})),
+        "redirects": (run.report or {}).get("redirects"),
         "dry_run": (run.report or {}).get("dry_run"),
         "alias_scope": (run.report or {}).get("alias_scope", "full"),
         "aliases_before_compaction": (run.report or {}).get("aliases_before_compaction"),

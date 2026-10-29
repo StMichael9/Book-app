@@ -1,31 +1,112 @@
 """Popularity phase: rank works by Open Library reading-log and ratings activity, keep the top as an allowlist.
 
-Both dumps are streamed (never saved) and aggregated per work in memory, then the top works are written to
-``catalogue_stage_popularity`` so a resume or a capacity replay does not stream them again.
+Both dumps are streamed (never saved) and aggregated per work in memory. The top works are kept in a runner-local
+SQLite file (``PopularityStore``), not in Neon, so a resume on the same runner (or one that restored the file from a
+workflow artifact) does not stream them again, and a missing file is simply rebuilt. Only the scores of works that
+are actually staged are copied into ``catalogue_stage_popularity``.
 """
 from __future__ import annotations
 
 import logging
 import math
+import os
+import sqlite3
+import tempfile
 import time
 from collections import defaultdict
+from pathlib import Path
 
-from sqlalchemy import delete
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import sessionmaker
 
 from data import clean
 from data.config import ImportConfig
-from data.reporting import _check_storage, _issue
-from models import CatalogueImportRun, CatalogueStagePopularity
+from data.reporting import _issue
+from models import CatalogueImportRun
 
 log = logging.getLogger("bookvane.catalogue")
 SHELVES = frozenset({"want to read", "currently reading", "already read"})
-WRITE_BATCH = 5000
+STORE_BATCH = 50_000
+LOOKUP_CHUNK = 500
+_ACTIVE: dict[str, "PopularityStore"] = {}
 
 
 def popularity_score(readers: int, ratings_count: int) -> float:
     return math.log1p(readers) + 0.5 * math.log1p(ratings_count)
+
+
+def state_dir(config: ImportConfig) -> Path:
+    base = config.state_dir or os.getenv("BOOKVANE_STATE_DIR") or os.path.join(tempfile.gettempdir(), "bookvane-catalogue")
+    path = Path(base)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+class PopularityStore:
+    """The popularity allowlist and scores, in a local SQLite file that can travel between segments."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+
+    def __bool__(self) -> bool:
+        return True
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.path)
+
+    @property
+    def ready(self) -> bool:
+        if not self.path.exists():
+            return False
+        db = self._connect()
+        try:
+            return db.execute("SELECT value FROM meta WHERE key = 'ready'").fetchone() == ("1",)
+        except sqlite3.Error:
+            return False
+        finally:
+            db.close()
+
+    def rebuild(self, rows: list[tuple[str, float]]) -> None:
+        self.path.unlink(missing_ok=True)
+        db = self._connect()
+        try:
+            db.execute("CREATE TABLE scores (key TEXT PRIMARY KEY, score REAL NOT NULL) WITHOUT ROWID")
+            db.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            for start in range(0, len(rows), STORE_BATCH):
+                db.executemany("INSERT OR REPLACE INTO scores VALUES (?, ?)", rows[start:start + STORE_BATCH])
+            db.execute("INSERT INTO meta VALUES ('ready', '1')")  # last, so a cut-off write is never trusted
+            db.commit()
+        finally:
+            db.close()
+
+    def scores(self, keys) -> dict[str, float]:
+        keys = list(dict.fromkeys(keys))
+        found: dict[str, float] = {}
+        db = self._connect()
+        try:
+            for start in range(0, len(keys), LOOKUP_CHUNK):
+                chunk = keys[start:start + LOOKUP_CHUNK]
+                marks = ",".join("?" * len(chunk))
+                found.update(db.execute(f"SELECT key, score FROM scores WHERE key IN ({marks})", chunk))
+        finally:
+            db.close()
+        return found
+
+    def keys(self) -> set[str]:
+        db = self._connect()
+        try:
+            return {row[0] for row in db.execute("SELECT key FROM scores")}
+        finally:
+            db.close()
+
+
+def open_store(config: ImportConfig) -> PopularityStore:
+    store = PopularityStore(state_dir(config) / f"popularity-{config.run_id}.sqlite")
+    _ACTIVE[config.run_id] = store
+    return store
+
+
+def active_store(run_id: str) -> PopularityStore | None:
+    return _ACTIVE.get(run_id)
 
 
 def _count(config: ImportConfig, kind: str, url: str, totals: dict[str, list[int]], heartbeat) -> tuple[int, str | None]:
@@ -55,8 +136,8 @@ def _count(config: ImportConfig, kind: str, url: str, totals: dict[str, list[int
     return malformed, last
 
 
-def run_popularity(factory: sessionmaker, config: ImportConfig, heartbeat=None) -> None:
-    """Stream both dumps, keep the top works, and hand over to the first alias phase."""
+def _collect(factory: sessionmaker, config: ImportConfig, heartbeat=None):
+    """Stream both dumps; returns (top (key, score) pairs, works counted, unparsable lines, last such line)."""
     totals: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     malformed, last_error = 0, None
     for kind, url in config.popularity_urls.items():
@@ -86,18 +167,22 @@ def run_popularity(factory: sessionmaker, config: ImportConfig, heartbeat=None) 
               if readers or ratings}
     top = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:config.popularity_top]
     log.info("popularity: %d works counted, %d kept (%d unparsable lines)", len(scores), len(top), malformed)
-    with factory.begin() as session:
-        session.execute(delete(CatalogueStagePopularity).where(CatalogueStagePopularity.run_id == config.run_id))
-    for start in range(0, len(top), WRITE_BATCH):
-        if heartbeat:
-            heartbeat(force=True)
-        with factory.begin() as session:
-            run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
-            _check_storage(session, run, config)
-            session.execute(insert(CatalogueStagePopularity).values([
-                {"run_id": config.run_id, "source_id": key, "score": score}
-                for key, score in top[start:start + WRITE_BATCH]
-            ]))
+    return top, len(scores), malformed, last_error
+
+
+def ensure_store(factory: sessionmaker, config: ImportConfig, heartbeat=None) -> PopularityStore:
+    """The runner-local allowlist for this run; rebuilt from the dumps when this runner does not have it."""
+    store = open_store(config)
+    if not store.ready:
+        top, _, _, _ = _collect(factory, config, heartbeat)
+        store.rebuild(top)
+    return store
+
+
+def run_popularity(factory: sessionmaker, config: ImportConfig, heartbeat=None) -> None:
+    """Stream both dumps, keep the top works locally, and hand over to the first alias phase."""
+    top, counted, malformed, last_error = _collect(factory, config, heartbeat)
+    open_store(config).rebuild(top)
     with factory.begin() as session:
         run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
         run.error_count += malformed
@@ -109,6 +194,6 @@ def run_popularity(factory: sessionmaker, config: ImportConfig, heartbeat=None) 
         report["verified_dumps"] = dict(report.get("verified_dumps", {})) | {
             kind: files[kind]["md5"] for kind in config.popularity_urls if files.get(kind)}
         report["popularity_ready"] = True
-        report["popularity_works"] = {"counted": len(scores), "kept": len(top)}
+        report["popularity_works"] = {"counted": counted, "kept": len(top)}
         run.report = report
         run.phase, run.checkpoint_line = "redirects", 0

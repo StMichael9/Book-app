@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import gzip
+import importlib
 import io
 import math
 import re
@@ -79,6 +80,18 @@ def fake_stream(monkeypatch, source):
     return calls
 
 
+def mod(name):
+    """Importer modules are imported lazily: importing them earlier would bind the database before the test URL is set."""
+    return importlib.import_module(f"data.{name}")
+
+
+@pytest.fixture(autouse=True)
+def runner_state(tmp_path, monkeypatch, import_env):
+    """Each test gets its own runner-local scratch directory, as each workflow segment does."""
+    monkeypatch.setenv("BOOKVANE_STATE_DIR", str(tmp_path / "state"))
+    mod("popularity")._ACTIVE.clear()
+
+
 def popular(config, **changes):
     return replace(config(**changes.pop("args", {})), ratings_url=RATINGS_URL, reading_log_url=READING_URL, **changes)
 
@@ -106,9 +119,11 @@ def test_popularity_scores_order_top_cut_and_malformed_lines(import_env, monkeyp
                 3: math.log1p(1) + 0.5 * math.log1p(6), 4: math.log1p(20)}
     top = sorted(expected, key=lambda n: -expected[n])[:3]
     assert top == [4, 1, 2]
+    store = mod("popularity").open_store(cfg)
+    assert store.ready
     with factory() as session:
-        rows = dict(session.execute(select(models.CatalogueStagePopularity.source_id,
-                                           models.CatalogueStagePopularity.score)).all())
+        assert session.scalar(select(func.count()).select_from(models.CatalogueStagePopularity)) == 0  # not in Neon
+        rows = store.scores(f"/works/OL{n}W" for n in range(1, 6))
         assert set(rows) == {f"/works/OL{n}W" for n in top}
         for n in top:
             assert rows[f"/works/OL{n}W"] == pytest.approx(expected[n])
@@ -265,7 +280,7 @@ def test_dry_run_predicts_recovered_books_and_writes_nothing(import_env, monkeyp
         assert session.scalar(select(func.count()).select_from(models.Book).where(models.Book.is_complete)) == 0 + 2 + 1
 
 
-def test_pause_keeps_the_allowlist_and_replay_skips_popularity(import_env, monkeypatch):
+def test_pause_keeps_the_local_allowlist_and_replay_skips_popularity(import_env, monkeypatch):
     models, factory, importer, config = import_env
     works = [work(n) for n in (1, 2, 3)]
     source = dumps(works, [edition(n) for n in (1, 2, 3)], readers={1: 5, 2: 4, 3: 3})
@@ -284,15 +299,15 @@ def test_pause_keeps_the_allowlist_and_replay_skips_popularity(import_env, monke
         importer.run_import(cfg)
     with factory() as session:
         assert session.get(models.CatalogueImportRun, cfg.run_id).phase == "paused_capacity"
-        assert session.scalar(select(func.count()).select_from(models.CatalogueStagePopularity)) == 3
+        assert session.scalar(select(func.count()).select_from(models.CatalogueStagePopularity)) == 0
         assert session.scalar(select(func.count()).select_from(models.CatalogueStageWork)) == 0
+    assert mod("popularity").open_store(cfg).ready
     paused["on"] = False
     calls.clear()
     assert importer.run_import(replace(cfg, restart_paused=True)) == "complete"
     assert RATINGS_URL not in calls and READING_URL not in calls
     with factory() as session:
         assert sources_in_books(session, models) == {f"/works/OL{n}W" for n in (1, 2, 3)}
-        assert session.scalar(select(func.count()).select_from(models.CatalogueStagePopularity)) == 0  # cleanup drops it
 
 
 def test_storage_guard_pauses_at_the_limit_and_defaults_to_700(import_env):
@@ -374,10 +389,22 @@ def test_workflow_selects_environment_and_carries_it_through_continuations():
     assert "type: choice" in block and "default: catalogue-rehearsal" in block
     assert "- catalogue-rehearsal" in text and "- catalogue-production" in text
     assert re.search(r"environment: \$\{\{[^}]*target_env[^}]*\}\}", text)
-    assert 'default: "150000"' in text
+    assert "--target-books 150000" in text  # production default when no target is given
     assert "--max-database-mb 700" in text
     assert re.search(r"client_payload:\{[^}]*target_env:\$target_env", text)
     assert "environment: catalogue-production" not in text
+
+
+def test_workflow_is_lean_state_artifact_production_size_and_small_rehearsal():
+    text = (ROOT / ".github" / "workflows" / "catalogue-import.yml").read_text(encoding="utf-8")
+    assert '--state-dir "$RUNNER_TEMP/catalogue-state"' in text
+    assert "actions/download-artifact@" in text and "name: catalogue-state-${{ steps.source.outputs.run_id }}" in text
+    assert "name: catalogue-state-${{ steps.ingest.outputs.run_id }}" in text
+    block = text.split("production_size_mb:", 1)[1].split("weights_json:", 1)[0]
+    assert 'default: "250"' in block
+    assert re.search(r'catalogue-rehearsal" \]\];? then\s+\[\[ "\$INPUT_PRODUCTION_SIZE_MB".*?'
+                     r'--production-size-mb "\$INPUT_PRODUCTION_SIZE_MB" --max-project-mb 750', text, re.S)
+    assert "--add-books 2000" in text  # a rehearsal with no explicit target adds 2000 books
 
 
 def test_workflow_dry_run_input_flag_artifact_and_continuation():
@@ -423,3 +450,118 @@ def test_dry_run_command_writes_the_report_file(import_env, monkeypatch, tmp_pat
     assert data["run_id"] == "cli-dry" and data["dry_run"]["new_books"] == 2
     with factory() as session:
         assert session.scalar(select(func.count()).select_from(models.Book)) == 0
+
+
+def test_alias_filter_keeps_the_whole_chain_of_a_seed_and_drops_unrelated_redirects():
+    edges = {"A": "B", "B": "C", "Z": "C", "P": "Q", "Q": "R", "S": "T"}
+    assert mod("aliases").relevant_edges(edges, {"C"}) == {"A": "B", "B": "C", "Z": "C"}  # ancestors of a terminal seed
+    assert mod("aliases").relevant_edges(edges, {"A"}) == {"A": "B", "B": "C", "Z": "C"}  # forward chain of an old key
+    assert mod("aliases").relevant_edges(edges, {"P", "S"}) == {"P": "Q", "Q": "R", "S": "T"}
+    assert mod("aliases").relevant_edges(edges, {"unrelated"}) == {}
+    assert mod("aliases").relevant_edges({"X": "X", "Y": "Z"}, {"Y"}) == {"Y": "Z"}  # self redirects are harmless
+
+
+def test_redirects_phase_writes_only_rows_tied_to_a_seed(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    works = [work(n) for n in (1, 2)]
+    source = dumps(works, [edition(n) for n in (1, 2)], readers={1: 5})
+    source[REDIRECTS_URL] = [
+        {"key": "/works/OL90W", "location": "/works/OL91W"},   # unrelated
+        {"key": "/works/OL92W", "location": "/works/OL1W"},    # ancestor of a popular work
+        {"key": "/works/OL93W", "location": "/works/OL92W"},   # second hop
+        {"key": "/works/OL94W", "location": "/works/OL2W"},    # ancestor of an existing book
+    ]
+    with factory.begin() as session:
+        session.add(models.Book(title="Known", source_id="/works/OL2W", authors=[models.Author(name="Author 2")]))
+    fake_stream(monkeypatch, source)
+    cfg = popular(config)
+    run_phases(importer, cfg, 2)
+    with factory() as session:
+        olds = set(session.execute(select(models.CatalogueSourceAlias.old_source_id)).scalars())
+        run = session.get(models.CatalogueImportRun, cfg.run_id)
+        assert run.phase == "deletes" and run.report["redirects"] == {"read": 4, "written": 3}
+    assert olds == {"/works/OL92W", "/works/OL93W", "/works/OL94W"}
+
+
+def test_popularity_file_survives_a_segment_handoff_and_is_rebuilt_when_missing(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    works = [work(n) for n in (1, 2)]
+    source = dumps(works, [edition(n) for n in (1, 2)], readers={1: 5, 2: 3})
+    calls = fake_stream(monkeypatch, source)
+    cfg = popular(config)
+    run_phases(importer, cfg, 1)
+    mod("popularity")._ACTIVE.clear()  # a new process finds only the file the previous segment left in the state directory
+    calls.clear()
+    run_phases(importer, cfg, 1)  # redirects
+    assert RATINGS_URL not in calls and READING_URL not in calls
+    mod("popularity").open_store(cfg).path.unlink()
+    mod("popularity")._ACTIVE.clear()
+    run_phases(importer, cfg, 1)  # deletes; no file on this runner: rebuilt from the dumps instead of failing
+    assert RATINGS_URL in calls and READING_URL in calls and mod("popularity").open_store(cfg).ready
+
+
+def test_scratch_tables_are_emptied_after_selection_and_after_merge(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    works = [work(n) for n in (1, 2, 3)]
+    source = dumps(works, [edition(n) for n in (1, 2, 3)], readers={1: 5, 2: 4, 3: 3})
+    fake_stream(monkeypatch, source)
+    cfg = popular(config)
+
+    def count(session, model):
+        return session.scalar(select(func.count()).select_from(model))
+
+    run_phases(importer, cfg, 7)  # popularity, redirects, deletes, works, authors, editions, select
+    with factory() as session:
+        assert session.get(models.CatalogueImportRun, cfg.run_id).phase == "hydrate"
+        assert count(session, models.CatalogueStagePopularity) == 0
+        assert count(session, models.CatalogueStageCandidate) == 0
+        assert count(session, models.CatalogueStageWork) > 0  # merge still needs the selected works
+    assert importer.run_import(cfg) == "complete"
+    with factory() as session:
+        for model in (models.CatalogueStageWork, models.CatalogueStageEdition, models.CatalogueStageAuthor,
+                      models.CatalogueStagePopularity, models.CatalogueStageCandidate):
+            assert count(session, model) == 0
+        sizes = session.get(models.CatalogueImportRun, cfg.run_id).report["phase_sizes"]
+        assert {"popularity", "redirects", "works", "select", "merge"} <= set(sizes)
+        assert "catalogue_source_aliases" in sizes["works"]["tables_mb"] and sizes["works"]["database_mb"] > 0
+
+
+def test_project_guard_counts_production_against_a_branch_run(import_env):
+    _, _, importer, config = import_env
+
+    class Result:
+        def __init__(self, value):
+            self.value = value
+
+        def scalar_one(self):
+            return self.value
+
+        def scalars(self):
+            return SimpleNamespace(all=lambda: [1048576] * 8)
+
+    def session_at(size):
+        return SimpleNamespace(execute=lambda statement, *_a, **_k: Result(size) if "pg_database_size" in str(
+            statement) else Result(0))
+
+    run = SimpleNamespace(peak_database_mb=0, peak_staging_mb=0)
+    branch = replace(config(), max_database_mb=700, production_size_mb=250, max_project_mb=750)
+    importer._check_storage(session_at(500.0), run, branch)  # 500 + 250 is exactly the project limit
+    with pytest.raises(importer.CapacityPause, match="project guard"):
+        importer._check_storage(session_at(500.5), run, branch)
+    importer._check_storage(session_at(600.0), run, replace(branch, production_size_mb=None))  # production run
+    with pytest.raises(importer.CapacityPause):
+        importer._check_storage(session_at(700.0), run, replace(branch, production_size_mb=None))
+
+
+def test_add_books_sets_the_target_from_the_current_count(import_env):
+    models, factory, importer, config = import_env
+    with factory.begin() as session:
+        session.add_all([models.Book(title=f"B{n}", authors=[models.Author(name=f"A{n}")]) for n in range(3)])
+    args = Namespace(run_id=None, resume_only=False, snapshot="auto", target_books=None, weights_json=None, add_books=2000,
+                     batch_size=500, max_database_mb=None, restart_paused=False, mode="test",
+                     works_url=WORKS_URL, authors_url=AUTHORS_URL, editions_url=EDITIONS_URL,
+                     redirects_url=REDIRECTS_URL, deletes_url=DELETES_URL, ratings_url=RATINGS_URL,
+                     reading_log_url=READING_URL, popularity_top=400_000, dry_run=False,
+                     production_size_mb=250, max_project_mb=None, state_dir=None)
+    built = importer._config_for_command(args, config().database_url, "Bookvane (test@example.org)")
+    assert built.target_books == 2003 and built.production_size_mb == 250 and built.max_project_mb == 750

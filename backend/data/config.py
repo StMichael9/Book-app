@@ -46,6 +46,12 @@ class ImportConfig:
     reading_log_url: str | None = None
     popularity_top: int = 400_000
     dry_run: bool = False  # stop after hydrate and report what the merge would add and fill
+    # Runner-local scratch (the popularity file). None means $BOOKVANE_STATE_DIR or the system temp directory.
+    state_dir: str | None = None
+    # Project-wide guard for a branch run: pause when this branch plus the production database would pass
+    # max_project_mb. None (a production run) leaves only the single-database guard.
+    production_size_mb: int | None = None
+    max_project_mb: int = 750
 
     @property
     def popular(self) -> bool:

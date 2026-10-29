@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from data import clean
 from data.config import ImportConfig, percentage_quotas
 from data.extract_title_aliases import _edition as _alias_edition
+from data.popularity import active_store
 from data.reporting import _count_skipped, _issue
 from models import (
     Book, CatalogueImportRun, CatalogueSourceAlias, CatalogueStageAuthor,
@@ -77,7 +78,8 @@ def _existing_book_aliases(session: Session, canonical_keys: set[str]) -> dict[s
     return dict(rows)
 
 
-def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict], phase: str) -> None:
+def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict], phase: str,
+                   keep: set[str] | None = None) -> None:
     rows = []
     for record in records:
         if phase == "redirects":
@@ -86,7 +88,7 @@ def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict
                 rows.append({"old_source_id": item[0], "canonical_source_id": item[1], "source_type": "redirect"})
         else:
             key = clean.normalize_delete(record)
-            if key:
+            if key and (keep is None or key in keep):
                 rows.append({"old_source_id": key, "canonical_source_id": key, "source_type": "deleted"})
     if rows:
         values = list({row["old_source_id"]: row for row in rows}.values())
@@ -161,11 +163,12 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
         return
     aliases = _resolve_aliases(session, {item["source_id"] for item in normalized})
     allowed: set[str] = set()
+    scored: dict[str, float] = {}
     if popular:
-        scored = set(session.execute(select(CatalogueStagePopularity.source_id).where(
-            CatalogueStagePopularity.run_id == run.id,
-            CatalogueStagePopularity.source_id.in_(set(aliases) | {key for key in aliases.values() if key}),
-        )).scalars())
+        store = popular if hasattr(popular, "scores") else active_store(run.id)
+        if store is None:
+            raise RuntimeError("Popularity file is missing for this run")
+        scored = store.scores(set(aliases) | {key for key in aliases.values() if key})
         allowed = {canonical for raw, canonical in aliases.items()
                    if canonical and (raw in scored or canonical in scored)}
     works: dict[str, dict] = {}
@@ -209,6 +212,15 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
                  if key in forced_keys or (key in allowed and work["quality"] >= COMPLETE_QUALITY)}
         if not works:
             return
+        # Scores reach Neon only for works that are staged (selection and pruning order by them).
+        points: dict[str, float] = {}
+        for raw, canonical in aliases.items():
+            if canonical in works and canonical in allowed:
+                points[canonical] = max(points.get(canonical, 0.0), scored.get(raw, 0.0), scored.get(canonical, 0.0))
+        if points:
+            session.execute(insert(CatalogueStagePopularity).values([
+                {"run_id": run.id, "source_id": key, "score": score} for key, score in points.items()
+            ]).on_conflict_do_nothing())
     legacy_titles = set(session.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_({w["title"] for w in works.values()}))).scalars())
     values = [{"run_id": run.id, "source_id": key, "title": work["title"],
                "description": None, "published_year": work["published_year"],
