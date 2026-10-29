@@ -10,18 +10,12 @@ import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
-import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
+import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
 // covered books with plain English-alphabet titles first, never repeating hero and row.
-const plainTitle = title => Boolean(title) && /^[ -~\u2018\u2019\u201C\u201D\u2013\u2014]+$/.test(title);
-// Stable first-impression order: covered books with plain titles first, then the rest in catalogue order.
-function firstImpressionOrder(items) {
-  const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
-  return items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
-}
 function landingSelection(items) {
   const ordered = firstImpressionOrder(items);
   // A very small catalogue can't fill both without repeating; then the row shows the first five.

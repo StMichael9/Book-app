@@ -3,12 +3,13 @@ import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "
 import { Check } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
-import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingHistory, getReadingHome, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
+import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getLibraryPage, getReadingAttempt, getReadingHistory, getReadingHome, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
 import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, PageFrame, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
 import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
+import FirstRunHome from "./FirstRunHome.jsx";
 import { localToday } from "./localToday.js";
 import ImportedSources from "./imports/ImportedSources.jsx";
 import { CurrentReadingCard, SlowReadingNotice } from "./ReadingCards.jsx";
@@ -33,6 +34,14 @@ export function ReadingGate({ children, title }) {
 export function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks();
   const request = useRequest(getReadingHome, `home:${auth.sessionGeneration}:${library.revision}`);
+  // Nothing reading or paused: only then is it worth asking whether the account has any books at all.
+  const quiet = Boolean(request.data) && !request.data.current_reads.length && !request.data.reading_count && !request.data.paused_count;
+  const books = useRequest(() => getLibraryPage({}), `home-books:${auth.sessionGeneration}`, quiet);
+  // Once the first-run page has shown, it stays through the first saves instead of switching under the reader.
+  const [firstRun, setFirstRun] = useState(false);
+  if (!firstRun && books.data?.counts?.all === 0) setFirstRun(true);
+  if (firstRun) return <FirstRunHome />;
+  if (quiet && books.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
   return <section className="bv-container bv-reading-home">
     <div className="bv-home-heading"><PageHeading title="Pick up where you left off." /></div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
