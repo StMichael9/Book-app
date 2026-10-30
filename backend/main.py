@@ -37,7 +37,7 @@ from rate_limit import limiter
 async def app_lifespan(_app):
     # No scheduled worker or paid service. Readers cannot resume/access expired
     # staging even before this bounded physical cleanup gets an opportunity.
-    if settings.reading_v3_enabled or settings.library_import_enabled:
+    if settings.reading_v3_enabled:
         from sqlalchemy.exc import SQLAlchemyError
         from services.library_imports.workflow import ImportWorkflow
         try:
