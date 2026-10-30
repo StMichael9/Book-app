@@ -31,10 +31,10 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
     writable = reading_enabled(current_user.id)
     enabled = writable or library_needs_v3(db, current_user.id)
     return {"enabled": enabled, "writable": writable, "contract_version": 1,
-            "milestone": "M5" if settings.library_import_enabled else "M4", "features": {"library": True, "reading_actions": True,
+            "milestone": "M5", "features": {"library": True, "reading_actions": True,
             "private_context": True, "reading_export": True, "library_export": enabled, "privacy_controls": True, "next_read": True,
             "extended_catalogue": writable and settings.external_catalogue_enabled,
-            "library_import": writable and settings.library_import_enabled}}
+            "library_import": writable}}
 
 
 @router.get("/library", response_model=LibraryPage)
