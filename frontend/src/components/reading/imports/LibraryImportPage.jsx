@@ -276,6 +276,7 @@ function ImportSession() {
       <div className="bv-import-sources">
         <article className="bv-import-source"><h2>Goodreads</h2><ol><li>In My Books, open Import and Export.</li><li>Choose Export Library.</li><li>Save the CSV and return here.</li></ol><p className="bv-help">Bookvane never asks for your Goodreads login.</p><a className="bv-text-link" href="https://www.goodreads.com/review/import" target="_blank" rel="noopener noreferrer">Open Goodreads Import and Export ↗</a></article>
         <article className="bv-import-source"><h2>StoryGraph</h2><ol><li>In your account menu, open Manage Account.</li><li>Choose Export StoryGraph Library.</li><li>Generate and download your CSV, then return here.</li></ol><a className="bv-text-link" href="https://app.thestorygraph.com/user-export" target="_blank" rel="noopener noreferrer">Open StoryGraph export ↗</a></article>
+      <article className="bv-import-source"><h2>CSV / spreadsheet</h2><p>A Bookvane CSV, or any spreadsheet saved as CSV or TSV. Use dates like 2026-10-29; blank values stay unknown.</p><Button variant="secondary" onClick={downloadTemplate}>Download Bookvane CSV template</Button></article>
       </div>
       <section className="bv-import-file"><div className="bv-field"><label htmlFor="import-file">Choose your export file (.csv)</label><input id="import-file" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" disabled={command.pending} onChange={event => selectFile(event.target.files?.[0])} />
         <p className="bv-help">Up to 20 MiB or 20,000 rows. You’ll see a summary before anything is added.</p></div>
@@ -287,7 +288,6 @@ function ImportSession() {
           <Button disabled={command.pending || Object.keys(inspection.ambiguous).some(field => mapping[field] === undefined) || (inspection.missing_identity && mapping.title === undefined)} onClick={uploadFile}>{run ? "Resume upload" : "Check my library"}</Button>
         </div>}
       </section>
-      <section className="bv-import-choice"><h2>CSV / spreadsheet</h2><p>A Bookvane CSV, or any spreadsheet saved as CSV or TSV. Use dates like 2026-10-29; blank values stay unknown.</p><Button variant="secondary" onClick={downloadTemplate}>Download Bookvane CSV template</Button></section>
       {!run && <section className="bv-import-choice"><h2>Export my Bookvane library</h2><p>A CSV of your books, shelves, reading statuses, dates and notes. It isn’t a full backup: your private reading-data download has the rest.</p>
         <div className="bv-form-actions"><Button disabled={command.pending} variant="secondary" onClick={() => command.run(async assertCurrent => {
           const response = await imports.exportLibraryCsv(signal());
