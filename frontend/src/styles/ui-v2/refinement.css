@@ -133,3 +133,4 @@
 .bv-root .bv-first-run-done { margin-top: 28px; }
 .bv-root .bv-first-run h2 { margin-bottom: 14px; }
 .bv-root .bv-first-run-done { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 18px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }
+.bv-root .bv-service-notice strong { display: block; margin-bottom: 4px; }

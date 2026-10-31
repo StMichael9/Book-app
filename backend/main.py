@@ -7,6 +7,7 @@ from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.exc import DisconnectionError, OperationalError, TimeoutError as PoolTimeoutError
 
 from database import get_db, settings, SessionLocal
 from observability import environment_name, init_sentry
@@ -113,6 +114,20 @@ async def enforce_write_origin(request: Request, call_next):
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# When the database can't be reached (paused, out of quota, restarting) say so plainly, so the site can show
+# its "we're having trouble" banner instead of a generic failure. Registered per class, so CORS headers still apply.
+async def database_unavailable(_request: Request, error: Exception):
+    logging.getLogger(__name__).error("Database unavailable: %s", type(error).__name__)
+    return JSONResponse(
+        status_code=503,
+        content={"detail": {"code": "service_unavailable", "message": "Bookvane is temporarily unavailable."}},
+        headers={"Retry-After": "30"},
+    )
+
+for _database_error in (OperationalError, DisconnectionError, PoolTimeoutError):
+    app.add_exception_handler(_database_error, database_unavailable)
 
 app.include_router(books.router)
 app.include_router(catalogue.router)
