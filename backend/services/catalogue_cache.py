@@ -36,6 +36,12 @@ def put(key, value, ttl):
             _entries.popitem(last=False)
 
 
+def drop_prefix(prefix: tuple):
+    with _lock:
+        for key in [key for key in _entries if isinstance(key, tuple) and key[:len(prefix)] == prefix]:
+            del _entries[key]
+
+
 def clear():
     with _lock:
         _entries.clear()
