@@ -9,6 +9,31 @@ export const API_BASE_URL =
   DEFAULT_API_BASE_URL;
 
 let refreshPromise = null;
+let serviceDown = false;
+
+// The site stays up when the API or its database is down, so tell the shell once per change and
+// let it show the calm "trouble on our end" banner. A reader without internet is not our outage.
+function setServiceDown(down) {
+  if (down === serviceDown) return;
+  if (down && typeof navigator !== "undefined" && navigator.onLine === false) return;
+  serviceDown = down;
+  window.dispatchEvent(new Event(down ? "bookvane:unavailable" : "bookvane:available"));
+}
+
+export function isServiceDown() {
+  return serviceDown;
+}
+
+// Asks the API whether it can reach the database again; the banner calls this while it is shown.
+export async function checkService() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/health`, { cache: "no-store" });
+    setServiceDown(!response.ok);
+  } catch {
+    setServiceDown(true);
+  }
+  return !serviceDown;
+}
 let sessionChanges = 0;
 let sessionEpoch = 0;
 
@@ -52,14 +77,22 @@ export async function apiRequest(path, options = {}) {
   const { skipRefresh = false, responseType, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
-  const response = await fetch(url, {
-    credentials: "include",
-    headers: {
-      ...(requestOptions.body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(requestOptions.headers || {}),
-    },
-    ...requestOptions,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      credentials: "include",
+      headers: {
+        ...(requestOptions.body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(requestOptions.headers || {}),
+      },
+      ...requestOptions,
+    });
+  } catch (error) {
+    // Render's own 502 page carries no CORS headers, so an outage reaches the browser as a network error.
+    if (error.name !== "AbortError") setServiceDown(true);
+    throw error;
+  }
+  setServiceDown([502, 503, 504].includes(response.status));
 
   if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0 && epoch === sessionEpoch) {
     let refreshed = false;
