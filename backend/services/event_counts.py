@@ -17,7 +17,7 @@ from models import EventCount, User
 CLIENT_NAMES = frozenset({"register_started", "save_prompt_shown", "guest_search_empty",
                           "get_copy_click", "share_click", "share_visit"})
 SERVER_NAMES = frozenset({"register_completed"})
-SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import"})
+SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "profile"})
 PLACEMENTS = frozenset({"book_page", "want_card"})
 MAX_EVENTS_PER_MINUTE = 600
 MAX_BODY_BYTES = 1024
