@@ -20,6 +20,7 @@ from routes import email_signups
 from routes import library
 from routes import reading
 from routes import library_imports
+from routes import events
 
 from auth.auth import router as auth_router
 
@@ -122,6 +123,7 @@ app.include_router(email_signups.router)
 app.include_router(library.router)
 app.include_router(reading.router)
 app.include_router(library_imports.router)
+app.include_router(events.router)
 app.include_router(library_imports.sources_router)
 
 # Enable fastapi-pagination for the entire FastAPI application.
