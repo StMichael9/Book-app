@@ -501,6 +501,17 @@ Book.want_count = column_property(
     .scalar_subquery()
 )
 
+class EventCount(Base):
+    """Anonymous daily counters (no user, address or user agent). See services/event_counts.py."""
+    __tablename__ = 'event_counts'
+
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    src: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
+    placement: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
+    count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+
+
 # Keep ORM metadata aligned with the search/index migration so fresh schema
 # creation in disposable tests matches Alembic-managed environments.
 Index("ix_books_title_trgm", Book.title, postgresql_using="gin", postgresql_ops={"title": "gin_trgm_ops"})

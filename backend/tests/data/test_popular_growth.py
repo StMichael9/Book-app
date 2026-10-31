@@ -371,13 +371,12 @@ def test_snapshot_pins_ratings_and_reading_log():
     assert set(sources.MIN_COMPRESSED_BYTES) == set(sources.KINDS)
 
 
-def test_migration_adds_stage_tables_after_the_current_head():
+def test_migration_adds_stage_tables_after_c8a14d7f2b36():
     from alembic.script import ScriptDirectory
 
     scripts = ScriptDirectory(str(ROOT / "backend" / "alembic"))
-    heads = scripts.get_heads()
-    assert len(heads) == 1
-    head = scripts.get_revision(heads[0])
+    assert len(scripts.get_heads()) == 1  # later migrations may follow; the chain must stay linear
+    head = scripts.get_revision("d4f2a9c7b158")
     assert head.down_revision == "c8a14d7f2b36"
     source = Path(head.path).read_text(encoding="utf-8")
     assert "catalogue_stage_popularity" in source and "title_aliases" in source and "drop_table" in source

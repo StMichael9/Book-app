@@ -13,6 +13,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     status,
@@ -21,7 +22,7 @@ from fastapi import (
 from pydantic import BaseModel, EmailStr, Field
 
 from sqlalchemy import select, update, func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import get_db, settings
@@ -29,6 +30,7 @@ from models import User, RefreshToken, PasswordResetToken
 from auth.jwt import create_access_token
 
 from rate_limit import limiter
+from services.event_counts import clean_source, record_event
 
 
 router = APIRouter(
@@ -80,6 +82,7 @@ def validate_password(password: str) -> None:
 def register(
     request: Request,
     data: RegisterRequest,
+    src: str | None = Query(None, max_length=40),
     db: Session = Depends(get_db),
 ):
     validate_password(data.password)
@@ -107,6 +110,11 @@ def register(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="User already exists") from None
+
+    try:  # an aggregate count only; never let it affect sign-up
+        record_event(db, "register_completed", clean_source(src))
+    except SQLAlchemyError:
+        db.rollback()
 
     return {
         "message": "User created successfully"

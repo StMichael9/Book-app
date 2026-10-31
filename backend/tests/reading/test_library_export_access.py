@@ -23,7 +23,6 @@ def exporter(client, db_session, app_modules, monkeypatch):
     settings = app_modules["database"].settings
     monkeypatch.setattr(settings, "reading_v3_enabled", True)
     monkeypatch.setattr(settings, "reading_v3_user_ids", "")
-    monkeypatch.setattr(settings, "library_import_enabled", False)
     app_modules["main"].app.dependency_overrides[get_current_user] = lambda: user
     limiter.reset()
     yield user, settings
@@ -44,12 +43,11 @@ def test_library_csv_downloads_with_import_disabled_and_is_owner_scoped(client, 
     assert "OTHER READER SECRET" not in response.text
 
 
-def test_capability_advertises_export_separately_from_import(client, exporter):
-    features = client.get("/me/reading-capabilities").json()["features"]
-    assert features["library_export"] is True
-    assert features["library_import"] is False
-    # The import-scoped route keeps its existing gate.
-    assert client.get("/me/library-imports/export.csv").status_code == 403
+def test_import_is_always_on_for_a_signed_in_reader_with_no_setting(client, exporter):
+    caps = client.get("/me/reading-capabilities").json()
+    assert caps["features"]["library_export"] is True
+    assert caps["features"]["library_import"] is True and caps["milestone"] == "M5"
+    assert client.get("/me/library-imports/export.csv").status_code == 200
 
 
 def test_library_csv_follows_reading_read_access(client, exporter, monkeypatch, app_modules):

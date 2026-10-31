@@ -56,7 +56,7 @@ class ImportBodyLimit:
 
 
 def import_user(current_user: User = Depends(get_current_user)):
-    if not settings.library_import_enabled or not reading_enabled(current_user.id):
+    if not reading_enabled(current_user.id):
         fail("library_import_disabled", 403)
     return current_user
 
