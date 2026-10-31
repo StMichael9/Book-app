@@ -91,6 +91,7 @@ test("the one-time sheet shows once and Keep my profile private sends prompted",
   await page.goto("/profile");
   const sheet = page.getByRole("dialog", { name: "Let friends find you?" });
   await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Let friends find you?" })).toBeFocused();
   await expect(sheet.getByText("Shown: your name, bio, yearly stats, and shared lists")).toBeVisible();
   await expect(sheet.getByText("Always private: notes, ratings, reading history, and private lists")).toBeVisible();
   await expect(sheet.getByText("You can change this any time from your profile.")).toBeVisible();
@@ -140,6 +141,9 @@ test("the profile is private by default and the You tab opens it, with a link to
   await expect(page.getByRole("button", { name: "Make public" })).toBeVisible();
   await expect(page.getByText("@")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Account settings" })).toHaveAttribute("href", "/account");
+  await page.getByRole("link", { name: "Account settings" }).scrollIntoViewIfNeeded();
+  const link = await page.getByRole("link", { name: "Account settings" }).boundingBox(), nav = await page.getByRole("navigation", { name: "Mobile navigation" }).boundingBox();
+  expect(link.y + link.height).toBeLessThanOrEqual(nav.y);
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
 });
 
@@ -250,6 +254,7 @@ test("a list page shows shelf status per book, can be shared and made private, r
   await expect(rows.nth(0)).toContainText("Finished · March");
   await expect(rows.nth(1)).toContainText("Want to read");
   await expect(rows.nth(2)).not.toContainText(/Owned|Want|Finished/);
+  await expect(rows.nth(2).locator(".bv-list-initial")).toHaveText("M");
   await expect(page.getByText("Only you can see this list")).toBeVisible();
   await page.getByRole("button", { name: "Share on your profile" }).click();
   await expect(page.getByText("Shared on your profile")).toBeVisible();
@@ -258,7 +263,7 @@ test("a list page shows shelf status per book, can be shared and made private, r
   await page.getByRole("button", { name: "Make private" }).click();
   await expect(page.getByText("Only you can see this list")).toBeVisible();
   await expect(page.getByRole("link", { name: "Add a book" })).toHaveAttribute("href", "/my-books");
-  await expect(page.getByText("Open a book’s menu and choose Add to list.")).toBeVisible();
+  await expect(page.getByText("Open a book and choose Add to list.")).toBeVisible();
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByLabel("List name").fill("Christie");
   await page.getByLabel("Description").fill("Poirot first.");
@@ -390,6 +395,11 @@ test("a missing or private public page shows the not-found page, and your own pa
   await page.goto("/u/ada");
   await expect(page.getByText("This is how others see your profile.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Create free account" })).toHaveCount(0);
+});
+
+test("the desktop header account link opens the profile and keeps its label", async ({ page, app: _app }) => {
+  await page.goto("/browse");
+  await expect(page.getByRole("link", { name: "Your account", exact: true })).toHaveAttribute("href", "/profile");
 });
 
 test("guests who open /profile are sent to sign in and returned", async ({ page, app }) => {

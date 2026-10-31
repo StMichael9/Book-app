@@ -47,6 +47,11 @@ export function CoverStack({ covers = [], name = "", large = false }) {
   return <span className={`bv-stack${size}`} aria-hidden="true">{covers.slice(0, 3).map(url => <img key={url} src={coverSrc(url)} alt="" loading="lazy" decoding="async" />)}</span>;
 }
 
+// A small cover; a book with no artwork shows its initial on a tile, like the list stack does.
+function ListCover({ book }) {
+  return <span className="bv-list-cover">{book.cover_image_url ? <BookCover book={{ ...book, authors: [] }} /> : <span className="bv-list-initial" aria-hidden="true">{book.title?.trim()[0]?.toUpperCase() || "·"}</span>}</span>;
+}
+
 function HandleField({ value, onChange, error, id }) {
   return <div className="bv-field"><label htmlFor={id}>Username</label>
     <input id={id} value={value} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck="false" autoComplete="off" aria-invalid={Boolean(error)} aria-describedby={`${id}-help`} onChange={event => onChange(event.target.value.toLowerCase())} />
@@ -253,7 +258,7 @@ export function ProfileListPage() {
     <p className="bv-sr-only" role="status" aria-live="polite">{announce}</p>
     {list.books.length > 0 && <ol className="bv-list-books">{list.books.map((book, index) => <li key={book.id}>
       <span className="bv-list-number" aria-hidden="true">{index + 1}</span>
-      <span className="bv-list-cover"><BookCover book={{ ...book, authors: [] }} /></span>
+      <ListCover book={book} />
       <span className="bv-list-book-text"><Link to={`/book/${book.id}`}>{book.title}</Link>{bookStatus(book) && <small>{bookStatus(book)}</small>}</span>
       {editing && <span className="bv-list-controls">
         <Button variant="quiet" className="bv-icon-button" data-move={`${book.id}:up`} disabled={index === 0} aria-label={`Move ${book.title} up`} onClick={() => move(index, -1)}><ArrowUp aria-hidden="true" /></Button>
@@ -261,7 +266,7 @@ export function ProfileListPage() {
         <Button variant="quiet" aria-label={`Remove ${book.title} from this list`} onClick={() => remove(book)}>Remove</Button></span>}
     </li>)}</ol>}
     <p className="bv-list-add"><TextLink to="/my-books"><Plus aria-hidden="true" />Add a book</TextLink></p>
-    <p className="bv-help">Open a book’s menu and choose Add to list.</p>
+    <p className="bv-help">Open a book and choose Add to list.</p>
     {editing && <div className="bv-list-delete"><Button variant="quiet" className="bv-danger-action" onClick={() => setConfirming(true)}>Delete list</Button></div>}
     <NativeDialog open={confirming} onClose={() => !pending && setConfirming(false)} title="Delete this list?">
       <p>Delete this list? The books stay in your library.</p>
@@ -310,7 +315,7 @@ export function PublicListPage({ notFound }) {
     <p className="bv-muted">{books(list.books.length)} · by {list.owner.display_name || `@${handle}`}</p>
     {list.books.length > 0 && <ol className="bv-list-books">{list.books.map((book, index) => <li key={book.id}>
       <span className="bv-list-number" aria-hidden="true">{index + 1}</span>
-      <span className="bv-list-cover"><BookCover book={{ ...book, authors: [] }} /></span>
+      <ListCover book={book} />
       <span className="bv-list-book-text"><Link to={`/book/${book.id}`}>{book.title}</Link>{book.authors?.length > 0 && <small>{book.authors.join(", ")}</small>}</span></li>)}</ol>}
     <GuestLine />
   </div></section>;
@@ -341,7 +346,7 @@ export function ProfilePrompt() {
     if (!HANDLE.test(handle)) { setError("Use 3–30 lowercase letters, numbers or hyphens."); return; }
     finish({ handle, profile_public: true });
   }
-  return <NativeDialog open={open} onClose={() => !pending && finish({})} title="Let friends find you?" className="bv-profile-sheet">
+  return <NativeDialog open={open} onClose={() => !pending && finish({})} title="Let friends find you?" className="bv-profile-sheet" focusTitle>
     <p>A public profile lets people see your reading year and the lists you choose to share.</p>
     <ul className="bv-sheet-facts"><li><span aria-hidden="true">✓</span>Shown: your name, bio, yearly stats, and shared lists</li><li><Lock aria-hidden="true" />Always private: notes, ratings, reading history, and private lists</li></ul>
     {asking && <form onSubmit={makePublic}><HandleField id="bv-sheet-handle" value={handle} error={error} onChange={setHandle} /></form>}

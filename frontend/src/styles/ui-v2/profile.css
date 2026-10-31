@@ -57,6 +57,8 @@
 .bv-root .bv-list-books li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--bv-line); flex-wrap: wrap; }
 .bv-root .bv-list-number { flex: none; width: 1.5rem; text-align: center; color: var(--bv-muted); font-size: 0.9375rem; }
 .bv-root .bv-list-cover { flex: none; width: 44px; }
+.bv-root .bv-list-initial { display: grid; place-items: center; aspect-ratio: 2/3; border-radius: 4px; background: var(--bv-soft-green); color: var(--bv-green); font-family: var(--bv-display); font-size: 1.25rem; }
+.bv-root .bv-profile-sheet h2:focus { outline: none; }
 .bv-root .bv-list-book-text { flex: 1; min-width: 140px; display: flex; flex-direction: column; }
 .bv-root .bv-list-book-text a { font-weight: 600; overflow-wrap: anywhere; }
 .bv-root .bv-list-book-text small { color: var(--bv-muted); font-size: 0.875rem; }

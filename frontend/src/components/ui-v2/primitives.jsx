@@ -173,7 +173,7 @@ export function PageHeading({ eyebrow, title, children }) {
   return <header className="bv-page-heading">{eyebrow && <p className="bv-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{children && <div className="bv-muted">{children}</div>}</header>;
 }
 
-export function NativeDialog({ open, onClose, title, children, className = "" }) {
+export function NativeDialog({ open, onClose, title, children, className = "", focusTitle = false }) {
   const ref = useRef(null);
   const id = useId();
   useEffect(() => {
@@ -183,12 +183,13 @@ export function NativeDialog({ open, onClose, title, children, className = "" })
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     if (!dialog.open) dialog.showModal();
+    if (focusTitle) dialog.querySelector("h2")?.focus({ preventScroll: true });
     return () => {
       if (dialog.open) dialog.close();
       document.body.style.overflow = previous;
       if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true });
     };
-  }, [open]);
+  }, [open, focusTitle]);
   return <dialog ref={ref} className={`bv-dialog ${className}`} aria-labelledby={id}
     onKeyDown={(event) => {
       if (event.key !== "Tab") return;
@@ -204,7 +205,7 @@ export function NativeDialog({ open, onClose, title, children, className = "" })
       const bounds = event.currentTarget.getBoundingClientRect();
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
     }}>
-    <div className="bv-dialog-heading"><h2 id={id}>{title}</h2>
+    <div className="bv-dialog-heading"><h2 id={id} tabIndex={focusTitle ? -1 : undefined}>{title}</h2>
       <Button variant="quiet" className="bv-icon-button" aria-label={`Close ${title}`} onClick={onClose}><X aria-hidden="true" /></Button>
     </div>{children}
   </dialog>;
