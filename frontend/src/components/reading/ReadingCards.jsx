@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ActionLink, BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
+import { trackEvent } from "../ui-v2/events.js";
 import "../../styles/ui-v2/reading-home.css";
 
 const readingLabels = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
@@ -52,6 +53,6 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
     <p className="bv-author">{authorLabel(book)}</p>
     {/* One status line on every card: the reading state leads, then the independent shelves. */}
     {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <StatusLine labels={[readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean)} />}
-    {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop ↗</a>}
+    {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })}>Find on Bookshop ↗</a>}
   </article>;
 }

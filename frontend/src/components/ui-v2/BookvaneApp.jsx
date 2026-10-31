@@ -1,3 +1,4 @@
+import { trackEvent } from "./events.js";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "lucide-react";
@@ -105,6 +106,8 @@ function AccountPrompt() {
   const reader = useReader();
   const location = useLocation();
   const gate = reader.gate;
+  const promptOpen = Boolean(gate);
+  useEffect(() => { if (promptOpen) trackEvent("save_prompt_shown"); }, [promptOpen]);
   const candidate = safeReturnTo(location.pathname === "/browse" ? location.pathname + location.search : new URLSearchParams(location.search).get("from") || location.state?.browseFrom, "/browse");
   const browseFrom = candidate.split("?")[0] === "/browse" ? candidate : "/browse";
   const query = gate ? new URLSearchParams({

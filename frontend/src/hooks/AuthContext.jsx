@@ -93,14 +93,14 @@ export function AuthProvider({ children }) {
           if (version === sessionVersion.current) setIsLoading(false);
         }
       },
-      async register(credentials) {
+      async register(credentials, { src } = {}) {
         clearBookCache(); clearRequestCache();
         const version = ++sessionVersion.current;
         setSessionGeneration(version);
         setSessionError(null);
         try {
           await startupRefresh.current?.catch(() => {});
-          await registerUser(credentials);
+          await registerUser(credentials, src);
           await loginUser(credentials);
           if (version === sessionVersion.current) setIsAuthenticated(true);
         } finally {

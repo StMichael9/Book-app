@@ -1,0 +1,8 @@
+# Phase 0: anonymous event counters (frontend)
+
+30 October 2026. Branch `ui/v3-event-beacons`, rebased on `origin/v3` (c915c6a, which has the server's `POST /events`). **Merges only after the Lead confirms T18 (the events endpoint) is live.**
+
+- **Helper:** `trackEvent(name, { src, placement })` in `ui-v2/events.js` sends a `fetch(<API>/events, { method: "POST", keepalive: true, credentials: "omit", Content-Type: text/plain })` inside a try/catch (not sendBeacon, which would send the reader's cookies), and does nothing when fetch is missing. It sends only the name plus, when the server knows it, a `src` (landing, noresults, saveprompt, share, import) or `placement` (book_page, want_card); the server drops a whole event with an unknown value. No cookies, IDs or account data. It always fires, with no flag.
+- **Events:** `register_started` (first submit of the register form, with the URL's `src`); `save_prompt_shown` (guest save dialog opens); `guest_search_empty` (guest no-results panel, once per search); `get_copy_click` (book page link → `book_page`; Want cards and next-read links → `want_card`); `share_click`; `share_visit` (book page opened with `?src=share`).
+- **Register source:** the register call now sends `?src=<value>` to `/auth/register` when the URL has a known source (the same allow-list); an unknown source is not sent. The server records `register_completed` with it.
+- **Tests:** `tests/event-beacons.spec.js` (bodies, once-only, no cookie header, register `?src`, no failure when the events request fails) and a `get_copy_click` placement test in `tests/get-a-copy.spec.js`. Lint 12 warnings.

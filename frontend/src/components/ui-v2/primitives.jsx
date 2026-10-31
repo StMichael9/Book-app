@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, ExternalLink, Searc
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
+import { trackEvent } from "./events.js";
 import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
@@ -46,7 +47,7 @@ function Jacket({ book, className = "", ...props }) {
 
 export function GetACopy({ book }) {
   const url = bookshopAffiliateUrl(book);
-  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
+  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })} aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
 }
 
 export function EnglishTitle({ book }) {
@@ -141,7 +142,7 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
     <EnglishTitle book={book} />
     <p className="bv-author">{authorLabel(book)}</p>
     {!preview && <ShelfActions book={book} compact />}
-    {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored">Find on Bookshop <ArrowRight aria-hidden="true" /></a>}
+    {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })}>Find on Bookshop <ArrowRight aria-hidden="true" /></a>}
   </article>;
 }
 
