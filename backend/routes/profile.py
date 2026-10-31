@@ -9,7 +9,7 @@ from models import User
 from services import profile as service
 
 router = APIRouter(tags=["profile"])
-PUBLIC_CACHE = "public, max-age=60, stale-while-revalidate=300"
+PUBLIC_CACHE = "public, max-age=60"  # no stale-while-revalidate: going private must show within a minute
 PROFILE_FIELDS = {"display_name", "bio", "handle", "profile_public", "prompted"}
 
 

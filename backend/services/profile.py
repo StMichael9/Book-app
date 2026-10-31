@@ -20,7 +20,8 @@ from models import (
 from services import catalogue_cache
 
 HANDLE_PATTERN = re.compile(r"^[a-z0-9-]{3,30}$")
-RESERVED_HANDLES = frozenset({"admin", "api", "me", "u", "settings", "login", "signup", "books", "help", "about", "privacy"})
+RESERVED_HANDLES = frozenset({"admin", "api", "me", "u", "settings", "login", "signup", "books", "help", "about", "privacy",
+                              "profile", "account", "register", "bookvane", "support", "my-books", "browse", "home"})
 MAX_LISTS = 50
 MAX_BOOKS_PER_LIST = 500
 PUBLIC_TTL = 60
@@ -36,11 +37,12 @@ def not_found() -> HTTPException:
 
 # --- profile -----------------------------------------------------------------------------------------------------
 
-def initials(display_name: str | None, email: str) -> str:
+def initials(display_name: str | None, fallback: str) -> str:
+    """Up to two display-name initials, else the first letter of the fallback (email local part, or the handle in public)."""
     words = (display_name or "").split()[:2]
     if words:
         return "".join(word[0] for word in words).upper()
-    return (email.split("@")[0][:1] or "?").upper()
+    return (fallback.split("@")[0][:1] or "?").upper()
 
 
 def profile_view(user: User) -> dict:
@@ -295,7 +297,7 @@ def public_profile(db: Session, handle: str) -> dict:
     lists = db.scalars(select(ReadingList).where(ReadingList.user_id == user.id, ReadingList.is_public.is_(True))
                        .order_by(ReadingList.created_at, ReadingList.id)).all()
     mine = {row["id"]: row for row in my_lists(db, user.id)}
-    payload = {"display_name": user.display_name, "initials": initials(user.display_name, user.email),
+    payload = {"display_name": user.display_name, "initials": initials(user.display_name, user.handle),
                "bio": user.bio, "reading_since": user.created_at.year,
                "stats": year_stats(db, user.id, datetime.now(timezone.utc).year),
                "lists": [{"id": item.id, "name": item.name, "description": item.description,
@@ -314,7 +316,7 @@ def public_list(db: Session, handle: str, list_id: int) -> dict:
     if item is None:
         raise not_found()
     payload = {"id": item.id, "name": item.name, "description": item.description,
-               "owner": {"display_name": user.display_name, "initials": initials(user.display_name, user.email)},
+               "owner": {"display_name": user.display_name, "initials": initials(user.display_name, user.handle)},
                "books": _books(db, item.id)}
     catalogue_cache.put(key, payload, PUBLIC_TTL)
     return payload

@@ -308,6 +308,26 @@ def test_public_payloads_never_contain_private_data(world):
     assert world.client.get(f"/u/ada-public/lists/{private_id}").status_code == 404
 
 
+def test_public_initials_never_come_from_the_email(world):
+    user = world.make_user(email="qzmail@example.test")
+    world.act_as(user)
+    world.client.patch("/me/profile", json={"handle": "handle-letter", "profile_public": True})
+    assert world.client.get("/me/profile").json()["initials"] == "Q"  # the owner's own view may use the email
+    lid = world.client.post("/me/lists", json={"name": "L", "is_public": True}).json()["id"]
+    world.anonymous()
+    assert world.client.get("/u/handle-letter").json()["initials"] == "H"
+    assert world.client.get(f"/u/handle-letter/lists/{lid}").json()["owner"]["initials"] == "H"
+    cache = world.client.get("/u/handle-letter").headers["Cache-Control"]
+    assert cache == "public, max-age=60"
+
+
+@pytest.mark.parametrize("word", ["profile", "account", "register", "bookvane", "support", "my-books", "browse", "home"])
+def test_more_reserved_usernames(world, word):
+    world.act_as(world.make_user())
+    r = world.client.patch("/me/profile", json={"handle": word})
+    assert r.status_code == 422 and detail(r) == "handle_reserved"
+
+
 def test_every_kind_of_missing_public_page_is_the_same_404(world):
     user = world.make_user()
     world.act_as(user)
