@@ -30,6 +30,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/me/reading-capabilities") { if (state.holdCapabilities) await state.holdCapabilities; return reply(200, { enabled: Boolean(state.v3), contract_version: 1, writable: true, features: { reading_actions: true } }); }
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") { if (state.holdRefresh) await state.holdRefresh; return state.authenticated ? reply(200, {}) : reply(401, { detail: "Session expired" }); }
       if (path === "/auth/register") return reply(201, {});
       if (path === "/auth/login") { if (state.loginFails) return reply(401, { detail: "Invalid email or password" }); state.authenticated = true; return reply(200, {}); }

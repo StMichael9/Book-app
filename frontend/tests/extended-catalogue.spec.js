@@ -21,6 +21,7 @@ const test = base.extend({
       state.requests.push({ path, method: request.method(), body: request.method()==='POST' ? request.postDataJSON() : null });
       const reply = json => route.fulfill({ status: 200, json });
       const currentEntry = appEntry(state);
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === '/auth/refresh') return state.authenticated ? reply({}) : route.fulfill({ status: 401, json: {} });
       if (path === '/me/reading-capabilities') { if (state.holdCapabilities) await state.holdCapabilities; if (state.failCapabilities) return route.fulfill({ status: 503, json: {} }); return reply({ enabled: true, writable: state.writable !== false, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } }); }
       if (path === '/me/books' || path === '/me/preferences' || path.startsWith('/autocomplete/')) return reply([]);

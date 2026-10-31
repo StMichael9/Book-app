@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Mail, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -52,6 +53,7 @@ export function AuthPage({ register = false }) {
   const { returnTo, intent } = accountIntent(params);
   const pendingBook = useRequest(() => getBookById(intent.id), `pending:${intent?.id || "none"}`, Boolean(intent));
   const [pending, setPending] = useState(false);
+  const started = useRef(false);
   const [error, setError] = useState("");
   const destination = intent ? (() => {
     const url = new URL(returnTo, window.location.origin); url.searchParams.set("save", intent.status); return url.pathname + url.search;
@@ -59,10 +61,11 @@ export function AuthPage({ register = false }) {
   useEffect(() => { if (auth.isAuthenticated && !auth.isLoading && !pending) navigate(destination, { replace: true }); }, [auth.isAuthenticated, auth.isLoading, pending, destination, navigate]);
   async function submit(event) {
     event.preventDefault(); if (pending) return;
+    if (register && !started.current) { started.current = true; trackEvent("register_started", { src: params.get("src") }); }
     const values = new FormData(event.currentTarget); setPending(true); setError("");
     try {
       const credentials = { email: String(values.get("email")).trim(), password: String(values.get("password")) };
-      if (register) await auth.register(credentials); else await auth.login(credentials);
+      if (register) await auth.register(credentials, { src: knownSource(params.get("src")) }); else await auth.login(credentials);
       navigate(destination, { replace: true });
     } catch (requestError) {
       setError(errorText(requestError, register ? "Your account couldn’t be created. Please try again." : "You couldn’t be signed in. Please try again."));

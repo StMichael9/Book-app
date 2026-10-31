@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { trackEvent } from "./ui-v2/events.js";
 
 function drawWrappedText(context, value, x, y, maxWidth, lineHeight, maxLines) {
   const words = value.split(/\s+/);
@@ -73,7 +74,7 @@ export default function ShareBookButton({ book }) {
   }
 
   return <div className="share-book">
-    <button className="reset-button" type="button" onClick={share}>Share book image</button>
+    <button className="reset-button" type="button" onClick={() => { trackEvent("share_click"); share(); }}>Share book image</button>
     {error && <span className="error-message" role="alert">{error}</span>}
   </div>;
 }
