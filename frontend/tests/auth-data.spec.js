@@ -211,6 +211,7 @@ test("logout waits for a cookie-writing automatic refresh", async ({ page, app }
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).waitFor();
   await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.waitForTimeout(100);
   try { expect(app.requests.filter(r => r.path === "/auth/logout")).toHaveLength(0); }

@@ -225,6 +225,7 @@ test("pilot library stays usable on a phone in both themes", async ({ page, app 
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
   await page.screenshot({ path: "../backend/.v3-test-runtime/m1-library-phone-final.png", fullPage: true });
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
+  await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Switch theme", exact: true }).click();
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "My Books", exact: true }).click();
   await expect(page.getByLabel("Search title or author")).toBeVisible();

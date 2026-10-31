@@ -57,7 +57,7 @@ function HandleField({ value, onChange, error, id }) {
 // ---- the year in books (own and public) ------------------------------------------------------------------------
 
 export function YearInBooks({ stats, own = true, chips = true }) {
-  if (!stats) return null;
+  if (!Array.isArray(stats?.by_month)) return null;
   const empty = !stats.books_finished;
   if (empty && !own) return null;
   const top = Math.max(...stats.by_month, 1);
@@ -159,8 +159,8 @@ export function ProfileHubPage() {
   const { profile, loading, failed, reload } = useProfile();
   const stats = useLoad(getStats), lists = useLoad(getLists);
   const [editing, setEditing] = useState(false);
-  if (failed) return <section className="bv-container"><div className="bv-profile"><Failed retry={reload}>We couldn’t load your profile.</Failed></div></section>;
-  if (loading || !profile) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening your profile…</p></div></section>;
+  if (failed) return <section className="bv-container"><div className="bv-profile"><Failed retry={reload}>We couldn’t load your profile.</Failed><p className="bv-profile-account"><TextLink to="/account">Account settings</TextLink></p></div></section>;
+  if (loading || !profile?.reading_since) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening your profile…</p><p className="bv-profile-account"><TextLink to="/account">Account settings</TextLink></p></div></section>;
   return <section className="bv-container"><div className="bv-profile">
     <header className="bv-profile-head"><Avatar initials={profile.initials} />
       <div className="bv-profile-id">{profile.display_name ? <h1>{profile.display_name}</h1> : <h1 className="bv-sr-only">Your profile</h1>}
@@ -170,7 +170,7 @@ export function ProfileHubPage() {
     <Visibility key={profile.profile_public ? "public" : "private"} profile={profile} />
     {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearInBooks stats={stats.data} />}
     <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
-      {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : lists.data && (lists.data.length
+      {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
         ? <ul className="bv-list-rows">{lists.data.map(item => <ListRow key={item.id} item={item} to={`/profile/lists/${item.id}`} own />)}</ul>
         : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>
     <p className="bv-profile-account"><TextLink to="/account">Account settings</TextLink></p>

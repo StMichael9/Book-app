@@ -22,7 +22,7 @@ export default function AddToList({ book }) {
   const wrapper = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
-    const outside = event => { if (wrapper.current && !wrapper.current.contains(event.target)) { setOpen(false); setCreating(false); setMessage(""); trigger.current?.focus({ preventScroll: true }); } };
+    const outside = event => { if (wrapper.current && !wrapper.current.contains(event.target)) { setOpen(false); setCreating(false); setMessage(""); if (!event.target.closest?.("a, button, input, select, textarea, [tabindex]:not([tabindex=\"-1\"])")) requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); } };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);

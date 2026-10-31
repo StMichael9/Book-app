@@ -440,6 +440,7 @@ test("registration, onboarding, logout and protected routes remain connected", a
   await page.getByRole("link", { name: "Back to discovery", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
   await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/my-books");
