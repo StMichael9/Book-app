@@ -87,6 +87,9 @@ const test = base.extend({
           next_cursor: entries.length > offset + 25 ? String(offset + 25) : null });
       }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
+      if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
+      if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
+      if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);

@@ -8,6 +8,7 @@ import { trackEvent } from "./events.js";
 import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
+import AddToList from "../profile/AddToList.jsx";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -118,6 +119,7 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
         "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
+    {!compact && auth.isAuthenticated && <AddToList book={book} />}
     {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
     {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
   </div>;
