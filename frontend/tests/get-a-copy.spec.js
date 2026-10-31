@@ -121,5 +121,5 @@ test("Get a copy clicks send get_copy_click with their placement and nothing els
   await page.goto(`${WITH_ID}/my-books?status=want`);
   expect(await clickBeacon(page.getByRole("link", { name: /Find on Bookshop/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
   await page.goto(`${WITH_ID}/home`);
-  expect(await clickBeacon(page.getByRole("region", { name: "Choose your next read" }).getByRole("link", { name: /Get a copy of/ }))).toEqual({ name: "get_copy_click", placement: "next_read" });
+  expect(await clickBeacon(page.getByRole("region", { name: "Choose your next read" }).getByRole("link", { name: /Get a copy of/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
 });

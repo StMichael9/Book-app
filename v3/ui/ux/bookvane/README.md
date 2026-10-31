@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [October 30: anonymous event counters (frontend)](2026-10-30-event-beacons.md)
 - [October 29: an unfinished import no longer dead-ends](2026-10-29-import-active-run.md)
 - [October 29: import redesign, one calm path](2026-10-29-import-redesign.md)
 - [October 29 journey overhaul PR 2: first-run Home](2026-10-29-journey-2-first-run-home.md)

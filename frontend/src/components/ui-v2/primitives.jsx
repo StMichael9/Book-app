@@ -47,7 +47,7 @@ function Jacket({ book, className = "", ...props }) {
 
 export function GetACopy({ book }) {
   const url = bookshopAffiliateUrl(book);
-  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "next_read" })} aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
+  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })} aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
 }
 
 export function EnglishTitle({ book }) {
