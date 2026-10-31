@@ -25,7 +25,7 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
     authors = select(func.array_agg(Author.name)).select_from(book_authors.join(Author))\
         .where(book_authors.c.book_id == entry.c.book_id).correlate(entry).scalar_subquery()
     queries = (
-        ("entry", select(entry.c.id, entry.c.book_id, entry.c.private_title, entry.c.private_author, entry.c.private_catalogue,
+        ("entry", select(entry.c.id, entry.c.book_id, entry.c.private_title, entry.c.private_author, entry.c.private_description, entry.c.private_catalogue,
             entry.c.is_owned, entry.c.is_wanted, entry.c.save_note, entry.c.version,
             entry.c.created_at, entry.c.updated_at, Book.title.label("catalogue_title"),
             Book.source_id.label("catalogue_source_id"), Book.isbn13.label("catalogue_isbn13"),
