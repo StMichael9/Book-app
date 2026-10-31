@@ -28,6 +28,9 @@ book_tags = Table(
 # MODELS
 class User(Base):
     __tablename__ = 'users'
+    __table_args__ = (
+        CheckConstraint("handle IS NULL OR handle ~ '^[a-z0-9-]{3,30}$'", name="ck_user_handle"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
@@ -36,6 +39,11 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    display_name: Mapped[str | None] = mapped_column(String(40))
+    bio: Mapped[str | None] = mapped_column(String(160))
+    handle: Mapped[str | None] = mapped_column(String(30), unique=True)
+    profile_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    profile_prompted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # relationships
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
@@ -270,6 +278,27 @@ class ReadingAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     entry: Mapped["UserBook"] = relationship(back_populates="attempts")
+
+class ReadingList(Base):
+    __tablename__ = "reading_lists"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(280))
+    is_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class ReadingListItem(Base):
+    __tablename__ = "reading_list_items"
+    __table_args__ = (Index("ix_reading_list_items_order", "list_id", "position"),)
+
+    list_id: Mapped[int] = mapped_column(Integer, ForeignKey("reading_lists.id", ondelete="CASCADE"), primary_key=True)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="RESTRICT"), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+
 
 class Author(Base):
     __tablename__ = 'authors'

@@ -141,6 +141,7 @@ test("the cache is gone after logout", async ({ page, app }) => {
   expect(await cacheKeys(page)).toEqual([expect.stringMatching(/:member:landing$/)]);
   hold(app);
   await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
   await expect(heroLink(page, "Live Member One 1")).toHaveCount(0);

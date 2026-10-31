@@ -126,6 +126,9 @@ const test = base.extend({
         if (path === "/autocomplete/tags/batch") return reply(200, [...new Map(values.map(item => [item.id, item])).values()].filter(item => url.searchParams.getAll("name").includes(item.name)));
         return reply(200, [...new Map(values.map((item) => [item.id, item])).values()].filter((item) => item.name.includes(url.searchParams.get("q"))));
       }
+      if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
+      if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
+      if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
@@ -437,6 +440,7 @@ test("registration, onboarding, logout and protected routes remain connected", a
   await page.getByRole("link", { name: "Back to discovery", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
   await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/my-books");
