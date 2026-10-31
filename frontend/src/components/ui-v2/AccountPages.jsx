@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { trackEvent } from "./events.js";
+import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Mail, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -65,7 +65,7 @@ export function AuthPage({ register = false }) {
     const values = new FormData(event.currentTarget); setPending(true); setError("");
     try {
       const credentials = { email: String(values.get("email")).trim(), password: String(values.get("password")) };
-      if (register) await auth.register(credentials); else await auth.login(credentials);
+      if (register) await auth.register(credentials, { src: knownSource(params.get("src")) }); else await auth.login(credentials);
       navigate(destination, { replace: true });
     } catch (requestError) {
       setError(errorText(requestError, register ? "Your account couldn’t be created. Please try again." : "You couldn’t be signed in. Please try again."));
