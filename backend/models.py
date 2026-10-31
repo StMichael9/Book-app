@@ -188,10 +188,11 @@ class UserBook(Base):
               postgresql_where=text('private_catalogue IS NOT NULL')),
         CheckConstraint("version >= 1", name="ck_user_book_version"),
         CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
-        CheckConstraint("(book_id IS NOT NULL AND private_title IS NULL AND private_author IS NULL) OR "
+        CheckConstraint("(book_id IS NOT NULL AND private_title IS NULL AND private_author IS NULL AND private_description IS NULL) OR "
                         "(book_id IS NULL AND private_title IS NOT NULL AND char_length(btrim(private_title)) BETWEEN 1 AND 500)",
                         name="ck_user_book_identity"),
         CheckConstraint("private_author IS NULL OR char_length(private_author) <= 500", name="ck_user_book_author"),
+        CheckConstraint("private_description IS NULL OR char_length(private_description) <= 5000", name="ck_user_book_description"),
         CheckConstraint("(create_request_id IS NULL) = (creation_fingerprint IS NULL)", name="ck_user_book_request"),
         CheckConstraint("status::text IS NOT DISTINCT FROM (CASE WHEN is_owned THEN 'owned' WHEN is_wanted THEN 'want' ELSE NULL END)",
                         name="ck_user_book_projection"),
@@ -207,6 +208,7 @@ class UserBook(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     private_title: Mapped[str | None] = mapped_column(Text)
     private_author: Mapped[str | None] = mapped_column(Text)
+    private_description: Mapped[str | None] = mapped_column(Text)
     private_catalogue: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     create_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     creation_fingerprint: Mapped[str | None] = mapped_column(String(64))

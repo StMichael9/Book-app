@@ -32,7 +32,6 @@ class Settings(BaseSettings):
     reading_v3_enabled: bool = Field(default=False, alias="READING_V3_ENABLED")
     reading_v3_user_ids: str = Field(default="", alias="READING_V3_USER_IDS")
     admin_emails: str = Field(default="", alias="ADMIN_EMAILS")
-    library_import_enabled: bool = Field(default=False, alias="LIBRARY_IMPORT_ENABLED")
     external_catalogue_enabled: bool = Field(default=False, alias="EXTERNAL_CATALOGUE_ENABLED")
     external_catalogue_token: SecretStr | None = Field(default=None, alias="EXTERNAL_CATALOGUE_TOKEN")
     library_import_max_database_mb: int = Field(default=800, ge=100, le=800, alias="LIBRARY_IMPORT_MAX_DATABASE_MB")

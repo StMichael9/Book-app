@@ -14,7 +14,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 COLUMNS = ("version", "record_id", "attempt_id", "title", "author", "isbn13", "work_source_id", "status",
-    "owned", "wanted", "started_on", "finished_on", "format", "page_count", "private_note", "csv_escaped_fields")
+    "owned", "wanted", "started_on", "finished_on", "format", "page_count", "private_note", "description", "csv_escaped_fields")
 
 
 def csv_line(values, *, columns=COLUMNS, escape_metadata=True):
@@ -40,7 +40,7 @@ def _query(user_id):
     edition_isbn = select(func.min(EditionISBN.isbn13)).where(EditionISBN.edition_id == ReadingAttempt.edition_id)\
         .correlate(ReadingAttempt).scalar_subquery()
     return (select(UserBook.id.label("entry_id"), UserBook.private_title, UserBook.private_author,
-        UserBook.is_owned, UserBook.is_wanted, Book.title, authors.label("author"), Book.source_id,
+        UserBook.private_description, UserBook.is_owned, UserBook.is_wanted, Book.title, authors.label("author"), Book.source_id,
         func.coalesce(edition_isbn, Book.isbn13).label("isbn13"), ReadingAttempt.id.label("attempt_id"),
         ReadingAttempt.state, ReadingAttempt.started_on, ReadingAttempt.ended_on, ReadingAttempt.edition_format,
         ReadingAttempt.total_pages, ReadingAttempt.note).select_from(UserBook).outerjoin(Book).outerjoin(ReadingAttempt)
@@ -56,7 +56,8 @@ def _values(row):
         "status": row.state or ("want" if row.is_wanted else ""),
         "owned": "true" if row.is_owned else "false", "wanted": "true" if row.is_wanted else "false",
         "started_on": row.started_on, "finished_on": row.ended_on, "format": row.edition_format,
-        "page_count": row.total_pages, "private_note": row.note}
+        "page_count": row.total_pages, "private_note": row.note,
+        "description": row.private_description if row.title is None else None}
 
 
 class CsvLibraryExport:

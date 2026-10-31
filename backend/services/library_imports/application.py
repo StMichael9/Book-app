@@ -206,6 +206,8 @@ def apply_groups(db, run, groups):
             inserts.append({"user_id": run.user_id, "book_id": plan.get("book_id"),
                 "private_title": None if plan.get("book_id") else payload["title"],
                 "private_author": None if plan.get("book_id") else payload["author"] or None,
+                # A matched catalogue book keeps its own description; only a reader's private entry stores this one.
+                "private_description": None if plan.get("book_id") else payload.get("description") or None,
                 "is_owned": own, "is_wanted": want, "status": projection(own, want), "version": 1,
                 "create_request_id": request_id, "creation_fingerprint": digest({"target": first.target_key})})
         prepared.append((group, entry, request_id, contexts, hashes, event_plans))

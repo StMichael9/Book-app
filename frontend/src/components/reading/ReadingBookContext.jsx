@@ -10,7 +10,7 @@ export function ReadingBookIdentity({ entry, flags, headingRef }) {
     <div className="bv-workspace-cover"><BookCover book={book} priority /></div>
     <div className="bv-workspace-identity">
       <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><EnglishTitle book={book} /><p className="bv-detail-author">{authorLabel(book)}</p>
-      {!entry.book && <p className="bv-help">Private book, only in your library. No description or edition details have been confirmed.</p>}
+      {!entry.book && <p className="bv-help">Private book, only in your library.{!entry.private_description && " No description or edition details have been confirmed."}</p>}
       {flags}
     </div>
   </article>;
@@ -34,11 +34,11 @@ function Synopsis({ text }) {
     {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}</>;
 }
 
-export function ReadingBookDetails({ bookId }) {
+export function ReadingBookDetails({ bookId, description }) {
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
   return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
     <h3 id="bv-reading-about-title">About this book</h3>
-    {!bookId ? <p className="bv-muted">No description is available for this private book. You can still keep your reading and memories here.</p>
+    {!bookId ? (description ? <Synopsis text={description} /> : <p className="bv-muted">No description is available for this private book. You can still keep your reading and memories here.</p>)
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
       : <>

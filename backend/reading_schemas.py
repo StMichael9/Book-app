@@ -123,6 +123,7 @@ class LibraryEntry(BaseModel):
     book: LibraryBook | None
     private_title: str | None
     private_author: str | None
+    private_description: str | None = None
     private_catalogue: dict | None = None
     is_owned: bool
     is_wanted: bool
