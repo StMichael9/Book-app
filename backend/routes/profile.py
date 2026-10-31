@@ -31,8 +31,9 @@ def get_stats(year: int | None = Query(None, ge=1900, le=2200), current_user: Us
 
 
 @router.get("/me/lists")
-def get_lists(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return service.my_lists(db, current_user.id)
+def get_lists(book_id: int | None = Query(None, ge=1), current_user: User = Depends(get_current_user),
+              db: Session = Depends(get_db)):
+    return service.my_lists(db, current_user.id, book_id)
 
 
 @router.post("/me/lists", status_code=201)
