@@ -8,6 +8,7 @@ import { trackEvent } from "./events.js";
 import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
+import AddToList from "../profile/AddToList.jsx";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -118,6 +119,7 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
         "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>
+    {!compact && auth.isAuthenticated && <AddToList book={book} />}
     {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
     {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}
   </div>;
@@ -171,7 +173,7 @@ export function PageHeading({ eyebrow, title, children }) {
   return <header className="bv-page-heading">{eyebrow && <p className="bv-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{children && <div className="bv-muted">{children}</div>}</header>;
 }
 
-export function NativeDialog({ open, onClose, title, children, className = "" }) {
+export function NativeDialog({ open, onClose, title, children, className = "", focusTitle = false }) {
   const ref = useRef(null);
   const id = useId();
   useEffect(() => {
@@ -181,12 +183,13 @@ export function NativeDialog({ open, onClose, title, children, className = "" })
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     if (!dialog.open) dialog.showModal();
+    if (focusTitle) dialog.querySelector("h2")?.focus({ preventScroll: true });
     return () => {
       if (dialog.open) dialog.close();
       document.body.style.overflow = previous;
       if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true });
     };
-  }, [open]);
+  }, [open, focusTitle]);
   return <dialog ref={ref} className={`bv-dialog ${className}`} aria-labelledby={id}
     onKeyDown={(event) => {
       if (event.key !== "Tab") return;
@@ -202,7 +205,7 @@ export function NativeDialog({ open, onClose, title, children, className = "" })
       const bounds = event.currentTarget.getBoundingClientRect();
       if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose();
     }}>
-    <div className="bv-dialog-heading"><h2 id={id}>{title}</h2>
+    <div className="bv-dialog-heading"><h2 id={id} tabIndex={focusTitle ? -1 : undefined}>{title}</h2>
       <Button variant="quiet" className="bv-icon-button" aria-label={`Close ${title}`} onClick={onClose}><X aria-hidden="true" /></Button>
     </div>{children}
   </dialog>;

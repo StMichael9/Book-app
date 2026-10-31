@@ -15,10 +15,13 @@ import RouteErrorBoundary from "./RouteErrorBoundary.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
+import { ProfileProvider } from "../profile/ProfileContext.jsx";
+import { ProfileHubPage, ProfileListPage, ProfilePrompt, PublicListPage, PublicProfilePage } from "../profile/ProfilePages.jsx";
 import ReadingDraftProvider from "../reading/ReadingDraftProvider.jsx";
 import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
+import "../../styles/ui-v2/profile.css";
 
 const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");
 const LibraryImportPage = lazy(loadLibraryImportPage);
@@ -62,10 +65,10 @@ function Header() {
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className={`bv-header-actions${auth.isAuthenticated ? "" : " bv-header-actions--guest"}`}><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
-      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/account" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
+      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/profile" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${readingActions ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
-    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/account", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/profile", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
   </nav>}</>;
 }
 
@@ -132,8 +135,8 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password" };
-    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : "Book details")} · Bookvane`;
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
+    document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Book details")} · Bookvane`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
@@ -163,6 +166,7 @@ function Shell() {
     const handle = idle(preloadRoutes);
     return () => cancel(handle);
   }, []);
+  const notFound = <section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>;
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>
@@ -180,11 +184,13 @@ function Shell() {
         <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/discover" element={<Navigate replace to="/browse" />} /><Route path="/account" element={<AccountPage />} />
-        <Route path="*" element={<section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>} />
+        <Route path="/profile" element={<RequireAccount><ProfileHubPage /></RequireAccount>} /><Route path="/profile/lists/:id" element={<RequireAccount><ProfileListPage key={location.pathname} /></RequireAccount>} />
+        <Route path="/u/:handle" element={<PublicProfilePage key={location.pathname} notFound={notFound} />} /><Route path="/u/:handle/lists/:id" element={<PublicListPage key={location.pathname} notFound={notFound} />} />
+        <Route path="*" element={notFound} />
       </Routes></RouteErrorBoundary>
-    </main><Footer /><AccountPrompt /><div className="bv-toast" role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
+    </main><Footer /><AccountPrompt /><ProfilePrompt /><div className="bv-toast" role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
   </div>;
 }
 
 // Uses the existing Router, AuthProvider and UserBooksProvider supplied by main.
-export default function BookvaneApp() { return <ReaderProvider><ReadingDraftProvider><LibraryNavigationProvider><Shell /></LibraryNavigationProvider></ReadingDraftProvider></ReaderProvider>; }
+export default function BookvaneApp() { return <ReaderProvider><ProfileProvider><ReadingDraftProvider><LibraryNavigationProvider><Shell /></LibraryNavigationProvider></ReadingDraftProvider></ProfileProvider></ReaderProvider>; }
