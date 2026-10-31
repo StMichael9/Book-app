@@ -10,6 +10,7 @@ import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
 import { likelySignedIn } from "../../api/bookCache.js";
+import { checkService, isServiceDown } from "../../api/client.js";
 import { usePageWarmers } from "./pagePrefetch.js";
 import RouteErrorBoundary from "./RouteErrorBoundary.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
@@ -85,6 +86,42 @@ function Footer() {
   return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><TextLink to="/privacy">Privacy</TextLink></div></footer>;
 }
 
+function useServiceDown() {
+  const [down, setDown] = useState(isServiceDown);
+  useEffect(() => {
+    const update = () => setDown(isServiceDown());
+    window.addEventListener("bookvane:unavailable", update);
+    window.addEventListener("bookvane:available", update);
+    return () => { window.removeEventListener("bookvane:unavailable", update); window.removeEventListener("bookvane:available", update); };
+  }, []);
+  return down;
+}
+
+// Shown while the API or its database can't be reached. It checks again every 30 seconds and
+// disappears on its own; the account check is retried once Bookvane is back.
+function ServiceStatus() {
+  const auth = useAuth();
+  const [checking, setChecking] = useState(false);
+  const check = async () => {
+    setChecking(true);
+    const back = await checkService();
+    setChecking(false);
+    if (back && auth.sessionError) auth.retrySession();
+  };
+  const latestCheck = useRef(check);
+  latestCheck.current = check;
+  useEffect(() => {
+    const recheck = () => latestCheck.current();
+    const timer = setInterval(recheck, 30_000);
+    window.addEventListener("online", recheck);
+    return () => { clearInterval(timer); window.removeEventListener("online", recheck); };
+  }, []);
+  return <div className="bv-container"><div className="bv-notice bv-notice--error bv-service-notice">
+    <p role="status"><strong>Bookvane is having trouble on our end.</strong> Your books and notes are safe. Some pages may not load and saving is paused for now. This message will go away by itself once we’re back.</p>
+    <Button variant="secondary" onClick={check} disabled={checking}>{checking ? "Checking…" : "Check again"}</Button>
+  </div></div>;
+}
+
 function SessionStatus() {
   const auth = useAuth();
   const [slow, setSlow] = useState(false);
@@ -157,6 +194,7 @@ function RouteEffects() {
 }
 
 function Shell() {
+  const serviceDown = useServiceDown();
   const reader = useReader();
   const location = useLocation();
   const auth = useAuth();
@@ -169,7 +207,7 @@ function Shell() {
   const notFound = <section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>;
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
-    <main id="bv-main" tabIndex={-1}><SessionStatus /><div className="bv-container"><LibraryWarning /></div>
+    <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
         <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
