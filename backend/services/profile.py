@@ -151,7 +151,8 @@ def owned_list(db: Session, user_id, list_id: int) -> ReadingList:
     return item
 
 
-def my_lists(db: Session, user_id) -> list[dict]:
+def my_lists(db: Session, user_id, book_id: int | None = None) -> list[dict]:
+    """The reader's lists. With book_id, each row also says whether that book is already in it (for "Add to list")."""
     lists = db.scalars(select(ReadingList).where(ReadingList.user_id == user_id)
                        .order_by(ReadingList.created_at, ReadingList.id)).all()
     counts = dict(db.execute(select(ReadingListItem.list_id, func.count()).where(
@@ -164,7 +165,13 @@ def my_lists(db: Session, user_id) -> list[dict]:
     for list_id, url in db.execute(select(ranked.c.list_id, ranked.c.cover_image_url).where(ranked.c.n <= 3)
                                    .order_by(ranked.c.list_id, ranked.c.n)):
         covers.setdefault(list_id, []).append(url)
-    return [_list_row(item, book_count=counts.get(item.id, 0), covers=covers.get(item.id, [])) for item in lists]
+    rows = [_list_row(item, book_count=counts.get(item.id, 0), covers=covers.get(item.id, [])) for item in lists]
+    if book_id is not None:
+        holding = set(db.scalars(select(ReadingListItem.list_id).where(
+            ReadingListItem.list_id.in_([item.id for item in lists]), ReadingListItem.book_id == book_id)))
+        for row in rows:
+            row["has_book"] = row["id"] in holding
+    return rows
 
 
 def create_list(db: Session, user: User, name, description, is_public) -> dict:

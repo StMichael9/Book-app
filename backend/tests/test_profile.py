@@ -200,6 +200,11 @@ def test_list_crud_add_remove_order_and_cross_reader_404(world):
     assert [b["id"] for b in world.client.get(f"/me/lists/{lid}").json()["books"]] == ids
     summary = world.client.get("/me/lists").json()[0]
     assert summary["book_count"] == 3 and len(summary["covers"]) <= 3
+    assert "has_book" not in summary
+    second = world.client.post("/me/lists", json={"name": "Empty"}).json()["id"]
+    flags = {row["id"]: row["has_book"] for row in world.client.get(f"/me/lists?book_id={ids[0]}").json()}
+    assert flags == {lid: True, second: False}
+    assert world.client.delete(f"/me/lists/{second}").status_code == 204
     assert world.client.put(f"/me/lists/{lid}/order", json={"book_ids": ids[::-1]}).status_code == 204
     assert [b["id"] for b in world.client.get(f"/me/lists/{lid}").json()["books"]] == ids[::-1]
     for bad in (ids[:2], ids + [ids[0]], ids[:2] + [999999999]):
