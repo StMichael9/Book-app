@@ -41,6 +41,7 @@ const test = base.extend({
       state.requests.push({ path, method, body, query: url.searchParams });
       const reply = (status, json, headers) => route.fulfill({ status, json, headers });
       if (path === "/me/reading-capabilities") return reply(200, { enabled: false, contract_version: 1 });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") {
         const denied = !state.authenticated || state.refreshFails;
         if (state.holdRefresh) await state.holdRefresh;
