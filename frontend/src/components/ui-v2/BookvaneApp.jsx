@@ -78,6 +78,9 @@ function LandingRoute() {
   // A guest sees the public books at once while the account check runs. A reader who was signed in last time is about to
   // be sent Home, so they keep the short opening screen instead of seeing the guest page flash first.
   const [wasSignedIn] = useState(likelySignedIn);
+  const serviceDown = useServiceDown();
+  // During an outage the banner above says everything; an endless "Opening Bookvane…" under it would only look broken.
+  if (serviceDown || auth.sessionError) return null;
   if ((auth.isLoading && wasSignedIn) || (auth.isAuthenticated && library.loading)) return <section className="bv-container bv-landing-loading" aria-busy="true"><p role="status">Opening Bookvane…</p><BookSkeletons count={3} /></section>;
   return library.readingActions ? <Navigate to="/home" replace /> : <WelcomePage />;
 }
