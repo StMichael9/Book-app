@@ -73,6 +73,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
       app.errors.push(`Unhandled API: ${path}`); return reply(500, {});
     });
     await provide(app); expect(app.errors).toEqual([]);
@@ -103,11 +104,12 @@ test("slow startup explains the wait without parallel refreshes or a navigation 
 test("unreachable startup keeps private data gated and retries without navigation", async ({ page, app }) => {
   app.refreshNetworkFails = true;
   await page.goto("/my-books");
-  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+  // An unreachable server is an outage: the calm banner replaces the account-check panel.
+  await expect(page.getByText("Bookvane is having trouble on our end.")).toBeVisible();
   await expect(page).toHaveURL(/\/my-books$/);
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
   app.refreshNetworkFails = false;
-  await page.getByRole("button", { name: "Try account check again" }).click();
+  await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
   expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(2);
@@ -116,13 +118,13 @@ test("unreachable startup keeps private data gated and retries without navigatio
 test("startup server errors offer retry; genuine expiry returns to sign in", async ({ page, app }) => {
   app.refreshStatus = 503;
   await page.goto("/preferences");
-  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toBeVisible();
+  await expect(page.getByText("Bookvane is having trouble on our end.")).toBeVisible();
   expect(app.requests.filter(r => r.path === "/me/preferences")).toHaveLength(0);
   app.refreshStatus = null; app.authenticated = false;
-  await page.getByRole("button", { name: "Try account check again" }).click();
+  await page.getByRole("button", { name: "Check again" }).click();
   await expect(page).toHaveURL(/\/login\?returnTo=/);
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "We couldn’t check your account." })).toHaveCount(0);
+  await expect(page.getByText("Bookvane is having trouble on our end.")).toHaveCount(0);
 });
 
 test("a stalled startup has a finite deadline and a safe retry", async ({ page, app }) => {

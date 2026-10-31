@@ -118,7 +118,7 @@ function ServiceStatus() {
   }, []);
   return <div className="bv-container"><div className="bv-notice bv-notice--error bv-service-notice">
     <p role="status"><strong>Bookvane is having trouble on our end.</strong> Your books and notes are safe. Some pages may not load and saving is paused for now. This message will go away by itself once we’re back.</p>
-    <Button variant="secondary" onClick={check} disabled={checking}>{checking ? "Checking…" : "Try again"}</Button>
+    <Button variant="secondary" onClick={check} disabled={checking}>{checking ? "Checking…" : "Check again"}</Button>
   </div></div>;
 }
 

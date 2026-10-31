@@ -31,7 +31,7 @@ for (const mode of ["503", "network"]) {
     await expect(page.getByText("We couldn’t check your account.")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/50[234]|quota|Request failed/);
     state.mode = "ok";
-    await page.getByRole("button", { name: "Try again" }).click();
+    await page.getByRole("button", { name: "Check again" }).click();
     await expect(banner).toHaveCount(0);
     expect(errors).toEqual([]);
   });
