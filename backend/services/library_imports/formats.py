@@ -6,6 +6,7 @@ cells. Unsupported or ambiguous values are disclosed, never silently inferred.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 import unicodedata
@@ -19,7 +20,7 @@ ADAPTER_VERSION = 1
 FIELDS = (
     "record_id", "title", "author", "isbn13", "isbn10", "work_source_id",
     "status", "owned", "wanted", "date_added", "started_on", "finished_on",
-    "attempt_id", "rating", "review", "private_note", "labels", "format",
+    "attempt_id", "rating", "review", "private_note", "description", "labels", "format",
     "page_count", "read_count", "dates_read", "version", "csv_escaped_fields",
 )
 BOOKVANE_HEADERS = tuple(field for field in FIELDS if field not in ("read_count", "dates_read"))
@@ -49,8 +50,10 @@ ALIASES = {
     "owned": ("owned", "own", "owned?"), "wanted": ("wanted", "want"),
     "started_on": ("started on", "date started", "start date", "started_on"),
     "finished_on": ("finished on", "date read", "end date", "finished_on"),
+    "description": ("description", "summary", "synopsis", "blurb", "book description"),
     **{field: (field, field.replace("_", " ")) for field in FIELDS
-       if field not in ("title", "author", "isbn13", "isbn10", "status", "owned", "wanted", "started_on", "finished_on")},
+       if field not in ("title", "author", "isbn13", "isbn10", "status", "owned", "wanted", "started_on", "finished_on",
+                        "description")},
 }
 STATUSES = {
     "to-read": "want", "to read": "want", "want": "want", "want to read": "want",
@@ -62,6 +65,18 @@ STATUSES = {
 
 class FormatError(ValueError):
     """Stable, non-sensitive error code suitable for a response."""
+
+
+MAX_DESCRIPTION = 5000
+_BREAKS = re.compile(r"(?i)<\s*(br|/p|/div|/li)\b[^>]*>")
+_TAGS = re.compile(r"<[^>]*>")
+
+
+def clean_description(value: str) -> str:
+    """Plain text from a spreadsheet's description cell: HTML tags removed, entities decoded, trimmed to 5,000 characters."""
+    text = html.unescape(_TAGS.sub("", _BREAKS.sub("\n", value)))
+    text = "\n".join(" ".join(line.split()) for line in text.splitlines())
+    return re.sub(r"\n{3,}", "\n\n", text).strip()[:MAX_DESCRIPTION].strip()
 
 
 def canonical(value: str) -> str:
@@ -261,7 +276,7 @@ def normalize_row(source: str, headers: list[str], mapping: dict[str, int], cell
         if type(labels) is not list or len(labels) > 100 or any(type(label) is not str or not label.strip() or len(label) > 120 for label in labels):
             raise FormatError("invalid_or_oversized_labels")
         labels = list(dict.fromkeys(labels))
-    context = {key: value for key, value in raw.items() if key not in ("title", "author", "record_id", "version", "attempt_id", "csv_escaped_fields")}
+    context = {key: value for key, value in raw.items() if key not in ("title", "author", "record_id", "version", "attempt_id", "csv_escaped_fields", "description")}
     context.update({"rating": rating, "rating_scale": "5", "labels": labels})
     if raw.get("rating"):
         context["reported_rating"] = raw["rating"]
@@ -299,7 +314,8 @@ def normalize_row(source: str, headers: list[str], mapping: dict[str, int], cell
     # Weak keys combine bibliographic fields, not ISBN alone: different source
     # records/editions may repeat an identifier. Collisions are reviewed later.
     record_key = digest({"id": identity}) if identity else digest({"title": canonical(title), "author": canonical(author), "isbns": sorted(valid_isbns)})
-    result = {"title": title, "author": author, "isbns": sorted(valid_isbns), "work_source_id": work,
+    description = clean_description(raw["description"]) if raw.get("description") else ""
+    result = {"title": title, "author": author, "description": description, "isbns": sorted(valid_isbns), "work_source_id": work,
               "record_key": record_key, "strong_key": bool(identity), "status": status,
               "is_owned": owned, "is_wanted": wanted, "events": [event] if event else [],
               "context": context, "warnings": list(dict.fromkeys(warnings))}

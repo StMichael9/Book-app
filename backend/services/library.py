@@ -71,7 +71,7 @@ def entry_dto(entry, state=None, *, detail=False):
             cover_image_url=book.cover_image_url, page_count=book.page_count, isbn13=book.isbn13, english_title=book.english_title,
             authors=[dict(id=author.id, name=author.name) for author in book.authors]),
         private_title=entry.private_title, private_author=entry.private_author,
-        private_catalogue=entry.private_catalogue,
+        private_description=entry.private_description, private_catalogue=entry.private_catalogue,
         is_owned=entry.is_owned, is_wanted=entry.is_wanted, version=entry.version,
         reading_state=state, created_at=entry.created_at, updated_at=entry.updated_at,
     )
