@@ -20,15 +20,17 @@ async function mockApi(page, baseURL, state) {
   });
 }
 
-for (const mode of ["503", "network"]) {
-  test(`a ${mode} outage shows one calm banner that clears when the API is back`, async ({ page, baseURL }) => {
+for (const mode of ["503", "network"]) for (const start of ["/browse", "/"]) {
+  test(`a ${mode} outage on ${start} shows one calm banner that clears when the API is back`, async ({ page, baseURL }) => {
     const state = { mode }, errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await mockApi(page, baseURL, state);
-    await page.goto("/browse");
+    if (start === "/") await page.addInitScript(() => localStorage.setItem("bookvane:session-hint:v1", "1"));
+    await page.goto(start);
     const banner = page.getByText("Bookvane is having trouble on our end.");
     await expect(banner).toBeVisible();
     await expect(page.getByText("We couldn’t check your account.")).toHaveCount(0);
+    await expect(page.getByText("Opening Bookvane…")).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText(/50[234]|quota|Request failed/);
     state.mode = "ok";
     await page.getByRole("button", { name: "Check again" }).click();
