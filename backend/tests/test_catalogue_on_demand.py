@@ -505,3 +505,28 @@ def test_promoted_books_get_existing_tags_from_subjects_and_never_new_ones(world
         source_id="/works/OL9003W", title="Subjectless", isbns=["9780140449136"])).work)
     world.db.commit()
     assert world.db.get(world.models.Book, plain).tags == []
+
+
+def test_an_unknown_isbn_falls_back_to_title_and_author_search(world, ol):
+    from services.catalogue_resolver import resolve
+    ol.routes = {"/search.json": {"docs": [{**doc("/works/OL1W"), "isbn": []}]}, "/works/OL1W.json": work_json(description="Found.")}
+    result = resolve(world.db, isbn="9780306406157", title="Orphan X", author="Gregg Hurwitz")
+    assert result.work["source_id"] == "/works/OL1W" and result.confidence == "title_author"
+    assert [call[0] for call in ol.calls][0] == "/isbn/9780306406157.json"
+    assert resolve(world.db, isbn="9780306406157").work is None  # without a title and author there is nothing to search
+
+
+def test_missing_pages_cover_and_year_come_from_one_search_of_the_matching_work(world, ol):
+    from services.catalogue_resolver import resolve
+    edition = {"key": "/books/OL77M", "works": [{"key": "/works/OL77W"}]}  # no number_of_pages, no covers
+    ol.routes = {"/isbn/9780306406157.json": edition, "/works/OL77W.json": work_json(description="Text.", covers=(), date=""),
+                 "/authors/OL90001A.json": {"name": "Gregg Hurwitz"},
+                 "/search.json": {"docs": [{**doc("/works/OL77W"), "number_of_pages_median": 512, "cover_i": 9, "first_publish_year": 2011}]}}
+    work = resolve(world.db, isbn="9780306406157").work
+    assert work["page_count"] == 512 and work["cover_image_url"].endswith("9-L.jpg") and work["published_year"] == 2011
+    assert [call[0] for call in ol.calls].count("/search.json") == 1
+    ol.calls.clear()
+    ol.routes["/isbn/9780306406157.json"] = {**edition, "number_of_pages": 300, "covers": [5]}
+    ol.routes["/works/OL77W.json"] = work_json(description="Text.", covers=(5,), date="2011")
+    resolve(world.db, isbn="9780306406157")
+    assert "/search.json" not in [call[0] for call in ol.calls]  # nothing missing, so no extra call

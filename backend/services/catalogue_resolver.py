@@ -169,8 +169,16 @@ def _by_isbn(db: Session, isbn: str, title, author) -> Resolution:
             "page_count": clean.page_count(edition.get("number_of_pages")),
             "isbns": list(dict.fromkeys([isbn, *isbns])), "edition_key": clean._text(edition.get("key")),
             "subjects": [s for s in work_json.get("subjects") or [] if isinstance(s, str)]}
-    if not work["description"] and work["title"] and names:
-        work["description"] = _description_from_siblings(work["title"], names[0], skip=key)
+    if work["title"] and names and (not work["description"] or not work["page_count"] or not work["cover_image_url"]
+                                    or not work["published_year"]):
+        docs = _search_docs(work["title"], names[0])  # one search serves the missing page count, cover and description
+        same = next((doc for doc in docs if doc["key"] == key), docs[0] if docs else None)
+        if same:
+            work["page_count"] = work["page_count"] or clean.page_count(same.get("number_of_pages_median"))
+            work["cover_image_url"] = work["cover_image_url"] or clean.cover_url(same.get("cover_i"))
+            work["published_year"] = work["published_year"] or clean.year(same.get("first_publish_year"))
+        if not work["description"]:
+            work["description"] = _description_from_siblings(work["title"], names[0], skip=key, docs=docs)
     return Resolution(work=work, ol_description=work["description"], confidence="isbn")
 
 
@@ -184,9 +192,9 @@ def _search_docs(title: str, author: str) -> list[dict]:
             and author_names_match(author, doc.get("author_name") or [])][:MAX_CANDIDATES]
 
 
-def _description_from_siblings(title: str, author: str, skip: str | None = None) -> str | None:
+def _description_from_siblings(title: str, author: str, skip: str | None = None, docs: list | None = None) -> str | None:
     """Open Library often keeps the description on only one of several works for the same book."""
-    for doc in _search_docs(title, author):
+    for doc in _search_docs(title, author) if docs is None else docs:
         if doc["key"] == skip:
             continue
         if text := _work_description(ol_get(f"{doc['key']}.json")):
@@ -224,7 +232,10 @@ def resolve(db: Session, isbn: str | None = None, title: str | None = None, auth
     if found := _from_neon(db, isbn, title, author):
         return found
     if isbn:
-        return _by_isbn(db, isbn, title, author)
+        found = _by_isbn(db, isbn, title, author)
+        if found.book_id is None and found.work is None and title and author:
+            return _by_search(db, title, author)  # Open Library often does not know this particular edition
+        return found
     if title and author:
         return _by_search(db, title, author)
     return Resolution()
