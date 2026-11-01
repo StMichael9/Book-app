@@ -6,7 +6,7 @@ from sqlalchemy.orm import joinedload, Session
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import catalogue_cache, search
+from services import catalogue_cache, google_books, search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
 
@@ -85,10 +85,14 @@ def get_books(
 @router.get("/books/{book_id}/description")
 def book_description(book_id: int, response: Response, db: Session = Depends(get_db)):
     """A catalogue book's description (Open Library data), separate so cards and lists stay light."""
-    row = db.execute(select(Book.description).where(Book.id == book_id)).first()
-    if row is None:
+    book = db.execute(select(Book).options(joinedload(Book.authors)).where(Book.id == book_id)).unique().scalar_one_or_none()
+    if book is None:
         raise HTTPException(status_code=404, detail="Book not found")
-    text = row[0].strip() if row[0] and row[0].strip() else None
+    text = book.description.strip() if book.description and book.description.strip() else None
+    if text is None and (google := google_books.description_for(
+            book.isbn13, book.title, book.authors[0].name if book.authors else None)):
+        response.headers["Cache-Control"] = "private, no-store"  # Google text is never cached beyond the server's memory
+        return {"text": google["text"], "source": "google", "link": google["link"]}
     response.headers["Cache-Control"] = PUBLIC_CACHE
     return {"text": text, "source": "openlibrary" if text else None}
 

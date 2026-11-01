@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     catalogue_user_agent: str = Field(default="Bookvane (https://bookvane.me)", alias="CATALOGUE_USER_AGENT")
     catalogue_promote_daily_cap: int = Field(default=2000, ge=0, alias="CATALOGUE_PROMOTE_DAILY_CAP")
     catalogue_worker_enabled: bool = Field(default=True, alias="CATALOGUE_WORKER_ENABLED")
+    google_books_api_key: SecretStr | None = Field(default=None, alias="GOOGLE_BOOKS_API_KEY")
+    google_books_enabled: bool = Field(default=False, alias="GOOGLE_BOOKS_ENABLED")
     external_catalogue_enabled: bool = Field(default=False, alias="EXTERNAL_CATALOGUE_ENABLED")
     external_catalogue_token: SecretStr | None = Field(default=None, alias="EXTERNAL_CATALOGUE_TOKEN")
     library_import_max_database_mb: int = Field(default=800, ge=100, le=800, alias="LIBRARY_IMPORT_MAX_DATABASE_MB")

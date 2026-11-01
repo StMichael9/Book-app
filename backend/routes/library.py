@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -7,9 +7,10 @@ from starlette.background import BackgroundTask
 
 from auth.dependencies import get_current_user
 from database import engine, get_db, settings
-from models import Book, User, UserBook
+from models import Author, Book, User, UserBook, book_authors
 from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
+from services import google_books
 from services.library import LibraryService, library_needs_v3, reading_enabled, require_reading
 from services.reading import ReadingService
 
@@ -91,11 +92,18 @@ def library_csv(request: Request, current_user: User = Depends(reading_user), db
 def entry_description(request: Request, entry_id: int, current_user: User = Depends(reading_user),
                       db: Session = Depends(get_db)):
     """The text to show for a saved book: the catalogue's (Open Library) or, failing that, the reader's own."""
-    row = db.execute(select(UserBook.private_description, Book.description).outerjoin(Book, Book.id == UserBook.book_id)
+    row = db.execute(select(UserBook.private_description, Book.description, UserBook.private_title, UserBook.private_author,
+                            Book.title, Book.isbn13, UserBook.book_id).outerjoin(Book, Book.id == UserBook.book_id)
                      .where(UserBook.id == entry_id, UserBook.user_id == current_user.id)).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Not found")
     own, catalogue = (row[0] or "").strip(), (row[1] or "").strip()
+    if not catalogue and not own:
+        author = row[3] or (db.scalar(select(Author.name).join(book_authors, book_authors.c.author_id == Author.id)
+                                      .where(book_authors.c.book_id == row[6]).order_by(Author.id).limit(1)) if row[6] else None)
+        if google := google_books.description_for(row[5], row[4] or row[2], author):
+            return JSONResponse({"text": google["text"], "source": "google", "link": google["link"]},
+                                headers={"Cache-Control": "private, no-store"})
     return {"text": catalogue or own or None, "source": "openlibrary" if catalogue else None}
 
 

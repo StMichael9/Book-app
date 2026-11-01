@@ -226,6 +226,17 @@ def _by_search(db: Session, title: str, author: str) -> Resolution:
     return Resolution(work=work, ol_description=description, confidence="title_author")
 
 
+def _google_tier(db: Session, title: str, author: str) -> Resolution:
+    """Tier 4: Google Books may know the ISBN; only that ISBN is used, and Open Library supplies the book."""
+    from services import google_books
+    isbn = google_books.isbn_for(title, author)
+    if not isbn:
+        return Resolution()
+    if book_id := book_for_isbn(db, isbn):
+        return Resolution(book_id=book_id, confidence="isbn")
+    return _by_isbn(db, isbn, title, author)
+
+
 def resolve(db: Session, isbn: str | None = None, title: str | None = None, author: str | None = None) -> Resolution:
     """Neon first, then Open Library. An ISBN match is sure; title + author needs the same title and author surname."""
     isbn = clean.isbn13(isbn) if isbn else None
@@ -234,8 +245,13 @@ def resolve(db: Session, isbn: str | None = None, title: str | None = None, auth
     if isbn:
         found = _by_isbn(db, isbn, title, author)
         if found.book_id is None and found.work is None and title and author:
-            return _by_search(db, title, author)  # Open Library often does not know this particular edition
+            found = _by_search(db, title, author)  # Open Library often does not know this particular edition
+            if found.book_id is None and found.work is None:
+                return _google_tier(db, title, author)
         return found
     if title and author:
-        return _by_search(db, title, author)
+        found = _by_search(db, title, author)
+        if found.book_id is None and found.work is None:
+            return _google_tier(db, title, author)
+        return found
     return Resolution()
