@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     reading_v3_enabled: bool = Field(default=False, alias="READING_V3_ENABLED")
     reading_v3_user_ids: str = Field(default="", alias="READING_V3_USER_IDS")
     admin_emails: str = Field(default="", alias="ADMIN_EMAILS")
-    catalogue_user_agent: str = Field(default="Bookvane (support@bookvane.example)", alias="CATALOGUE_USER_AGENT")
+    catalogue_user_agent: str = Field(default="Bookvane (https://bookvane.me)", alias="CATALOGUE_USER_AGENT")
     catalogue_promote_daily_cap: int = Field(default=2000, ge=0, alias="CATALOGUE_PROMOTE_DAILY_CAP")
     catalogue_worker_enabled: bool = Field(default=True, alias="CATALOGUE_WORKER_ENABLED")
     external_catalogue_enabled: bool = Field(default=False, alias="EXTERNAL_CATALOGUE_ENABLED")
