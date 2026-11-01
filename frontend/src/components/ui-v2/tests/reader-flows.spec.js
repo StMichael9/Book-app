@@ -71,6 +71,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await runFixture(state); expect(state.errors).toEqual([]);
@@ -157,7 +158,7 @@ test("save confirmation waits for the API and shelf moves update the shared libr
 test("failed writes retain the prior status and offer a real retry", async ({ page, app }) => {
   app.authenticated = true; app.mutationFails = true; await page.goto("/book/1"); const button = page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }); await expect(button).toBeEnabled(); await button.click();
   await expect(page.getByRole("alert")).toContainText("couldn’t be saved"); await expect(button).toHaveAttribute("aria-pressed", "false");
-  app.mutationFails = false; await button.click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
+  app.mutationFails = false; await page.getByRole("button", { name: "Check again" }).click(); await button.click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("initial library load blocks writes and failures do not imply an empty shelf", async ({ page, app }) => {
@@ -325,6 +326,7 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page.getByRole("button", { name: "Retry save" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(1);
   app.mutationFails = false;
+  await page.getByRole("button", { name: "Check again" }).click();
   await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
   await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" })).toHaveAttribute("aria-pressed", "true");
   await expect(page).not.toHaveURL(/save=/);

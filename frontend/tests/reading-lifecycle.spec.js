@@ -328,7 +328,7 @@ test("editorial workspace private books never request public metadata", async ({
   app.entries.set(101, makeEntry(101, "reading", true));
   await page.goto("/my-books/101");
   await expect(page.getByRole("heading", { name: "Private fixture 101", exact: true })).toBeVisible();
-  await expect(page.getByText("No description is available for this private book.", { exact: false })).toBeVisible();
+  await expect(page.getByText("No description", { exact: false })).toHaveCount(0);
   expect(app.requests.filter(r => r.path.startsWith("/books/"))).toHaveLength(0);
 });
 

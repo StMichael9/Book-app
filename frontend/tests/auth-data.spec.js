@@ -151,6 +151,8 @@ test("a refresh outage does not silently sign out or overwrite a saved shelf", a
   app.expireNext = true; app.refreshNetworkFails = true;
   await own.click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
+  await expect(own).toBeDisabled();
+  await page.getByRole("button", { name: "Check again" }).click();
   await expect(own).toBeEnabled();
   await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove Browser-only book from Want to read" })).toBeVisible();
