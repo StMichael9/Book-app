@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from data import clean
 from data.staging import DERIVATIVE_PATTERN
 from database import settings
-from models import Author, Book, CatalogueImportIssue, Edition, EditionISBN, book_authors
+from models import Author, Book, CatalogueImportIssue, Edition, EditionISBN, Tag, TagType, book_authors, book_tags
 from services import catalogue_cache
 from services.catalogue_resolver import (
     author_names_match, book_for_isbn, book_for_work_key, books_for_title,
@@ -145,5 +145,21 @@ def promote(db: Session, work: dict) -> int:
             db.add(EditionISBN(edition_id=edition.id, isbn13=isbn))
         db.flush()
         book.preferred_edition_id = edition.id
+    _link_tags(db, book.id, work)
     catalogue_cache.clear()
     return book.id
+
+
+def _link_tags(db: Session, book_id: int, work: dict) -> None:
+    """Tags come from the same subject mapping as the bulk import, and only ever link tags that already exist."""
+    normalized = clean.normalize_work({
+        "key": work["source_id"], "title": work["title"], "subjects": work.get("subjects") or [],
+        "authors": [{"author": {"key": key}} for key in (work.get("author_keys") or ["/authors/OL1A"])]})
+    if not normalized or not normalized["tags"]:
+        return
+    wanted = {tag["name"].casefold(): TagType(tag["type"]) for tag in normalized["tags"]}
+    rows = db.execute(select(Tag.id, Tag.name, Tag.type).where(func.lower(Tag.name).in_(wanted))).all()
+    links = [{"book_id": book_id, "tag_id": tag_id, "source_managed": True}
+             for tag_id, name, tag_type in rows if wanted.get(name.casefold()) == tag_type]
+    if links:
+        db.execute(book_tags.insert().values(links))

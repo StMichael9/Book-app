@@ -167,7 +167,8 @@ def _by_isbn(db: Session, isbn: str, title, author) -> Resolution:
             "cover_image_url": next((url for item in covers if (url := clean.cover_url(item))), None),
             "published_year": clean.year(work_json.get("first_publish_date")) or clean.year(edition.get("publish_date")),
             "page_count": clean.page_count(edition.get("number_of_pages")),
-            "isbns": list(dict.fromkeys([isbn, *isbns])), "edition_key": clean._text(edition.get("key"))}
+            "isbns": list(dict.fromkeys([isbn, *isbns])), "edition_key": clean._text(edition.get("key")),
+            "subjects": [s for s in work_json.get("subjects") or [] if isinstance(s, str)]}
     if not work["description"] and work["title"] and names:
         work["description"] = _description_from_siblings(work["title"], names[0], skip=key)
     return Resolution(work=work, ol_description=work["description"], confidence="isbn")
@@ -176,7 +177,7 @@ def _by_isbn(db: Session, isbn: str, title, author) -> Resolution:
 def _search_docs(title: str, author: str) -> list[dict]:
     data = ol_get("/search.json", {"title": title, "author": author, "limit": 10,
                                    "fields": "key,title,author_name,author_key,first_publish_year,cover_i,"
-                                             "number_of_pages_median,isbn"})
+                                             "number_of_pages_median,isbn,subject"})
     wanted = norm_title(title)
     return [doc for doc in (data or {}).get("docs", [])
             if isinstance(doc, dict) and clean.work_key(doc.get("key")) and norm_title(doc.get("title") or "") == wanted
@@ -212,7 +213,8 @@ def _by_search(db: Session, title: str, author: str) -> Resolution:
             "author_keys": [key for key in best.get("author_key") or [] if isinstance(key, str)],
             "description": description, "cover_image_url": clean.cover_url(best.get("cover_i")),
             "published_year": clean.year(best.get("first_publish_year")),
-            "page_count": clean.page_count(best.get("number_of_pages_median")), "isbns": isbns, "edition_key": None}
+            "page_count": clean.page_count(best.get("number_of_pages_median")), "isbns": isbns, "edition_key": None,
+            "subjects": [s for s in best.get("subject") or [] if isinstance(s, str)][:100]}
     return Resolution(work=work, ol_description=description, confidence="title_author")
 
 

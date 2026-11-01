@@ -490,3 +490,18 @@ def test_migration_follows_profile_v1():
     import pathlib
     path = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "b8e5f1c7d204_catalogue_on_demand.py"
     assert "down_revision = 'a7d4e2b9c683'" in path.read_text(encoding="utf-8")
+
+
+def test_promoted_books_get_existing_tags_from_subjects_and_never_new_ones(world):
+    from services import catalogue_gate
+    before = world.db.scalar(select(world.models.Tag.id).order_by(world.models.Tag.id.desc()).limit(1))
+    work = good_work(subjects=["Fantasy fiction", "A subject nobody mapped", "Horror tales"])
+    book_id = catalogue_gate.promote(world.db, catalogue_gate.vet(world.db, work).work)
+    world.db.commit()
+    names = {t.name for t in world.db.get(world.models.Book, book_id).tags}
+    assert "fantasy" in names and names <= {"fantasy", "horror", "magic", "epic", "gothic", "humor"}
+    assert world.db.scalar(select(world.models.Tag.id).order_by(world.models.Tag.id.desc()).limit(1)) == before  # none created
+    plain = catalogue_gate.promote(world.db, catalogue_gate.vet(world.db, good_work(
+        source_id="/works/OL9003W", title="Subjectless", isbns=["9780140449136"])).work)
+    world.db.commit()
+    assert world.db.get(world.models.Book, plain).tags == []
