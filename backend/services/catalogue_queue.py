@@ -76,6 +76,22 @@ def link_waiters(db: Session, lookup: CatalogueLookup, book_id: int, only_entry:
     return linked
 
 
+def enrichment(db: Session, user_id, run_id) -> dict | None:
+    """Progress of the book look-ups started by one import: {pending, upgraded}, or None when the run is not the reader's."""
+    from library_import_models import LibraryImportRow as Row, LibraryImportRun as Run
+    if db.scalar(select(Run.id).where(Run.id == run_id, Run.user_id == user_id)) is None:
+        return None
+    rows = db.execute(
+        select(UserBook.id, UserBook.book_id, CatalogueLookup.status).select_from(Row)
+        .join(UserBook, UserBook.id == Row.result_entry_id)
+        .join(CatalogueLookupWaiter, CatalogueLookupWaiter.user_book_id == UserBook.id)
+        .join(CatalogueLookup, CatalogueLookup.id == CatalogueLookupWaiter.lookup_id)
+        .where(Row.run_id == run_id, Row.user_id == user_id, Row.disposition == "applied").distinct()).all()
+    upgraded = {entry_id for entry_id, book_id, _ in rows if book_id is not None}
+    pending = {entry_id for entry_id, book_id, status in rows if book_id is None and status in ("queued", "failed")}
+    return {"pending": len(pending), "upgraded": len(upgraded)}
+
+
 def _retry(db: Session, lookup: CatalogueLookup, now: datetime) -> str:
     lookup.attempts += 1
     if lookup.attempts > len(BACKOFF_SECONDS):
