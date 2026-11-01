@@ -87,3 +87,10 @@
 
 .bv-import-link { flex-direction: column; gap: 2px; }
 .bv-import-link > span { font-size: .75rem; font-weight: 400; }
+
+/* One line under the author on a My Books card: the reader's own reason (italic) or the start of the description. */
+.bv-root .bv-card-line { margin: 4px 0 6px; font-size: 0.875rem; line-height: 1.4; color: var(--bv-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; overflow-wrap: anywhere; }
+.bv-root .bv-card-line--reason { font-style: italic; color: var(--bv-ink); }
+.bv-root .bv-why { margin: 12px 0; max-width: 420px; }
+.bv-root .bv-why textarea { width: 100%; font: inherit; }
+.bv-root .bv-why .bv-editor-caption { display: block; margin: 4px 0 8px; color: var(--bv-muted); }

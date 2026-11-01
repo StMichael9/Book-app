@@ -25,6 +25,8 @@ export function ReaderProvider({ children }) {
   const [message, setMessage] = useState("");
   const [busyIds, setBusyIds] = useState([]);
   const busy = useRef(new Set());
+  // The entry the last Want / Own add returned, so a page can offer the one-time "why" prompt without another request.
+  const lastSave = useRef(null);
   const [saveErrors, setSaveErrors] = useState({});
   const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
   const [preferencesVersion, setPreferencesVersion] = useState(0);
@@ -87,7 +89,8 @@ export function ReaderProvider({ children }) {
         await library.clearStatus(book.id, status);
         if (generation === session.current && authenticated.current) announce(library.mode === "v3" ? `Removed from ${status === "owned" ? "Owned" : "Want to read"}. Your other saved information is unchanged.` : "Removed from your library.");
       } else {
-        await library.updateStatus(book.id, status);
+        const saved = await library.updateStatus(book.id, status);
+        lastSave.current = { bookId: book.id, status, entry: saved };
         if (generation === session.current && authenticated.current) announce(`Added to ${status === "owned" ? "Owned" : "Want to read"}.`);
       }
       return generation === session.current && authenticated.current;
@@ -102,7 +105,7 @@ export function ReaderProvider({ children }) {
   }
 
   return <ReaderContext.Provider value={{
-    theme, setTheme, gate, setGate, message, announce, saveBook, busyIds, saveErrors,
+    theme, setTheme, gate, setGate, message, announce, saveBook, lastSave, busyIds, saveErrors,
     libraryReady, preferencesVersion,
     // A completed write still invalidates discovery after leaving Preferences,
     // but a callback captured by a departed account cannot publish to its successor.

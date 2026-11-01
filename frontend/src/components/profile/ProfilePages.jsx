@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, ChevronLeft, Globe, Lock, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronLeft, Globe, Lock, Plus } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { coverSrc } from "../../api/coverUrl.js";
 import { createList, deleteList, getList, getLists, getPublicList, getPublicProfile, getStats, orderList, removeListBook, updateList } from "../../api/profile.js";
@@ -348,7 +348,7 @@ export function ProfilePrompt() {
   }
   return <NativeDialog open={open} onClose={() => !pending && finish({})} title="Let friends find you?" className="bv-profile-sheet" focusTitle>
     <p>A public profile lets people see your reading year and the lists you choose to share.</p>
-    <ul className="bv-sheet-facts"><li><span aria-hidden="true">✓</span>Shown: your name, bio, yearly stats, and shared lists</li><li><Lock aria-hidden="true" />Always private: notes, ratings, reading history, and private lists</li></ul>
+    <ul className="bv-sheet-facts"><li><Check aria-hidden="true" />Shown: your name, bio, yearly stats, and shared lists</li><li><Lock aria-hidden="true" />Always private: notes, ratings, reading history, and private lists</li></ul>
     {asking && <form onSubmit={makePublic}><HandleField id="bv-sheet-handle" value={handle} error={error} onChange={setHandle} /></form>}
     {error && !asking && <p className="bv-field-error" role="alert">{error}</p>}
     <div className="bv-sheet-actions"><Button disabled={pending} className="bv-full-width" onClick={() => finish({})}>Keep my profile private</Button>
