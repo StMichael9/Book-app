@@ -299,9 +299,10 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                         with factory.begin() as session:
                             _select_works(session, config)
                             if config.popular:
-                                # Selection is done: ordering inputs are no longer needed, and merge never reads them.
+                                # Selection is done: the ordering inputs are no longer needed. The (small) popularity
+                                # scores of the chosen works stay: merge copies them onto books.popularity.
                                 session.execute(text("TRUNCATE catalogue_stage_candidates, "
-                                                     "catalogue_stage_author_counts, catalogue_stage_popularity"))
+                                                     "catalogue_stage_author_counts"))
                     elif phase == "merge" and config.dry_run:
                         result = dry_run_report(factory, config)
                         log.info("Dry run: %s", result)
@@ -480,6 +481,8 @@ def main() -> None:
     parser.add_argument("--time-budget-seconds", type=int,
                         help="Soft checkpoint deadline for automatic job continuation")
     parser.add_argument("--one-phase", action="store_true")
+    parser.add_argument("--backfill-popularity", action="store_true",
+                        help="Only fill books.popularity for existing books (matched by source_id, fill-only); no import")
     parser.add_argument("--restart-paused", action="store_true")
     args = parser.parse_args()
     if args.resume_only and not args.run_id:
@@ -490,6 +493,16 @@ def main() -> None:
         parser.error("CATALOGUE_DATABASE_URL must be set")
     config = _config_for_command(args, database_url, os.getenv("CATALOGUE_USER_AGENT", ""))
     config.validate()
+    if args.backfill_popularity:
+        if not config.popular:
+            parser.error("--backfill-popularity needs the popularity dumps (a normal snapshot run, not test URLs)")
+        from data.popularity import run_backfill_popularity
+        engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            log.info("Popularity backfill: %s", run_backfill_popularity(sessionmaker(bind=engine), config))
+        finally:
+            engine.dispose()
+        return
     result = run_import(config, one_phase=args.one_phase,
                         time_budget_seconds=args.time_budget_seconds)
     log.info("Import %s snapshot=%s phase=%s", config.run_id, config.snapshot_id, result)

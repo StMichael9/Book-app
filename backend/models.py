@@ -122,7 +122,8 @@ IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BL
 
 class Book(Base):
     __tablename__ = 'books'
-    __table_args__ = (Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),)
+    __table_args__ = (Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
+                      Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -142,6 +143,8 @@ class Book(Base):
     # Discovery and search show listed books (cover, year, pages); the description is optional and may be fetched later.
     is_listed: Mapped[bool] = mapped_column(Boolean, Computed(_LISTED_SQL, persisted=True), nullable=False)
     has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=False)
+    # Open Library reading-log and ratings activity (see data/popularity.py); NULL until the importer has a score.
+    popularity: Mapped[float | None] = mapped_column(Float, nullable=True)
     added_via: Mapped[str | None] = mapped_column(String(20))
     added_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

@@ -15,7 +15,7 @@ from data.reporting import _check_storage, _issue
 from data.staging import _existing_book_aliases, select_useful_editions
 from models import (
     Author, Book, BookTitleAlias, CatalogueImportRun, CatalogueStageAuthor,
-    CatalogueStageEdition, CatalogueStageWork, CatalogueStageWorkAuthor,
+    CatalogueStageEdition, CatalogueStagePopularity, CatalogueStageWork, CatalogueStageWorkAuthor,
     Edition, EditionISBN, Tag, TagType, book_authors, book_tags,
 )
 
@@ -89,6 +89,8 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         run.phase = "cleanup"
         return 0
     source_ids = {work.source_id for work in works}
+    scores = dict(session.execute(select(CatalogueStagePopularity.source_id, CatalogueStagePopularity.score).where(
+        CatalogueStagePopularity.run_id == run.id, CatalogueStagePopularity.source_id.in_(source_ids))).all())
     author_rows = session.execute(select(
         CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.author_key,
         CatalogueStageAuthor.name,
@@ -157,6 +159,8 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         ):
             _set_work_value(session, run, book, field_name, value, bit, work.source_id,
                             fill_only=fill_only and field_name != "title")
+        if (score := scores.get(work.source_id)) is not None and book.popularity is None:
+            book.popularity = score  # fill-only: an existing score is never overwritten
         book_for_work[work.source_id] = book
     session.flush()
     if not book_for_work:

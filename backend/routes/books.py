@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
 from fastapi.encoders import jsonable_encoder
@@ -41,6 +43,7 @@ def get_books(
     tag: list[str] = Query(None),
     exclude_owned: bool = False,
     shelf_status: UserBookStatus | None = None,
+    sort: Literal["popular"] | None = None,
     params: Params = Depends(),
 ):
     cache_if_anonymous(response, current_user)
@@ -56,6 +59,7 @@ def get_books(
         current_user=current_user,
         exclude_owned=exclude_owned,
         shelf_status=shelf_status,
+        sort=sort,
     )
     # Page the ids first (with the total counted in the same statement), then load just those books. Selecting full
     # rows before OFFSET evaluates the correlated Own/Want counters for skipped rows on deep catalogue pages.
