@@ -28,7 +28,8 @@ def upgrade():
     op.add_column('books', sa.Column('added_at', sa.DateTime(timezone=True), nullable=True))
     op.execute(f"ALTER TABLE books ADD COLUMN is_listed boolean GENERATED ALWAYS AS ({IS_LISTED}) STORED")
     op.execute(f"ALTER TABLE books ADD COLUMN has_description boolean GENERATED ALWAYS AS ({HAS_DESCRIPTION}) STORED")
-    op.execute("CREATE INDEX ix_books_listed ON books (id) WHERE is_listed")
+    # Covering, so listing every catalogue book (next-read) is an index-only scan of a narrow index.
+    op.execute("CREATE INDEX ix_books_listed ON books (id) INCLUDE (page_count, source_id) WHERE is_listed")
     op.create_index('ix_books_added_at', 'books', ['added_at'], postgresql_where=sa.text('added_at IS NOT NULL'))
     op.alter_column('catalogue_import_issues', 'run_id', existing_type=sa.String(80), nullable=True)
     op.drop_constraint('ck_user_book_identity', 'user_books', type_='check')
