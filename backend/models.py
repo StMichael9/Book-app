@@ -113,6 +113,9 @@ class EmailSignup(Base):
 
 # Blank means missing: trim spaces, tabs and line breaks (btrim alone strips only spaces).
 _BLANK_CHARS = "chr(32) || chr(9) || chr(13) || chr(10)"
+_LISTED_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' "
+               "AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
+_HAS_DESCRIPTION_SQL = f"description IS NOT NULL AND btrim(description, {_BLANK_CHARS}) <> ''"
 IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' AND description IS NOT NULL "
                    f"AND btrim(description, {_BLANK_CHARS}) <> '' AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
 
@@ -136,6 +139,11 @@ class Book(Base):
     )
     # Derived by the database; discovery shows only complete books (authors are guaranteed by the importer).
     is_complete: Mapped[bool] = mapped_column(Boolean, Computed(IS_COMPLETE_SQL, persisted=True), nullable=False)
+    # Discovery and search show listed books (cover, year, pages); the description is optional and may be fetched later.
+    is_listed: Mapped[bool] = mapped_column(Boolean, Computed(_LISTED_SQL, persisted=True), nullable=False)
+    has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=False)
+    added_via: Mapped[str | None] = mapped_column(String(20))
+    added_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Relationships
     authors: Mapped[list["Author"]] = relationship(
@@ -196,7 +204,7 @@ class UserBook(Base):
               postgresql_where=text('private_catalogue IS NOT NULL')),
         CheckConstraint("version >= 1", name="ck_user_book_version"),
         CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
-        CheckConstraint("(book_id IS NOT NULL AND private_title IS NULL AND private_author IS NULL AND private_description IS NULL) OR "
+        CheckConstraint("book_id IS NOT NULL OR "
                         "(book_id IS NULL AND private_title IS NOT NULL AND char_length(btrim(private_title)) BETWEEN 1 AND 500)",
                         name="ck_user_book_identity"),
         CheckConstraint("private_author IS NULL OR char_length(private_author) <= 500", name="ck_user_book_author"),
@@ -502,10 +510,35 @@ class CatalogueImportIssue(Base):
     __tablename__ = "catalogue_import_issues"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    run_id: Mapped[str] = mapped_column(String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_id: Mapped[str | None] = mapped_column(String(80), ForeignKey("catalogue_import_runs.id", ondelete="CASCADE"), nullable=True, index=True)
     code: Mapped[str] = mapped_column(String(50), nullable=False)
     source_id: Mapped[str | None] = mapped_column(String(100))
     detail: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class CatalogueLookup(Base):
+    """A book to find in Open Library once, then store for everyone. Holds no reader data."""
+    __tablename__ = "catalogue_lookups"
+    __table_args__ = (CheckConstraint("status IN ('queued','done','rejected','failed')", name="ck_lookup_status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
+    isbn: Mapped[str | None] = mapped_column(String(13))
+    title: Mapped[str | None] = mapped_column(Text)
+    author: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="queued", server_default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    next_try_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    result_book_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("books.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class CatalogueLookupWaiter(Base):
+    __tablename__ = "catalogue_lookup_waiters"
+
+    lookup_id: Mapped[int] = mapped_column(Integer, ForeignKey("catalogue_lookups.id", ondelete="CASCADE"), primary_key=True)
+    user_book_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_books.id", ondelete="CASCADE"), primary_key=True)
 
 
 Index("uq_tags_lower_name", func.lower(Tag.name), unique=True)

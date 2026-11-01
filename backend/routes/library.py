@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 from auth.dependencies import get_current_user
 from database import engine, get_db, settings
-from models import User
+from models import Book, User, UserBook
 from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
 from services.library import LibraryService, library_needs_v3, reading_enabled, require_reading
@@ -83,6 +84,19 @@ def library_csv(request: Request, current_user: User = Depends(reading_user), db
     return StreamingResponse(export.stream(), media_type="text/csv; charset=utf-8", background=BackgroundTask(export.close),
         headers={"Content-Disposition": 'attachment; filename="bookvane-library-v1.csv"',
             "Content-Length": str(export.length), "X-Content-Type-Options": "nosniff"})
+
+
+@router.get("/library/{entry_id}/description")
+@limiter.limit("90/minute")
+def entry_description(request: Request, entry_id: int, current_user: User = Depends(reading_user),
+                      db: Session = Depends(get_db)):
+    """The text to show for a saved book: the catalogue's (Open Library) or, failing that, the reader's own."""
+    row = db.execute(select(UserBook.private_description, Book.description).outerjoin(Book, Book.id == UserBook.book_id)
+                     .where(UserBook.id == entry_id, UserBook.user_id == current_user.id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    own, catalogue = (row[0] or "").strip(), (row[1] or "").strip()
+    return {"text": catalogue or own or None, "source": "openlibrary" if catalogue else None}
 
 
 @router.get("/library/{entry_id}", response_model=EntryDetail)

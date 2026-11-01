@@ -82,6 +82,17 @@ def get_books(
     return result
 
 
+@router.get("/books/{book_id}/description")
+def book_description(book_id: int, response: Response, db: Session = Depends(get_db)):
+    """A catalogue book's description (Open Library data), separate so cards and lists stay light."""
+    row = db.execute(select(Book.description).where(Book.id == book_id)).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    text = row[0].strip() if row[0] and row[0].strip() else None
+    response.headers["Cache-Control"] = PUBLIC_CACHE
+    return {"text": text, "source": "openlibrary" if text else None}
+
+
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
 def get_book(
@@ -100,7 +111,7 @@ def get_book(
     ).unique().scalar_one_or_none()
 
     # Discovery shows only complete books, but never break a reader's own saved book.
-    if book and not book.is_complete and not (current_user and db.scalar(select(exists().where(
+    if book and not book.is_listed and not (current_user and db.scalar(select(exists().where(
             UserBook.book_id == book.id, UserBook.user_id == current_user.id)))):
         book = None
 

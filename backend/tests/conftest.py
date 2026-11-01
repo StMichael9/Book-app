@@ -75,6 +75,7 @@ def test_database_url() -> str:
 def app_modules(test_database_url: str):
     os.environ["DATABASE_URL"] = test_database_url
     os.environ["IS_DEV"] = "true"
+    os.environ["CATALOGUE_WORKER_ENABLED"] = "false"  # tests drive the queue directly; no background task
 
     import database
     import main

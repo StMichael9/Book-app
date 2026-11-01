@@ -18,7 +18,7 @@ class SearchService:
     ):
         query = (
             select(Book)
-            .where(Book.is_complete.is_(True))
+            .where(Book.is_listed.is_(True))
             .order_by(Book.id)
         )
         title_rank = None
