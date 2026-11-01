@@ -12,6 +12,6 @@ export default function BookAbout({ book }) {
   if (!text && answer.status !== "error") return null;
   return <section className="bv-description"><h2>About this book</h2>
     {google ? <DescriptionBody text={text} link={answer.data.link} />
-      : <p>{text || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p>}
+      : text && answered ? <p className="bv-description-full">{text}</p> : <p>{text || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p>}
   </section>;
 }

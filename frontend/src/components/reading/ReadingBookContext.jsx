@@ -33,7 +33,7 @@ function Synopsis({ text }) {
     observer.observe(node);
     return () => observer.disconnect();
   }, [text, expanded]);
-  return <><p ref={paragraph} id={id} className={`bv-private-text bv-reading-synopsis${!expanded ? " bv-reading-synopsis--short" : ""}`}>{text}</p>
+  return <><p ref={paragraph} id={id} className={`bv-private-text bv-description-full bv-reading-synopsis${!expanded ? " bv-reading-synopsis--short" : ""}`}>{text}</p>
     {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}</>;
 }
 

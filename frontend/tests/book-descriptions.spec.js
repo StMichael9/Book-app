@@ -250,6 +250,17 @@ test("a Google description shows whole and as plain text, with a credit link tha
   await expect(credit).toHaveAttribute("rel", "noopener noreferrer");
 });
 
+test("description text keeps its line breaks and shows a literal <b> as text, for Open Library too", async ({ page, app }) => {
+  app.descriptions["book:1"] = { text: "First line.\nSecond line with <b>bold</b> shown as text.", source: "openlibrary" };
+  await page.goto("/book/1");
+  const body = page.locator(".bv-description .bv-description-full");
+  await expect(body).toHaveText("First line.\nSecond line with <b>bold</b> shown as text.");
+  await expect(body).toHaveCSS("white-space", "pre-line");
+  await expect(page.locator(".bv-description b")).toHaveCount(0);
+  const [first, second] = await body.evaluate(node => { const range = document.createRange(); range.selectNodeContents(node); return [...range.getClientRects()].map(rect => Math.round(rect.top)); }).then(tops => [tops[0], tops.at(-1)]);
+  expect(second).toBeGreaterThan(first);
+});
+
 test("an Open Library description shows without a credit, and a null answer shows nothing", async ({ page, app }) => {
   app.descriptions["book:1"] = { text: "From the open catalogue.", source: "openlibrary" };
   app.descriptions["book:2"] = { text: null, source: null };
