@@ -111,6 +111,12 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
       setWhy({ id: saved.entry.id ?? saved.entry.entry_id, version: saved.entry.version });
     }
   }
+  const { setQuietToast } = reader;
+  useEffect(() => {
+    if (!why) return undefined;
+    setQuietToast(true);
+    return () => setQuietToast(false);
+  }, [why, setQuietToast]);
   function closeWhy() { setWhy(null); requestAnimationFrame(() => controls.current?.querySelector('[data-shelf="want"]')?.focus()); }
   return <div ref={controls} className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
     <div className="bv-shelf-actions" role="group" aria-label={`Shelf for ${book.title}`}>

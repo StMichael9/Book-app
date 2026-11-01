@@ -69,6 +69,10 @@ test("a My Books card shows the reader's own reason in italics, else the descrip
   await expect(cards.nth(0).locator(".bv-card-line")).toHaveText("Because a friend swore by it");
   await expect(cards.nth(0).locator(".bv-card-line")).toHaveClass(/bv-card-line--reason/);
   await expect(cards.nth(0).locator(".bv-card-line")).toHaveCSS("font-style", "italic");
+  // The bundled fonts have no italic face and the app turns synthesis off, so the note must switch it back on to really slant.
+  expect(await cards.nth(0).locator(".bv-card-line").evaluate(node => getComputedStyle(node).fontSynthesisStyle)).toBe("auto");
+  await expect(cards.nth(1).locator(".bv-card-line")).toHaveCSS("font-style", "normal");
+  expect(await cards.nth(1).locator(".bv-card-line").evaluate(node => getComputedStyle(node).fontSynthesisStyle)).toBe("none");
   await expect(cards.nth(1).locator(".bv-card-line")).toHaveText("Two sisters inherit a lighthouse…");
   await expect(cards.nth(1).locator(".bv-card-line")).not.toHaveClass(/bv-card-line--reason/);
   await expect(cards.nth(2).locator(".bv-card-line")).toHaveCount(0);
@@ -94,10 +98,16 @@ test("Want to read asks why once, saves the reason, and does not come back after
   await page.getByRole("button", { name: /Want to read/ }).first().click();
   const field = page.getByLabel("Why this one? (only you see this)");
   await expect(field).toBeFocused();
+  // The toast would cover the field, so it goes visually quiet; its text stays in the live region.
+  const toast = page.locator(".bv-toast");
+  await expect(toast).toHaveClass(/bv-toast--quiet/);
+  await expect(toast).toHaveText("Added to Want to read.");
+  expect((await toast.boundingBox()).width).toBeLessThanOrEqual(1);
   await field.fill("Recommended by Sam");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(field).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Want to read/ }).first()).toBeFocused();
+  await expect(toast).not.toHaveClass(/bv-toast--quiet/);
   expect(patches(app).at(-1).body).toEqual({ expected_version: 1, save_note: "Recommended by Sam" });
   expect(app.entries.get(1).is_wanted).toBe(true);
   // Remove it, add it again, reload and add again: the same book is never asked twice.

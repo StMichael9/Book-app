@@ -12,6 +12,8 @@ Branch `ui/v3-book-descriptions`, from `origin/v3`. Built against the T27 contra
 ## Tests
 `tests/book-descriptions.spec.js` (mocked): the card shows note, snippet or nothing; two-line clamp; no extra tab stop; the prompt once after Want, Skip, Esc, focus return, not for Owned, not when a note exists, not on cards; Save sends `save_note` with `expected_version`; a failed save keeps the book saved; no re-ask after remove, re-add and reload; the note shows on the card after reload; the reading page opens the reason when there is a note; a private book with no description shows no description line; outage disables Want and Own; the sheet uses an icon. Screenshots (`BOOK_SHOTS=1`) are written to `frontend/node_modules/.bv-preview/descriptions/` and not committed.
 
+- **Review fixes:** the reader's note on a card now really slants (the bundled fonts have no italic face and the app sets `font-synthesis: none`, so the note switches synthesis back on; the test checks `font-style` and `font-synthesis-style`, and that the snippet stays upright). While the "Why this one?" prompt is open, the "Added to Want to read." toast is drawn off-screen but still announced; it returns to normal afterwards.
+
 ## Existing assertions changed
 - `reader-flows.spec.js`: two tests that fail a write on purpose (failed writes keep the prior status; a different shelf after a continuation failure) now click "Check again" before retrying, because Want and Own stay disabled while the outage banner shows. The mock gained a `/health` handler.
 - `auth-data.spec.js` (a refresh outage does not silently sign out): Owned is now asserted disabled while the banner shows, then enabled after "Check again".

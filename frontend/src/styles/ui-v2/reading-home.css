@@ -90,7 +90,8 @@
 
 /* One line under the author on a My Books card: the reader's own reason (italic) or the start of the description. */
 .bv-root .bv-card-line { margin: 4px 0 6px; font-size: 0.875rem; line-height: 1.4; color: var(--bv-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; overflow-wrap: anywhere; }
-.bv-root .bv-card-line--reason { font-style: italic; color: var(--bv-ink); }
+.bv-root .bv-card-line--reason { font-style: italic; font-synthesis: style; color: var(--bv-ink); } /* the bundled fonts have no italic face, so the slant is drawn by the browser */
+.bv-root .bv-toast.bv-toast--quiet:not(:empty) { position: absolute; left: auto; bottom: auto; transform: none; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .bv-root .bv-why { margin: 12px 0; max-width: 420px; }
 .bv-root .bv-why textarea { width: 100%; font: inherit; }
 .bv-root .bv-why .bv-editor-caption { display: block; margin: 4px 0 8px; color: var(--bv-muted); }

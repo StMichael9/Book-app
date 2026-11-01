@@ -229,7 +229,7 @@ function Shell() {
         <Route path="/u/:handle" element={<PublicProfilePage key={location.pathname} notFound={notFound} />} /><Route path="/u/:handle/lists/:id" element={<PublicListPage key={location.pathname} notFound={notFound} />} />
         <Route path="*" element={notFound} />
       </Routes></RouteErrorBoundary>
-    </main><Footer /><AccountPrompt /><ProfilePrompt /><div className="bv-toast" role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
+    </main><Footer /><AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
   </div>;
 }
 

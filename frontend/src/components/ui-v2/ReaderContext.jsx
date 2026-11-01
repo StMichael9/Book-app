@@ -27,6 +27,8 @@ export function ReaderProvider({ children }) {
   const busy = useRef(new Set());
   // The entry the last Want / Own add returned, so a page can offer the one-time "why" prompt without another request.
   const lastSave = useRef(null);
+  // While an inline prompt is open under the shelf buttons, the toast would sit on top of it; its text stays in the live region.
+  const [quietToast, setQuietToast] = useState(false);
   const [saveErrors, setSaveErrors] = useState({});
   const [readiness, setReadiness] = useState({ authenticated: auth.isAuthenticated, generation: auth.sessionGeneration, ready: false });
   const [preferencesVersion, setPreferencesVersion] = useState(0);
@@ -105,7 +107,7 @@ export function ReaderProvider({ children }) {
   }
 
   return <ReaderContext.Provider value={{
-    theme, setTheme, gate, setGate, message, announce, saveBook, lastSave, busyIds, saveErrors,
+    theme, setTheme, gate, setGate, message, announce, saveBook, lastSave, quietToast, setQuietToast, busyIds, saveErrors,
     libraryReady, preferencesVersion,
     // A completed write still invalidates discovery after leaving Preferences,
     // but a callback captured by a departed account cannot publish to its successor.
