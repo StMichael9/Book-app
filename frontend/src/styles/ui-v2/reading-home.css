@@ -95,3 +95,8 @@
 .bv-root .bv-why { margin: 12px 0; max-width: 420px; }
 .bv-root .bv-why textarea { width: 100%; font: inherit; }
 .bv-root .bv-why .bv-editor-caption { display: block; margin: 4px 0 8px; color: var(--bv-muted); }
+
+/* Google's description is shown whole and exactly as sent; line breaks in its text are kept. */
+.bv-root .bv-description-full { white-space: pre-line; overflow-wrap: anywhere; }
+.bv-root .bv-description-credit { margin: 8px 0 0; font-size: 0.875rem; color: var(--bv-muted); }
+.bv-root .bv-description-credit a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

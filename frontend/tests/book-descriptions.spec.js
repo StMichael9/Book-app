@@ -10,7 +10,7 @@ const privateEntry = (extra = {}) => ({ id: 300, book_id: null, book: null, is_o
 
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
-    const state = { entries: new Map(), requests: [], errors: [], readingActions: false, down: false, failPatch: 0, saveNoteOnPut: null };
+    const state = { entries: new Map(), requests: [], errors: [], readingActions: false, down: false, descriptions: {}, holdDescription: null, failPatch: 0, saveNoteOnPut: null };
     page.on("pageerror", error => state.errors.push(error.message));
     await page.route("**/*", async route => {
       const url = new URL(route.request().url()), method = route.request().method();
@@ -29,6 +29,12 @@ const test = base.extend({
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (/^\/books\/\d+$/.test(path)) return reply(200, books[Number(path.split("/").at(-1)) - 1]);
       if (path === "/books") return reply(200, { items: books, total: books.length, page: 1, size: 30 });
+      const description = path.match(/^\/(?:books|me\/library)\/(\d+)\/description$/);
+      if (description) {
+        if (state.holdDescription) await state.holdDescription;
+        const answer = state.descriptions[`${path.startsWith("/books") ? "book" : "entry"}:${description[1]}`];
+        return answer ? reply(200, answer) : reply(404, { detail: "Not found" });
+      }
       if (path === "/me/library") {
         const items = [...state.entries.values()];
         return reply(200, { items, counts: { all: items.length, owned: 0, want: items.length, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: items.length, next_cursor: null });
@@ -223,6 +229,90 @@ test("the profile sheet marks what is shown with an icon, not a text tick", asyn
   await expect(sheet).not.toContainText("✓");
 });
 
+const googleText = "A quiet town, a long winter.\n\nSecond paragraph with <b>tags</b> & an ampersand, kept exactly as sent. " + "More words follow. ".repeat(30) + "The very last words.";
+const google = { text: googleText, source: "google", link: "https://books.google.com/books?id=abc123" };
+
+test("a Google description shows whole and as plain text, with a credit link that opens in a new tab", async ({ page, app }) => {
+  app.descriptions["book:1"] = google;
+  await page.goto("/book/1");
+  const about = page.locator(".bv-description");
+  await expect(about.getByText("The very last words.")).toBeVisible();
+  await expect(about.locator(".bv-description-full")).toHaveText(googleText);
+  await expect(about.getByText("<b>tags</b>", { exact: false })).toBeVisible();
+  await expect(about.locator("b")).toHaveCount(0);
+  await expect(about.getByRole("button", { name: /show more/i })).toHaveCount(0);
+  await expect(about.locator(".bv-description-full")).toHaveCSS("white-space", "pre-line");
+  expect(await about.locator(".bv-description-full").evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("none");
+  const credit = about.getByRole("link", { name: "Description from Google Books (opens in a new tab)" });
+  await expect(credit).toHaveText("Description from Google Books");
+  await expect(credit).toHaveAttribute("href", "https://books.google.com/books?id=abc123");
+  await expect(credit).toHaveAttribute("target", "_blank");
+  await expect(credit).toHaveAttribute("rel", "noopener noreferrer");
+});
+
+test("an Open Library description shows without a credit, and a null answer shows nothing", async ({ page, app }) => {
+  app.descriptions["book:1"] = { text: "From the open catalogue.", source: "openlibrary" };
+  app.descriptions["book:2"] = { text: null, source: null };
+  await page.goto("/book/1");
+  await expect(page.locator(".bv-description")).toContainText("From the open catalogue.");
+  await expect(page.locator(".bv-description-credit")).toHaveCount(0);
+  await expect(page.getByText("Google")).toHaveCount(0);
+  await page.goto("/book/2");
+  await expect(page.getByRole("heading", { name: "Second Light", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "About this book" })).toHaveCount(0);
+  await expect(page.getByText("About book 2.")).toHaveCount(0);
+  await expect(page.getByText("A description isn’t available")).toHaveCount(0);
+});
+
+test("the page keeps its own description until the server answers, then swaps it in without a placeholder", async ({ page, app }) => {
+  let release; app.holdDescription = new Promise(resolve => { release = resolve; });
+  app.descriptions["book:1"] = google;
+  await page.goto("/book/1");
+  await expect(page.locator(".bv-description")).toContainText("About book 1.");
+  await expect(page.getByText("A description isn’t available")).toHaveCount(0);
+  release();
+  await expect(page.locator(".bv-description")).toContainText("The very last words.");
+  await expect(page.locator(".bv-description")).not.toContainText("About book 1.");
+});
+
+test("a book with no page description shows no placeholder while it waits for the answer", async ({ page, app }) => {
+  let release; app.holdDescription = new Promise(resolve => { release = resolve; });
+  books[3].description = "";
+  app.descriptions["book:4"] = { text: "Arrived later.", source: "openlibrary" };
+  try {
+    await page.goto("/book/4");
+    await expect(page.getByRole("heading", { name: "Ashes of Spring", level: 1 })).toBeVisible();
+    await expect(page.getByText("A description isn’t available")).toHaveCount(0);
+    release();
+    await expect(page.locator(".bv-description")).toContainText("Arrived later.");
+  } finally { books[3].description = "About book 4."; }
+});
+
+test("when the description can't be fetched the page behaves exactly as before", async ({ page, app: _app }) => {
+  await page.goto("/book/3");
+  await expect(page.locator(".bv-description")).toContainText("About book 3.");
+  await expect(page.locator(".bv-description-credit")).toHaveCount(0);
+});
+
+test("a private entry shows a Google description in full with the credit on its reading page", async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries.set(300, privateEntry());
+  app.descriptions["entry:300"] = google;
+  await page.goto("/my-books/300");
+  await expect(page.getByText("The very last words.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /show more/i })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Description from Google Books (opens in a new tab)" })).toHaveAttribute("href", "https://books.google.com/books?id=abc123");
+});
+
+test("a card never shows description text when the entry has no snippet or reason", async ({ page, app }) => {
+  app.entries.set(3, entry(3, { snippet: null, save_note: null, private_description: "Never on a card.", book: { ...books[2], description: "Also never on a card." } }));
+  await page.goto("/my-books");
+  await expect(page.locator(".bv-personal-book")).toHaveCount(1);
+  await expect(page.locator(".bv-card-line")).toHaveCount(0);
+  await expect(page.getByText("Never on a card.")).toHaveCount(0);
+  await expect(page.getByText("Also never on a card.")).toHaveCount(0);
+});
+
 test("description screenshots", async ({ page, app }) => {
   test.skip(!process.env.BOOK_SHOTS, "set BOOK_SHOTS=1 to export screenshots");
   const dir = "node_modules/.bv-preview/descriptions";
@@ -236,6 +326,10 @@ test("description screenshots", async ({ page, app }) => {
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.goto("/my-books"); await expect(page.locator(".bv-personal-book").first()).toBeVisible();
     await page.screenshot({ path: `${dir}/cards-${label}-${theme}.png`, fullPage: true });
+    app.descriptions["book:1"] = { text: "A quiet town, a long winter.\n\nSecond paragraph, shown whole and exactly as sent. " + "More words follow. ".repeat(12), source: "google", link: "https://books.google.com/books?id=abc123" };
+    await page.goto("/book/1"); await expect(page.getByRole("link", { name: /Description from Google Books/ })).toBeVisible();
+    await page.locator(".bv-description").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${dir}/google-${label}-${theme}.png`, fullPage: true });
     await page.goto("/book/4"); await page.evaluate(() => localStorage.removeItem("bookvane:why-asked:v1"));
     await page.getByRole("button", { name: /Want to read/ }).first().click();
     await expect(page.getByLabel("Why this one? (only you see this)")).toBeFocused();

@@ -315,7 +315,7 @@ export function ReadingWorkspacePage() {
       </>}</section>}
       {nextSection}
       <section hidden={!loaded} className="bv-workspace-more" aria-labelledby="bv-workspace-more-title"><h2 id="bv-workspace-more-title">More about this reading</h2>
-      {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} />}
+      {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} entryId={entry.id} />}
       <ReadingHistoryDisclosure entryId={entryId} visible={loaded} activeAttempt={attempt && !terminal ? attempt : null} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal) || Boolean(reread)} />
       {entry && workspace?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={workspace.imported_sources_count} /></div>}
       <details hidden={!loaded || library.readOnly} className="bv-workspace-manage" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary>Manage this book</summary>{loaded && !library.readOnly && <>

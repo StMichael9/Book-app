@@ -1,5 +1,8 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { getBookById } from "../../api/books.js";
+import { getBookDescription, getEntryDescription } from "../../api/descriptions.js";
+import DescriptionBody from "../ui-v2/DescriptionBody.jsx";
+import { useDescription } from "../ui-v2/useDescription.js";
 import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
 import { authorLabel, formatYear, subjectLabel, useRequest } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-workspace.css";
@@ -34,13 +37,18 @@ function Synopsis({ text }) {
     {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}</>;
 }
 
-export function ReadingBookDetails({ bookId, description }) {
+export function ReadingBookDetails({ bookId, description, entryId }) {
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
-  // A private book shows its description when the server has filled one in, and nothing at all otherwise.
-  if (!bookId && !description) return null;
+  const answer = useDescription(() => bookId ? getBookDescription(bookId) : getEntryDescription(entryId), bookId ? `book:${bookId}` : `entry:${entryId}`, Boolean(bookId || entryId));
+  // The server picks the source. Until it answers the page keeps what it has; a failed answer falls back to exactly that.
+  const answered = answer.status === "ok", own = bookId ? request.data?.description : description;
+  const text = answered ? answer.data.text : own, google = answered && answer.data.source === "google" && Boolean(text);
+  // A private book shows its description when there is one, and nothing at all otherwise.
+  if (!bookId && !text) return null;
+  const shown = google ? <DescriptionBody text={text} link={answer.data.link} /> : text ? <Synopsis text={text} /> : answer.status === "error" && bookId ? <p className="bv-muted">A description isn’t available for this book yet.</p> : null;
   return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
     <h3 id="bv-reading-about-title">About this book</h3>
-    {!bookId ? <Synopsis text={description} />
+    {!bookId ? shown
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
       : <>
@@ -48,7 +56,7 @@ export function ReadingBookDetails({ bookId, description }) {
         {(request.data.published_year != null || request.data.page_count > 0) && <p className="bv-help">
           {request.data.published_year != null && `Published ${formatYear(request.data.published_year)}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `About ${request.data.page_count} pages · your copy may differ`}
         </p>}
-        {request.data.description ? <Synopsis text={request.data.description} /> : <p className="bv-muted">A description isn’t available for this book yet.</p>}
+        {shown}
       </>}
     {bookId && <TextLink to={`/book/${bookId}`}>Full book details</TextLink>}
   </section>;

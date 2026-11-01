@@ -197,6 +197,8 @@ function RouteEffects() {
 }
 
 function Shell() {
+  // The library's refresh counter is on the root so tests can see a quiet refetch happen; it has no visual effect.
+  const { revision: libraryRevision } = useUserBooks();
   const serviceDown = useServiceDown();
   const reader = useReader();
   const location = useLocation();
@@ -208,7 +210,7 @@ function Shell() {
     return () => cancel(handle);
   }, []);
   const notFound = <section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>;
-  return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme}>
+  return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme} data-library-revision={libraryRevision}>
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
