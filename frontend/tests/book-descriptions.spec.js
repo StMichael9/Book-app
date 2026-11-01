@@ -173,28 +173,19 @@ test("the reading page opens 'Why I saved this book' when there is a note, and k
   await expect(page.getByRole("button", { name: "Add save reason (optional)" })).toBeVisible();
 });
 
-test("a private book can get its own description, edit it, and a version conflict is explained", async ({ page, app }) => {
+test("a private book without a description shows no description line, and one with a description shows it", async ({ page, app }) => {
   app.readingActions = true;
   app.entries.set(300, privateEntry());
+  app.entries.set(301, privateEntry({ id: 301, private_title: "Filled In", private_description: "Filled in by the server." }));
   await page.goto("/my-books/300");
-  await expect(page.getByText("No description or edition details have been confirmed.")).toHaveCount(0);
-  await page.getByRole("button", { name: "Add a description" }).click();
-  const field = page.getByLabel("Description", { exact: true });
-  await expect(field).toBeFocused();
-  await expect(field).toHaveAttribute("maxlength", "2000");
-  await field.fill("A memoir lent to me by my aunt.");
-  await expect(page.getByText("31 / 2000")).toBeVisible();
-  await page.getByRole("button", { name: "Save description" }).click();
-  await expect(page.getByText("A memoir lent to me by my aunt.")).toBeVisible();
-  expect(patches(app).at(-1).body).toEqual({ expected_version: 1, private_description: "A memoir lent to me by my aunt." });
-  await expect(page.getByRole("button", { name: "Edit description" })).toBeFocused();
-  // Someone else changed the entry meanwhile: the old version is refused.
-  app.entries.get(300).version = 5;
-  await page.getByRole("button", { name: "Edit description" }).click();
-  await page.getByLabel("Description", { exact: true }).fill("Changed again");
-  await page.getByRole("button", { name: "Save description" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "changed somewhere else" })).toBeVisible();
-  await expect(page.getByLabel("Description", { exact: true })).toHaveValue("Changed again");
+  await expect(page.getByRole("heading", { name: "My Private Book", level: 1 })).toBeVisible();
+  await expect(page.getByText("No description")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "About this book" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
+  await page.goto("/my-books/301");
+  await expect(page.getByText("Filled in by the server.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
+  expect(patches(app)).toHaveLength(0);
 });
 
 test("while the outage banner shows, Want and Own are disabled with a visible hint", async ({ page, app }) => {
@@ -229,7 +220,7 @@ test("description screenshots", async ({ page, app }) => {
   app.entries.set(1, entry(1, { save_note: "Because a friend swore by it, and the cover looked lovely on the shelf at the shop" }));
   app.entries.set(2, entry(2, { snippet: "Two sisters inherit a lighthouse and a secret that the whole village would rather keep buried under the winter snow." }));
   app.entries.set(3, entry(3));
-  app.entries.set(300, privateEntry());
+  app.entries.set(300, privateEntry({ private_description: "A memoir lent to me by my aunt." }));
   for (const theme of ["light", "dark"]) for (const [label, width, height] of [["375", 375, 812], ["1440", 1440, 900]]) {
     await page.setViewportSize({ width, height });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
@@ -242,8 +233,7 @@ test("description screenshots", async ({ page, app }) => {
     await page.screenshot({ path: `${dir}/prompt-${label}-${theme}.png` });
     await page.getByRole("button", { name: "Skip" }).click();
     await page.getByRole("button", { name: /Remove Ashes of Spring from Want to read/ }).click();
-    await page.goto("/my-books/300"); await page.getByRole("button", { name: "Add a description" }).click();
-    await page.getByLabel("Description", { exact: true }).fill("A memoir lent to me by my aunt.");
+    await page.goto("/my-books/300"); await expect(page.getByText("A memoir lent to me by my aunt.")).toBeVisible();
     await page.screenshot({ path: `${dir}/private-${label}-${theme}.png`, fullPage: true });
   }
 });

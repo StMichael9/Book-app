@@ -1,8 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { getBookById } from "../../api/books.js";
-import { updateLibraryEntry } from "../../api/reading.js";
-import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
-import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
 import { authorLabel, formatYear, subjectLabel, useRequest } from "../ui-v2/data.js";
 import "../../styles/ui-v2/reading-workspace.css";
@@ -37,34 +34,13 @@ function Synopsis({ text }) {
     {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}</>;
 }
 
-// A private book has no catalogue description, so the reader can write their own.
-function PrivateDescription({ entry }) {
-  const library = useUserBooks(), command = useReadingCommand();
-  const [editing, setEditing] = useState(false), [text, setText] = useState("");
-  const field = useRef(null), trigger = useRef(null);
-  const description = entry.private_description;
-  useEffect(() => { if (editing) field.current?.focus(); }, [editing]);
-  function close() { setEditing(false); requestAnimationFrame(() => trigger.current?.focus()); }
-  function submit(event) {
-    event.preventDefault();
-    command.run(() => updateLibraryEntry(entry.id, { expected_version: entry.version, private_description: text.trim() || null }), updated => { library.readingChanged(updated); close(); });
-  }
-  if (editing) return <form className="bv-field bv-reading-form" onSubmit={submit} aria-busy={command.pending}>
-    <label htmlFor="bv-private-description">Description</label>
-    <textarea id="bv-private-description" ref={field} rows={5} maxLength={2000} value={text} onChange={event => setText(event.target.value)} />
-    <small className="bv-editor-caption">Private to you · {text.length} / 2000</small>
-    {command.error && <div role="alert" className="bv-notice"><p>{command.error} Your text is still here.</p></div>}
-    <div className="bv-form-actions"><Button type="submit" disabled={command.pending}>{command.pending ? "Saving…" : "Save description"}</Button><Button variant="quiet" disabled={command.pending} onClick={close}>Cancel</Button></div>
-  </form>;
-  return <>{description && <Synopsis text={description} />}
-    {!library.readOnly && <Button ref={trigger} variant="quiet" onClick={() => { setText(description || ""); setEditing(true); }}>{description ? "Edit description" : "Add a description"}</Button>}</>;
-}
-
-export function ReadingBookDetails({ bookId, description, entry }) {
+export function ReadingBookDetails({ bookId, description }) {
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
+  // A private book shows its description when the server has filled one in, and nothing at all otherwise.
+  if (!bookId && !description) return null;
   return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
     <h3 id="bv-reading-about-title">About this book</h3>
-    {!bookId ? (entry ? <PrivateDescription key={entry.id} entry={entry} /> : description ? <Synopsis text={description} /> : null)
+    {!bookId ? <Synopsis text={description} />
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
       : <>
