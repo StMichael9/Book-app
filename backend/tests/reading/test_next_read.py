@@ -193,6 +193,8 @@ def test_large_catalogue_query_and_factual_length_reasons(client, reader, app_mo
     # Bound a regression failure rather than leaving CI stuck on a bad plan.
     # This setting and ANALYZE touch only the guarded disposable test target.
     db_session.execute(text("SET LOCAL statement_timeout = '15s'"))
+    # Fresh statistics for the 50,000 rows just inserted; without them the plan depends on autovacuum timing.
+    db_session.execute(text("ANALYZE books, book_tags, book_authors"))
     start = perf_counter()
     result = choose(client, source="catalogue", max_pages=150, session_id=str(uuid.uuid4()))
     elapsed = perf_counter() - start
