@@ -2,7 +2,7 @@ import { apiRequest } from "./client.js";
 
 const root = "/me/library-imports";
 // Covers and descriptions fill in after an import; this says how many are still being looked up.
-export const importEnrichment = (runId, signal) => apiRequest(`/me/library/imports/${encodeURIComponent(runId)}/enrichment`, { signal });
+export const importEnrichment = (runId, signal) => apiRequest(`${root}/${encodeURIComponent(runId)}/enrichment`, { signal });
 const messages = {
   active_import_exists: "You already have an import waiting. Continue it or start over.",
   batch_content_changed: "This file is different from the one you started with. Choose the original file, or start over.",

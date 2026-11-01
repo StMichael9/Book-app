@@ -34,7 +34,7 @@ const test = base.extend({
         if (state.detailDelay) await new Promise((resolve) => setTimeout(resolve, state.detailDelay));
         return route.fulfill({ json: catalogue[Number(path.split("/")[2]) - 1] });
       }
-      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library\/imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });

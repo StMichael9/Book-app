@@ -70,8 +70,8 @@ const test = base.extend({
       if (path.endsWith("/confirm")) { state.run.phase = "applying"; return reply(state.run); }
       if (path.endsWith("/cancel")) { state.run.phase = "cancelled"; return reply(state.run); }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
-      if (/^\/me\/library\/imports\/[^/]+\/enrichment$/.test(path) && state.enrichment) { state.enrichmentCalls = (state.enrichmentCalls || 0) + 1; return route.fulfill({ status: 200, json: state.enrichment.length > 1 ? state.enrichment.shift() : state.enrichment[0] }); }
-      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library\/imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
+      if (/^\/me\/library-imports\/[^/]+\/enrichment$/.test(path) && state.enrichment) { state.enrichmentCalls = (state.enrichmentCalls || 0) + 1; return route.fulfill({ status: 200, json: state.enrichment.length > 1 ? state.enrichment.shift() : state.enrichment[0] }); }
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });

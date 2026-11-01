@@ -68,7 +68,7 @@ const test = base.extend({
       if (path === "/autocomplete/tags/batch") return reply(200, subjects.filter(item => url.searchParams.getAll("name").includes(item.name)));
       if (path === "/autocomplete/tags") return reply(200, subjects.filter((item) => item.name.includes(url.searchParams.get("q"))));
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
-      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library\/imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
