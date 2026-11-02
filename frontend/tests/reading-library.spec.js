@@ -31,6 +31,7 @@ const test = base.extend({
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/books") {
+        if (state.holdBooks) await state.holdBooks;
         if (!state.accountFixtures) return reply(200, { items: books, total: 30, page: 1, size: 30 });
         const account = state.authenticated ? state.account : null;
         const filtered = url.searchParams.has("shelf_status") || url.searchParams.has("exclude_owned");
@@ -87,6 +88,7 @@ const test = base.extend({
           next_cursor: entries.length > offset + 25 ? String(offset + 25) : null });
       }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
@@ -143,6 +145,21 @@ test("V3 discovery batches visible state and never loads the complete shelf", as
   await page.goto("/browse");
   await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeEnabled();
   expect(app.requests.filter(request => request.path === "/me/books")).toHaveLength(0);
+  const lookups = app.requests.filter(request => request.path === "/me/library/lookup");
+  expect(lookups).toHaveLength(1);
+  expect(lookups[0].body.book_ids).toHaveLength(30);
+});
+
+test("snapshot cards wait for the live results before the saved-status lookup, so there is exactly one lookup", async ({ page, app }) => {
+  let release;
+  app.holdBooks = new Promise((resolve) => { release = resolve; });
+  await page.goto("/browse");
+  await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
+  await expect.poll(() => app.requests.some(request => request.path === "/me/reading-capabilities")).toBe(true);
+  await page.evaluate(() => new Promise(done => setTimeout(done, 400))); // capabilities are in; the snapshot is still showing
+  expect(app.requests.filter(request => request.path === "/me/library/lookup")).toHaveLength(0);
+  release();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeEnabled();
   const lookups = app.requests.filter(request => request.path === "/me/library/lookup");
   expect(lookups).toHaveLength(1);
   expect(lookups[0].body.book_ids).toHaveLength(30);

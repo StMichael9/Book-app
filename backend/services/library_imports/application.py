@@ -71,7 +71,7 @@ def apply_groups(db, run, groups):
     books = {book.id: book for book in db.scalars(select(Book).where(Book.id.in_(book_ids)).with_for_update(read=True, key_share=True))}
     editions = {edition.id: edition for edition in db.scalars(select(Edition).where(
         Edition.id.in_({row.plan["edition_id"] for row in rows if row.plan.get("edition_id")})))}
-    prepared, inserts = [], []
+    prepared, inserts, lookups = [], [], {}
     for group in groups:
         first = group[0]
         plan = first.plan
@@ -201,6 +201,7 @@ def apply_groups(db, run, groups):
             if not plan.get("book_id") and not payload["title"]:
                 _review(group, "private_title_required")
                 continue
+            lookup = None if plan.get("book_id") else _lookup(payload)
             own = any(payload["is_owned"] is True for payload in payloads)
             want = any(payload["is_wanted"] is True for payload in payloads)
             inserts.append({"user_id": run.user_id, "book_id": plan.get("book_id"),
@@ -208,13 +209,17 @@ def apply_groups(db, run, groups):
                 "private_author": None if plan.get("book_id") else payload["author"] or None,
                 # A matched catalogue book keeps its own description; only a reader's private entry stores this one.
                 "private_description": None if plan.get("book_id") else payload.get("description") or None,
+                "private_catalogue": lookup and {"isbn": lookup["isbn"], "lookup_key": lookup["key"]},
                 "is_owned": own, "is_wanted": want, "status": projection(own, want), "version": 1,
                 "create_request_id": request_id, "creation_fingerprint": digest({"target": first.target_key})})
+            if lookup:
+                lookups[request_id] = lookup
         prepared.append((group, entry, request_id, contexts, hashes, event_plans))
     created = {}
     if inserts:
         result = db.scalars(insert(UserBook).values(inserts).on_conflict_do_nothing().returning(UserBook))
         created = {entry.create_request_id: entry for entry in result}
+    _enqueue_lookups(db, created, lookups)
     source_inserts, attempt_inserts, link_inserts = [], [], []
     count = {"added_entries": len(created), "linked_records": 0, "added_reads": 0, "preserved_reads": 0}
     new_event_ids = {}
@@ -276,6 +281,31 @@ def apply_groups(db, run, groups):
     db.flush()
     db.add_all(link_inserts)
     return count
+
+
+def _lookup(payload):
+    """What to look up for an unmatched row: its ISBN, else its title and author. None when there is nothing to search on."""
+    from services.catalogue_queue import lookup_key
+    isbn = payload["isbns"][0] if payload.get("isbns") else None
+    title, author = payload.get("title"), payload.get("author")
+    if not isbn and not (title and author):
+        return None
+    return {"isbn": isbn, "title": title, "author": author, "key": lookup_key(isbn, title, author)}
+
+
+def _enqueue_lookups(db, created, lookups):
+    """Queue the new private entries for a one-time Open Library lookup; they stay private entries until it succeeds."""
+    from sqlalchemy import event
+    from services import catalogue_queue
+    queued = False
+    for request_id, entry in created.items():
+        lookup = lookups.get(request_id)
+        if lookup and entry.book_id is None:
+            catalogue_queue.enqueue(db, isbn=lookup["isbn"], title=lookup["title"], author=lookup["author"],
+                                    user_book_id=entry.id)
+            queued = True
+    if queued:
+        event.listen(db, "after_commit", lambda _session: catalogue_queue.wake(), once=True)
 
 
 def _review(group, code):

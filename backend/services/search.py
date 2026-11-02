@@ -15,10 +15,11 @@ class SearchService:
         current_user: User | None = None,
         exclude_owned: bool = False,
         shelf_status: UserBookStatus | None = None,
+        sort: str | None = None,
     ):
         query = (
             select(Book)
-            .where(Book.is_complete.is_(True))
+            .where(Book.is_listed.is_(True))
             .order_by(Book.id)
         )
         title_rank = None
@@ -72,4 +73,8 @@ class SearchService:
             query = query.order_by(None).order_by(
                 *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
 
+        if sort == "popular":
+            # An explicit sort wins over the reader's subject order; a text match still ranks closest titles first.
+            query = query.order_by(None).order_by(*([title_rank] if title_rank is not None else []),
+                                                  Book.popularity.desc().nulls_last(), Book.id)
         return query

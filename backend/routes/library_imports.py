@@ -132,6 +132,17 @@ def import_status(request: Request, run_id: UUID, current_user: User = Depends(i
     return _execute(db, lambda: ImportWorkflow(db).status(current_user.id, run_id))
 
 
+@router.get("/{run_id}/enrichment")
+@limiter.limit("120/minute")
+def import_enrichment(request: Request, run_id: UUID, current_user: User = Depends(import_user), db: Session = Depends(get_db)):
+    """How many of this import's unknown books are still being looked up, and how many were found."""
+    from services import catalogue_queue
+    result = _execute(db, lambda: catalogue_queue.enrichment(db, current_user.id, run_id))
+    if result is None:
+        fail("import_not_found", 404)
+    return JSONResponse(result, headers={"Cache-Control": "private, no-store"})
+
+
 @router.get("/{run_id}/report.csv")
 @limiter.limit("6/minute")
 def import_report(request: Request, run_id: UUID, current_user: User = Depends(import_user), db: Session = Depends(get_db)):

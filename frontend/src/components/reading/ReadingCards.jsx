@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { ActionLink, BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import { trackEvent } from "../ui-v2/events.js";
@@ -46,11 +46,16 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   // The entry travels with the click, so the workspace can draw the book's identity before its own request returns.
   navigationState = readingActions ? { ...navigationState, entry } : navigationState;
+  const navigate = useNavigate(), noteId = useId();
+  // The reader's own reason wins; otherwise the start of the book's description. Clicking it opens the book like the title,
+  // and it is not a second tab stop: the title link carries it as its description.
+  const reason = entry.save_note?.trim(), line = reason || entry.snippet;
   return <article className="bv-book-card bv-personal-book">
     {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} tabIndex={-1} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
-    <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3>
+    <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen} aria-describedby={line ? noteId : undefined}>{book.title}</Link> : book.title}</h3>
     <EnglishTitle book={book} />
     <p className="bv-author">{authorLabel(book)}</p>
+    {line && <p id={noteId} className={`bv-card-line${reason ? " bv-card-line--reason" : ""}`} onClick={destination ? () => { onOpen?.(); navigate(destination, { state: navigationState }); } : undefined}>{line}</p>}
     {/* One status line on every card: the reading state leads, then the independent shelves. */}
     {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <StatusLine labels={[readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean)} />}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })}>Find on Bookshop ↗</a>}

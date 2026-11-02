@@ -136,6 +136,7 @@ export function ReadingPrivacyPage() {
     <p>Private missing-book entries, save reasons, progress, dates, notes and reactions are visible only to the signed-in owner through the application. They are not shared as public reviews or used with paid AI services.</p>
     <p>The existing application uses Render for hosting, Neon PostgreSQL for storage and Resend for requested password-reset emails. Catalogue covers are supplied through Open Library; loading a remote cover contacts its image service. Browser cookies keep you signed in, and browser storage remembers appearance and local discovery choices.</p>
     <p>If something goes wrong, we receive an error report so we can fix it. We count visits anonymously, without cookies.</p>
+    <p>When a book has no description of its own, we may show one from Google Books, exactly as Google provides it and with a link back. We do not keep it.</p>
     <p>Some book links go to Bookshop.org; if you buy, Bookvane may earn a small commission at no cost to you.</p>
     <p>Authorized operators may access stored data for support, security and recovery. Do not put sensitive personal details in notes. No system can promise absolute security.</p>
     <p>You can edit or clear optional context, delete an individual reading, forget a personal book and its history, or download your reading data from your account when those controls are available. Older or paused versions may offer read-only access.</p>

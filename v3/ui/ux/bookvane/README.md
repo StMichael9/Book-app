@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [November 1: descriptions on cards, the "why" prompt, private descriptions (T28)](2026-11-01-book-descriptions.md)
 - [October 31: Profile v1 (hub, lists, sheet, public pages)](2026-10-31-profile-v1.md)
 - [October 30: anonymous event counters (frontend)](2026-10-30-event-beacons.md)
 - [October 29: an unfinished import no longer dead-ends](2026-10-29-import-active-run.md)

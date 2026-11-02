@@ -12,6 +12,7 @@ import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
+import BookAbout from "./BookAbout.jsx";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
@@ -239,7 +240,7 @@ export function BookPage() {
         </dl>}
         {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink><p className="bv-help">Open an existing reading, or start your first. Starting keeps Owned and clears Want to read. A new reread is always your choice.</p></div>}
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
-        {request.data ? <section className="bv-description"><h2>About this book</h2><p>{book.description || "A description isn’t available for this book yet. You can still save it to your library or explore its subjects."}</p></section>
+        {request.data ? <BookAbout key={book.id} book={book} />
           : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
         <div className="bv-share"><ShareBookButton book={book} /></div>
       </div>

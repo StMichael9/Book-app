@@ -9,6 +9,9 @@ import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverSrc } from "../../api/coverUrl.js";
 import AddToList from "../profile/AddToList.jsx";
+import WhyPrompt from "./WhyPrompt.jsx";
+import { markAsked, wasAsked } from "./whyAsked.js";
+import { useServiceDown } from "../../hooks/useServiceDown.js";
 
 export function Button({ children, variant = "primary", className = "", ...props }) {
   return <button type="button" className={`bv-button bv-button--${variant} ${className}`} {...props}>{children}</button>;
@@ -82,22 +85,40 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const lookupError = library.lookupErrors[book.id];
   const { mode, loadVisibleBooks } = library;
   useEffect(() => {
-    if (auth.isAuthenticated && mode === "v3") loadVisibleBooks([book.id]).catch(() => {});
-  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id]);
+    if (auth.isAuthenticated && mode === "v3" && !book.lookupDeferred) loadVisibleBooks([book.id]).catch(() => {});
+  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id, book.lookupDeferred]);
   const busy = reader.busyIds.includes(book.id);
   const unknown = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error) || (library.mode === "v3" && !entry?.known)));
-  const blocked = unknown || library.readOnly;
+  const down = useServiceDown();
+  const blocked = unknown || library.readOnly || down;
+  const [why, setWhy] = useState(null);
+  const controls = useRef(null);
   const known = !unknown;
   const helperId = useId();
   async function saveToShelf(value) {
+    const wasWanted = value === "want" && known && (library.mode === "v3" ? Boolean(entry?.is_wanted) : status === "want");
     const success = await reader.saveBook(book, value);
     const params = new URLSearchParams(location.search);
     if (success && location.pathname === `/book/${book.id}` && ["want", "owned"].includes(params.get("save"))) {
       params.delete("save");
       navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
     }
+    // Once per book, on the full page only, and only when the book has no reason yet.
+    const saved = reader.lastSave.current;
+    if (success && !compact && value === "want" && !wasWanted && saved?.bookId === book.id && saved.status === "want" && saved.entry && !saved.entry.save_note
+      && (saved.entry.id ?? saved.entry.entry_id) != null && !wasAsked(book.id)) {
+      markAsked(book.id);
+      setWhy({ id: saved.entry.id ?? saved.entry.entry_id, version: saved.entry.version });
+    }
   }
-  return <div className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
+  const { setQuietToast } = reader;
+  useEffect(() => {
+    if (!why) return undefined;
+    setQuietToast(true);
+    return () => setQuietToast(false);
+  }, [why, setQuietToast]);
+  function closeWhy() { setWhy(null); requestAnimationFrame(() => controls.current?.querySelector('[data-shelf="want"]')?.focus()); }
+  return <div ref={controls} className={`bv-shelf-controls ${compact ? "bv-shelf-controls--compact" : ""}`}>
     <div className="bv-shelf-actions" role="group" aria-label={`Shelf for ${book.title}`}>
       {["want", "owned"].map((value) => {
         const selected = known && (library.mode === "v3" ? entry?.[value === "owned" ? "is_owned" : "is_wanted"] : status === value);
@@ -107,15 +128,16 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
         const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
-          disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
+          data-shelf={value} disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
           aria-label={action.toLowerCase().includes(visible.toLowerCase()) ? action : `${visible}: ${action}`}
           onClick={() => saveToShelf(value)}>
           <Icon aria-hidden="true" />{visible}
         </Button>;
       })}
     </div>
+    {why && <WhyPrompt bookId={book.id} entry={why} onClose={closeWhy} />}
     <span id={helperId} className={compact ? "bv-sr-only" : "bv-help"}>
-      {busy ? "Updating your shelf…" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
+      {busy ? "Updating your shelf…" : down ? "Saving is paused for now" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
         "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
     </span>

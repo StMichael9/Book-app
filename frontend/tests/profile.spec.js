@@ -36,6 +36,7 @@ const test = base.extend({
       const failure = state.failNext[`${method} ${path}`];
       if (failure) { delete state.failNext[`${method} ${path}`]; return failure === "network" ? route.abort() : fail(...failure); }
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
+      if (/^\/books\/\d+\/description$/.test(path)) return fail(404, "not_found");
       if (path === "/auth/register" || path === "/auth/login") return reply(200, {});
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true } });

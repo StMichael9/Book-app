@@ -95,9 +95,11 @@ def test_search_hides_incomplete_books_including_alias_matches(client, make_book
 
 def test_book_detail_is_404_for_an_incomplete_book_when_anonymous(client, make_book):
     complete = make_book("Whole")
-    partial = make_book("Partial", description=None)
+    partial = make_book("Partial", page_count=None)
+    undescribed = make_book("Undescribed", description=None)  # listing no longer needs a description (T30)
     assert client.get(f"/books/{complete.id}").status_code == 200
     assert client.get(f"/books/{partial.id}").status_code == 404
+    assert client.get(f"/books/{undescribed.id}").status_code == 200
 
 
 @pytest.fixture
@@ -146,7 +148,7 @@ def choose(client, **params):
 
 def test_next_read_catalogue_source_skips_incomplete_books(client, reader, make_book):
     make_book("Complete pick")
-    make_book("Incomplete pick", description=None)
+    make_book("Incomplete pick", page_count=None)
     result = choose(client, source="catalogue")
     assert "Incomplete pick" not in {item["book"]["title"] for item in result["items"]}
     assert result["eligible_count"] == 5  # four seeded complete books plus "Complete pick"; the incomplete one is not counted

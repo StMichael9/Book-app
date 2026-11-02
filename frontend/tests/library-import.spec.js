@@ -70,6 +70,8 @@ const test = base.extend({
       if (path.endsWith("/confirm")) { state.run.phase = "applying"; return reply(state.run); }
       if (path.endsWith("/cancel")) { state.run.phase = "cancelled"; return reply(state.run); }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
+      if (/^\/me\/library-imports\/[^/]+\/enrichment$/.test(path) && state.enrichment) { state.enrichmentCalls = (state.enrichmentCalls || 0) + 1; return route.fulfill({ status: 200, json: state.enrichment.length > 1 ? state.enrichment.shift() : state.enrichment[0] }); }
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
@@ -392,4 +394,48 @@ test("a removed book with no match on Bookvane says it could not be added back a
   await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
   await expect(page.getByRole("heading", { name: /Brought home/ })).toBeVisible();
   expect(app.requests.some(request => request.method === "PATCH")).toBe(false);
+});
+
+test("after an import the done screen counts down the books still being looked up, refreshes the library on upgrades and stops at zero", async ({ page, app }) => {
+  app.enrichment = [{ pending: 3, upgraded: 0 }, { pending: 1, upgraded: 2 }, { pending: 0, upgraded: 3 }];
+  await openReady(page, app);
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Brought home 2 books.", exact: true })).toBeVisible();
+  const line = page.locator("[role=status][aria-live=polite]").filter({ hasText: "Finding covers" });
+  await expect(line).toHaveText("Finding covers and descriptions for 3 books…");
+  const revision = async () => Number(await page.locator(".bv-root").getAttribute("data-library-revision"));
+  const base = await revision();
+  await expect(line).toHaveText("Finding covers and descriptions for 1 book…", { timeout: 12000 });
+  expect(await revision()).toBe(base + 1);
+  await expect(page.locator("[role=status][aria-live=polite]").filter({ hasText: "Finding covers" })).toHaveCount(0, { timeout: 12000 });
+  expect(await revision()).toBe(base + 2);
+  const calls = () => app.requests.filter(request => request.path.endsWith("/enrichment")).length;
+  expect(calls()).toBe(3);
+  await page.waitForTimeout(6000);
+  expect(calls()).toBe(3);
+});
+
+test("a failing progress check stops quietly and shows nothing", async ({ page, app }) => {
+  await openReady(page, app);
+  await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Brought home 2 books.", exact: true })).toBeVisible();
+  await page.waitForTimeout(6000);
+  expect(app.requests.filter(request => request.path.endsWith("/enrichment"))).toHaveLength(1);
+  await expect(page.getByText("Finding covers")).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("enrichment screenshots", async ({ page, app }) => {
+  test.skip(!process.env.BOOK_SHOTS, "set BOOK_SHOTS=1 to export screenshots");
+  const dir = "node_modules/.bv-preview/descriptions";
+  app.enrichment = [{ pending: 12, upgraded: 0 }];
+  for (const theme of ["light", "dark"]) for (const [label, width, height] of [["375", 375, 812], ["1440", 1440, 900]]) {
+    await page.setViewportSize({ width, height });
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    app.run = null; app.rows = [];
+    await openReady(page, app);
+    await page.getByRole("button", { name: "Add everything I don’t have yet", exact: true }).click();
+    await expect(page.getByText("Finding covers and descriptions for 12 books…")).toBeVisible();
+    await page.screenshot({ path: `${dir}/import-${label}-${theme}.png` });
+  }
 });

@@ -126,6 +126,7 @@ const test = base.extend({
         if (path === "/autocomplete/tags/batch") return reply(200, [...new Map(values.map(item => [item.id, item])).values()].filter(item => url.searchParams.getAll("name").includes(item.name)));
         return reply(200, [...new Map(values.map((item) => [item.id, item])).values()].filter((item) => item.name.includes(url.searchParams.get("q"))));
       }
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });

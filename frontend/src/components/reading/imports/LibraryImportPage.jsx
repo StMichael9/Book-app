@@ -5,6 +5,7 @@ import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import * as imports from "../../../api/libraryImports.js";
 import { ActionLink, Button, PageHeading, TextLink } from "../../ui-v2/primitives.jsx";
+import EnrichmentLine from "./EnrichmentLine.jsx";
 import { fileHeaders, streamFile } from "./parsing.js";
 import "../../../styles/ui-v2/library-import.css";
 
@@ -324,6 +325,7 @@ function ImportSession() {
       </div>}
     </section>}
     {terminal && <section className="bv-section bv-import-done"><h2>{finished(run.phase) ? `Brought home ${books(added)}.` : endHeadings[run.phase]}</h2>
+      {finished(run.phase) && <EnrichmentLine key={run.id} runId={run.id} />}
       {!finished(run.phase) && added > 0 && <p>{books(added)} {added === 1 ? "was" : "were"} added before this stopped. Cancelling does not undo additions.</p>}
       {skipped > 0 && <p>{oneClick ? <>{skipped} left for you to review. <Button variant="quiet" onClick={() => setRowsOpen(true)}>Show them</Button></> : `${skipped} skipped.`}</p>}
       <div className="bv-form-actions">{finished(run.phase) && <ActionLink to="/home">Pick what to read next →</ActionLink>}<ActionLink to="/my-books" variant={finished(run.phase) ? "secondary" : "primary"}>Open My Books</ActionLink></div>

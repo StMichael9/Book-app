@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
 from fastapi.encoders import jsonable_encoder
@@ -6,7 +8,7 @@ from sqlalchemy.orm import joinedload, Session
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import catalogue_cache, search
+from services import catalogue_cache, google_books, search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
 
@@ -41,6 +43,7 @@ def get_books(
     tag: list[str] = Query(None),
     exclude_owned: bool = False,
     shelf_status: UserBookStatus | None = None,
+    sort: Literal["popular"] | None = None,
     params: Params = Depends(),
 ):
     cache_if_anonymous(response, current_user)
@@ -56,6 +59,7 @@ def get_books(
         current_user=current_user,
         exclude_owned=exclude_owned,
         shelf_status=shelf_status,
+        sort=sort,
     )
     # Page the ids first (with the total counted in the same statement), then load just those books. Selecting full
     # rows before OFFSET evaluates the correlated Own/Want counters for skipped rows on deep catalogue pages.
@@ -82,6 +86,21 @@ def get_books(
     return result
 
 
+@router.get("/books/{book_id}/description")
+def book_description(book_id: int, response: Response, db: Session = Depends(get_db)):
+    """A catalogue book's description (Open Library data), separate so cards and lists stay light."""
+    book = db.execute(select(Book).options(joinedload(Book.authors)).where(Book.id == book_id)).unique().scalar_one_or_none()
+    if book is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    text = book.description.strip() if book.description and book.description.strip() else None
+    if text is None and (google := google_books.description_for(
+            book.isbn13, book.title, book.authors[0].name if book.authors else None)):
+        response.headers["Cache-Control"] = "private, no-store"  # Google text is never cached beyond the server's memory
+        return {"text": google["text"], "source": "google", "link": google["link"]}
+    response.headers["Cache-Control"] = PUBLIC_CACHE
+    return {"text": text, "source": "openlibrary" if text else None}
+
+
 @router.get("/books/{book_id}", response_model=BookSchema)
 @limiter.limit("30/minute")
 def get_book(
@@ -100,7 +119,7 @@ def get_book(
     ).unique().scalar_one_or_none()
 
     # Discovery shows only complete books, but never break a reader's own saved book.
-    if book and not book.is_complete and not (current_user and db.scalar(select(exists().where(
+    if book and not book.is_listed and not (current_user and db.scalar(select(exists().where(
             UserBook.book_id == book.id, UserBook.user_id == current_user.id)))):
         book = None
 
