@@ -530,3 +530,121 @@ def test_missing_pages_cover_and_year_come_from_one_search_of_the_matching_work(
     ol.routes["/works/OL77W.json"] = work_json(description="Text.", covers=(5,), date="2011")
     resolve(world.db, isbn="9780306406157")
     assert "/search.json" not in [call[0] for call in ol.calls]  # nothing missing, so no extra call
+
+
+@pytest.mark.parametrize("raw,sent", [
+    ("Death on the Nile (Hercule Poirot, #18)", "Death on the Nile"),
+    ("Into the Fire (Orphan X, #5)", "Into the Fire"),
+    ("Dune: Deluxe Edition", "Dune"), ("A Title - Book 2", "A Title"), ("Plain Title", "Plain Title"),
+    ("(Odd) Opening", "(Odd) Opening"),
+])
+def test_the_search_is_sent_the_cleaned_title_with_its_original_casing(raw, sent):
+    from services.catalogue_resolver import search_title
+    assert search_title(raw) == sent
+
+
+def test_a_goodreads_series_suffix_does_not_defeat_the_search(world, ol):
+    from services.catalogue_resolver import resolve
+    ol.routes = {"/search.json": {"docs": [doc("/works/OL1W", "Death on the Nile", ("Agatha Christie",))]},
+                 "/works/OL1W.json": work_json("Death on the Nile", "A cruise, a murder.")}
+    result = resolve(world.db, title="Death on the Nile (Hercule Poirot, #18)", author="Agatha Christie")
+    assert result.confidence == "title_author" and result.work["source_id"] == "/works/OL1W"
+    assert result.work["page_count"] == 400 and result.ol_description == "A cruise, a murder."
+    sent = [call[1]["title"] for call in ol.calls if call[0] == "/search.json"]
+    assert sent == ["Death on the Nile"]  # not the raw Goodreads title
+
+
+def test_the_pages_fill_uses_the_cleaned_title_too(world, ol):
+    from services.catalogue_resolver import resolve
+    ol.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL77W"}]},
+                 "/works/OL77W.json": work_json("Into the Fire", "Text.", covers=(5,), date="2018"),
+                 "/authors/OL90001A.json": {"name": "Gregg Hurwitz"},
+                 "/search.json": {"docs": [{**doc("/works/OL77W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 480}]}}
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Gregg Hurwitz").work
+    assert work["page_count"] == 480
+
+
+def test_pages_cover_and_year_come_from_sibling_works_in_the_same_search(world, ol):
+    from services.catalogue_resolver import resolve
+    # The ISBN's own work (OL20639941W) has no page median; two sibling works with the same title and author do.
+    ol.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL20639941W"}]},
+                 "/works/OL20639941W.json": work_json("Into the Fire", "Text.", covers=(), date=""),
+                 "/authors/OL90001A.json": {"name": "Gregg Hurwitz"},
+                 "/search.json": {"docs": [{**doc("/works/OL20639941W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": None, "cover_i": None, "first_publish_year": None},
+                                           {**doc("/works/OL20641539W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 464, "cover_i": 7, "first_publish_year": 2020},
+                                           {**doc("/works/OL21691960W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 464}]}}
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Gregg Hurwitz").work
+    assert work["source_id"] == "/works/OL20639941W"
+    assert work["page_count"] == 464 and work["cover_image_url"].endswith("7-L.jpg") and work["published_year"] == 2020
+    assert [call[0] for call in ol.calls].count("/search.json") == 1  # no extra call
+    # the work's own value wins over a sibling's
+    ol.routes["/search.json"]["docs"][0]["number_of_pages_median"] = 300
+    assert resolve(world.db, isbn="9780306406157", title="Into the Fire", author="Gregg Hurwitz").work["page_count"] == 300
+
+
+def test_a_rejected_book_still_gives_its_waiting_private_entries_a_cover_and_description(world, ol):
+    from services import catalogue_queue as q
+    user = world.make_user()
+    plain = world.make_entry(user, title="The Washwoman at the River's End", author="Some Author",
+                             private_catalogue={"isbn": None, "lookup_key": "ta:keep-me"})
+    own = world.make_entry(user, title="The Washwoman at the River's End", author="Some Author", private_description="My own words.")
+    lookup = q.enqueue(world.db, isbn=None, title="The Washwoman at the River's End", author="Some Author", user_book_id=plain.id)
+    q.enqueue(world.db, isbn=None, title="The Washwoman at the River's End", author="Some Author", user_book_id=own.id)
+    world.db.commit()
+    version = plain.version
+    no_pages = {**doc("/works/OL1W", "The Washwoman at the River's End", ("Some Author",)), "number_of_pages_median": None}
+    ol.routes = {"/search.json": {"docs": [no_pages]}, "/works/OL1W.json": work_json("The Washwoman at the River's End", "A found description.")}
+    assert q.process(world.db, lookup) == "rejected"
+    world.db.commit()
+    world.db.refresh(plain); world.db.refresh(own)
+    assert plain.book_id is None and plain.private_catalogue["cover_image_url"].endswith("5-L.jpg")  # cover_i=5 in doc()
+    assert plain.private_catalogue["lookup_key"] == "ta:keep-me"  # existing keys are kept
+    assert plain.private_description == "A found description." and plain.version == version + 1
+    assert own.private_description == "My own words." and own.private_catalogue["cover_image_url"].endswith("5-L.jpg")
+    assert world.db.scalar(select(world.models.Book.id).where(world.models.Book.source_id == "/works/OL1W")) is None  # nothing stored for everyone
+    reasons = world.db.scalars(select(world.models.CatalogueImportIssue.detail).where(
+        world.models.CatalogueImportIssue.code == "gate_reject")).all()
+    assert reasons == ["no_pages"]
+
+
+def test_a_rejected_non_open_library_or_empty_result_changes_nothing(world, ol):
+    from services import catalogue_queue as q
+    user = world.make_user()
+    entry = world.make_entry(user)
+    lookup = q.enqueue(world.db, isbn=None, title="Orphan X", author="Gregg Hurwitz", user_book_id=entry.id)
+    world.db.commit()
+    assert q.show_found_details(world.db, lookup, {"cover_image_url": None, "description": "  "}) == 0
+    world.db.refresh(entry)
+    assert entry.private_catalogue is None and entry.private_description is None
+
+
+@pytest.mark.parametrize("given,sent", [("Greg Hurwitz", "hurwitz"), ("Hurwitz, Gregg", "hurwitz"), ("Agatha Christie", "christie"),
+                                        ("Madonna", "madonna")])
+def test_the_search_is_sent_the_authors_surname_not_the_full_name(world, ol, given, sent):
+    from services.catalogue_resolver import _search_docs
+    ol.routes = {"/search.json": {"docs": []}}
+    _search_docs("Into the Fire (Orphan X, #5)", given)
+    params = ol.calls[0][1]
+    assert params["author"] == sent and params["title"] == "Into the Fire"
+
+
+def test_a_different_spelling_of_the_author_still_finds_the_pages(world, ol, monkeypatch):
+    from services.catalogue_resolver import resolve
+    docs_by_author = {"hurwitz": [{**doc("/works/OL20639941W", "Into the Fire", ("Greg Hurwitz",)), "number_of_pages_median": None},
+                                  {**doc("/works/OL20641539W", "Into the Fire", ("Gregg Andrew Hurwitz",)), "number_of_pages_median": 464},
+                                  {**doc("/works/OL9W", "Into the Fire", ("Someone Else",)), "number_of_pages_median": 9}],
+                      "greg hurwitz": [{**doc("/works/OL20639941W", "Into the Fire", ("Greg Hurwitz",)), "number_of_pages_median": None}]}
+    class Dynamic(OL):
+        def __call__(self, path, params=None):
+            self.calls.append((path, params))
+            if path == "/search.json":
+                return {"docs": docs_by_author.get(params["author"].lower(), [])}
+            return self.routes.get(path)
+    from services import catalogue_resolver
+    fake = Dynamic()
+    fake.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL20639941W"}]},
+                   "/works/OL20639941W.json": work_json("Into the Fire", "Text.", covers=(3,), date="2020"),
+                   "/authors/OL90001A.json": {"name": "Greg Hurwitz"}}
+    monkeypatch.setattr(catalogue_resolver, "ol_get", fake)
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Greg Hurwitz").work
+    assert work["page_count"] == 464  # from the sibling spelled "Gregg Andrew Hurwitz"; the unrelated author's 9 is ignored
