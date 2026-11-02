@@ -148,7 +148,7 @@ export function ReadingWorkspacePage() {
   const workspace = request.data || (lastWorkspace?.key === workspaceSession ? lastWorkspace.data : null);
   // Opened from My Books or Home: the entry already known there draws the book's identity before the workspace request returns.
   const seed = String(location.state?.entry?.id) === String(entryId) ? location.state.entry : null;
-  const [reasonOpen, setReasonOpen] = useState(false);
+  const [reasonToggled, setReasonToggled] = useState(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [removal, setRemoval] = useState(null);
   const [reread, setReread] = useState(null);
@@ -309,13 +309,13 @@ export function ReadingWorkspacePage() {
           {!attempt.note && !attempt.reaction && <p className="bv-help">{library.readOnly ? "Your note would appear here. Changes are temporarily paused." : "A thought worth keeping? Your note is private and always optional."}</p>}
           <Button data-draft-trigger="memory" variant="secondary" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openMemory(attempt)}>{library.readOnly ? "View note" : drafts[draftKey(entryId, "memory", attempt.id)] ? "Continue draft" : attempt.note || attempt.reaction ? "Edit note" : "Add a note"}</Button></>}
         {!attempt && <p className="bv-help">Start a reading to keep a note with it.</p>}
-        <details className="bv-save-reason" open={reasonOpen} onToggle={event => setReasonOpen(event.currentTarget.open)}><summary>Why I saved this book</summary>{entry.save_note && <p className="bv-private-text">{entry.save_note}</p>}
+        <details className="bv-save-reason" open={reasonToggled ?? Boolean(entry.save_note)} onToggle={event => setReasonToggled(event.currentTarget.open)}><summary>Why I saved this book</summary>{entry.save_note && <p className="bv-private-text">{entry.save_note}</p>}
           {editing?.kind === "save_note" ? editor : !library.readOnly && <Button data-draft-trigger="save_note" variant="quiet" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openDraft("save_note")}>{drafts[draftKey(entryId, "save_note")] ? "Continue save-reason draft" : entry.save_note ? "Edit save reason" : "Add save reason (optional)"}</Button>}
         </details>
       </>}</section>}
       {nextSection}
       <section hidden={!loaded} className="bv-workspace-more" aria-labelledby="bv-workspace-more-title"><h2 id="bv-workspace-more-title">More about this reading</h2>
-      {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} />}
+      {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} entryId={entry.id} />}
       <ReadingHistoryDisclosure entryId={entryId} visible={loaded} activeAttempt={attempt && !terminal ? attempt : null} onCorrect={openEditor} onMemory={openMemory} onRemove={attempt => setRemoval({ entry, attempt })} editing={Boolean(editing) || command.pending || Boolean(removal) || Boolean(reread)} />
       {entry && workspace?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={workspace.imported_sources_count} /></div>}
       <details hidden={!loaded || library.readOnly} className="bv-workspace-manage" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary>Manage this book</summary>{loaded && !library.readOnly && <>

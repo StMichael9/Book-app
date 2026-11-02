@@ -70,6 +70,7 @@ const test = base.extend({
       if (path === "/autocomplete/tags") return reply(200, url.searchParams.get("q") === "fantasy" ? [tag] : []);
       // Cards prefetch their book when seen; these fixtures hold no book pages, so the prefetch is answered with a quiet 404.
       if (/^\/books\/\d+$/.test(path)) return reply(404, { detail: "Not found" });
+      if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
@@ -151,6 +152,8 @@ test("a refresh outage does not silently sign out or overwrite a saved shelf", a
   app.expireNext = true; app.refreshNetworkFails = true;
   await own.click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
+  await expect(own).toBeDisabled();
+  await page.getByRole("button", { name: "Check again" }).click();
   await expect(own).toBeEnabled();
   await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove Browser-only book from Want to read" })).toBeVisible();
