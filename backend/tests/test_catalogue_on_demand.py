@@ -530,3 +530,35 @@ def test_missing_pages_cover_and_year_come_from_one_search_of_the_matching_work(
     ol.routes["/works/OL77W.json"] = work_json(description="Text.", covers=(5,), date="2011")
     resolve(world.db, isbn="9780306406157")
     assert "/search.json" not in [call[0] for call in ol.calls]  # nothing missing, so no extra call
+
+
+@pytest.mark.parametrize("raw,sent", [
+    ("Death on the Nile (Hercule Poirot, #18)", "Death on the Nile"),
+    ("Into the Fire (Orphan X, #5)", "Into the Fire"),
+    ("Dune: Deluxe Edition", "Dune"), ("A Title - Book 2", "A Title"), ("Plain Title", "Plain Title"),
+    ("(Odd) Opening", "(Odd) Opening"),
+])
+def test_the_search_is_sent_the_cleaned_title_with_its_original_casing(raw, sent):
+    from services.catalogue_resolver import search_title
+    assert search_title(raw) == sent
+
+
+def test_a_goodreads_series_suffix_does_not_defeat_the_search(world, ol):
+    from services.catalogue_resolver import resolve
+    ol.routes = {"/search.json": {"docs": [doc("/works/OL1W", "Death on the Nile", ("Agatha Christie",))]},
+                 "/works/OL1W.json": work_json("Death on the Nile", "A cruise, a murder.")}
+    result = resolve(world.db, title="Death on the Nile (Hercule Poirot, #18)", author="Agatha Christie")
+    assert result.confidence == "title_author" and result.work["source_id"] == "/works/OL1W"
+    assert result.work["page_count"] == 400 and result.ol_description == "A cruise, a murder."
+    sent = [call[1]["title"] for call in ol.calls if call[0] == "/search.json"]
+    assert sent == ["Death on the Nile"]  # not the raw Goodreads title
+
+
+def test_the_pages_fill_uses_the_cleaned_title_too(world, ol):
+    from services.catalogue_resolver import resolve
+    ol.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL77W"}]},
+                 "/works/OL77W.json": work_json("Into the Fire", "Text.", covers=(5,), date="2018"),
+                 "/authors/OL90001A.json": {"name": "Gregg Hurwitz"},
+                 "/search.json": {"docs": [{**doc("/works/OL77W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 480}]}}
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Gregg Hurwitz").work
+    assert work["page_count"] == 480

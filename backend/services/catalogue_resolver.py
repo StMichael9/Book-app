@@ -182,8 +182,15 @@ def _by_isbn(db: Session, isbn: str, title, author) -> Resolution:
     return Resolution(work=work, ol_description=work["description"], confidence="isbn")
 
 
+def search_title(value: str) -> str:
+    """The title as Open Library knows it: the part before a series or subtitle suffix, original casing kept.
+    Goodreads writes "Death on the Nile (Hercule Poirot, #18)"; searching that whole string finds nothing."""
+    head = re.split(r"\s*[:(\[]|\s+-\s+|\s+--\s+", value or "")[0].strip()
+    return head or (value or "").strip()
+
+
 def _search_docs(title: str, author: str) -> list[dict]:
-    data = ol_get("/search.json", {"title": title, "author": author, "limit": 10,
+    data = ol_get("/search.json", {"title": search_title(title), "author": author, "limit": 10,
                                    "fields": "key,title,author_name,author_key,first_publish_year,cover_i,"
                                              "number_of_pages_median,isbn,subject"})
     wanted = norm_title(title)
