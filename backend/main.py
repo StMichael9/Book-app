@@ -1,6 +1,7 @@
+import asyncio
 import os
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, Depends, Request
@@ -50,7 +51,15 @@ async def app_lifespan(_app):
                     ImportWorkflow(maintenance).cleanup()
         except SQLAlchemyError:
             logging.getLogger(__name__).warning("Import staging cleanup deferred; next import activity can retry.")
+    worker = None
+    if settings.catalogue_worker_enabled:
+        from services.catalogue_queue import run_worker
+        worker = asyncio.create_task(run_worker(SessionLocal))
     yield
+    if worker is not None:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
 
 
 # Error reporting starts only when SENTRY_DSN is set; with no key nothing is initialised and nothing is sent.

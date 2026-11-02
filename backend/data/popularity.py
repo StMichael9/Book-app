@@ -136,8 +136,10 @@ def _count(config: ImportConfig, kind: str, url: str, totals: dict[str, list[int
     return malformed, last
 
 
-def _collect(factory: sessionmaker, config: ImportConfig, heartbeat=None):
-    """Stream both dumps; returns (top (key, score) pairs, works counted, unparsable lines, last such line)."""
+def _collect(factory: sessionmaker, config: ImportConfig, heartbeat=None, only: set[str] | None = None):
+    """Stream both dumps; returns (top (key, score) pairs, works counted, unparsable lines, last such line).
+
+    With `only`, the pairs are the scores of exactly those works (all of them, not just the top cut)."""
     totals: dict[str, list[int]] = defaultdict(lambda: [0, 0])
     malformed, last_error = 0, None
     for kind, url in config.popularity_urls.items():
@@ -165,9 +167,30 @@ def _collect(factory: sessionmaker, config: ImportConfig, heartbeat=None):
         last_error = last or last_error
     scores = {key: popularity_score(readers, ratings) for key, (readers, ratings) in totals.items()
               if readers or ratings}
-    top = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:config.popularity_top]
+    if only is not None:
+        top = sorted(((key, score) for key, score in scores.items() if key in only), key=lambda item: (-item[1], item[0]))
+    else:
+        top = sorted(scores.items(), key=lambda item: (-item[1], item[0]))[:config.popularity_top]
     log.info("popularity: %d works counted, %d kept (%d unparsable lines)", len(scores), len(top), malformed)
     return top, len(scores), malformed, last_error
+
+
+def run_backfill_popularity(factory: sessionmaker, config: ImportConfig, heartbeat=None, chunk: int = 1000) -> dict:
+    """Fill books.popularity for books already in the catalogue, matched by Open Library work key. Fill-only."""
+    from sqlalchemy import bindparam, select, update
+    from models import Book
+    with factory() as session:
+        wanted = set(session.scalars(select(Book.source_id).where(Book.source_id.is_not(None), Book.popularity.is_(None))))
+    top, counted, _, _ = _collect(factory, config, heartbeat, only=wanted)
+    rows = [{"sid": key, "score": score} for key, score in top]
+    books = Book.__table__  # Core, so the list of parameter sets runs as a plain executemany
+    statement = update(books).where(books.c.source_id == bindparam("sid"), books.c.popularity.is_(None)).values(
+        popularity=bindparam("score"))
+    for start in range(0, len(rows), chunk):
+        with factory.begin() as session:
+            session.execute(statement, rows[start:start + chunk])
+    log.info("popularity backfill: %d books without a score, %d scored (of %d works counted)", len(wanted), len(rows), counted)
+    return {"missing": len(wanted), "scored": len(rows), "counted": counted}
 
 
 def ensure_store(factory: sessionmaker, config: ImportConfig, heartbeat=None) -> PopularityStore:

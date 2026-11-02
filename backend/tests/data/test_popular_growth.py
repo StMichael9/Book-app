@@ -512,7 +512,7 @@ def test_scratch_tables_are_emptied_after_selection_and_after_merge(import_env, 
     run_phases(importer, cfg, 7)  # popularity, redirects, deletes, works, authors, editions, select
     with factory() as session:
         assert session.get(models.CatalogueImportRun, cfg.run_id).phase == "hydrate"
-        assert count(session, models.CatalogueStagePopularity) == 0
+        assert count(session, models.CatalogueStagePopularity) > 0  # merge copies these scores onto books.popularity
         assert count(session, models.CatalogueStageCandidate) == 0
         assert count(session, models.CatalogueStageWork) > 0  # merge still needs the selected works
     assert importer.run_import(cfg) == "complete"
@@ -564,3 +564,45 @@ def test_add_books_sets_the_target_from_the_current_count(import_env):
                      production_size_mb=250, max_project_mb=None, state_dir=None)
     built = importer._config_for_command(args, config().database_url, "Bookvane (test@example.org)")
     assert built.target_books == 2003 and built.production_size_mb == 250 and built.max_project_mb == 750
+
+
+def test_merge_copies_popularity_scores_onto_new_books_and_fills_existing_ones_only_when_empty(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    score = mod("popularity").popularity_score
+    works = [work(1), work(2), work(3)]
+    source = dumps(works, [edition(1), edition(2), edition(3)], readers={1: 3, 2: 4, 3: 2})
+    with factory.begin() as session:
+        session.add_all([
+            models.Book(title="Existing empty", source_id="/works/OL1W", popularity=None, authors=[models.Author(name="Author 1")]),
+            models.Book(title="Existing scored", source_id="/works/OL3W", popularity=99.0, authors=[models.Author(name="Author 3")]),
+        ])
+    fake_stream(monkeypatch, source)
+    importer.run_import(popular(config))
+    with factory() as session:
+        scores = {b.source_id: b.popularity for b in session.execute(select(models.Book)).scalars() if b.source_id}
+    assert scores["/works/OL2W"] == pytest.approx(score(4, 0))   # a new book gets its score
+    assert scores["/works/OL1W"] == pytest.approx(score(3, 0))   # an existing book without one is filled
+    assert scores["/works/OL3W"] == 99.0                          # an existing score is never overwritten
+
+
+def test_backfill_popularity_fills_only_books_without_a_score(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    popularity = mod("popularity")
+    with factory.begin() as session:
+        session.add_all([models.Book(title="Empty", source_id="/works/OL10W", authors=[models.Author(name="A")]),
+                         models.Book(title="Scored", source_id="/works/OL11W", popularity=7.0, authors=[models.Author(name="B")]),
+                         models.Book(title="Unknown to dumps", source_id="/works/OL12W", authors=[models.Author(name="C")]),
+                         models.Book(title="Legacy", source_id=None, authors=[models.Author(name="D")])])
+    seen = {}
+
+    def fake_collect(factory_, config_, heartbeat=None, only=None):
+        seen["only"] = set(only)
+        return [("/works/OL10W", 2.5), ("/works/OL11W", 9.9)], 5, 0, None
+
+    monkeypatch.setattr(popularity, "_collect", fake_collect)
+    result = popularity.run_backfill_popularity(factory, popular(config), chunk=1)
+    assert seen["only"] >= {"/works/OL10W", "/works/OL12W"} and "/works/OL11W" not in seen["only"]
+    assert result["scored"] == 2
+    with factory() as session:
+        by = {b.title: b.popularity for b in session.execute(select(models.Book)).scalars()}
+    assert by["Empty"] == 2.5 and by["Scored"] == 7.0 and by["Unknown to dumps"] is None and by["Legacy"] is None
