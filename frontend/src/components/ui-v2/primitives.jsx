@@ -82,8 +82,8 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const lookupError = library.lookupErrors[book.id];
   const { mode, loadVisibleBooks } = library;
   useEffect(() => {
-    if (auth.isAuthenticated && mode === "v3") loadVisibleBooks([book.id]).catch(() => {});
-  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id]);
+    if (auth.isAuthenticated && mode === "v3" && !book.lookupDeferred) loadVisibleBooks([book.id]).catch(() => {});
+  }, [auth.isAuthenticated, auth.sessionGeneration, mode, loadVisibleBooks, book.id, book.lookupDeferred]);
   const busy = reader.busyIds.includes(book.id);
   const unknown = auth.isLoading || (auth.isAuthenticated && (!reader.libraryReady || library.loading || Boolean(library.error) || (library.mode === "v3" && !entry?.known)));
   const blocked = unknown || library.readOnly;

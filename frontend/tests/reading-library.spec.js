@@ -31,6 +31,7 @@ const test = base.extend({
       }
       if (path === "/me/books") return reply(200, []);
       if (path === "/books") {
+        if (state.holdBooks) await state.holdBooks;
         if (!state.accountFixtures) return reply(200, { items: books, total: 30, page: 1, size: 30 });
         const account = state.authenticated ? state.account : null;
         const filtered = url.searchParams.has("shelf_status") || url.searchParams.has("exclude_owned");
@@ -143,6 +144,21 @@ test("V3 discovery batches visible state and never loads the complete shelf", as
   await page.goto("/browse");
   await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeEnabled();
   expect(app.requests.filter(request => request.path === "/me/books")).toHaveLength(0);
+  const lookups = app.requests.filter(request => request.path === "/me/library/lookup");
+  expect(lookups).toHaveLength(1);
+  expect(lookups[0].body.book_ids).toHaveLength(30);
+});
+
+test("snapshot cards wait for the live results before the saved-status lookup, so there is exactly one lookup", async ({ page, app }) => {
+  let release;
+  app.holdBooks = new Promise((resolve) => { release = resolve; });
+  await page.goto("/browse");
+  await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
+  await expect.poll(() => app.requests.some(request => request.path === "/me/reading-capabilities")).toBe(true);
+  await page.evaluate(() => new Promise(done => setTimeout(done, 400))); // capabilities are in; the snapshot is still showing
+  expect(app.requests.filter(request => request.path === "/me/library/lookup")).toHaveLength(0);
+  release();
+  await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeEnabled();
   const lookups = app.requests.filter(request => request.path === "/me/library/lookup");
   expect(lookups).toHaveLength(1);
   expect(lookups[0].body.book_ids).toHaveLength(30);
