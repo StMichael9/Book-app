@@ -172,14 +172,19 @@ def _by_isbn(db: Session, isbn: str, title, author) -> Resolution:
     if work["title"] and names and (not work["description"] or not work["page_count"] or not work["cover_image_url"]
                                     or not work["published_year"]):
         docs = _search_docs(work["title"], names[0])  # one search serves the missing page count, cover and description
-        same = next((doc for doc in docs if doc["key"] == key), docs[0] if docs else None)
-        if same:
-            work["page_count"] = work["page_count"] or clean.page_count(same.get("number_of_pages_median"))
-            work["cover_image_url"] = work["cover_image_url"] or clean.cover_url(same.get("cover_i"))
-            work["published_year"] = work["published_year"] or clean.year(same.get("first_publish_year"))
+        _fill_from_docs(work, docs, first=key)
         if not work["description"]:
             work["description"] = _description_from_siblings(work["title"], names[0], skip=key, docs=docs)
     return Resolution(work=work, ol_description=work["description"], confidence="isbn")
+
+
+def _fill_from_docs(work: dict, docs: list[dict], first: str | None = None) -> None:
+    """Fill a missing page count, cover or year from the matching search results: the work's own result first, then
+    its sibling works (same title and author). Open Library often records pages on only one of several works."""
+    for doc in sorted(docs, key=lambda item: item["key"] != first):
+        work["page_count"] = work["page_count"] or clean.page_count(doc.get("number_of_pages_median"))
+        work["cover_image_url"] = work["cover_image_url"] or clean.cover_url(doc.get("cover_i"))
+        work["published_year"] = work["published_year"] or clean.year(doc.get("first_publish_year"))
 
 
 def search_title(value: str) -> str:
@@ -230,6 +235,7 @@ def _by_search(db: Session, title: str, author: str) -> Resolution:
             "published_year": clean.year(best.get("first_publish_year")),
             "page_count": clean.page_count(best.get("number_of_pages_median")), "isbns": isbns, "edition_key": None,
             "subjects": [s for s in best.get("subject") or [] if isinstance(s, str)][:100]}
+    _fill_from_docs(work, docs, first=best["key"])
     return Resolution(work=work, ol_description=description, confidence="title_author")
 
 

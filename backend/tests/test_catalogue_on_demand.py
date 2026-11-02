@@ -562,3 +562,57 @@ def test_the_pages_fill_uses_the_cleaned_title_too(world, ol):
                  "/search.json": {"docs": [{**doc("/works/OL77W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 480}]}}
     work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Gregg Hurwitz").work
     assert work["page_count"] == 480
+
+
+def test_pages_cover_and_year_come_from_sibling_works_in_the_same_search(world, ol):
+    from services.catalogue_resolver import resolve
+    # The ISBN's own work (OL20639941W) has no page median; two sibling works with the same title and author do.
+    ol.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL20639941W"}]},
+                 "/works/OL20639941W.json": work_json("Into the Fire", "Text.", covers=(), date=""),
+                 "/authors/OL90001A.json": {"name": "Gregg Hurwitz"},
+                 "/search.json": {"docs": [{**doc("/works/OL20639941W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": None, "cover_i": None, "first_publish_year": None},
+                                           {**doc("/works/OL20641539W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 464, "cover_i": 7, "first_publish_year": 2020},
+                                           {**doc("/works/OL21691960W", "Into the Fire", ("Gregg Hurwitz",)), "number_of_pages_median": 464}]}}
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Gregg Hurwitz").work
+    assert work["source_id"] == "/works/OL20639941W"
+    assert work["page_count"] == 464 and work["cover_image_url"].endswith("7-L.jpg") and work["published_year"] == 2020
+    assert [call[0] for call in ol.calls].count("/search.json") == 1  # no extra call
+    # the work's own value wins over a sibling's
+    ol.routes["/search.json"]["docs"][0]["number_of_pages_median"] = 300
+    assert resolve(world.db, isbn="9780306406157", title="Into the Fire", author="Gregg Hurwitz").work["page_count"] == 300
+
+
+def test_a_rejected_book_still_gives_its_waiting_private_entries_a_cover_and_description(world, ol):
+    from services import catalogue_queue as q
+    user = world.make_user()
+    plain = world.make_entry(user, title="The Washwoman at the River's End", author="Some Author",
+                             private_catalogue={"isbn": None, "lookup_key": "ta:keep-me"})
+    own = world.make_entry(user, title="The Washwoman at the River's End", author="Some Author", private_description="My own words.")
+    lookup = q.enqueue(world.db, isbn=None, title="The Washwoman at the River's End", author="Some Author", user_book_id=plain.id)
+    q.enqueue(world.db, isbn=None, title="The Washwoman at the River's End", author="Some Author", user_book_id=own.id)
+    world.db.commit()
+    version = plain.version
+    no_pages = {**doc("/works/OL1W", "The Washwoman at the River's End", ("Some Author",)), "number_of_pages_median": None}
+    ol.routes = {"/search.json": {"docs": [no_pages]}, "/works/OL1W.json": work_json("The Washwoman at the River's End", "A found description.")}
+    assert q.process(world.db, lookup) == "rejected"
+    world.db.commit()
+    world.db.refresh(plain); world.db.refresh(own)
+    assert plain.book_id is None and plain.private_catalogue["cover_image_url"].endswith("5-L.jpg")  # cover_i=5 in doc()
+    assert plain.private_catalogue["lookup_key"] == "ta:keep-me"  # existing keys are kept
+    assert plain.private_description == "A found description." and plain.version == version + 1
+    assert own.private_description == "My own words." and own.private_catalogue["cover_image_url"].endswith("5-L.jpg")
+    assert world.db.scalar(select(world.models.Book.id).where(world.models.Book.source_id == "/works/OL1W")) is None  # nothing stored for everyone
+    reasons = world.db.scalars(select(world.models.CatalogueImportIssue.detail).where(
+        world.models.CatalogueImportIssue.code == "gate_reject")).all()
+    assert reasons == ["no_pages"]
+
+
+def test_a_rejected_non_open_library_or_empty_result_changes_nothing(world, ol):
+    from services import catalogue_queue as q
+    user = world.make_user()
+    entry = world.make_entry(user)
+    lookup = q.enqueue(world.db, isbn=None, title="Orphan X", author="Gregg Hurwitz", user_book_id=entry.id)
+    world.db.commit()
+    assert q.show_found_details(world.db, lookup, {"cover_image_url": None, "description": "  "}) == 0
+    world.db.refresh(entry)
+    assert entry.private_catalogue is None and entry.private_description is None
