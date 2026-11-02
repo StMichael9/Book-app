@@ -616,3 +616,35 @@ def test_a_rejected_non_open_library_or_empty_result_changes_nothing(world, ol):
     assert q.show_found_details(world.db, lookup, {"cover_image_url": None, "description": "  "}) == 0
     world.db.refresh(entry)
     assert entry.private_catalogue is None and entry.private_description is None
+
+
+@pytest.mark.parametrize("given,sent", [("Greg Hurwitz", "hurwitz"), ("Hurwitz, Gregg", "hurwitz"), ("Agatha Christie", "christie"),
+                                        ("Madonna", "madonna")])
+def test_the_search_is_sent_the_authors_surname_not_the_full_name(world, ol, given, sent):
+    from services.catalogue_resolver import _search_docs
+    ol.routes = {"/search.json": {"docs": []}}
+    _search_docs("Into the Fire (Orphan X, #5)", given)
+    params = ol.calls[0][1]
+    assert params["author"] == sent and params["title"] == "Into the Fire"
+
+
+def test_a_different_spelling_of_the_author_still_finds_the_pages(world, ol, monkeypatch):
+    from services.catalogue_resolver import resolve
+    docs_by_author = {"hurwitz": [{**doc("/works/OL20639941W", "Into the Fire", ("Greg Hurwitz",)), "number_of_pages_median": None},
+                                  {**doc("/works/OL20641539W", "Into the Fire", ("Gregg Andrew Hurwitz",)), "number_of_pages_median": 464},
+                                  {**doc("/works/OL9W", "Into the Fire", ("Someone Else",)), "number_of_pages_median": 9}],
+                      "greg hurwitz": [{**doc("/works/OL20639941W", "Into the Fire", ("Greg Hurwitz",)), "number_of_pages_median": None}]}
+    class Dynamic(OL):
+        def __call__(self, path, params=None):
+            self.calls.append((path, params))
+            if path == "/search.json":
+                return {"docs": docs_by_author.get(params["author"].lower(), [])}
+            return self.routes.get(path)
+    from services import catalogue_resolver
+    fake = Dynamic()
+    fake.routes = {"/isbn/9780306406157.json": {"key": "/books/OL77M", "works": [{"key": "/works/OL20639941W"}]},
+                   "/works/OL20639941W.json": work_json("Into the Fire", "Text.", covers=(3,), date="2020"),
+                   "/authors/OL90001A.json": {"name": "Greg Hurwitz"}}
+    monkeypatch.setattr(catalogue_resolver, "ol_get", fake)
+    work = resolve(world.db, isbn="9780306406157", title="Into the Fire (Orphan X, #5)", author="Greg Hurwitz").work
+    assert work["page_count"] == 464  # from the sibling spelled "Gregg Andrew Hurwitz"; the unrelated author's 9 is ignored

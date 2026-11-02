@@ -195,7 +195,9 @@ def search_title(value: str) -> str:
 
 
 def _search_docs(title: str, author: str) -> list[dict]:
-    data = ol_get("/search.json", {"title": search_title(title), "author": author, "limit": 10,
+    # Open Library spells one author several ways ("Greg Hurwitz", "Gregg Andrew Hurwitz"); the surname finds them all and
+    # author_names_match below still decides which results count.
+    data = ol_get("/search.json", {"title": search_title(title), "author": surname(author) or author, "limit": 10,
                                    "fields": "key,title,author_name,author_key,first_publish_year,cover_i,"
                                              "number_of_pages_median,isbn,subject"})
     wanted = norm_title(title)
