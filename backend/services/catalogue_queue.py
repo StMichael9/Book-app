@@ -92,6 +92,31 @@ def enrichment(db: Session, user_id, run_id) -> dict | None:
     return {"pending": len(pending), "upgraded": len(upgraded)}
 
 
+def show_found_details(db: Session, lookup: CatalogueLookup, work: dict) -> int:
+    """A book Open Library knows but the gate will not store still gets its cover and description on the waiting
+    private entries (the entry stays private; nothing is stored for everyone). A reader's own description is kept."""
+    cover = work.get("cover_image_url")
+    description = (work.get("description") or "").strip()[:5000].strip() or None
+    if not cover and not description:
+        return 0
+    updated = 0
+    entries = db.scalars(select(UserBook).join(CatalogueLookupWaiter, CatalogueLookupWaiter.user_book_id == UserBook.id)
+                         .where(CatalogueLookupWaiter.lookup_id == lookup.id, UserBook.book_id.is_(None)).with_for_update())
+    for entry in entries:
+        changed = False
+        if cover and not (entry.private_catalogue or {}).get("cover_image_url"):
+            entry.private_catalogue = {**(entry.private_catalogue or {}), "cover_image_url": cover}
+            changed = True
+        if description and not (entry.private_description or "").strip():
+            entry.private_description = description
+            changed = True
+        if changed:
+            entry.version += 1
+            updated += 1
+    db.flush()
+    return updated
+
+
 def _retry(db: Session, lookup: CatalogueLookup, now: datetime) -> str:
     lookup.attempts += 1
     if lookup.attempts > len(BACKOFF_SECONDS):
@@ -116,6 +141,8 @@ def process(db: Session, lookup: CatalogueLookup, now: datetime | None = None) -
             return lookup.status
         if isinstance(verdict, Rejected):
             catalogue_gate.log_rejection(db, resolution.work, verdict.reason)
+            if verdict.reason != "not_open_library":
+                show_found_details(db, lookup, resolution.work)
             lookup.status = "rejected"
             return lookup.status
         book_id = verdict.book_id if isinstance(verdict, Duplicate) else catalogue_gate.promote(db, verdict.work)
