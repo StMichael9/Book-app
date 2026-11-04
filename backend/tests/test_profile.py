@@ -78,7 +78,8 @@ def test_get_profile_shape_and_defaults(world):
     world.act_as(user)
     body = world.client.get("/me/profile").json()
     assert body == {"display_name": None, "bio": None, "initials": user.email[0].upper(), "handle": None,
-                    "profile_public": False, "show_prompt": True, "reading_since": user.created_at.year}
+                    "profile_public": False, "show_prompt": True, "reading_since": user.created_at.year,
+                    "avatar_icon": None, "avatar_color": None}
 
 
 def test_patch_trims_blanks_to_null_and_prompted_clears_the_prompt(world):
@@ -308,7 +309,7 @@ def test_public_payloads_never_contain_private_data(world):
     assert [item["name"] for item in page.json()["lists"]] == ["Public one"]
     assert [x["id"] for x in one.json()["books"]] == [a.id, b.id]
     assert page.json()["reading_since"] == user.created_at.year and page.json()["initials"] == "AL"
-    assert set(page.json()) == {"display_name", "initials", "bio", "reading_since", "stats", "lists"}
+    assert set(page.json()) == {"display_name", "initials", "bio", "reading_since", "avatar_icon", "avatar_color", "stats", "lists"}
     assert "Cache-Control" in page.headers and "public" in page.headers["Cache-Control"]
     assert world.client.get(f"/u/ada-public/lists/{private_id}").status_code == 404
 
@@ -388,3 +389,82 @@ def test_profile_is_an_allowed_signup_source(client, db_session, app_modules):
     assert row is not None
     db_session.execute(delete(models.User).where(models.User.email == email))
     db_session.commit()
+
+
+# --- avatar (T24b) -----------------------------------------------------------------------------------------------
+
+def test_avatar_choice_lists_are_the_agreed_ones():
+    from services.profile import AVATAR_COLORS, AVATAR_ICONS
+    assert AVATAR_ICONS == ("book-open", "coffee", "cat", "feather", "moon", "leaf", "lamp", "glasses", "bird", "mountain",
+                            "sun", "library")
+    assert AVATAR_COLORS == ("green", "rust", "ink", "mustard", "plum", "sage")
+
+
+def test_a_user_without_an_avatar_gets_nulls(world):
+    world.act_as(world.make_user())
+    body = world.client.get("/me/profile").json()
+    assert body["avatar_icon"] is None and body["avatar_color"] is None
+
+
+def test_every_allowed_icon_and_colour_can_be_set_and_is_returned(world):
+    from services.profile import AVATAR_COLORS, AVATAR_ICONS
+    world.act_as(world.make_user())
+    for icon in AVATAR_ICONS:
+        assert world.client.patch("/me/profile", json={"avatar_icon": icon}).json()["avatar_icon"] == icon
+    for colour in AVATAR_COLORS:
+        assert world.client.patch("/me/profile", json={"avatar_color": colour}).json()["avatar_color"] == colour
+    both = world.client.patch("/me/profile", json={"avatar_icon": "cat", "avatar_color": "plum"}).json()
+    assert (both["avatar_icon"], both["avatar_color"]) == ("cat", "plum")
+    assert world.client.get("/me/profile").json()["avatar_icon"] == "cat"
+
+
+@pytest.mark.parametrize("clear", [None, "", "   "])
+def test_empty_or_null_clears_the_avatar_to_null(world, clear):
+    world.act_as(world.make_user())
+    world.client.patch("/me/profile", json={"avatar_icon": "moon", "avatar_color": "rust"})
+    body = world.client.patch("/me/profile", json={"avatar_icon": clear, "avatar_color": clear}).json()
+    assert body["avatar_icon"] is None and body["avatar_color"] is None
+
+
+@pytest.mark.parametrize("field,value", [
+    ("avatar_icon", "dragon"), ("avatar_icon", "Cat"), ("avatar_icon", "cat "), ("avatar_icon", 5), ("avatar_icon", ["cat"]),
+    ("avatar_icon", True), ("avatar_color", "pink"), ("avatar_color", "GREEN"), ("avatar_color", "#ffffff"),
+    ("avatar_color", "green; drop table users"), ("avatar_color", 7), ("avatar_color", {"a": 1}),
+])
+def test_bad_avatar_values_are_refused_with_invalid_avatar_and_change_nothing(world, field, value):
+    world.act_as(world.make_user())
+    world.client.patch("/me/profile", json={"avatar_icon": "sun", "avatar_color": "ink", "display_name": "Keep Me"})
+    r = world.client.patch("/me/profile", json={field: value, "display_name": "Changed"})
+    assert r.status_code == 422 and detail(r) == "invalid_avatar"
+    body = world.client.get("/me/profile").json()
+    assert (body["avatar_icon"], body["avatar_color"], body["display_name"]) == ("sun", "ink", "Keep Me")
+
+
+def test_leaving_an_avatar_field_out_keeps_it(world):
+    world.act_as(world.make_user())
+    world.client.patch("/me/profile", json={"avatar_icon": "bird", "avatar_color": "sage"})
+    body = world.client.patch("/me/profile", json={"bio": "Hello"}).json()
+    assert (body["avatar_icon"], body["avatar_color"], body["bio"]) == ("bird", "sage", "Hello")
+    body = world.client.patch("/me/profile", json={"avatar_color": "rust"}).json()
+    assert (body["avatar_icon"], body["avatar_color"]) == ("bird", "rust")  # only the one sent changed
+
+
+def test_the_public_payload_shows_the_avatar_and_follows_changes(world):
+    user = world.make_user()
+    world.act_as(user)
+    world.client.patch("/me/profile", json={"handle": "avatar-reader", "profile_public": True,
+                                            "avatar_icon": "library", "avatar_color": "mustard"})
+    world.anonymous()
+    page = world.client.get("/u/avatar-reader").json()
+    assert (page["avatar_icon"], page["avatar_color"]) == ("library", "mustard")
+    world.act_as(user)
+    world.client.patch("/me/profile", json={"avatar_icon": None})
+    world.anonymous()
+    page = world.client.get("/u/avatar-reader").json()
+    assert page["avatar_icon"] is None and page["avatar_color"] == "mustard"  # the cached page was refreshed
+
+
+def test_the_avatar_migration_follows_the_current_head():
+    import pathlib
+    path = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "d2b7c4e9f1a3_profile_avatar.py"
+    assert "down_revision = 'c9f2a6d83e15'" in path.read_text(encoding="utf-8")
