@@ -59,6 +59,12 @@ export function EnglishTitle({ book }) {
   return text ? <p className="bv-english-title" lang="en">{text}</p> : null;
 }
 
+// Marks the cover loaded in the DOM the moment its artwork arrives, so the jacket never lingers over a finished image
+// while React catches up on a busy device. React then removes the jacket on its next render.
+function arrived(node) {
+  node.setAttribute("data-arrived", "");
+}
+
 function isCached(src) {
   if (!src || typeof Image === "undefined") return false;
   const probe = new Image();
@@ -80,9 +86,9 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   // The jacket (title and author) shows at once and the artwork fades in over it, so a card is never blank.
   return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
-    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(src); }}
+    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) { arrived(node); setLoadedUrl(src); } }}
       src={src} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
-      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(src)} onError={fail} />}
+      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={event => { arrived(event.currentTarget); setLoadedUrl(src); }} onError={fail} />}
   </div>;
 }
 

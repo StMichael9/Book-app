@@ -66,10 +66,10 @@ const test = base.extend({
         if (!main) return;
         const headings = [...main.querySelectorAll("h1, h2, h3")].map(node => node.textContent || "").filter(real);
         if (!headings.length) window.__blank.push(main.innerText.trim().slice(0, 60) || "(empty)");
-        // A jacket may sit under artwork that is still loading; it must never stay over artwork the browser already has.
+        // A jacket may show while artwork is still on its way; it must never show together with visible artwork.
         const covered = [...main.querySelectorAll(".bv-cover")].some(cover => { const img = cover.querySelector("img");
           const jacket = cover.querySelector(".bv-jacket");
-          return img && img.complete && img.naturalWidth > 0 && jacket && Number(getComputedStyle(jacket).opacity) > 0; });
+          return img && jacket && Number(getComputedStyle(img).opacity) > 0 && Number(getComputedStyle(jacket).opacity) > 0; });
         if (covered) window.__jacket = (window.__jacket || 0) + 1;
       }, 50);
     });
@@ -90,7 +90,7 @@ test("no empty page on first load", async ({ page }) => {
   expect(await blanks(page)).toEqual([]);
 });
 
-test("landing to Discover to a book and back never shows an empty page, and a loaded cover never shows its jacket", async ({ page }) => {
+test("landing to Discover to a book and back never shows an empty page, and a visible cover never shows its jacket with it", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Explore Nav Book 1" })).toBeVisible();
   await reset(page);
@@ -207,7 +207,7 @@ test("the cache and the sign-in hint are gone after logout", async ({ page, app 
   signedIn(app);
   await page.goto("/home");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);

@@ -4,6 +4,8 @@ import { mkdirSync } from "node:fs";
 // Browser fixtures only: every API request is intercepted, including the profile endpoints (the T24 contract).
 const book = (id, title) => ({ id, title, authors: [{ id: 1, name: "Fixture Author" }], tags: [], cover_image_url: null, english_title: null, page_count: 200 });
 const BOOKS = [book(1, "The Murder of Roger Ackroyd"), book(2, "Peril at End House"), book(3, "Murder on the Orient Express")];
+const ICONS = ["book-open", "coffee", "cat", "feather", "moon", "leaf", "lamp", "glasses", "bird", "mountain", "sun", "library"];
+const COLOURS = ["green", "rust", "ink", "mustard", "plum", "sage"];
 const month = (...counts) => Array.from({ length: 12 }, (_, index) => counts[index] || 0);
 const stats = (overrides = {}) => ({ year: 2026, books_finished: 18, pages_read: 5940, by_month: month(1, 2, 1, 3, 2, 4, 6, 3, 1, 2), top_genres: [{ name: "Mystery", count: 7 }, { name: "Classics", count: 5 }], biggest_month: 7, ...overrides });
 const detail = (id, extra = {}) => ({ ...BOOKS[id - 1], status: null, finished_month: null, ...extra });
@@ -12,12 +14,12 @@ const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
     const state = {
       requests: [], errors: [], failNext: {},
-      profile: { display_name: "St Michael", bio: "Mysteries, classics, and the odd business book on the train.", initials: "SM", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 },
+      profile: { display_name: "St Michael", bio: "Mysteries, classics, and the odd business book on the train.", initials: "SM", avatar_icon: null, avatar_color: null, handle: null, profile_public: false, show_prompt: false, reading_since: 2026 },
       stats: stats(),
       lists: [{ id: 7, name: "Christie, in order", description: null, is_public: false, book_count: 3, covers: [],
         books: [detail(1, { status: "owned", finished_month: "2026-03" }), detail(2, { status: "want" }), detail(3)] }],
       takenHandles: ["taken"], nextListId: 8,
-      publicProfile: { display_name: "Ada Reader", initials: "AR", bio: "Quiet reader.", reading_since: 2025, stats: stats({ books_finished: 2, pages_read: 400, by_month: month(1, 1), biggest_month: 1, top_genres: [] }),
+      publicProfile: { display_name: "Ada Reader", initials: "AR", avatar_icon: "feather", avatar_color: "plum", bio: "Quiet reader.", reading_since: 2025, stats: stats({ books_finished: 2, pages_read: 400, by_month: month(1, 1), biggest_month: 1, top_genres: [] }),
         lists: [{ id: 3, name: "Shared list", description: null, book_count: 2, covers: [] }],
         // Extra fields a mistaken payload might carry; the page must never show them.
         email: "ada@example.com", notes: "Secret note", rating: 5, status: "want" },
@@ -38,6 +40,7 @@ const test = base.extend({
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (/^\/books\/\d+\/description$/.test(path)) return fail(404, "not_found");
       if (path === "/auth/register" || path === "/auth/login") return reply(200, {});
+      if (path === "/auth/logout") { state.guest = true; return reply(200, {}); }
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
@@ -51,12 +54,13 @@ const test = base.extend({
         if ("handle" in body) { if (body.handle === "admin") return fail(422, "handle_reserved"); if (state.takenHandles.includes(body.handle)) return fail(409, "handle_taken"); next.handle = body.handle || null; }
         if ("display_name" in body) { next.display_name = body.display_name || null; }
         if ("bio" in body) next.bio = body.bio || null;
+        for (const [field, allowed] of [["avatar_icon", ICONS], ["avatar_color", COLOURS]]) if (field in body) { if (body[field] && !allowed.includes(body[field])) return fail(422, "invalid_avatar"); next[field] = body[field] || null; }
         if ("profile_public" in body) { if (body.profile_public && !next.handle) return fail(422, "handle_required"); next.profile_public = body.profile_public; }
         if (body.prompted) next.show_prompt = false;
         state.profile = next; return reply(200, next);
       }
       if (path === "/me/stats") return reply(200, state.stats);
-      if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [] })));
+      if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [], previews: books.slice(0, 4).map(item => ({ id: item.id, cover_image_url: item.cover_image_url })) })));
       if (path === "/me/lists" && method === "POST") {
         if (state.lists.length >= 50) return fail(422, "list_limit");
         const created = { id: state.nextListId++, name: body.name, description: null, is_public: false, book_count: 0, covers: [], books: [] }; state.lists.push(created);
@@ -148,67 +152,167 @@ test("the profile is private by default and the You tab opens it, with a link to
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
 });
 
-test("Make public asks for a username, reports a taken one, then goes public and back to private", async ({ page, app }) => {
+test("Make public opens a confirm sheet that asks for a username, reports taken ones, then goes public and back to private", async ({ page, app }) => {
   await page.goto("/profile");
   await page.getByRole("button", { name: "Make public" }).click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await expect(sheet.getByText("Shown: your name, bio, yearly stats, and shared lists")).toBeVisible();
+  await expect(sheet.getByText("Always private: notes, ratings, reading history, and private lists")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
-  await page.getByLabel("Username").fill("taken");
-  await page.getByRole("button", { name: "Make public" }).last().click();
-  await expect(page.getByText("That username is taken.")).toBeVisible();
-  await page.getByLabel("Username").fill("admin");
-  await page.getByRole("button", { name: "Make public" }).last().click();
-  await expect(page.getByText("That username isn’t available.")).toBeVisible();
-  await page.getByLabel("Username").fill("Bad Name!");
-  await expect(page.getByLabel("Username")).toHaveValue("bad name!");
-  await page.getByRole("button", { name: "Make public" }).last().click();
-  await expect(page.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
-  await page.getByLabel("Username").fill("stmichael");
-  await page.getByRole("button", { name: "Make public" }).last().click();
+  await sheet.getByLabel("Username").fill("taken");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username is taken.")).toBeVisible();
+  await sheet.getByLabel("Username").fill("admin");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username isn’t available.")).toBeVisible();
+  await sheet.getByLabel("Username").fill("Bad Name!");
+  await expect(sheet.getByLabel("Username")).toHaveValue("bad name!");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
+  await sheet.getByLabel("Username").fill("stmichael");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet).toBeHidden();
   await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
   await expect(page.getByText("bookvane.me/u/stmichael")).toBeVisible();
   await expect(page.getByText("@stmichael · reading since 2026")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
+  await expect(page.getByRole("status").filter({ hasText: "Your profile is now public." })).toBeAttached();
   await page.getByRole("button", { name: "Make private" }).click();
   await expect(page.getByText("Only you can see your profile")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ profile_public: false });
+  await expect(page.getByRole("status").filter({ hasText: "Your profile is now private." })).toBeAttached();
 });
 
-test("a server handle_required answer opens the username field instead of an error", async ({ page, app }) => {
+test("the Make public sheet needs no username once one is set, Cancel and Esc send nothing, and focus returns to the button", async ({ page, app }) => {
+  app.profile.handle = "ready";
+  await page.goto("/profile");
+  const open = page.getByRole("button", { name: "Make public" });
+  await open.click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await expect(sheet.getByLabel("Username")).toHaveCount(0);
+  await sheet.getByRole("button", { name: "Cancel" }).click();
+  await expect(sheet).toBeHidden();
+  await expect(open).toBeFocused();
+  await open.click();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
+  await open.click();
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ profile_public: true });
+});
+
+test("a server handle_required answer opens the username field in the Make public sheet instead of an error", async ({ page, app }) => {
   app.profile.handle = "ready";
   await page.goto("/profile");
   app.failNext["PATCH /me/profile"] = [422, "handle_required"];
   await page.getByRole("button", { name: "Make public" }).click();
-  await expect(page.getByLabel("Username")).toBeVisible();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByLabel("Username")).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
-test("Edit profile sends only the changed fields and explains a taken username", async ({ page, app }) => {
+test("Edit profile is a sheet that sends only the changed fields and explains a taken username", async ({ page, app }) => {
   await page.goto("/profile");
-  await page.getByRole("button", { name: "Edit profile" }).click();
-  await expect(page.getByLabel("Bio")).toHaveAttribute("maxlength", "160");
-  await expect(page.getByText("60/160")).toBeVisible();
-  await page.getByLabel("Username").fill("taken");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("That username is taken.")).toBeVisible();
-  await page.getByLabel("Username").fill("ab");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
-  await page.getByLabel("Username").fill("michael-reads");
-  await page.getByLabel("Name", { exact: true }).fill("Michael R");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  const open = page.getByRole("button", { name: "Edit profile" });
+  await open.click();
+  const sheet = page.getByRole("dialog", { name: "Edit profile" });
+  await expect(sheet.getByLabel("Bio")).toHaveAttribute("maxlength", "160");
+  await expect(sheet.getByText("60/160")).toBeVisible();
+  await sheet.getByLabel("Username").fill("taken");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet.getByText("That username is taken.")).toBeVisible();
+  await sheet.getByLabel("Username").fill("ab");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
+  await sheet.getByLabel("Username").fill("michael-reads");
+  await sheet.getByLabel("Name", { exact: true }).fill("Michael R");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet).toBeHidden();
   await expect(page.getByRole("heading", { name: "Michael R", level: 1 })).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ display_name: "Michael R", handle: "michael-reads" });
   await expect(page.getByText("@michael-reads · reading since 2026")).toBeVisible();
+  await expect(open).toBeFocused();
+});
+
+test("Esc and Cancel on the Edit profile sheet discard changes and send nothing", async ({ page, app }) => {
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Edit profile" }).click();
+  const sheet = page.getByRole("dialog", { name: "Edit profile" });
+  await sheet.getByLabel("Name", { exact: true }).fill("Someone Else");
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "Edit profile" }).click();
+  await expect(sheet.getByLabel("Name", { exact: true })).toHaveValue("St Michael");
+  await sheet.getByRole("button", { name: "Cancel" }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
+});
+
+test("the avatar picker previews the choice, sends the icon and colour, and the header and You tab show it", async ({ page, app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  const header = page.locator(".bv-header-avatar"), tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
+  await expect(header).toHaveAttribute("aria-label", "Your profile");
+  await expect(header.locator(".bv-avatar")).toHaveCSS("width", "32px");
+  await expect(tab.locator(".bv-avatar")).toHaveCSS("width", "22px");
+  await expect(header.locator(".bv-avatar")).toHaveCSS("background-color", "rgb(40, 81, 63)");
+  await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "68px");
+  await page.getByRole("button", { name: "Edit profile" }).click();
+  const sheet = page.getByRole("dialog", { name: "Edit profile" });
+  await expect(sheet.getByRole("group", { name: "Icon" }).getByRole("radio")).toHaveCount(12);
+  await expect(sheet.getByRole("group", { name: "Colour" }).getByRole("radio")).toHaveCount(6);
+  await expect(sheet.getByRole("radio", { name: "Green" })).toBeChecked();
+  await expect(sheet.locator(".bv-picker-preview .bv-avatar")).toHaveCSS("width", "96px");
+  await sheet.getByRole("radio", { name: "Feather" }).check({ force: true });
+  await sheet.getByRole("radio", { name: "Plum" }).check({ force: true });
+  await expect(sheet.locator(".bv-picker-preview .bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
+  expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ avatar_icon: "feather", avatar_color: "plum" });
+  for (const avatar of [header.locator(".bv-avatar"), tab.locator(".bv-avatar"), page.locator(".bv-profile-head .bv-avatar")]) {
+    await expect(avatar).toHaveCSS("background-color", "rgb(107, 63, 94)");
+    await expect(avatar.locator("svg")).toHaveCount(1);
+  }
+  // The glyph is about 44% of the diameter: 30 px in the 68 px avatar, 14 in the 32 px header, 10 in the 22 px tab.
+  const glyphWidth = avatar => avatar.locator("svg").evaluate(node => Math.round(node.getBoundingClientRect().width));
+  expect([await glyphWidth(page.locator(".bv-profile-head .bv-avatar")), await glyphWidth(header.locator(".bv-avatar")), await glyphWidth(tab.locator(".bv-avatar"))]).toEqual([30, 14, 10]);
+  await header.click();
+  await expect(page).toHaveURL(/\/profile$/);
+});
+
+test("with no avatar chosen the avatar shows the reader's initials on green", async ({ page, app: _app }) => {
+  await page.goto("/profile");
+  await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveText("SM");
+  await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("background-color", "rgb(40, 81, 63)");
+});
+
+test("the You tab is active on /profile, a list and /account, and never on a public page", async ({ page, app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
+  for (const path of ["/profile", "/profile/lists/7", "/account"]) {
+    await page.goto(path);
+    await expect(tab).toHaveAttribute("aria-current", "page");
+  }
+  await page.goto("/u/ada");
+  await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
+  await expect(tab).not.toHaveAttribute("aria-current", "page");
+  expect(app.errors).toEqual([]);
 });
 
 test("the year sentence reads right for plural, one book, no biggest month and an empty year", async ({ page, app }) => {
   await page.goto("/profile");
-  await expect(page.getByRole("heading", { name: "Your 2026 in books" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your 2026", exact: true })).toBeVisible();
   await expect(page.getByText("You’ve finished 18 books and 5,940 pages this year. July was your biggest month.")).toBeVisible();
-  await expect(page.getByText("Mystery · 7")).toBeVisible();
-  await expect(page.getByText("Classics · 5")).toBeVisible();
-  await expect(page.locator(".bv-year-bars")).toHaveAttribute("aria-hidden", "true");
-  await expect(page.locator(".bv-year-bar.is-top")).toHaveCount(1);
+  await expect(page.getByText("Mostly Mystery (7) · Classics (5)")).toBeVisible();
+  await expect(page.locator(".bv-year-genres li, .bv-year-chips")).toHaveCount(0);
+  await expect(page.locator(".bv-shelf")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".bv-shelf-months .is-top")).toHaveText("J");
+  await expect(page.locator(".bv-shelf-months .is-top")).toHaveCount(1);
   await expect(page.getByText("July: 6")).toBeAttached();
   app.stats = stats({ books_finished: 1, pages_read: 320, by_month: month(1), biggest_month: 1, top_genres: [] });
   await page.reload();
@@ -219,14 +323,48 @@ test("the year sentence reads right for plural, one book, no biggest month and a
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.reload();
   await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
-  await expect(page.locator(".bv-year-bars")).toHaveCount(0);
+  await expect(page.locator(".bv-shelf")).toHaveCount(1);
+  await expect(page.locator(".bv-shelf-spine")).toHaveCount(0);
 });
 
-test("lists: a list shows its lock, a new list opens its page, and an empty hub explains lists", async ({ page, app }) => {
+test("the year shelf draws a spine per finished book up to what fits, shows +N for the rest, is stable between visits and never overflows", async ({ page, app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  app.stats = stats({ books_finished: 22, by_month: month(1, 2, 0, 3, 0, 0, 12, 4) });
   await page.goto("/profile");
-  const row = page.getByRole("link", { name: /Christie, in order/ });
-  await expect(row).toContainText("3 books");
-  await expect(row.getByRole("img", { name: "Private list" })).toBeVisible();
+  await expect(page.locator(".bv-shelf-month").nth(6).locator(".bv-shelf-spine").first()).toBeVisible();
+  const shelf = () => page.locator(".bv-shelf-month").evaluateAll(months => months.map(item => ({ spines: item.querySelectorAll(".bv-shelf-spine").length, more: item.querySelector(".bv-shelf-more")?.textContent || "" })));
+  const counts = await shelf();
+  expect(counts.slice(0, 4).map(item => item.spines)).toEqual([1, 2, 0, 3]);
+  expect(counts.slice(0, 6).map(item => item.more)).toEqual(["", "", "", "", "", ""]);
+  const july = counts[6], fits = july.spines;
+  expect(fits).toBeGreaterThanOrEqual(3); expect(fits).toBeLessThan(12);
+  expect(july.more).toBe(`+${12 - fits}`);
+  expect(counts[7].spines + (counts[7].more ? Number(counts[7].more.slice(1)) : 0)).toBe(4);
+  const widths = await page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => spine.getBoundingClientRect().width));
+  expect(Math.min(...widths)).toBeGreaterThanOrEqual(3.9);
+  const heights = await page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => Number.parseInt(spine.style.height, 10)));
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(78); expect(Math.max(...heights)).toBeLessThanOrEqual(100);
+  await expect(page.getByText("July: 12")).toBeAttached();
+  const styles = () => page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => `${spine.style.height}|${spine.style.background}`));
+  const first = await styles();
+  await page.reload();
+  await expect(page.locator(".bv-shelf-month").nth(6).locator(".bv-shelf-spine").first()).toBeVisible();
+  expect(await styles()).toEqual(first);
+  const box = await page.locator(".bv-shelf").boundingBox();
+  for (const spine of await page.locator(".bv-shelf-spine").all()) { const rect = await spine.boundingBox(); expect(rect.x + rect.width).toBeLessThanOrEqual(box.x + box.width + 0.5); }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const wide = await shelf();
+  expect(wide[6].spines).toBeGreaterThan(fits);
+  const wideWidths = await page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => spine.getBoundingClientRect().width));
+  expect(Math.min(...wideWidths)).toBeGreaterThanOrEqual(7.9);
+});
+
+test("lists: cards show the name, count and privacy, a new list opens its page, and an empty hub explains lists", async ({ page, app }) => {
+  await page.goto("/profile");
+  const card = page.getByRole("link", { name: /Christie, in order/ });
+  await expect(card).toContainText("3 books");
+  await expect(card).toContainText("private");
+  await expect(page.locator(".bv-list-cards")).toHaveCSS("grid-template-columns", /px .*px/);
   await page.getByRole("button", { name: "New list" }).click();
   await page.getByLabel("List name").fill("Holiday");
   await page.getByRole("button", { name: "Create list" }).click();
@@ -238,6 +376,148 @@ test("lists: a list shows its lock, a new list opens its page, and an empty hub 
   await expect(page.getByText("Make a list for a series, a theme, or what to read on holiday.")).toBeVisible();
 });
 
+test("list artwork shows spine blocks for coverless books, an outlined spine for an empty list, and never a letter tile or a blank tile", async ({ page, app }) => {
+  app.lists.push({ id: 9, name: "Brand new", description: null, is_public: true, book_count: 0, covers: [], books: [] });
+  await page.goto("/profile");
+  const art = page.getByRole("link", { name: /Christie, in order/ }).locator(".bv-art");
+  await expect(art.locator(".bv-art-slot")).toHaveCount(3);
+  await expect(art.locator(".bv-art-spine")).toHaveCount(3);
+  const empty = page.getByRole("link", { name: /Brand new/ }).locator(".bv-art--empty");
+  await expect(empty).toBeVisible();
+  await expect(empty.locator("i")).toHaveCSS("border-top-color", /rgb\(\d+, \d+, \d+\)/);
+  await expect(empty).toHaveCSS("border-bottom-width", "3px");
+  for (const text of await page.locator(".bv-art").allInnerTexts()) expect(text.trim()).toBe("");
+  await page.goto("/profile/lists/7");
+  await expect(page.locator(".bv-art--tall .bv-art-slot")).toHaveCount(3);
+  await expect(page.locator(".bv-art--tall")).toHaveCSS("height", "96px");
+  await expect(page.locator(".bv-list-books .bv-list-cover .bv-art-spine")).toHaveCount(3);
+  await expect(page.locator(".bv-list-initial")).toHaveCount(0);
+  // Never blank: every coverless row paints an opaque bookcloth, in both themes.
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => document.querySelector(".bv-root").setAttribute("data-theme", value), theme);
+    const paints = await page.locator(".bv-list-cover .bv-art-spine").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return [style.backgroundColor, node.getBoundingClientRect().width, node.getBoundingClientRect().height]; }));
+    for (const [colour, width, height] of paints) { expect(colour).toMatch(/^rgb\(/); expect(width).toBeGreaterThanOrEqual(40); expect(height).toBeGreaterThanOrEqual(60); }
+  }
+});
+
+test("a book wears the same cloth on the hub card, the list header and its row", async ({ page, app: _app }) => {
+  await page.goto("/profile");
+  const cloth = locator => locator.evaluate(node => getComputedStyle(node).backgroundColor);
+  const card = page.getByRole("link", { name: /Christie, in order/ }).locator(".bv-art-spine");
+  const fromCard = [await cloth(card.nth(0)), await cloth(card.nth(1)), await cloth(card.nth(2))];
+  await page.goto("/profile/lists/7");
+  const header = page.locator(".bv-art--tall .bv-art-spine"), rows = page.locator(".bv-list-cover .bv-art-spine");
+  for (let index = 0; index < 3; index += 1) {
+    expect(await cloth(header.nth(index))).toBe(fromCard[index]);
+    expect(await cloth(rows.nth(index))).toBe(fromCard[index]);
+  }
+});
+
+test("list cards are two across, one under 340px, and the lists heading and New list stay whole at large text", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/profile");
+  const columns = () => page.locator(".bv-list-cards").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length);
+  await expect(page.locator(".bv-list-card")).toHaveCount(1);
+  expect(await columns()).toBe(2);
+  await page.setViewportSize({ width: 375, height: 800 });
+  expect(await columns()).toBe(2);
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await columns()).toBe(1);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  expect(await columns()).toBe(1);
+  const button = await page.getByRole("button", { name: "New list" }).boundingBox();
+  const line = await page.getByRole("button", { name: "New list" }).evaluate(node => parseFloat(getComputedStyle(node).lineHeight) || node.getBoundingClientRect().height);
+  expect(button.height).toBeLessThan(line * 2.2);
+});
+
+test("at 200% text the mobile nav labels never ellipsise, clip or break inside a word", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  const nav = page.getByRole("navigation", { name: "Mobile navigation" });
+  const labels = await nav.locator("a span").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return { overflow: style.textOverflow, wrap: style.overflowWrap, clipped: node.scrollWidth > node.clientWidth + 1, text: node.textContent }; }));
+  for (const label of labels) { expect(label.overflow).not.toBe("ellipsis"); expect(label.wrap).toBe("normal"); expect(label.clipped, label.text).toBe(false); }
+  expect(labels.map(label => label.text)).toContain("Discover");
+  // Each word sits whole on one line: the label's rendered width never exceeds its link, and the nav itself doesn't scroll sideways.
+  expect(await nav.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("every spine shows up to what fits, in light, dark and 200% text", async ({ page, app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const by = [1, 2, 1, 3, 2, 4, 9, 3, 1, 2];
+  app.stats = stats({ books_finished: 28, by_month: month(...by) });
+  for (const theme of ["light", "dark"]) for (const zoom of [false, true]) {
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.goto("/profile");
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    await expect(page.locator(".bv-shelf-month").nth(6).locator(".bv-shelf-spine").first()).toBeVisible();
+    const months = await page.locator(".bv-shelf-month").evaluateAll(nodes => nodes.map(node => ({ spines: node.querySelectorAll(".bv-shelf-spine").length, more: node.querySelector(".bv-shelf-more")?.textContent || "" })));
+    const label = `${theme}${zoom ? " 200%" : ""}`;
+    // Months with up to three books always show every spine; a crowded month shows what fits (at least three) plus +N for the rest.
+    by.forEach((count, index) => {
+      if (count <= 3) { expect(months[index].spines, `${label}: month ${index + 1}`).toBe(count); expect(months[index].more).toBe(""); }
+      else { expect(months[index].spines, `${label}: month ${index + 1}`).toBeGreaterThanOrEqual(3); expect(months[index].spines + Number(months[index].more.slice(1) || 0)).toBe(count); }
+    });
+    expect(months[6].spines, label).toBeGreaterThan(1);
+    expect(months.slice(10).map(item => item.spines)).toEqual([0, 0]);
+  }
+});
+
+test("signed-out visitors see the plain person icon on the You tab, never an avatar", async ({ page, app }) => {
+  app.guest = true;
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/browse");
+  const tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
+  await expect(tab).toBeVisible();
+  await expect(tab.locator(".bv-avatar")).toHaveCount(0);
+  await expect(tab.locator("svg")).toHaveCount(1);
+  await expect(page.locator(".bv-header-avatar")).toHaveCount(0);
+});
+
+test("the privacy pill is a two-row pill on phones with the button under the text, and one row on desktop", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  const pill = page.locator(".bv-visibility");
+  const text = await pill.locator("span").boundingBox(), button = await pill.getByRole("button", { name: "Make public" }).boundingBox(), box = await pill.boundingBox();
+  expect(button.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
+  expect(button.x).toBeLessThan(box.x + 24);
+  expect(button.x + button.width).toBeLessThanOrEqual(box.x + box.width);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const wideText = await pill.locator("span").boundingBox(), wideButton = await pill.getByRole("button", { name: "Make public" }).boundingBox();
+  expect(Math.abs((wideButton.y + wideButton.height / 2) - (wideText.y + wideText.height / 2))).toBeLessThan(12);
+});
+
+test("Sign out is the second ruled row under Account settings, and tertiary links sit on the 20px gutter", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  const link = page.getByRole("link", { name: "Account settings" }), out = page.getByRole("button", { name: "Sign out" });
+  await expect(out).toBeVisible();
+  const [linkBox, outBox] = [await link.boundingBox(), await out.boundingBox()];
+  expect(outBox.y).toBeGreaterThan(linkBox.y + linkBox.height - 2);
+  expect(outBox.height).toBeGreaterThanOrEqual(44);
+  expect(Math.round(outBox.x)).toBe(20); expect(Math.round(linkBox.x)).toBe(20);
+  await expect(out).toHaveCSS("border-bottom-width", "1px");
+  await expect(out.locator("svg")).toHaveCount(0);
+  const edit = await page.getByRole("button", { name: "Edit profile" }).boundingBox(), name = await page.getByRole("heading", { name: "St Michael", level: 1 }).boundingBox();
+  expect(Math.round(edit.x)).toBe(Math.round(name.x));
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  expect(Math.round((await page.getByRole("button", { name: "Rename or delete" }).boundingBox()).x)).toBe(20);
+});
+
+test("on a wide screen the hub is about 880px, the shelf 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/profile");
+  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(880);
+  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "140px");
+  await expect(page.locator(".bv-list-card .bv-art")).toHaveCSS("height", "120px");
+  await expect(page.locator(".bv-shelf-spine").first()).toHaveCSS("width", /^(1[0-2]|9)(\.\d+)?px$/);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "96px");
+});
+
 test("the 50-list limit is explained", async ({ page, app }) => {
   await page.goto("/profile");
   app.failNext["POST /me/lists"] = [422, "list_limit"];
@@ -247,7 +527,7 @@ test("the 50-list limit is explained", async ({ page, app }) => {
   await expect(page.getByText("You’ve reached 50 lists.")).toBeVisible();
 });
 
-test("a list page shows shelf status per book, can be shared and made private, renamed and deleted", async ({ page, app }) => {
+test("a list page shows shelf status per book, can be shared and made private, renamed and deleted from a sheet", async ({ page, app }) => {
   await page.goto("/profile/lists/7");
   await expect(page.getByRole("heading", { name: "Christie, in order", level: 1 })).toBeVisible();
   await expect(page.getByText("3 books · by St Michael")).toBeVisible();
@@ -255,7 +535,6 @@ test("a list page shows shelf status per book, can be shared and made private, r
   await expect(rows.nth(0)).toContainText("Finished · March");
   await expect(rows.nth(1)).toContainText("Want to read");
   await expect(rows.nth(2)).not.toContainText(/Owned|Want|Finished/);
-  await expect(rows.nth(2).locator(".bv-list-initial")).toHaveText("M");
   await expect(page.getByText("Only you can see this list")).toBeVisible();
   await page.getByRole("button", { name: "Share on your profile" }).click();
   await expect(page.getByText("Shared on your profile")).toBeVisible();
@@ -265,22 +544,42 @@ test("a list page shows shelf status per book, can be shared and made private, r
   await expect(page.getByText("Only you can see this list")).toBeVisible();
   await expect(page.getByRole("link", { name: "Add a book" })).toHaveAttribute("href", "/my-books");
   await expect(page.getByText("Open a book and choose Add to list.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Rename or delete" })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByLabel("List name").fill("Christie");
-  await page.getByLabel("Description").fill("Poirot first.");
-  await page.getByRole("button", { name: "Save details" }).click();
+  await page.getByRole("button", { name: "Rename or delete" }).click();
+  const sheet = page.getByRole("dialog", { name: "Rename or delete" });
+  await sheet.getByLabel("List name").fill("Christie");
+  await sheet.getByLabel("Description").fill("Poirot first.");
+  await sheet.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(sheet).toBeHidden();
   await expect(page.getByRole("heading", { name: "Christie", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("heading", { name: "Christie", level: 1 })).toBeVisible();
   await expect(page.getByText("Poirot first.")).toBeVisible();
   expect(sent(app, "PATCH", "/me/lists/7").at(-1).body).toEqual({ name: "Christie", description: "Poirot first." });
   await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("button", { name: "Delete list" }).click();
+  await page.getByRole("button", { name: "Rename or delete" }).click();
+  await sheet.getByRole("button", { name: "Delete list" }).click();
   const dialog = page.getByRole("dialog", { name: "Delete this list?" });
   await expect(dialog.getByText("Delete this list? The books stay in your library.")).toBeVisible();
   await dialog.getByRole("button", { name: "Delete list" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   expect(sent(app, "DELETE", "/me/lists/7")).toHaveLength(1);
+});
+
+test("Done is the filled exit from list editing, and each row gets 44px move and remove buttons on the same line", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Done" })).toHaveClass(/bv-button--primary/);
+  const row = page.locator(".bv-list-books li").first();
+  const rowBox = await row.boundingBox();
+  for (const name of [/Move .* up/, /Move .* down/, /Remove .* from this list/]) {
+    const box = await row.getByRole("button", { name }).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.y).toBeGreaterThanOrEqual(rowBox.y - 1); expect(box.y + box.height).toBeLessThanOrEqual(rowBox.y + rowBox.height + 1);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("a list can be reordered from the keyboard and each move sends the full order", async ({ page, app }) => {
@@ -309,12 +608,29 @@ test("a failed reorder puts the list back and says so", async ({ page, app }) =>
   await expect(page.locator(".bv-list-books li").first()).toContainText("The Murder of Roger Ackroyd");
 });
 
-test("Remove takes a book off the list and the list limit is explained", async ({ page, app }) => {
+test("Remove takes a book off the list and Undo puts it back in its place", async ({ page, app }) => {
   await page.goto("/profile/lists/7");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("button", { name: "Remove Peril at End House from this list" }).click();
   await expect(page.locator(".bv-list-books li")).toHaveCount(2);
   expect(sent(app, "DELETE", "/me/lists/7/books/2")).toHaveLength(1);
+  const toast = page.locator(".bv-undo-toast");
+  await expect(toast).toContainText("Removed Peril at End House.");
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(page.locator(".bv-list-books li")).toHaveCount(3);
+  await expect(page.locator(".bv-list-books li").nth(1)).toContainText("Peril at End House");
+  await expect(toast).toHaveCount(0);
+  expect(sent(app, "POST", "/me/lists/7/books").at(-1).body).toEqual({ book_id: 2 });
+  expect(sent(app, "PUT", "/me/lists/7/order").at(-1).body).toEqual({ book_ids: [1, 2, 3] });
+  expect(app.lists[0].books.map(item => item.id)).toEqual([1, 2, 3]);
+});
+
+test("the Undo toast goes away after six seconds", async ({ page, app: _app }) => {
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Remove Murder on the Orient Express from this list" }).click();
+  await expect(page.locator(".bv-undo-toast")).toBeVisible();
+  await expect(page.locator(".bv-undo-toast")).toHaveCount(0, { timeout: 8000 });
 });
 
 test("Add to list toggles a book on and off a list and can make a new list", async ({ page, app }) => {
@@ -365,8 +681,10 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.getByText("Quiet reader.")).toBeVisible();
   await expect(page.getByText("Finished 2 books and 400 pages this year. January was their biggest month.")).toBeVisible();
   await expect(page.getByRole("link", { name: /Shared list/ })).toHaveAttribute("href", "/u/ada/lists/3");
+  await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "96px");
+  await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
   const text = await page.locator("main").innerText();
-  for (const hidden of ["ada@example.com", "Secret note", "Want to read", "Owned", "Edit", "Make private", "Make public", "Only you", "Private list", "Account settings"]) expect(text).not.toContain(hidden);
+  for (const hidden of ["ada@example.com", "Secret note", "Want to read", "Owned", "Edit", "Make private", "Make public", "Only you", "Private list", "Account settings", "Sign out", "Edit profile"]) expect(text).not.toContain(hidden);
   await expect(page.getByText("Keep your own reading year on Bookvane.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Create free account" })).toHaveAttribute("href", "/register?src=profile");
   expect(app.requests.some(request => /^\/me\/(profile|stats|lists)/.test(request.path))).toBe(false);
@@ -389,18 +707,31 @@ test("the guest invitation carries src=profile through to the sign-up request", 
   await expect.poll(() => sent(app, "POST", "/auth/register?src=profile").length).toBe(1);
 });
 
-test("a missing or private public page shows the not-found page, and your own page says how others see it", async ({ page, app }) => {
+test("a missing or private public page shows the not-found page with its own tab title, and your own page says how others see it", async ({ page, app }) => {
   await page.goto("/u/missing");
   await expect(page.getByRole("heading", { name: "This page isn’t on the shelf." })).toBeVisible();
+  await expect(page).toHaveTitle("Page not found · Bookvane");
   app.profile.handle = "ada"; app.profile.profile_public = true;
   await page.goto("/u/ada");
   await expect(page.getByText("This is how others see your profile.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Create free account" })).toHaveCount(0);
 });
 
-test("the desktop header account link opens the profile and keeps its label", async ({ page, app: _app }) => {
+test("the header shows the avatar as the profile entry, with the accessible name Your profile", async ({ page, app: _app }) => {
   await page.goto("/browse");
-  await expect(page.getByRole("link", { name: "Your account", exact: true })).toHaveAttribute("href", "/profile");
+  await expect(page.getByRole("link", { name: "Your profile", exact: true })).toHaveAttribute("href", "/profile");
+  await expect(page.getByRole("link", { name: "Your account" })).toHaveCount(0);
+});
+
+test("the hub ends with Account settings and Sign out, and Sign out signs the reader out", async ({ page, app }) => {
+  await page.goto("/profile");
+  const account = page.getByRole("region", { name: "Account" });
+  await expect(account.getByRole("link", { name: "Account settings" })).toHaveAttribute("href", "/account");
+  const order = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.map(node => node.className || node.tagName));
+  expect(order.at(-1)).toContain("bv-profile-account");
+  await account.getByRole("button", { name: "Sign out" }).click();
+  await expect.poll(() => sent(app, "POST", "/auth/logout").length).toBe(1);
+  await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
 });
 
 test("guests who open /profile are sent to sign in and returned", async ({ page, app }) => {
@@ -413,22 +744,63 @@ test("profile screenshots", async ({ page, app }) => {
   test.skip(!process.env.PROFILE_SHOTS, "set PROFILE_SHOTS=1 to export screenshots");
   const dir = "node_modules/.bv-preview/profile";
   mkdirSync(dir, { recursive: true });
-  app.lists[0].is_public = true; app.lists[0].covers = [];
+  app.profile.avatar_icon = "coffee"; app.profile.avatar_color = "rust";
+  app.stats = stats({ books_finished: 22, by_month: month(1, 2, 1, 3, 2, 4, 9, 3, 1, 2) });
+  app.lists[0].is_public = true;
+  app.lists.push({ id: 9, name: "Rainy-day rereads", description: null, is_public: false, book_count: 0, covers: [], books: [] });
   app.takenHandles = [];
-  for (const theme of ["light", "dark"]) for (const [label, width, height] of [["375", 375, 812], ["1440", 1440, 900]]) {
-    await page.setViewportSize({ width, height });
+  const shoot = async (name, options = {}) => { await page.waitForTimeout(450); await page.screenshot({ path: `${dir}/${name}.png`, ...options }); };
+  for (const theme of ["light", "dark"]) for (const [label, _width, height] of [["375", 375, 812], ["1440", 1440, 900], ["375-text200", 375, 812]]) {
+    await page.setViewportSize({ width: Number.parseInt(label, 10), height });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
-    await page.goto("/profile"); await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
-    await page.screenshot({ path: `${dir}/hub-${label}-${theme}.png`, fullPage: true });
-    await page.goto("/profile/lists/7"); await expect(page.getByRole("heading", { name: "Christie, in order", level: 1 })).toBeVisible();
-    await page.screenshot({ path: `${dir}/list-${label}-${theme}.png`, fullPage: true });
+    const zoom = label.endsWith("text200");
+    const open = async path => { await page.goto(path); if (zoom) await page.addStyleTag({ content: "html { font-size: 200%; }" }); };
+    const full = { fullPage: true };
+    await open("/profile"); await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
+    await shoot(`hub-${label}-${theme}`, full);
+    if (zoom) continue;
+    if (label === "375") {
+      await page.getByRole("button", { name: "Edit profile" }).click();
+      await page.getByLabel("Name", { exact: true }).scrollIntoViewIfNeeded();
+      await page.getByLabel("Bio").scrollIntoViewIfNeeded();
+      await shoot(`edit-sheet-fields-${label}-${theme}`);
+      await page.keyboard.press("Escape");
+      await open("/profile/lists/7");
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByRole("button", { name: "Rename or delete" }).click();
+      await shoot(`rename-sheet-${label}-${theme}`);
+      await page.keyboard.press("Escape");
+      const years = app.stats;
+      app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
+      await open("/profile"); await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
+      await shoot(`hub-empty-year-${label}-${theme}`, full);
+      app.stats = years;
+      app.guest = true;
+      await open("/u/ada"); await expect(page.getByText("Keep your own reading year on Bookvane.")).toBeVisible();
+      await shoot(`public-guest-${label}-${theme}`, full);
+      app.guest = false;
+      await open("/profile"); await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
+    }
+    await page.getByRole("button", { name: "Edit profile" }).click();
+    await page.getByRole("radio", { name: "Feather" }).check({ force: true });
+    await page.getByRole("radio", { name: "Plum" }).check({ force: true });
+    await shoot(`edit-sheet-${label}-${theme}`);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Make public" }).click();
+    await shoot(`make-public-${label}-${theme}`);
+    await page.keyboard.press("Escape");
+    await open("/profile/lists/7"); await expect(page.getByRole("heading", { name: "Christie, in order", level: 1 })).toBeVisible();
+    await shoot(`list-${label}-${theme}`, full);
     await page.getByRole("button", { name: "Edit", exact: true }).click();
-    await page.screenshot({ path: `${dir}/list-edit-${label}-${theme}.png`, fullPage: true });
-    await page.goto("/u/ada"); await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
-    await page.screenshot({ path: `${dir}/public-${label}-${theme}.png`, fullPage: true });
+    await page.getByRole("button", { name: "Remove Peril at End House from this list" }).click();
+    await expect(page.locator(".bv-undo-toast")).toBeVisible();
+    await shoot(`list-edit-${label}-${theme}`, full);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await open("/u/ada"); await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
+    await shoot(`public-${label}-${theme}`, full);
     app.profile.show_prompt = true;
-    await page.goto("/profile"); await expect(page.getByRole("dialog")).toBeVisible(); await page.waitForTimeout(400);
-    await page.screenshot({ path: `${dir}/sheet-${label}-${theme}.png` });
+    await open("/profile"); await expect(page.getByRole("dialog")).toBeVisible();
+    await shoot(`sheet-${label}-${theme}`);
     app.profile.show_prompt = false;
   }
 });
