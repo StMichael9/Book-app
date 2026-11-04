@@ -25,10 +25,16 @@ Branch `ui/v3-profile-rework`, from `origin/v3` (after the body-font fix, #106).
 - `auth-data`, `critical-flows`, `extended-catalogue`, `instant-books`, `instant-navigation`, `reading-library`: the header link name "Your account" is now "Your profile".
 
 - `reading-library.spec.js` (independent review: library controls and missing covers, 4 viewports × themes): the mobile nav label is no longer asserted `nowrap` and one line; it is asserted not ellipsised and not clipped, because a label now wraps at large text (review item 4).
+- `profile.spec.js` (round 2): the 200% nav test also asserts labels never clip and the nav never scrolls sideways.
 - `profile.spec.js` (review batch): the list artwork test now expects spine blocks and an outlined empty strip (was a slot count), list rows expect spine blocks for coverless books (were `BookCover` jackets), and the hub list mock carries `previews` with book ids.
 
 ## Review batch (UI lead, fix disposition)
 Coverless list-row books wear their bookcloth spine (never a blank tile); a book wears one cloth everywhere (keyed by book id; hub cards need `previews: [{id, cover_image_url}]` from `GET /me/lists`, mocked until the API sends it); cards are two across (one column in a narrow lists area or at large text); nav labels wrap instead of ellipsising; the privacy pill is two rows on phones; Account settings and Sign out are two ruled rows; tertiary links sit on the gutter; an empty list shows an outlined spine on a short baseline; type tokens replace literal sizes; on desktop (≥1024) the hub is 880 px with a 140 px shelf and 120 px list artwork. Rebased onto origin/v3 (#107 cover fixes in). Real-API pass against the local API after migration d2b7c4e9f1a3 (T24b): the avatar saved, showed on the hub, header, You tab and the public page after reload, cleared back to initials on green, and an unknown icon returned 422.
+
+## Review round 2
+- **Year shelf in dark and at large text:** the spine capacity was measured from the month columns, whose width depends on their own contents, so some captures collapsed to one spine per month. It is now computed from the shelf's own width, and a zero-width measure shows every spine. New test: spine counts per month in light, dark and 200% text.
+- **Nav labels at 200%:** columns grow to the longest word and labels wrap only between words (`overflow-wrap: normal; word-break: keep-all`); the `+N` label is anchored above its column so it never overlaps spines.
+- **Guest You tab:** signed-out visitors get the plain person icon, never an avatar (test added).
 
 ## Open points
 - The avatar fields are mocked in the specs; the real API (T24b, v3 #109) was checked locally. The hub card previews still need the `previews` field.

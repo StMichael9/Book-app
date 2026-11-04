@@ -11,15 +11,19 @@ export function YearInBooks({ stats, own = true, chips = true }) {
   const [rise] = useState(() => !risen);
   useEffect(() => { risen = true; }, []);
   // How many spines fit a month at the minimum width (4 px on phones, 8 px on desktop); the rest show as "+N".
-  const shelf = useRef(null), [capacity, setCapacity] = useState(8);
+  const shelf = useRef(null), [capacity, setCapacity] = useState(Infinity);
   const present = Array.isArray(stats?.by_month);
   useEffect(() => {
     const node = shelf.current;
     if (!node) return undefined;
+    // The column width comes from the shelf's own width, never from the spines inside it, so it can't feed back on itself.
+    // An unmeasured (zero-width) shelf shows every spine.
     const measure = () => {
-      const column = node.querySelector(".bv-shelf-month");
-      if (column) setCapacity(Math.max(1, Math.floor((column.clientWidth + 1) / ((window.matchMedia("(min-width: 701px)").matches ? 8 : 4) + 1))));
+      const style = getComputedStyle(node), gap = Number.parseFloat(style.columnGap) || 0, pad = (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+      const column = (node.clientWidth - pad - gap * 11) / 12;
+      setCapacity(column > 0 ? Math.max(1, Math.floor((column + 1) / ((window.matchMedia("(min-width: 701px)").matches ? 8 : 4) + 1))) : Infinity);
     };
+    measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
     return () => observer.disconnect();

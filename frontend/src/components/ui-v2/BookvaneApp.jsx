@@ -1,7 +1,7 @@
 import { trackEvent } from "./events.js";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun } from "lucide-react";
+import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
@@ -38,7 +38,8 @@ function Brand() {
 
 // The reader's own avatar, for the header and the You tab. It follows the profile once that has loaded.
 function MyAvatar({ size }) { return <Avatar person={useProfile()?.profile} size={size} />; }
-const YouIcon = () => <MyAvatar size={22} />;
+// Signed-out visitors get the plain person icon; the avatar belongs to a signed-in reader (the header follows the same rule).
+function YouIcon() { return useAuth().isAuthenticated ? <MyAvatar size={22} /> : <User aria-hidden="true" />; }
 
 function Header() {
   const auth = useAuth();

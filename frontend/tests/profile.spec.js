@@ -431,13 +431,49 @@ test("list cards are two across, one under 340px, and the lists heading and New 
   expect(button.height).toBeLessThan(line * 2.2);
 });
 
-test("at 200% text the mobile nav labels never ellipsise", async ({ page, app: _app }) => {
+test("at 200% text the mobile nav labels never ellipsise, clip or break inside a word", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("/profile");
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
-  const labels = await page.getByRole("navigation", { name: "Mobile navigation" }).locator("a span").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return { overflow: style.textOverflow, clipped: node.scrollWidth > node.clientWidth + 1, text: node.textContent }; }));
-  for (const label of labels) { expect(label.overflow).not.toBe("ellipsis"); expect(label.clipped).toBe(false); }
+  const nav = page.getByRole("navigation", { name: "Mobile navigation" });
+  const labels = await nav.locator("a span").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return { overflow: style.textOverflow, wrap: style.overflowWrap, clipped: node.scrollWidth > node.clientWidth + 1, text: node.textContent }; }));
+  for (const label of labels) { expect(label.overflow).not.toBe("ellipsis"); expect(label.wrap).toBe("normal"); expect(label.clipped, label.text).toBe(false); }
   expect(labels.map(label => label.text)).toContain("Discover");
+  // Each word sits whole on one line: the label's rendered width never exceeds its link, and the nav itself doesn't scroll sideways.
+  expect(await nav.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("every spine shows up to what fits, in light, dark and 200% text", async ({ page, app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  const by = [1, 2, 1, 3, 2, 4, 9, 3, 1, 2];
+  app.stats = stats({ books_finished: 28, by_month: month(...by) });
+  for (const theme of ["light", "dark"]) for (const zoom of [false, true]) {
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.goto("/profile");
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    await expect(page.locator(".bv-shelf-month").nth(6).locator(".bv-shelf-spine").first()).toBeVisible();
+    const months = await page.locator(".bv-shelf-month").evaluateAll(nodes => nodes.map(node => ({ spines: node.querySelectorAll(".bv-shelf-spine").length, more: node.querySelector(".bv-shelf-more")?.textContent || "" })));
+    const label = `${theme}${zoom ? " 200%" : ""}`;
+    // Months with up to three books always show every spine; a crowded month shows what fits (at least three) plus +N for the rest.
+    by.forEach((count, index) => {
+      if (count <= 3) { expect(months[index].spines, `${label}: month ${index + 1}`).toBe(count); expect(months[index].more).toBe(""); }
+      else { expect(months[index].spines, `${label}: month ${index + 1}`).toBeGreaterThanOrEqual(3); expect(months[index].spines + Number(months[index].more.slice(1) || 0)).toBe(count); }
+    });
+    expect(months[6].spines, label).toBeGreaterThan(1);
+    expect(months.slice(10).map(item => item.spines)).toEqual([0, 0]);
+  }
+});
+
+test("signed-out visitors see the plain person icon on the You tab, never an avatar", async ({ page, app }) => {
+  app.guest = true;
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/browse");
+  const tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
+  await expect(tab).toBeVisible();
+  await expect(tab.locator(".bv-avatar")).toHaveCount(0);
+  await expect(tab.locator("svg")).toHaveCount(1);
+  await expect(page.locator(".bv-header-avatar")).toHaveCount(0);
 });
 
 test("the privacy pill is a two-row pill on phones with the button under the text, and one row on desktop", async ({ page, app: _app }) => {

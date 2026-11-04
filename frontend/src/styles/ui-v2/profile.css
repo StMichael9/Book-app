@@ -45,9 +45,9 @@
 /* Your year: a spine shelf on an ink baseline. */
 .bv-root .bv-profile-year { margin: 0 0 32px; }
 .bv-root .bv-profile-year p { margin: 8px 0 0; }
-.bv-root .bv-shelf { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; align-items: end; height: 96px; margin-top: 26px; border-bottom: 3px solid var(--bv-ink); padding-inline: 2px; }
+.bv-root .bv-shelf { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; align-items: end; height: 96px; margin-top: calc(var(--bv-fs-helper) + 14px); border-bottom: 3px solid var(--bv-ink); padding-inline: 2px; }
 .bv-root .bv-shelf-month { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: 100%; min-width: 0; }
-.bv-root .bv-shelf-more { position: absolute; top: -20px; inset-inline: -4px; text-align: center; font-size: var(--bv-fs-helper); line-height: 1; color: var(--bv-muted); }
+.bv-root .bv-shelf-more { position: absolute; bottom: 100%; margin-bottom: 4px; inset-inline: -4px; text-align: center; font-size: var(--bv-fs-helper); line-height: 1; color: var(--bv-muted); }
 .bv-root .bv-shelf-spine { position: relative; flex: 0 1 5px; min-width: 4px; border-radius: 1px 1px 0 0; box-shadow: inset 1.5px 0 0 color-mix(in srgb, #fffdf5 30%, transparent); }
 .bv-root .bv-shelf-spine::before { content: ""; position: absolute; inset-inline: 0; top: 12%; height: 1px; background: color-mix(in srgb, #fffdf5 38%, transparent); }
 .bv-root .bv-shelf.is-rising .bv-shelf-spine { transform-origin: bottom; animation: bv-spine-rise 240ms ease-out both; animation-delay: calc(var(--bv-month, 0) * 20ms); }
