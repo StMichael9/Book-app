@@ -74,9 +74,13 @@ class Resolution:
     confidence: str = "none"  # "isbn" | "title_author" | "none"
 
 
+# A reader's "Orphan X- Hellbent": a series name glued to a dash, then a space, then the real title.
+_SERIES_PREFIX = re.compile(r"^[^-]*?\S-\s+(?=\S)")
+
+
 def norm_title(value: str) -> str:
-    """Title for matching: subtitle, series suffix and punctuation ignored."""
-    text = unicodedata.normalize("NFKC", value or "").casefold()
+    """Title for matching: series prefix, subtitle, series suffix and punctuation ignored."""
+    text = _SERIES_PREFIX.sub("", unicodedata.normalize("NFKC", value or "").casefold())
     text = re.split(r"\s*[:(\[]|\s+-\s+|\s+--\s+", text)[0]
     return " ".join(re.findall(r"[^\W_]+", text))
 
@@ -190,7 +194,7 @@ def _fill_from_docs(work: dict, docs: list[dict], first: str | None = None) -> N
 def search_title(value: str) -> str:
     """The title as Open Library knows it: the part before a series or subtitle suffix, original casing kept.
     Goodreads writes "Death on the Nile (Hercule Poirot, #18)"; searching that whole string finds nothing."""
-    head = re.split(r"\s*[:(\[]|\s+-\s+|\s+--\s+", value or "")[0].strip()
+    head = re.split(r"\s*[:(\[]|\s+-\s+|\s+--\s+", _SERIES_PREFIX.sub("", value or ""))[0].strip()
     return head or (value or "").strip()
 
 

@@ -536,7 +536,7 @@ def test_missing_pages_cover_and_year_come_from_one_search_of_the_matching_work(
     ("Death on the Nile (Hercule Poirot, #18)", "Death on the Nile"),
     ("Into the Fire (Orphan X, #5)", "Into the Fire"),
     ("Dune: Deluxe Edition", "Dune"), ("A Title - Book 2", "A Title"), ("Plain Title", "Plain Title"),
-    ("(Odd) Opening", "(Odd) Opening"),
+    ("(Odd) Opening", "(Odd) Opening"), ("Orphan X- HELLBENT", "HELLBENT"), ("Spider-Man: Homecoming", "Spider-Man"),
 ])
 def test_the_search_is_sent_the_cleaned_title_with_its_original_casing(raw, sent):
     from services.catalogue_resolver import search_title
