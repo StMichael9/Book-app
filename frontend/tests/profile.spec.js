@@ -534,7 +534,8 @@ test("the Overview shows three big figures and up to three list rows, with See a
 test("an empty year shows one line on the Overview with no zeros, and the Year tab shows a short baseline instead of a tall shelf", async ({ page, app }) => {
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/profile");
-  await expect(page.getByText("Your 2026 starts with your first finished book.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your 2026 so far" })).toBeVisible();
+  await expect(page.getByText("It starts with your first finished book.")).toBeVisible();
   await expect(page.locator(".bv-figures")).toHaveCount(0);
   await expect(page.locator(".bv-profile-year")).not.toContainText(/(?<!\d)0(?!\d)/);
   await page.getByRole("tab", { name: "Year" }).click();
@@ -583,16 +584,24 @@ test("the public page has the same header and tabs, third-person figures, public
   expect(last).toContain("bv-profile-join");
   app.publicProfile.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/u/ada");
-  await expect(page.getByText("Their 2026 starts with their first finished book.")).toBeVisible();
+  await expect(page.getByText("It starts with their first finished book.")).toBeVisible();
 });
 
-test("the privacy pill is a centred compact pill: one line where it fits, wrapped inside the pill when narrow", async ({ page, app: _app }) => {
+test("the privacy pill is centred: a two-row pill on phones with Make public on its own line, one line on desktop", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/profile");
   const pill = page.locator(".bv-visibility");
   const box = await pill.boundingBox();
   expect(Math.abs(box.x + box.width / 2 - 195)).toBeLessThan(2);
   expect(box.width).toBeLessThanOrEqual(350);
+  // At phone widths the label stays on one line and Make public sits on its own line under it.
+  for (const width of [375, 390]) {
+    await page.setViewportSize({ width, height: 800 });
+    const label = await pill.locator("span").boundingBox(), action = await pill.getByRole("button", { name: "Make public" }).boundingBox();
+    expect(label.height).toBeLessThan(30);
+    expect(action.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
+  }
+  await page.setViewportSize({ width: 390, height: 800 });
   await page.setViewportSize({ width: 320, height: 800 });
   const narrow = await pill.boundingBox(), button = await pill.getByRole("button", { name: "Make public" }).boundingBox();
   expect(narrow.x).toBeGreaterThanOrEqual(0); expect(narrow.x + narrow.width).toBeLessThanOrEqual(320);
@@ -623,10 +632,14 @@ test("Sign out is the second ruled row under Account settings, and tertiary link
   expect(Math.round((await page.getByRole("button", { name: "Rename or delete" }).boundingBox()).x)).toBe(20);
 });
 
-test("on a wide screen the hub is about 880px, the shelf 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
+test("on a wide screen the header, tabs and panels share one 720px column with the same left edge, the shelf is 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/profile?tab=year");
-  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(880);
+  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(720);
+  const edge = async locator => Math.round((await locator.first().boundingBox()).x);
+  const tabsEdge = await edge(page.getByRole("tablist"));
+  expect(await edge(page.getByRole("heading", { name: "Your 2026" }))).toBe(tabsEdge);
+  expect(await edge(page.getByRole("link", { name: "Account settings" }))).toBe(tabsEdge);
   await expect(page.locator(".bv-shelf")).toHaveCSS("height", "140px");
   await expect(page.locator(".bv-shelf-spine").first()).toHaveCSS("width", /^(1[0-2]|9)(\.\d+)?px$/);
   await page.getByRole("tab", { name: "Lists" }).click();

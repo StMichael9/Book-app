@@ -153,6 +153,8 @@
 /* Desktop: a wider hub, a taller shelf and larger list cards, so it doesn't read as a stretched phone column. */
 @media (min-width: 1024px) {
   .bv-root .bv-profile:not(.bv-profile-list) { max-width: 880px; }
+  /* The tabbed pages use one width for the header, the tabs and the panels, so their left edges line up. */
+  .bv-root .bv-profile.bv-profile--tabs { max-width: 720px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-shelf { height: 140px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art { height: 120px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art--empty { width: 140px; height: 120px; }
@@ -195,4 +197,12 @@
   .bv-root .bv-profile--tabs .bv-shelf.is-empty { height: 6px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art--compact { height: 58px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art--compact.bv-art--empty { width: 46px; height: 58px; }
+}
+
+/* Narrow widths: a deliberate two-row pill, the label on one line (it may wrap only at large text) and Make public under it. */
+@media (max-width: 700px) {
+  .bv-root .bv-visibility { display: inline-grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 4px 10px; padding: 12px 16px 4px; border-radius: 20px; }
+  .bv-root .bv-visibility svg { margin-top: 3px; }
+  .bv-root .bv-visibility span { grid-column: 2; }
+  .bv-root .bv-visibility-action { grid-column: 1 / -1; justify-self: center; }
 }

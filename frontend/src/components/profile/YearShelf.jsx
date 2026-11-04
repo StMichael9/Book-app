@@ -9,7 +9,7 @@ const plural = (count, one, many) => count === 1 ? one : many;
 export function YearFigures({ stats, own = true }) {
   if (!Array.isArray(stats?.by_month)) return null;
   if (!stats.books_finished) return <section className="bv-profile-year" aria-labelledby="bv-figures-heading"><h2 id="bv-figures-heading">{own ? `Your ${stats.year} so far` : `${stats.year} so far`}</h2>
-    <p>{own ? `Your ${stats.year} starts with your first finished book.` : `Their ${stats.year} starts with their first finished book.`}</p></section>;
+    <p>{own ? "It starts with your first finished book." : "It starts with their first finished book."}</p></section>;
   const figures = [[stats.books_finished.toLocaleString("en-US"), own ? plural(stats.books_finished, "book finished", "books finished") : "finished"],
     [stats.pages_read.toLocaleString("en-US"), plural(stats.pages_read, "page", "pages")]];
   if (stats.biggest_month) figures.push([MONTHS[stats.biggest_month - 1].slice(0, 3), "biggest month"]);
@@ -46,7 +46,7 @@ export function YearInBooks({ stats, own = true, chips = true }) {
   const empty = !stats.books_finished;
   const finished = <><strong>{books(stats.books_finished)}</strong> and <strong>{stats.pages_read.toLocaleString("en-US")} {stats.pages_read === 1 ? "page" : "pages"}</strong></>;
   return <section className="bv-profile-year" aria-labelledby="bv-year-heading"><h2 id="bv-year-heading">{own ? `Your ${stats.year}` : `${stats.year} in books`}</h2>
-    {empty ? <p>{own ? "Finish a book this year and it’ll show up here." : `Their ${stats.year} starts with their first finished book.`}</p>
+    {empty ? <p>{own ? "Finish a book this year and it’ll show up here." : "It starts with their first finished book."}</p>
       : <p>{own ? "You’ve finished " : "Finished "}{finished} this year.{stats.biggest_month ? ` ${MONTHS[stats.biggest_month - 1]} was ${own ? "your" : "their"} biggest month.` : ""}</p>}
     <div ref={shelf} className={`bv-shelf${rise ? " is-rising" : ""}${empty ? " is-empty" : ""}`} aria-hidden="true">
       {stats.by_month.map((count, month) => <div key={month} className="bv-shelf-month" data-month={month + 1} style={{ "--bv-month": month }}>
