@@ -175,7 +175,8 @@
 /* In dark the selected tab is lifted above the track (the panel colour would sink below it). */
 .bv-root[data-theme="dark"] .bv-profile-tab.is-selected { background: color-mix(in srgb, var(--bv-wash), var(--bv-ink) 12%); }
 .bv-root .bv-profile-tab:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
-.bv-root .bv-profile-tab-panel { padding-top: 20px; animation: bv-panel-in 160ms ease-out both; }
+.bv-root .bv-profile-tab-panel { padding-top: 20px; }
+.bv-root .bv-profile-tab-panel.is-settling { animation: bv-panel-in 160ms ease-out both; }
 @keyframes bv-panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .bv-root .bv-profile-tab-panel:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
 

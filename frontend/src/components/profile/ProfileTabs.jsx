@@ -20,6 +20,6 @@ export function TabBar({ value, onChange, label = "Profile sections" }) {
   </div>;
 }
 
-export function TabPanel({ value, children }) {
-  return <div className="bv-profile-tab-panel" role="tabpanel" id="bv-tab-panel" aria-labelledby={`bv-tab-${value}`} tabIndex={0}>{children}</div>;
+export function TabPanel({ value, settle = false, children }) {
+  return <div className={`bv-profile-tab-panel${settle ? " is-settling" : ""}`} role="tabpanel" id="bv-tab-panel" aria-labelledby={`bv-tab-${value}`} tabIndex={0}>{children}</div>;
 }

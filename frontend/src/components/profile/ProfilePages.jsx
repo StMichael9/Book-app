@@ -143,7 +143,7 @@ function AccountSection() {
 export function ProfileHubPage() {
   const { profile, loading, failed, reload } = useProfile();
   const stats = useLoad(getStats), lists = useLoad(getLists);
-  const [tab, setTab] = useProfileTab();
+  const [tab, setTab, switched] = useProfileTab();
   const [editing, setEditing] = useState(false), [announcement, setAnnouncement] = useState("");
   if (failed) return <section className="bv-container"><div className="bv-profile"><Failed retry={reload}>We couldn’t load your profile.</Failed><AccountSection /></div></section>;
   if (loading || !profile?.reading_since) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening your profile…</p><AccountSection /></div></section>;
@@ -158,7 +158,7 @@ export function ProfileHubPage() {
       <p className="bv-sr-only" role="status" aria-live="polite">{announcement}</p>
       <TabBar value={tab} onChange={setTab} />
     </div>
-    <TabPanel key={tab} value={tab}>
+    <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <>
         {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearFigures stats={stats.data} />}
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
@@ -323,7 +323,7 @@ function GuestLine() {
 export function PublicProfilePage({ handle: given, notFound }) {
   const params = useParams(), handle = given || params.handle;
   const { profile } = useProfile();
-  const [tab, setTab] = useProfileTab();
+  const [tab, setTab, switched] = useProfileTab();
   const load = useLoad(() => getPublicProfile(handle));
   if (load.error) return load.error.status === 404 ? <NotFound page={notFound} /> : <section className="bv-container"><div className="bv-profile"><Failed retry={load.retry}>We couldn’t load this profile.</Failed></div></section>;
   if (!load.data) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening profile…</p></div></section>;
@@ -334,7 +334,7 @@ export function PublicProfilePage({ handle: given, notFound }) {
       <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
       <TabBar value={tab} onChange={setTab} />
     </div>
-    <TabPanel key={tab} value={tab}>
+    <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <><YearFigures stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
       {tab === "lists" && (page.lists.length > 0
         ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>

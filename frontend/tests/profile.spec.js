@@ -622,7 +622,12 @@ test("the Overview has one rule above the account rows, list names use the card 
   expect(gap).toBeLessThan(60);
 });
 
-test("a tab switch settles the incoming panel in 160ms, and not under reduced motion", async ({ page, app: _app }) => {
+test("a tab switch settles the incoming panel in 160ms, never on the first paint, and not under reduced motion", async ({ page, app: _app }) => {
+  for (const path of ["/profile", "/profile?tab=year"]) {
+    await page.goto(path);
+    await expect(page.getByRole("tabpanel")).toBeVisible();
+    await expect(page.getByRole("tabpanel")).toHaveCSS("animation-name", "none");
+  }
   await page.goto("/profile");
   await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0.16s");

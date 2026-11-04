@@ -18,7 +18,7 @@ Branch `ui/v3-profile-tabs`, from `origin/v3`. Rebuilds the hub and the public p
 - **One rule above the account rows:** the last Overview list row has no bottom border.
 - **Pill padding:** 16 px on both sides on desktop.
 - **List names on the Overview** use the Lora card-title token, like the Lists tab cards.
-- **Tab switch:** the incoming panel settles in 160 ms (fade and a 4 px rise); none under reduced motion.
+- **Tab switch:** the incoming panel settles in 160 ms (fade and a 4 px rise) on a tab change only, never on the first paint; none under reduced motion.
 - **Spacing:** the Edit profile link keeps its 44 px target but sits closer to the tabs, so the header-to-tabs gap matches the public page (a test compares them).
 - **Captures:** the mobile nav is hidden, every capture uses the same fixture (including "Rainy-day rereads"), and the owner has the handle "stmichael".
 
