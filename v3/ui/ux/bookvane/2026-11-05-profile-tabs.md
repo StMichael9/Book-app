@@ -12,6 +12,16 @@ Branch `ui/v3-profile-tabs`, from `origin/v3`. Rebuilds the hub and the public p
 - **Public `/u/{handle}`:** the same tabs; Overview figures in the third person (labels "finished", "pages", "biggest month"); public lists only; the guest line last.
 - **Desktop:** the header, tabs, panels and account rows share one centred 720 px column (from 1024 px), so their left edges line up; the Lists card grid stays two columns inside it.
 
+## Review round 2 (UI lead)
+- **Dark selected tab:** a surface lighter than the track (`color-mix(wash, ink 12%)`); the test checks it is lighter and the text is at least 4.5:1, in light and dark.
+- **Equal tab segments:** `flex: 1 1 0; min-width: max-content`; labels still never wrap at 320 px or 200% text.
+- **One rule above the account rows:** the last Overview list row has no bottom border.
+- **Pill padding:** 16 px on both sides on desktop.
+- **List names on the Overview** use the Lora card-title token, like the Lists tab cards.
+- **Tab switch:** the incoming panel settles in 160 ms (fade and a 4 px rise); none under reduced motion.
+- **Spacing:** the Edit profile link keeps its 44 px target but sits closer to the tabs, so the header-to-tabs gap matches the public page (a test compares them).
+- **Captures:** the mobile nav is hidden, every capture uses the same fixture (including "Rainy-day rereads"), and the owner has the handle "stmichael".
+
 ## Copy I added (not in the brief): please check
 - Empty public year: "It starts with their first finished book." (Overview and Year tab); the UI lead approved it and the own-year line.
 - Public profile with no public lists, Lists tab: "No public lists yet."
@@ -30,7 +40,7 @@ Branch `ui/v3-profile-tabs`, from `origin/v3`. Rebuilds the hub and the public p
 - The old hub screenshot test is replaced by one that writes the tab matrix to `.bv-shots/profile-tabs/`.
 
 ## Result
-Full suite: 456 passed, 3 skipped, 0 failed (after the review fixes). Lint 13 warnings (unchanged).
+Full suite: 459 passed, 3 skipped, 1 failed (`instant-navigation.spec.js` "a card's book is prefetched once…", a flake that passed 4 of 4 on rerun). Lint 13 warnings (unchanged). Lint 13 warnings (unchanged).
 
 ## Screenshots
 `.bv-shots/profile-tabs/` (not committed): Overview, Lists and Year with data and empty (Overview and Year; Lists with data and no lists), at 375 and 1440, light and dark; the public Overview, Lists and Year; and the three owner tabs with data at 375 with 200% text.

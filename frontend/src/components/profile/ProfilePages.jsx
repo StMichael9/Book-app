@@ -158,7 +158,7 @@ export function ProfileHubPage() {
       <p className="bv-sr-only" role="status" aria-live="polite">{announcement}</p>
       <TabBar value={tab} onChange={setTab} />
     </div>
-    <TabPanel value={tab}>
+    <TabPanel key={tab} value={tab}>
       {tab === "overview" && <>
         {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearFigures stats={stats.data} />}
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
@@ -334,7 +334,7 @@ export function PublicProfilePage({ handle: given, notFound }) {
       <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
       <TabBar value={tab} onChange={setTab} />
     </div>
-    <TabPanel value={tab}>
+    <TabPanel key={tab} value={tab}>
       {tab === "overview" && <><YearFigures stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
       {tab === "lists" && (page.lists.length > 0
         ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>

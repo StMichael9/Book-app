@@ -587,6 +587,62 @@ test("the public page has the same header and tabs, third-person figures, public
   await expect(page.getByText("It starts with their first finished book.")).toBeVisible();
 });
 
+test("the selected tab is lifted above the track in dark and light, with readable text, and the three tabs are equal segments", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  const channels = colour => colour.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => colour.startsWith("color(") ? value * 255 : value);
+  const luminance = colour => { const [r, g, b] = channels(colour).map(value => { const v = value / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  for (const theme of ["light", "dark"]) {
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.goto("/profile");
+    const selected = page.getByRole("tab", { name: "Overview" }), track = page.getByRole("tablist");
+    const [tab, rail, text] = await Promise.all([selected.evaluate(node => getComputedStyle(node).backgroundColor), track.evaluate(node => getComputedStyle(node).backgroundColor), selected.evaluate(node => getComputedStyle(node).color)]);
+    expect(luminance(tab), theme).toBeGreaterThan(luminance(rail));
+    const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    expect(ratio(luminance(text), luminance(tab))).toBeGreaterThanOrEqual(4.5);
+  }
+  const widths = await page.getByRole("tab").evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)));
+  expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  for (const tab of await page.getByRole("tab").all()) expect((await tab.boundingBox()).height).toBeLessThan(80);
+});
+
+test("the Overview has one rule above the account rows, list names use the card title style, and the pill has equal 16px padding", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/profile");
+  const row = page.locator(".bv-list-row").last();
+  await expect(row).toHaveCSS("border-bottom-width", "0px");
+  const name = row.locator("strong");
+  await expect(name).toHaveCSS("font-size", "17px");
+  await expect(name).toHaveCSS("font-family", /Bookvane Lora/);
+  const pill = page.locator(".bv-visibility");
+  await expect(pill).toHaveCSS("padding-left", "16px");
+  await expect(pill).toHaveCSS("padding-right", "16px");
+  const gap = (await page.locator(".bv-profile-account").boundingBox()).y - (await row.boundingBox()).y - (await row.boundingBox()).height;
+  expect(gap).toBeLessThan(60);
+});
+
+test("a tab switch settles the incoming panel in 160ms, and not under reduced motion", async ({ page, app: _app }) => {
+  await page.goto("/profile");
+  await page.getByRole("tab", { name: "Lists" }).click();
+  await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0.16s");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("tab", { name: "Year" }).click();
+  await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0s");
+});
+
+test("the gap between the header and the tabs is the same on the owner page and the public page", async ({ page, app }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/profile");
+  const edit = await page.getByRole("button", { name: "Edit profile" }).boundingBox(), ownerTabs = await page.getByRole("tablist").boundingBox();
+  const owner = ownerTabs.y - (edit.y + edit.height - 12);
+  app.guest = true;
+  await page.goto("/u/ada");
+  const bio = await page.locator(".bv-profile-bio").boundingBox(), publicTabs = await page.getByRole("tablist").boundingBox();
+  const publicGap = publicTabs.y - (bio.y + bio.height);
+  expect(Math.abs(owner - publicGap)).toBeLessThanOrEqual(4);
+});
+
 test("the privacy pill is centred: a two-row pill on phones with Make public on its own line, one line on desktop", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/profile");
@@ -878,10 +934,11 @@ test("profile tab screenshots", async ({ page, app }) => {
   test.skip(!process.env.PROFILE_SHOTS, "set PROFILE_SHOTS=1 to export screenshots");
   const dir = "../.bv-shots/profile-tabs";
   mkdirSync(dir, { recursive: true });
-  app.profile.avatar_icon = "coffee"; app.profile.avatar_color = "rust"; app.profile.profile_public = false;
+  app.profile.avatar_icon = "coffee"; app.profile.avatar_color = "rust"; app.profile.profile_public = false; app.profile.handle = "stmichael";
   app.stats = stats({ books_finished: 22, by_month: month(1, 2, 1, 3, 2, 4, 9, 3, 1, 2) });
   app.lists[0].is_public = true;
   app.lists.push({ id: 9, name: "Rainy-day rereads", description: null, is_public: false, book_count: 0, covers: [], books: [] });
+  const fixtureLists = [...app.lists];
   const empty = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   const data = app.stats;
   const shoot = async name => { await page.waitForTimeout(450); await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true }); };
@@ -890,7 +947,7 @@ test("profile tab screenshots", async ({ page, app }) => {
     for (const [label, _width, height] of [["375", 375, 812], ["1440", 1440, 900], ["375-text200", 375, 812]]) {
       await page.setViewportSize({ width: Number.parseInt(label, 10), height });
       const zoom = label.endsWith("text200");
-      const open = async path => { await page.goto(path); if (zoom) await page.addStyleTag({ content: "html { font-size: 200%; }" }); };
+      const open = async path => { await page.goto(path).catch(() => page.goto(path)); await page.addStyleTag({ content: `.bv-mobile-nav { display: none !important; }${zoom ? " html { font-size: 200%; }" : ""}` }); };
       app.stats = data; app.guest = false;
       for (const tab of ["overview", "lists", "year"]) {
         await open(tab === "overview" ? "/profile" : `/profile?tab=${tab}`);
@@ -901,7 +958,7 @@ test("profile tab screenshots", async ({ page, app }) => {
       app.stats = empty;
       for (const tab of ["overview", "year"]) { await open(tab === "overview" ? "/profile" : `/profile?tab=${tab}`); await expect(page.getByRole("tab", { name: tab[0].toUpperCase() + tab.slice(1) })).toHaveAttribute("aria-selected", "true"); await shoot(`${tab}-empty-${label}-${theme}`); }
       app.lists = []; await open("/profile?tab=lists"); await expect(page.getByText("Make a list for a series")).toBeVisible(); await shoot(`lists-empty-${label}-${theme}`);
-      app.lists = [{ id: 7, name: "Christie, in order", description: null, is_public: true, book_count: 3, covers: [], books: [detail(1, { status: "owned", finished_month: "2026-03" }), detail(2, { status: "want" }), detail(3)] }];
+      app.lists = [...fixtureLists];
       app.stats = data; app.guest = true;
       for (const tab of ["overview", "lists", "year"]) { await open(tab === "overview" ? "/u/ada" : `/u/ada?tab=${tab}`); await expect(page.getByRole("tab", { name: tab[0].toUpperCase() + tab.slice(1) })).toHaveAttribute("aria-selected", "true"); await shoot(`public-${tab}-${label}-${theme}`); }
       app.guest = false;
