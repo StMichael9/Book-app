@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, ExternalLink, Search, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -59,6 +59,13 @@ export function EnglishTitle({ book }) {
   return text ? <p className="bv-english-title" lang="en">{text}</p> : null;
 }
 
+function isCached(src) {
+  if (!src || typeof Image === "undefined") return false;
+  const probe = new Image();
+  probe.src = src;
+  return probe.complete && probe.naturalWidth > 0;
+}
+
 export function BookCover({ book, priority = false, hero = false, size = "medium" }) {
   const [failed, setFailed] = useState({ url: null, step: 0 });
   const [loadedUrl, setLoadedUrl] = useState(null);
@@ -66,14 +73,16 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   // Step 0 is the image cache, step 1 Open Library directly, step 2 means no artwork could be had.
   const step = failed.url === url ? failed.step : 0;
   const src = step === 0 ? coverSrc(url, size) : step === 1 ? coverFallback(url, size) : null;
-  const loaded = loadedUrl === src;
+  // An image the browser already holds (back navigation, a card seen before) paints at once with no jacket underneath.
+  const cached = useMemo(() => isCached(src), [src]);
+  const loaded = loadedUrl === src || cached;
   const fail = () => setFailed({ url, step: step === 0 && coverFallback(url, size) ? 1 : 2 });
   // The jacket (title and author) shows at once and the artwork fades in over it, so a card is never blank.
   return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
     {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(src); }}
       src={src} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
-      {...(hero || priority ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(src)} onError={fail} />}
+      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(src)} onError={fail} />}
   </div>;
 }
 

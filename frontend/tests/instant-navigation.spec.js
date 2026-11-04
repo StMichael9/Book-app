@@ -66,7 +66,10 @@ const test = base.extend({
         if (!main) return;
         const headings = [...main.querySelectorAll("h1, h2, h3")].map(node => node.textContent || "").filter(real);
         if (!headings.length) window.__blank.push(main.innerText.trim().slice(0, 60) || "(empty)");
-        const covered = [...main.querySelectorAll(".bv-cover")].some(cover => cover.querySelector("img") && cover.querySelector(".bv-jacket"));
+        // A jacket may sit under artwork that is still loading; it must never stay over artwork the browser already has.
+        const covered = [...main.querySelectorAll(".bv-cover")].some(cover => { const img = cover.querySelector("img");
+          const jacket = cover.querySelector(".bv-jacket");
+          return img && img.complete && img.naturalWidth > 0 && jacket && Number(getComputedStyle(jacket).opacity) > 0; });
         if (covered) window.__jacket = (window.__jacket || 0) + 1;
       }, 50);
     });
@@ -87,7 +90,7 @@ test("no empty page on first load", async ({ page }) => {
   expect(await blanks(page)).toEqual([]);
 });
 
-test("landing to Discover to a book and back never shows an empty page, and the cover never flashes its jacket", async ({ page }) => {
+test("landing to Discover to a book and back never shows an empty page, and a loaded cover never shows its jacket", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Explore Nav Book 1" })).toBeVisible();
   await reset(page);
