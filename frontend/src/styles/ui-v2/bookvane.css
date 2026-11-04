@@ -171,6 +171,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 /* The jacket under loading artwork waits a beat, so a cover that arrives quickly never flashes its title text. */
 .bv-root .bv-cover--loading .bv-jacket { animation: bv-jacket-in 160ms ease-out 180ms both; }
 @keyframes bv-jacket-in { from { opacity: 0; } to { opacity: 1; } }
+.bv-root .bv-cover--loading img[data-arrived] { opacity: 1; }
+.bv-root .bv-cover--loading:has(img[data-arrived]) .bv-jacket { opacity: 0; animation: none; }
 .bv-root .bv-jacket { position: relative; height: 100%; display: flex; flex-direction: column; gap: 6cqi; padding: 12cqi 10cqi 10cqi 16cqi; overflow: hidden; background: var(--bv-jacket-bg); color: var(--bv-jacket-ink); box-shadow: inset 5cqi 0 0 color-mix(in srgb, var(--bv-jacket-ink) 14%, transparent); }
 .bv-root .bv-jacket::after { content: ""; position: absolute; left: 7.5cqi; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--bv-jacket-ink) 22%, transparent); }
 .bv-root .bv-jacket strong { font: 500 clamp(9px, 12cqi, 26px)/1.15 var(--bv-display); letter-spacing: -.01em; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
