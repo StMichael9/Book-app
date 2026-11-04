@@ -60,7 +60,7 @@ const test = base.extend({
         state.profile = next; return reply(200, next);
       }
       if (path === "/me/stats") return reply(200, state.stats);
-      if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [] })));
+      if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [], previews: books.slice(0, 4).map(item => ({ id: item.id, cover_image_url: item.cover_image_url })) })));
       if (path === "/me/lists" && method === "POST") {
         if (state.lists.length >= 50) return fail(422, "list_limit");
         const created = { id: state.nextListId++, name: body.name, description: null, is_public: false, book_count: 0, covers: [], books: [] }; state.lists.push(created);
@@ -376,21 +376,110 @@ test("lists: cards show the name, count and privacy, a new list opens its page, 
   await expect(page.getByText("Make a list for a series, a theme, or what to read on holiday.")).toBeVisible();
 });
 
-test("list artwork shows real covers or bookcloth spine blocks and never a letter tile", async ({ page, app }) => {
-  app.lists[0].covers = ["https://covers.openlibrary.org/b/id/1-L.jpg"];
+test("list artwork shows spine blocks for coverless books, an outlined spine for an empty list, and never a letter tile or a blank tile", async ({ page, app }) => {
   app.lists.push({ id: 9, name: "Brand new", description: null, is_public: true, book_count: 0, covers: [], books: [] });
   await page.goto("/profile");
   const art = page.getByRole("link", { name: /Christie, in order/ }).locator(".bv-art");
   await expect(art.locator(".bv-art-slot")).toHaveCount(3);
-  // The test network refuses the cover host, so every cover falls back to its spine block.
   await expect(art.locator(".bv-art-spine")).toHaveCount(3);
-  await expect(page.getByRole("link", { name: /Brand new/ }).locator(".bv-art-slot")).toHaveCount(1);
+  const empty = page.getByRole("link", { name: /Brand new/ }).locator(".bv-art--empty");
+  await expect(empty).toBeVisible();
+  await expect(empty.locator("i")).toHaveCSS("border-top-color", /rgb\(\d+, \d+, \d+\)/);
+  await expect(empty).toHaveCSS("border-bottom-width", "3px");
   for (const text of await page.locator(".bv-art").allInnerTexts()) expect(text.trim()).toBe("");
   await page.goto("/profile/lists/7");
   await expect(page.locator(".bv-art--tall .bv-art-slot")).toHaveCount(3);
   await expect(page.locator(".bv-art--tall")).toHaveCSS("height", "96px");
-  await expect(page.locator(".bv-list-books .bv-list-cover .bv-cover")).toHaveCount(3);
+  await expect(page.locator(".bv-list-books .bv-list-cover .bv-art-spine")).toHaveCount(3);
   await expect(page.locator(".bv-list-initial")).toHaveCount(0);
+  // Never blank: every coverless row paints an opaque bookcloth, in both themes.
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(value => document.querySelector(".bv-root").setAttribute("data-theme", value), theme);
+    const paints = await page.locator(".bv-list-cover .bv-art-spine").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return [style.backgroundColor, node.getBoundingClientRect().width, node.getBoundingClientRect().height]; }));
+    for (const [colour, width, height] of paints) { expect(colour).toMatch(/^rgb\(/); expect(width).toBeGreaterThanOrEqual(40); expect(height).toBeGreaterThanOrEqual(60); }
+  }
+});
+
+test("a book wears the same cloth on the hub card, the list header and its row", async ({ page, app: _app }) => {
+  await page.goto("/profile");
+  const cloth = locator => locator.evaluate(node => getComputedStyle(node).backgroundColor);
+  const card = page.getByRole("link", { name: /Christie, in order/ }).locator(".bv-art-spine");
+  const fromCard = [await cloth(card.nth(0)), await cloth(card.nth(1)), await cloth(card.nth(2))];
+  await page.goto("/profile/lists/7");
+  const header = page.locator(".bv-art--tall .bv-art-spine"), rows = page.locator(".bv-list-cover .bv-art-spine");
+  for (let index = 0; index < 3; index += 1) {
+    expect(await cloth(header.nth(index))).toBe(fromCard[index]);
+    expect(await cloth(rows.nth(index))).toBe(fromCard[index]);
+  }
+});
+
+test("list cards are two across, one under 340px, and the lists heading and New list stay whole at large text", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/profile");
+  const columns = () => page.locator(".bv-list-cards").evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length);
+  await expect(page.locator(".bv-list-card")).toHaveCount(1);
+  expect(await columns()).toBe(2);
+  await page.setViewportSize({ width: 375, height: 800 });
+  expect(await columns()).toBe(2);
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(await columns()).toBe(1);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  expect(await columns()).toBe(1);
+  const button = await page.getByRole("button", { name: "New list" }).boundingBox();
+  const line = await page.getByRole("button", { name: "New list" }).evaluate(node => parseFloat(getComputedStyle(node).lineHeight) || node.getBoundingClientRect().height);
+  expect(button.height).toBeLessThan(line * 2.2);
+});
+
+test("at 200% text the mobile nav labels never ellipsise", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  const labels = await page.getByRole("navigation", { name: "Mobile navigation" }).locator("a span").evaluateAll(nodes => nodes.map(node => { const style = getComputedStyle(node); return { overflow: style.textOverflow, clipped: node.scrollWidth > node.clientWidth + 1, text: node.textContent }; }));
+  for (const label of labels) { expect(label.overflow).not.toBe("ellipsis"); expect(label.clipped).toBe(false); }
+  expect(labels.map(label => label.text)).toContain("Discover");
+});
+
+test("the privacy pill is a two-row pill on phones with the button under the text, and one row on desktop", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  const pill = page.locator(".bv-visibility");
+  const text = await pill.locator("span").boundingBox(), button = await pill.getByRole("button", { name: "Make public" }).boundingBox(), box = await pill.boundingBox();
+  expect(button.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
+  expect(button.x).toBeLessThan(box.x + 24);
+  expect(button.x + button.width).toBeLessThanOrEqual(box.x + box.width);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const wideText = await pill.locator("span").boundingBox(), wideButton = await pill.getByRole("button", { name: "Make public" }).boundingBox();
+  expect(Math.abs((wideButton.y + wideButton.height / 2) - (wideText.y + wideText.height / 2))).toBeLessThan(12);
+});
+
+test("Sign out is the second ruled row under Account settings, and tertiary links sit on the 20px gutter", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/profile");
+  const link = page.getByRole("link", { name: "Account settings" }), out = page.getByRole("button", { name: "Sign out" });
+  await expect(out).toBeVisible();
+  const [linkBox, outBox] = [await link.boundingBox(), await out.boundingBox()];
+  expect(outBox.y).toBeGreaterThan(linkBox.y + linkBox.height - 2);
+  expect(outBox.height).toBeGreaterThanOrEqual(44);
+  expect(Math.round(outBox.x)).toBe(20); expect(Math.round(linkBox.x)).toBe(20);
+  await expect(out).toHaveCSS("border-bottom-width", "1px");
+  await expect(out.locator("svg")).toHaveCount(0);
+  const edit = await page.getByRole("button", { name: "Edit profile" }).boundingBox(), name = await page.getByRole("heading", { name: "St Michael", level: 1 }).boundingBox();
+  expect(Math.round(edit.x)).toBe(Math.round(name.x));
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  expect(Math.round((await page.getByRole("button", { name: "Rename or delete" }).boundingBox()).x)).toBe(20);
+});
+
+test("on a wide screen the hub is about 880px, the shelf 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/profile");
+  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(880);
+  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "140px");
+  await expect(page.locator(".bv-list-card .bv-art")).toHaveCSS("height", "120px");
+  await expect(page.locator(".bv-shelf-spine").first()).toHaveCSS("width", /^(1[0-2]|9)(\.\d+)?px$/);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "96px");
 });
 
 test("the 50-list limit is explained", async ({ page, app }) => {
@@ -634,6 +723,28 @@ test("profile screenshots", async ({ page, app }) => {
     await open("/profile"); await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
     await shoot(`hub-${label}-${theme}`, full);
     if (zoom) continue;
+    if (label === "375") {
+      await page.getByRole("button", { name: "Edit profile" }).click();
+      await page.getByLabel("Name", { exact: true }).scrollIntoViewIfNeeded();
+      await page.getByLabel("Bio").scrollIntoViewIfNeeded();
+      await shoot(`edit-sheet-fields-${label}-${theme}`);
+      await page.keyboard.press("Escape");
+      await open("/profile/lists/7");
+      await page.getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByRole("button", { name: "Rename or delete" }).click();
+      await shoot(`rename-sheet-${label}-${theme}`);
+      await page.keyboard.press("Escape");
+      const years = app.stats;
+      app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
+      await open("/profile"); await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
+      await shoot(`hub-empty-year-${label}-${theme}`, full);
+      app.stats = years;
+      app.guest = true;
+      await open("/u/ada"); await expect(page.getByText("Keep your own reading year on Bookvane.")).toBeVisible();
+      await shoot(`public-guest-${label}-${theme}`, full);
+      app.guest = false;
+      await open("/profile"); await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
+    }
     await page.getByRole("button", { name: "Edit profile" }).click();
     await page.getByRole("radio", { name: "Feather" }).check({ force: true });
     await page.getByRole("radio", { name: "Plum" }).check({ force: true });

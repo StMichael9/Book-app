@@ -6,7 +6,7 @@ import { addListBook, createList, deleteList, getList, getLists, getPublicList, 
 import { useReader } from "../ui-v2/readerState.js";
 import { ActionLink, BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
 import Avatar from "./Avatar.jsx";
-import ListArt from "./ListArt.jsx";
+import ListArt, { SpineBlock } from "./ListArt.jsx";
 import { EditProfileSheet, HandleField, MakePublicSheet, SheetFacts } from "./ProfileSheets.jsx";
 import { HANDLE, HANDLE_ERROR, saveMessage } from "./profileForm.js";
 import { collapse, expand, slideFrom } from "./motion.js";
@@ -41,9 +41,10 @@ function NotFound({ page }) {
   return page;
 }
 
-// A small cover for a list row: always the 2:3 frame, with the typographic jacket standing in for missing artwork.
+// A small cover for a list row in the 2:3 frame. A book with no artwork wears its bookcloth spine; with artwork, the
+// cover shows the typographic jacket while it loads. Wide enough that the jacket keeps its title.
 function ListCover({ book }) {
-  return <span className="bv-list-cover"><BookCover book={{ ...book, authors: [] }} /></span>;
+  return <span className="bv-list-cover">{book.cover_image_url ? <BookCover book={{ ...book, authors: [] }} /> : <SpineBlock bookId={book.id} />}</span>;
 }
 
 // ---- the year, lists and account: shared by the hub and the public page ---------------------------------------
@@ -56,9 +57,12 @@ function Identity({ person, handle, size, children }) {
 
 function ListCard({ item, to, own }) {
   const Icon = item.is_public ? Globe : Lock;
+  // `previews` are [{ id, cover_image_url }] for up to four books, so a book wears its own cloth everywhere. Without
+  // them (an older payload) the covers stand in, and the slots up to the book count are spine blocks.
   const covers = (item.covers || []).slice(0, 4).map((url, index) => ({ key: `${item.id}-${index}`, url }));
-  const items = [...covers, ...Array.from({ length: Math.max(0, Math.min(4, item.book_count) - covers.length) }, (_, index) => ({ key: `${item.id}-s${index}`, url: null }))];
-  return <li><Link className="bv-list-card" to={to}><ListArt items={own || item.book_count ? items : []} />
+  const fallback = [...covers, ...Array.from({ length: Math.max(0, Math.min(4, item.book_count) - covers.length) }, (_, index) => ({ key: `${item.id}-s${index}`, url: null }))];
+  const items = Array.isArray(item.previews) ? item.previews.slice(0, 4).map(book => ({ key: book.id, url: book.cover_image_url })) : fallback;
+  return <li><Link className="bv-list-card" to={to}><ListArt items={items} />
     <strong>{item.name}</strong>
     <small>{books(item.book_count)}{own && <><span aria-hidden="true"> · </span><Icon aria-hidden="true" />{item.is_public ? "shared" : "private"}</>}</small></Link></li>;
 }
@@ -111,7 +115,7 @@ function AccountSection() {
   }
   return <section className="bv-profile-account" aria-label="Account">
     <Link className="bv-account-link" to="/account">Account settings<ChevronRight aria-hidden="true" /></Link>
-    <Button variant="quiet" className="bv-link-button bv-signout" disabled={leaving} onClick={logout}>{leaving ? "Signing out…" : "Sign out"}</Button>
+    <Button variant="quiet" className="bv-signout" disabled={leaving} onClick={logout}>{leaving ? "Signing out…" : "Sign out"}</Button>
     {error && <p className="bv-field-error" role="alert">{error}</p>}</section>;
 }
 

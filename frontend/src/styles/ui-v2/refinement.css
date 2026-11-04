@@ -95,7 +95,8 @@
   .bv-root:not(.bv-root--landing) { padding-bottom: var(--bv-mobile-nav-clearance, calc(4em + 24px + env(safe-area-inset-bottom))); }
   .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); font-size: 0.75rem; gap: 4px; padding-inline: 8px; }
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
-  .bv-root .bv-mobile-nav a span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
+  .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: anywhere; }
   /* Signed-in phone headers have room for the theme toggle; guests reach it from You. */
   .bv-root .bv-header-actions:not(.bv-header-actions--guest) .bv-desktop-theme { display: inline-flex; }
   .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }

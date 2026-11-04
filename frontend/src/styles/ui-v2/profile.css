@@ -7,7 +7,7 @@
 
 /* One tertiary link style: green, underlined. */
 .bv-root .bv-link-button, .bv-root .bv-profile .bv-text-link, .bv-root .bv-account-link { color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.bv-root .bv-link-button { min-height: 44px; padding-inline: 4px; font-size: 1rem; }
+.bv-root .bv-link-button { min-height: 44px; padding-inline: 0; font-size: var(--bv-fs-body); white-space: nowrap; }
 .bv-root .bv-link-button svg { width: 16px; height: 16px; }
 
 /* Avatar: a line icon on bookcloth. Decorative; the name or link beside it says who this is. */
@@ -21,8 +21,8 @@
 
 .bv-root .bv-profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 12px 0 8px; }
 .bv-root .bv-profile-id { flex: 1 1 9rem; min-width: 0; }
-.bv-root .bv-profile-id p { margin: 4px 0 0; font-size: 1rem; overflow-wrap: anywhere; }
-.bv-root .bv-profile-id .bv-link-button { padding-inline: 0; margin-top: 2px; }
+.bv-root .bv-profile-id p { margin: 4px 0 0; font-size: var(--bv-fs-body); overflow-wrap: anywhere; }
+.bv-root .bv-profile-id .bv-link-button { margin-top: 2px; }
 .bv-root .bv-profile-bio { margin: 12px 0 16px; overflow-wrap: anywhere; }
 .bv-root .bv-profile-edit { margin: 8px 0 0; }
 .bv-root .bv-profile-edit textarea { width: 100%; font: inherit; }
@@ -30,10 +30,16 @@
 
 /* The privacy pill. A long line wraps inside the pill rather than overflowing. */
 .bv-root .bv-visibility-block { margin: 12px 0 28px; }
-.bv-root .bv-visibility { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; background: var(--bv-wash); border-radius: 24px; padding: 4px 8px 4px 16px; font-size: 1rem; }
+.bv-root .bv-visibility { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; background: var(--bv-wash); border-radius: 24px; padding: 4px 8px 4px 16px; font-size: var(--bv-fs-body); }
 .bv-root .bv-visibility svg { flex: none; width: 18px; height: 18px; color: var(--bv-muted); }
 .bv-root .bv-visibility span { flex: 1 1 9rem; min-width: 0; color: var(--bv-muted); }
 .bv-root .bv-visibility-action { flex: none; white-space: nowrap; }
+@media (max-width: 700px) {
+  .bv-root .bv-visibility { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px 10px; padding: 12px 16px 4px; border-radius: 20px; }
+  .bv-root .bv-visibility svg { margin-top: 3px; }
+  .bv-root .bv-visibility span { grid-column: 2; }
+  .bv-root .bv-visibility-action { grid-column: 1 / -1; justify-self: start; }
+}
 .bv-root .bv-visibility-block > .bv-help { margin: 8px 0 0 16px; }
 
 /* Your year: a spine shelf on an ink baseline. */
@@ -41,7 +47,7 @@
 .bv-root .bv-profile-year p { margin: 8px 0 0; }
 .bv-root .bv-shelf { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; align-items: end; height: 96px; margin-top: 26px; border-bottom: 3px solid var(--bv-ink); padding-inline: 2px; }
 .bv-root .bv-shelf-month { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: 100%; min-width: 0; }
-.bv-root .bv-shelf-more { position: absolute; top: -20px; inset-inline: -4px; text-align: center; font-size: 0.8125rem; line-height: 1; color: var(--bv-muted); }
+.bv-root .bv-shelf-more { position: absolute; top: -20px; inset-inline: -4px; text-align: center; font-size: var(--bv-fs-helper); line-height: 1; color: var(--bv-muted); }
 .bv-root .bv-shelf-spine { position: relative; flex: 0 1 5px; min-width: 4px; border-radius: 1px 1px 0 0; box-shadow: inset 1.5px 0 0 color-mix(in srgb, #fffdf5 30%, transparent); }
 .bv-root .bv-shelf-spine::before { content: ""; position: absolute; inset-inline: 0; top: 12%; height: 1px; background: color-mix(in srgb, #fffdf5 38%, transparent); }
 .bv-root .bv-shelf.is-rising .bv-shelf-spine { transform-origin: bottom; animation: bv-spine-rise 240ms ease-out both; animation-delay: calc(var(--bv-month, 0) * 20ms); }
@@ -51,17 +57,19 @@
 .bv-root .bv-year-genres { font-size: var(--bv-fs-helper); }
 
 .bv-root .bv-profile-lists { margin: 0 0 24px; }
-.bv-root .bv-profile-lists-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.bv-root .bv-profile-lists-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 12px; margin-bottom: 8px; }
 .bv-root .bv-new-list { margin-bottom: 12px; }
 
 /* Lists: two cards across, one under 340px. */
-.bv-root .bv-list-cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(max(150px, 9rem), 1fr)); gap: 12px; }
+.bv-root .bv-list-cards { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bv-root .bv-list-card { display: flex; flex-direction: column; gap: 4px; height: 100%; padding: 10px; background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 10px; color: inherit; text-decoration: none; }
 .bv-root .bv-list-card:hover { border-color: var(--bv-control); }
 .bv-root .bv-list-card strong { margin-top: 6px; font: 500 var(--bv-fs-card)/1.25 var(--bv-display); overflow-wrap: anywhere; }
 .bv-root .bv-list-card small { display: flex; align-items: center; gap: 4px; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-list-card small svg { width: 14px; height: 14px; }
-@media (max-width: 339px) { .bv-root .bv-list-cards { grid-template-columns: 1fr; } }
+/* One column when the lists area is narrower than about 330px, or when large text makes it so (rem follows the text size). */
+.bv-root .bv-profile-lists { container-type: inline-size; }
+@container (max-width: 20.5rem) { .bv-root .bv-list-cards { grid-template-columns: 1fr; } }
 
 /* Artwork: up to four covers side by side in 2:3 frames; a missing cover is a bookcloth spine block. */
 .bv-root .bv-art { display: flex; gap: 2px; height: 64px; overflow: hidden; border-radius: 4px; }
@@ -69,21 +77,27 @@
 .bv-root .bv-art-slot { position: relative; flex: none; height: 100%; aspect-ratio: 2/3; border-radius: 3px; overflow: hidden; background: var(--bv-wash); }
 .bv-root .bv-art-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
 .bv-root .bv-art-slot.is-loaded img { opacity: 1; animation: bv-jacket-in 160ms ease-out both; }
+.bv-root .bv-art--empty { align-items: flex-end; width: 84px; height: 64px; border-radius: 0; border-bottom: 3px solid var(--bv-ink); padding-inline: 10px; }
+.bv-root .bv-art--empty i { position: relative; flex: none; width: 36px; height: 56px; border: 1.5px solid var(--bv-control); border-bottom: 0; border-radius: 3px 3px 0 0; }
+.bv-root .bv-art--empty i::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 1.5px; background: var(--bv-control); opacity: 0.7; }
+.bv-root .bv-art--tall.bv-art--empty { height: 96px; }
+.bv-root .bv-art--tall.bv-art--empty i { width: 56px; height: 88px; }
 .bv-root .bv-art-spine { position: absolute; inset: 0; box-shadow: inset 5px 0 0 color-mix(in srgb, #000 20%, transparent); }
 .bv-root .bv-art-spine::after { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, #fffdf5 28%, transparent); }
 .bv-root .bv-art-spine.is-waiting { animation: bv-jacket-in 160ms ease-out 180ms both; }
 
-.bv-root .bv-profile-account { margin: 32px 0 0; border-top: 1px solid var(--bv-line); display: flex; flex-direction: column; align-items: flex-start; }
-.bv-root .bv-account-link { display: flex; align-items: center; justify-content: space-between; align-self: stretch; min-height: 52px; border-bottom: 1px solid var(--bv-line); }
+.bv-root .bv-profile-account { margin: 32px 0 0; border-top: 1px solid var(--bv-line); display: flex; flex-direction: column; align-items: stretch; }
+.bv-root .bv-account-link, .bv-root .bv-signout { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0; border: 0; border-bottom: 1px solid var(--bv-line); border-radius: 0; background: none; color: var(--bv-green); font: 600 var(--bv-fs-body)/1.3 var(--bv-body); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
+.bv-root .bv-signout { justify-content: flex-start; width: 100%; }
 .bv-root .bv-account-link svg { width: 18px; height: 18px; }
-.bv-root .bv-signout { margin-top: 4px; }
 
 .bv-root .bv-profile-back { display: flex; justify-content: space-between; align-items: center; margin: 0 0 8px; min-height: 44px; }
 .bv-root .bv-list-rename { margin: 0 0 4px; }
 .bv-root .bv-list-books { list-style: none; padding: 0; margin: 16px 0 8px; }
 .bv-root .bv-list-books li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-list-number { flex: none; width: 1.5rem; text-align: center; color: var(--bv-muted); }
-.bv-root .bv-list-cover { flex: none; width: 44px; }
+.bv-root .bv-list-cover { flex: none; width: 56px; }
+.bv-root .bv-list-cover .bv-art-slot { display: block; width: 100%; height: auto; }
 .bv-root .bv-list-book-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .bv-root .bv-list-book-text a { font-weight: 600; overflow-wrap: anywhere; }
 .bv-root .bv-list-book-text small { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
@@ -113,7 +127,7 @@
 .bv-root .bv-profile-sheet .bv-help { text-align: center; margin: 0; }
 
 .bv-root .bv-picker { margin: 0 0 20px; min-width: 0; }
-.bv-root .bv-picker legend { padding: 0; margin-bottom: 8px; font: 600 1rem/1.4 var(--bv-body); }
+.bv-root .bv-picker legend { padding: 0; margin-bottom: 8px; font: 600 var(--bv-fs-body)/1.4 var(--bv-body); }
 .bv-root .bv-picker-preview { display: flex; justify-content: center; margin: 4px 0 20px; }
 .bv-root .bv-icon-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .bv-root .bv-colour-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -139,3 +153,14 @@
   .bv-root .bv-avatar-face.is-changing, .bv-root .bv-shelf.is-rising .bv-shelf-spine, .bv-root .bv-undo-toast, .bv-root .bv-art-slot.is-loaded img, .bv-root .bv-art-spine.is-waiting { animation: none; }
 }
 
+/* Desktop: a wider hub, a taller shelf and larger list cards, so it doesn't read as a stretched phone column. */
+@media (min-width: 1024px) {
+  .bv-root .bv-profile:not(.bv-profile-list) { max-width: 880px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-shelf { height: 140px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-art { height: 120px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-art--empty { width: 140px; height: 120px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-art--empty i { width: 64px; height: 108px; }
+  .bv-root .bv-list-cards { gap: 20px; }
+  .bv-root .bv-list-card { padding: 16px; }
+  .bv-root .bv-profile-sheet { max-width: 520px; }
+}

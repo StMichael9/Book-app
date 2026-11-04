@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { coverFallback, coverSrc } from "../../api/coverUrl.js";
-import { clothFor } from "./shelfData.js";
+import { bookCloth } from "./shelfData.js";
 
 // One cover in a 2:3 frame. A book with no artwork, or artwork that fails, is a bookcloth spine block, never a letter tile.
 // The spine shows behind a loading cover only after a beat, like the typographic jacket, and never for a cover the browser holds.
@@ -20,9 +20,16 @@ function Slot({ url, cloth }) {
   </span>;
 }
 
-// `items` are { key, url }: up to four are shown side by side.
+// A coverless book on a list row: its bookcloth spine, never a blank tile.
+export function SpineBlock({ bookId }) {
+  return <span className="bv-art-slot"><span className="bv-art-spine" style={{ background: bookCloth(bookId) }} /></span>;
+}
+
+// `items` are { key, url } with the book id as the key: up to four are shown side by side. An empty list shows one
+// outlined spine on a short baseline.
 export default function ListArt({ items, tall = false }) {
   const shown = items.slice(0, 4);
+  if (!shown.length) return <span className={`bv-art bv-art--empty${tall ? " bv-art--tall" : ""}`} aria-hidden="true"><i /></span>;
   return <span className={`bv-art${tall ? " bv-art--tall" : ""}`} aria-hidden="true">
-    {shown.length ? shown.map(item => <Slot key={item.key} url={item.url} cloth={clothFor("book", item.key)} />) : <Slot url={null} cloth="var(--bv-wash)" />}</span>;
+    {shown.map(item => <Slot key={item.key} url={item.url} cloth={bookCloth(item.key)} />)}</span>;
 }

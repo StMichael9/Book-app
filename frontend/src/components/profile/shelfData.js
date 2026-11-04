@@ -9,3 +9,5 @@ export function hash(...parts) {
   return value;
 }
 export const clothFor = (...parts) => AVATAR_COLOURS[hash(...parts) % AVATAR_COLOURS.length][2];
+// A book wears the same cloth on a list card, a list header and a list row.
+export const bookCloth = bookId => clothFor("book", bookId);
