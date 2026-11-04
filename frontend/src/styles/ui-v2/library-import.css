@@ -10,7 +10,6 @@
 .bv-import-context { margin: .5rem 0 1rem; }
 .bv-import-context dt { font-weight: 600; margin-top: .75rem; }
 .bv-import-context dd { margin: .3rem 0; white-space: pre-wrap; }
-.bv-import-page textarea { width: 100%; resize: vertical; min-height: 9rem; font: inherit; padding: 14px; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
 .bv-import-page :is(textarea, summary):focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
 .bv-import-page .bv-field select { width: 100%; max-width: 100%; }
 .bv-import-page input[type="file"] { max-width: 100%; }

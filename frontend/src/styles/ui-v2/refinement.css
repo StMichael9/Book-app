@@ -60,7 +60,7 @@
 /* Allow text enlargement to wrap chrome instead of pushing it off screen. */
 .bv-root .bv-footer-inner { flex-wrap: wrap; row-gap: 16px; }
 .bv-root .bv-header-inner { flex-wrap: wrap; row-gap: 8px; padding-block: 12px; }
-.bv-root .bv-field textarea { min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
+.bv-root :is(.bv-field, .bv-why, .bv-import-page) textarea { width: 100%; min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
 .bv-root .bv-field textarea:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
 @media (max-width: 700px) {
   .bv-root .bv-detail-art .bv-detail-cover-placeholder { width: 158px; margin-inline: auto; }

@@ -1,7 +1,9 @@
 @font-face { font-family: "Bookvane Lora"; src: url("../../components/ui-v2/assets/lora.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
 @font-face { font-family: "Bookvane Sans"; src: url("../../components/ui-v2/assets/sourcesans.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
 
-:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; --bv-fs-page: 1.75rem; --bv-fs-section: 1.375rem; --bv-fs-card: 1.0625rem; --bv-fs-body: 1rem; --bv-fs-helper: 0.875rem; }
+:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; --bv-fs-page: 1.75rem; --bv-fs-section: 1.375rem; --bv-fs-card: 1.0625rem; --bv-fs-body: 1rem; --bv-fs-helper: 0.875rem;
+  /* The bookcloth inks and the spine shade: the warm light ink (4.5:1 on most cloths), plain white and the dark ink, and the shadow on a spine's edge. */
+  --bv-cloth-ink-light: #fffdf5; --bv-cloth-ink-white: #ffffff; --bv-cloth-ink-dark: #1a251f; --bv-spine-shade: #000; }
 body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root :is(button, input, select, textarea) { font-family: inherit; }
 .bv-root {
@@ -49,7 +51,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-section { padding-top: 36px; padding-bottom: 36px; }
 .bv-root .bv-help { font-size: 0.875rem; line-height: 1.45; color: var(--bv-muted); margin: 8px 0 20px; display: block; }
 .bv-root .bv-lead { font-size: 1.1875rem; line-height: 1.55; max-width: 500px; }
-.bv-root .bv-eyebrow { color: var(--bv-rust); text-transform: uppercase; font-weight: 700; font-size: 0.75rem; letter-spacing: 2px; margin: 0 0 16px; }
+.bv-root .bv-hero .bv-eyebrow { color: var(--bv-rust); text-transform: uppercase; font-weight: 700; font-size: 0.75rem; letter-spacing: 2px; margin: 0 0 16px; }
 .bv-root .bv-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .bv-root .bv-skip { position: fixed; top: -100px; left: 12px; padding: 12px; background: var(--bv-green); color: var(--bv-on-green); z-index: 100; }
 .bv-root .bv-skip:focus { top: 12px; }
@@ -87,11 +89,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root :is(.bv-button--secondary, .bv-button--quiet):hover:not(:disabled) { background: var(--bv-wash); }
   .bv-root .bv-button--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--bv-danger), var(--bv-ink) 14%); }
   .bv-root .bv-button--danger-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--bv-danger) 8%, transparent); }
-  .bv-root .bv-text-link:hover { text-decoration: underline; }
 }
 .bv-root .bv-full-width { width: 100%; }
 .bv-root .bv-icon-button { min-width: 44px; min-height: 44px; padding: 10px; flex-shrink: 0; }
-.bv-root .bv-text-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--bv-green); font-weight: 600; }
+/* The one tertiary link: green, 600 weight, underlined with a 3px offset, at least 44px tall. Text-style buttons share it. */
+.bv-root :is(.bv-text-link, .bv-link-button) { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .bv-root .bv-form-actions { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 
 .bv-root .bv-header { border-bottom: 1px solid var(--bv-line); background: var(--bv-paper); }
@@ -191,7 +193,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-shelf-controls--compact { margin-top: auto; }
 .bv-root .bv-shelf-actions { display: flex; gap: 12px; }
 .bv-root .bv-shelf-actions .bv-button { flex: 1; min-width: 0; }
-.bv-root .bv-shelf-controls--compact .bv-shelf-actions { gap: 6px; }
+.bv-root .bv-shelf-controls--compact .bv-shelf-actions { gap: 6px; flex-wrap: wrap; }
+.bv-root .bv-shelf-controls--compact .bv-shelf-actions .bv-button { flex: 1 1 7.5rem; }
 .bv-root .bv-shelf-controls--compact .bv-button { min-height: 44px; padding: 8px 9px; font-size: 0.9375rem; gap: 5px; }
 .bv-root .bv-shelf-controls--compact svg { width: 16px; height: 16px; }
 .bv-root .bv-field-error { color: var(--bv-danger); font-size: 0.9375rem; border-left: 3px solid var(--bv-danger); padding: 10px 12px; margin: 12px 0; background: var(--bv-wash); }
@@ -230,7 +233,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-library-caption { margin-bottom: 24px; font-size: 0.9375rem; }
 
 .bv-root :is(input, select) { color: var(--bv-ink); }
-.bv-root :is(.bv-field, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 50px; padding: 11px 13px; border: 1px solid var(--bv-control); background: var(--bv-panel); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
+.bv-root :is(.bv-field, .bv-why, .bv-import-page, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 50px; padding: 11px 13px; border: 1px solid var(--bv-control); background: var(--bv-panel); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
 .bv-root input::placeholder { color: var(--bv-muted); opacity: 1; }
 .bv-root .bv-auth-layout { max-width: 1020px; margin: 62px auto 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
 .bv-root .bv-auth-story { background: var(--bv-hero); border-radius: 8px; padding: 44px; min-height: 490px; }
@@ -406,7 +409,6 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-detail-art .bv-cover { width: 158px; }
   .bv-root .bv-detail-body { padding-top: 0; }
   .bv-root .bv-detail-body h1 { font-size: 2.125rem; margin: 8px 0 12px; }
-  .bv-root .bv-detail-body .bv-eyebrow { margin-bottom: 8px; }
   .bv-root .bv-detail-author { font-size: 1.125rem; margin-bottom: 15px; }
   .bv-root .bv-book-tags a { padding: 8px 10px; }
   .bv-root .bv-book-metadata { font-size: 0.875rem; padding-bottom: 18px; margin-bottom: 18px; }
