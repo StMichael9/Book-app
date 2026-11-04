@@ -15,10 +15,11 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
-from datetime import date, datetime
+from datetime import date
 
 from fastapi import HTTPException
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import ARRAY, Boolean, Date, DateTime, Integer, Text, case, cast, func, literal_column, null, or_, select, union_all
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array_agg
 
 from database import settings
 from models import (
@@ -105,82 +106,96 @@ class LibraryView:
     # --- loading ---------------------------------------------------------------------------------------------------
 
     def load(self, user_id, conditions, sort: str = "added") -> tuple[list[Row], dict[int, str]]:
-        """A compact row per entry matching the text search, plus the names of the subject tags seen."""
-        entries = self.db.execute(
-            select(UserBook.id, UserBook.is_owned, UserBook.is_wanted, UserBook.book_id, UserBook.private_title,
-                   UserBook.private_author, UserBook.save_note, UserBook.updated_at, Book.title, Book.page_count)
-            .outerjoin(Book, Book.id == UserBook.book_id).where(*conditions)).all()
+        """A compact row per entry matching the text search.
+
+        Five independent, simple reads (entries, authors, subject tags, reading figures, import labels) sent as ONE
+        statement with UNION ALL over a fixed set of typed columns: a round trip costs ~60 ms on the hosted database, and
+        joining the reads to each other in SQL gave the planner room to choose very slow plans on a freshly loaded
+        library. Columns: (kind, key, c1..c12), each branch filling the ones it needs."""
         mine = select(UserBook.book_id).where(UserBook.user_id == user_id, UserBook.book_id.is_not(None))
-        authors: dict[int, list[tuple[int, str]]] = {}
-        for book_id, author_id, name in self.db.execute(
-                select(book_authors.c.book_id, Author.id, Author.name).join(Author, Author.id == book_authors.c.author_id)
-                .where(book_authors.c.book_id.in_(mine)).order_by(book_authors.c.book_id, Author.id)):
-            authors.setdefault(book_id, []).append((author_id, name))
-        tags: dict[int, set[int]] = {}
+        mine_entries = select(UserBook.id).where(UserBook.user_id == user_id)
+        blank = null()
+        types = (Integer, Boolean, Boolean, Text, Text, Boolean, DateTime(timezone=True), Text, ARRAY(Integer), Date, JSONB, Integer)
+
+        def branch(letter, key, **named):
+            """Columns c1..c12 by position; unnamed ones are typed NULLs so every branch lines up."""
+            columns = [literal_column(f"'{letter}'").label("kind"), key.label("key")]
+            for n, kind_ in enumerate(types, start=1):
+                value = named.get(f"c{n}")
+                columns.append((cast(blank, kind_) if value is None else value).label(f"c{n}"))
+            return columns
+
+        entries = select(*branch(
+            "e", UserBook.id, c1=UserBook.book_id, c2=UserBook.is_owned, c3=UserBook.is_wanted, c4=UserBook.private_title,
+            c5=UserBook.private_author, c6=func.btrim(func.coalesce(UserBook.save_note, "")) != "",
+            c7=UserBook.updated_at, c8=Book.title, c12=Book.page_count)).select_from(UserBook).outerjoin(
+            Book, Book.id == UserBook.book_id).where(*conditions)
+        authors = select(*branch("a", book_authors.c.book_id, c8=Author.name)).select_from(book_authors).join(
+            Author, Author.id == book_authors.c.author_id).where(book_authors.c.book_id.in_(mine))
+        subjects = select(*branch("t", book_tags.c.book_id, c1=Tag.id, c8=Tag.name)).select_from(book_tags).join(
+            Tag, Tag.id == book_tags.c.tag_id).where(Tag.type.in_(SUBJECT_TYPES), book_tags.c.book_id.in_(mine))
+        priority = case((ReadingAttempt.state.in_(["reading", "paused"]), 0), else_=1)
+        finished = ReadingAttempt.state == "finished"
+        attempts = select(*branch(
+            "s", ReadingAttempt.user_book_id,
+            c12=func.max(ReadingAttempt.total_pages),
+            c6=func.bool_or(func.btrim(func.coalesce(ReadingAttempt.note, "")) != ""),
+            c8=array_agg(aggregate_order_by(ReadingAttempt.state, priority, ReadingAttempt.created_at.desc(),
+                                            ReadingAttempt.id.desc()))[1],
+            c9=cast(array_agg(func.distinct(func.extract("year", ReadingAttempt.ended_on))).filter(
+                finished, ReadingAttempt.ended_on.is_not(None)), ARRAY(Integer)),
+            c10=func.max(ReadingAttempt.ended_on).filter(finished))).select_from(ReadingAttempt).where(
+            ReadingAttempt.user_book_id.in_(mine_entries)).group_by(ReadingAttempt.user_book_id)
+        imports = select(*branch(
+            "i", ImportedLibraryRecord.user_book_id, c7=func.max(ImportedLibraryRecord.created_at),
+            c11=func.jsonb_agg(ImportedLibraryRecord.context["labels"]))).select_from(ImportedLibraryRecord).where(
+            ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.user_book_id.is_not(None)).group_by(
+            ImportedLibraryRecord.user_book_id)
+        result = self.db.execute(union_all(entries, authors, subjects, attempts, imports)).all()
+
+        entry_data = []
+        authors_of: dict[int, list[str]] = {}
+        tags_of: dict[int, set[int]] = {}
         tag_names: dict[int, str] = {}
-        for book_id, tag_id, name in self.db.execute(
-                select(book_tags.c.book_id, Tag.id, Tag.name).join(Tag, Tag.id == book_tags.c.tag_id)
-                .where(Tag.type.in_(SUBJECT_TYPES), book_tags.c.book_id.in_(mine))):
-            tags.setdefault(book_id, set()).add(tag_id)
-            tag_names[tag_id] = name
-        attempts = self._attempts(user_id)
-        imports: dict[int, list] = {}
-        for entry_id, labels, created in self.db.execute(
-                select(ImportedLibraryRecord.user_book_id, ImportedLibraryRecord.context["labels"],
-                       ImportedLibraryRecord.created_at)
-                .where(ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.user_book_id.is_not(None))):
-            imports.setdefault(entry_id, []).append((labels, created))
+        facts: dict = {}
+        imported: dict = {}
+        for letter, key, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 in result:
+            if letter == "e":
+                entry_data.append((key, c1, c2, c3, c4, c5, c6, c7, c8, c12))
+            elif letter == "a":
+                authors_of.setdefault(key, []).append(c8)
+            elif letter == "t":
+                tags_of.setdefault(key, set()).add(c1)
+                tag_names[c1] = c8
+            elif letter == "s":
+                facts[key] = (c8, c9, c10, c6, c12)
+            else:
+                imported[key] = (c11, c7)
         rows = []
-        for entry_id, owned, wanted, book_id, private_title, private_author, note, updated, title, pages in entries:
+        for entry_id, book_id, owned, wanted, private_title, private_author, has_save_note, updated, title, pages in entry_data:
             row = Row()
-            row.id, row.owned, row.wanted, row.updated_at = entry_id, bool(owned), bool(wanted), updated
-            state, years, finished_on, attempt_note, attempt_pages = attempts.get(entry_id, (None, (), None, False, None))
-            row.state, row.finished_on = state, finished_on
-            row.years = {int(year) for year in years or ()}
-            names = [name for _, name in authors.get(book_id, [])] if book_id is not None else []
+            row.id, row.owned, row.wanted, row.updated_at = entry_id, bool(owned), bool(wanted), updated.isoformat()
+            state, years, finished_on, attempt_note, attempt_pages = facts.get(entry_id, (None, None, None, False, None))
+            row.state = state
+            row.finished_on = finished_on.isoformat() if finished_on else None
+            row.years = set(years or ())
+            names = authors_of.get(book_id, []) if book_id is not None else []
             if not names and private_author:
                 names = [private_author]
             row.author_labels = {}
             for name in names:
                 row.author_labels.setdefault(norm_name(name), name)
-            first = names[0] if names else None
-            row.author_key = author_sort_key(first) if sort == "author" or sort == "index" else None
+            row.author_key = author_sort_key(names[0] if names else None) if sort == "author" else None
             row.title_key = (fold(title or private_title or "") or LAST) if sort == "title" else None
-            row.subjects = tags.get(book_id, set()) if book_id is not None else set()
+            row.subjects = tags_of.get(book_id, set()) if book_id is not None else set()
             row.length = length_of(pages or attempt_pages)
-            row.has_note = bool((note or "").strip()) or bool(attempt_note)
-            labels: set[str] = set()
-            imported_on = None
-            for context_labels, created in imports.get(entry_id, ()):
-                labels.update(label for label in (context_labels or []) if isinstance(label, str))
-                imported_on = max(imported_on or created.date(), created.date())
-            row.labels, row.imported_on = labels, imported_on
+            row.has_note = bool(has_save_note) or bool(attempt_note)
+            label_lists, imported_at = imported.get(entry_id, (None, None))
+            row.labels = {label for labels in label_lists or () if isinstance(labels, list)
+                          for label in labels if isinstance(label, str)}
+            row.imported_on = imported_at.date() if imported_at else None
             rows.append(row)
         return rows, tag_names
-
-    def _attempts(self, user_id) -> dict:
-        """Per entry: current state, finished years, latest finish date, whether any attempt has a note, longest pages."""
-        priority = case((ReadingAttempt.state.in_(["reading", "paused"]), 0), else_=1)
-        ranked = select(ReadingAttempt.user_book_id.label("entry_id"), ReadingAttempt.state.label("state"),
-                        ReadingAttempt.ended_on.label("ended_on"), ReadingAttempt.note.label("note"),
-                        ReadingAttempt.total_pages.label("pages"),
-                        func.row_number().over(partition_by=ReadingAttempt.user_book_id,
-                                               order_by=(priority, ReadingAttempt.created_at.desc(),
-                                                         ReadingAttempt.id.desc())).label("position")
-                        ).where(ReadingAttempt.user_book_id.in_(select(UserBook.id).where(UserBook.user_id == user_id))
-                                ).subquery()
-        finished = ranked.c.state == "finished"
-        result = {}
-        for entry_id, current, years, finished_on, has_note, pages in self.db.execute(
-                select(ranked.c.entry_id,
-                       func.max(ranked.c.state).filter(ranked.c.position == 1),
-                       func.array_agg(func.distinct(func.extract("year", ranked.c.ended_on))).filter(
-                           finished, ranked.c.ended_on.is_not(None)),
-                       func.max(ranked.c.ended_on).filter(finished),
-                       func.bool_or(func.btrim(func.coalesce(ranked.c.note, "")) != ""),
-                       func.max(ranked.c.pages)).group_by(ranked.c.entry_id)):
-            result[entry_id] = (current, years, finished_on, bool(has_note), pages)
-        return result
 
     # --- filtering and counting --------------------------------------------------------------------------------------
 
@@ -263,27 +278,19 @@ class LibraryView:
         if sort == "author":
             return (row.author_key, row.id), False
         if sort == "finished":
-            return (row.finished_on or date.min, row.id), True
+            return (row.finished_on or "", row.id), True
         if sort == "updated":
             return (row.updated_at, row.id), True
         return (row.id,), True
 
     def cursor_value(self, row: Row, sort: str):
-        key = self.sort_key(row, sort)[0]
-        return [item.isoformat() if isinstance(item, (date, datetime)) else item for item in key]
+        return list(self.sort_key(row, sort)[0])
 
     def after(self, rows: list[Row], sort: str, last: list) -> list[Row]:
         """The rows strictly after the cursor position in this sort's order (keyset paging: stable under inserts)."""
-        _, descending = self.sort_key(rows[0], sort) if rows else (None, False)
-        def restore(parts):
-            out = []
-            for part in parts:
-                if isinstance(part, str) and sort in ("finished", "updated") and out == []:
-                    part = datetime.fromisoformat(part) if sort == "updated" else date.fromisoformat(part)
-                out.append(part)
-            return tuple(out)
+        descending = self.sort_key(rows[0], sort)[1] if rows else False
+        position = tuple(last)
         try:
-            position = restore(last)
             return [row for row in rows if (self.sort_key(row, sort)[0] < position if descending
                                             else self.sort_key(row, sort)[0] > position)]
         except TypeError:
