@@ -201,6 +201,8 @@ def test_list_crud_add_remove_order_and_cross_reader_404(world):
     assert [b["id"] for b in world.client.get(f"/me/lists/{lid}").json()["books"]] == ids
     summary = world.client.get("/me/lists").json()[0]
     assert summary["book_count"] == 3 and len(summary["covers"]) <= 3
+    assert [p["id"] for p in summary["previews"]] == ids  # book ids in list order, each with its cover (or null)
+    assert all(set(p) == {"id", "cover_image_url"} for p in summary["previews"])
     assert "has_book" not in summary
     second = world.client.post("/me/lists", json={"name": "Empty"}).json()["id"]
     flags = {row["id"]: row["has_book"] for row in world.client.get(f"/me/lists?book_id={ids[0]}").json()}
@@ -468,3 +470,14 @@ def test_the_avatar_migration_follows_the_current_head():
     import pathlib
     path = pathlib.Path(__file__).resolve().parents[1] / "alembic" / "versions" / "d2b7c4e9f1a3_profile_avatar.py"
     assert "down_revision = 'c9f2a6d83e15'" in path.read_text(encoding="utf-8")
+
+
+def test_list_previews_stop_at_four_books_in_list_order(world):
+    world.act_as(world.make_user())
+    lid = world.client.post("/me/lists", json={"name": "Long"}).json()["id"]
+    ids = [book.id for book in world.books[:5]]
+    for book_id in ids:
+        assert world.client.post(f"/me/lists/{lid}/books", json={"book_id": book_id}).status_code == 204
+    assert [p["id"] for p in world.client.get("/me/lists").json()[0]["previews"]] == ids[:4]
+    empty = world.client.post("/me/lists", json={"name": "Empty"}).json()
+    assert empty["previews"] == []
