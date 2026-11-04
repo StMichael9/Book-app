@@ -16,7 +16,7 @@ const test = base.extend({
     page.on("pageerror", (error) => state.errors.push(error.message));
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
-      if (url.origin === "https://covers.openlibrary.org") return route.abort(); // cover art in the book snapshot; never a data request
+      if (url.origin === "https://covers.openlibrary.org" || url.origin === "https://wsrv.nl") return route.abort(); // cover art in the book snapshot; never a data request
       if (url.origin !== "http://127.0.0.1:5189") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.brokenCover) return route.fulfill({ status: 404, body: "" });
@@ -431,7 +431,7 @@ for (const width of [320, 390]) test(`browser default font size scales text and 
   await expect(page.getByRole("button", { name: /^Add .+ to Want to read$/ }).first()).toBeVisible();
 });
 
-test("guest Discover leads with covered, plain-title books; a slow cover shows a plain tinted block until it loads", async ({ page, app }) => {
+test("guest Discover leads with covered, plain-title books; a slow cover shows its title jacket until the artwork loads", async ({ page, app }) => {
   app.catalogue = [
     { ...books[0], id: 1, title: "Ἰλιάς", cover_image_url: "/test-cover/1.jpg" },
     { ...books[1], id: 2, title: "No cover yet", cover_image_url: null },
@@ -444,7 +444,8 @@ test("guest Discover leads with covered, plain-title books; a slow cover shows a
   await expect(page.locator(".bv-book-card h3")).toHaveText(["Slow cover", "Ἰλιάς", "No cover yet"]);
   const slow = page.locator(".bv-book-card").first().locator(".bv-cover");
   await expect(slow).toHaveClass(/bv-cover--loading/);
-  await expect(slow.locator(".bv-jacket")).toHaveCount(0);
+  await expect(slow.locator(".bv-jacket")).toHaveCount(1);
+  await expect(slow.locator(".bv-jacket")).toHaveAttribute("aria-hidden", "true");
   await expect(slow.locator("img")).toHaveCSS("opacity", "0");
   await expect(page.locator(".bv-book-card").nth(2).locator(".bv-jacket")).toHaveCount(1);
   release();

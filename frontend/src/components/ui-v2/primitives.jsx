@@ -7,7 +7,7 @@ import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { trackEvent } from "./events.js";
 import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
-import { coverSrc } from "../../api/coverUrl.js";
+import { coverFallback, coverSrc } from "../../api/coverUrl.js";
 import AddToList from "../profile/AddToList.jsx";
 import WhyPrompt from "./WhyPrompt.jsx";
 import { markAsked, wasAsked } from "./whyAsked.js";
@@ -60,17 +60,20 @@ export function EnglishTitle({ book }) {
 }
 
 export function BookCover({ book, priority = false, hero = false, size = "medium" }) {
-  const [failedUrl, setFailedUrl] = useState(null);
+  const [failed, setFailed] = useState({ url: null, step: 0 });
   const [loadedUrl, setLoadedUrl] = useState(null);
   const url = book.cover_image_url;
-  const failed = failedUrl === url, loaded = loadedUrl === url;
-  // While artwork loads the cover is a plain tinted block that fades the image in; the typographic jacket is only
-  // for books with no artwork or whose image failed, so a cover never flashes from jacket text to a picture.
-  return <div className={`bv-cover${url && !failed && !loaded ? " bv-cover--loading" : ""}`}>
-    {url && !failed ? <img ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(url); }}
-      src={coverSrc(url, size)} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
-      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(url)} onError={() => setFailedUrl(url)} />
-      : <Jacket book={book} className="bv-cover-fallback" role="img" aria-label={`Cover unavailable for ${book.title || "this book"}`} />}
+  // Step 0 is the image cache, step 1 Open Library directly, step 2 means no artwork could be had.
+  const step = failed.url === url ? failed.step : 0;
+  const src = step === 0 ? coverSrc(url, size) : step === 1 ? coverFallback(url, size) : null;
+  const loaded = loadedUrl === src;
+  const fail = () => setFailed({ url, step: step === 0 && coverFallback(url, size) ? 1 : 2 });
+  // The jacket (title and author) shows at once and the artwork fades in over it, so a card is never blank.
+  return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
+    {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
+    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) setLoadedUrl(src); }}
+      src={src} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
+      {...(hero || priority ? { fetchPriority: "high" } : {})} decoding="async" onLoad={() => setLoadedUrl(src)} onError={fail} />}
   </div>;
 }
 
