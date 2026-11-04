@@ -148,9 +148,6 @@
   .bv-root .bv-shelf-spine { flex-basis: 5px; }
 }
 @media (min-width: 701px) { .bv-root .bv-shelf-spine { flex-basis: 12px; min-width: 8px; } }
-@media (prefers-reduced-motion: reduce) {
-  .bv-root .bv-avatar-face.is-changing, .bv-root .bv-shelf.is-rising .bv-shelf-spine, .bv-root .bv-undo-toast, .bv-root .bv-art-slot.is-loaded img, .bv-root .bv-art-spine.is-waiting { animation: none; }
-}
 
 /* Desktop: a wider hub, a taller shelf and larger list cards, so it doesn't read as a stretched phone column. */
 @media (min-width: 1024px) {
