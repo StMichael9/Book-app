@@ -42,6 +42,8 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(40))
     bio: Mapped[str | None] = mapped_column(String(160))
     handle: Mapped[str | None] = mapped_column(String(30), unique=True)
+    avatar_icon: Mapped[str | None] = mapped_column(String(20))
+    avatar_color: Mapped[str | None] = mapped_column(String(12))
     profile_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     profile_prompted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

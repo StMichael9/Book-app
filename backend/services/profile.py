@@ -22,6 +22,9 @@ from services import catalogue_cache
 HANDLE_PATTERN = re.compile(r"^[a-z0-9-]{3,30}$")
 RESERVED_HANDLES = frozenset({"admin", "api", "me", "u", "settings", "login", "signup", "books", "help", "about", "privacy",
                               "profile", "account", "register", "bookvane", "support", "my-books", "browse", "home"})
+# The only avatar choices a reader can make (the avatar is public with the profile). The schema and the tests import these.
+AVATAR_ICONS = ("book-open", "coffee", "cat", "feather", "moon", "leaf", "lamp", "glasses", "bird", "mountain", "sun", "library")
+AVATAR_COLORS = ("green", "rust", "ink", "mustard", "plum", "sage")
 MAX_LISTS = 50
 MAX_BOOKS_PER_LIST = 500
 PUBLIC_TTL = 60
@@ -48,6 +51,7 @@ def initials(display_name: str | None, fallback: str) -> str:
 def profile_view(user: User) -> dict:
     return {"display_name": user.display_name, "bio": user.bio, "initials": initials(user.display_name, user.email),
             "handle": user.handle, "profile_public": user.profile_public,
+            "avatar_icon": user.avatar_icon, "avatar_color": user.avatar_color,
             "show_prompt": user.profile_prompted_at is None, "reading_since": user.created_at.year}
 
 
@@ -60,6 +64,15 @@ def _text(value, limit: int, code: str) -> str | None:
     if len(value) > limit:
         raise fail(422, code)
     return value or None
+
+
+def _avatar(value, allowed: tuple) -> str | None:
+    """A choice from the allow-list; empty or null clears it. Anything else is refused."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    if not isinstance(value, str) or value not in allowed:
+        raise fail(422, "invalid_avatar")
+    return value
 
 
 def _handle(value) -> str | None:
@@ -86,6 +99,10 @@ def update_profile(db: Session, user: User, changes: dict) -> dict:
         values["bio"] = _text(changes["bio"], 160, "bio_invalid")
     if "handle" in changes:
         values["handle"] = _handle(changes["handle"])
+    if "avatar_icon" in changes:
+        values["avatar_icon"] = _avatar(changes["avatar_icon"], AVATAR_ICONS)
+    if "avatar_color" in changes:
+        values["avatar_color"] = _avatar(changes["avatar_color"], AVATAR_COLORS)
     if "profile_public" in changes:
         if not isinstance(changes["profile_public"], bool):
             raise fail(422, "profile_public_invalid")
@@ -306,6 +323,7 @@ def public_profile(db: Session, handle: str) -> dict:
     mine = {row["id"]: row for row in my_lists(db, user.id)}
     payload = {"display_name": user.display_name, "initials": initials(user.display_name, user.handle),
                "bio": user.bio, "reading_since": user.created_at.year,
+               "avatar_icon": user.avatar_icon, "avatar_color": user.avatar_color,
                "stats": year_stats(db, user.id, datetime.now(timezone.utc).year),
                "lists": [{"id": item.id, "name": item.name, "description": item.description,
                           "book_count": mine[item.id]["book_count"], "covers": mine[item.id]["covers"]} for item in lists]}
