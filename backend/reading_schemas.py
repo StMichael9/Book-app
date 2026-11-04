@@ -138,6 +138,8 @@ class LibraryPage(BaseModel):
     counts: dict[str, int]
     total: int
     next_cursor: str | None
+    facets: dict | None = None
+    index: dict[str, int] | None = None
 
 
 class EntryDetail(LibraryEntry):

@@ -1,3 +1,7 @@
+import dataclasses
+from datetime import date
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import select
@@ -12,6 +16,7 @@ from rate_limit import limiter
 from reading_schemas import EntryDetail, EntryUpdate, FlagUpdate, LibraryFacet, LibraryLookup, LibraryPage
 from services import google_books
 from services.library import LibraryService, library_needs_v3, reading_enabled, require_reading
+from services.library_view import Filters
 from services.reading import ReadingService
 
 router = APIRouter(prefix="/me")
@@ -39,14 +44,44 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
             "library_import": writable}}
 
 
+def facet_filters(facet: LibraryFacet = "all",
+                  label: str = Query(default="", max_length=120), owned: bool = False,
+                    sort: Literal["added", "title", "author", "finished", "updated"] = "added",
+                    subject: list[int] = Query(default=[], max_length=50),
+                    author: list[str] = Query(default=[], max_length=50),
+                    year_finished: list[int] = Query(default=[], max_length=50),
+                    length: list[Literal["short", "medium", "long"]] = Query(default=[], max_length=3),
+                    source_label: list[str] = Query(default=[], max_length=50),
+                    has_note: bool | None = None, imported_since: date | None = None) -> Filters:
+    return Filters(facet=facet, label=label, owned=owned, sort=sort, subject=tuple(subject), author=tuple(author),
+                   year_finished=tuple(year_finished), length=tuple(length), source_label=tuple(source_label),
+                   has_note=has_note, imported_since=imported_since)
+
+
+def library_filters(q: str = Query(default="", max_length=200), filters: Filters = Depends(facet_filters)) -> Filters:
+    return dataclasses.replace(filters, q=q)
+
+
 @router.get("/library", response_model=LibraryPage)
 @limiter.limit("60/minute")
-def library_page(request: Request, q: str = Query(default="", max_length=200),
-                 facet: LibraryFacet = "all", limit: int = Query(default=25, ge=1, le=100),
+def library_page(request: Request, filters: Filters = Depends(library_filters),
+                 limit: int = Query(default=25, ge=1, le=100),
                  cursor: str | None = Query(default=None, max_length=1024),
-                 label: str = Query(default="", max_length=120),
                  current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
-    return LibraryService(db).page(current_user.id, q=q, facet=facet, limit=limit, cursor=cursor, label=label)
+    return LibraryService(db).page(current_user.id, limit=limit, cursor=cursor, filters=filters)
+
+
+@router.get("/library/facets/{group}")
+@limiter.limit("90/minute")
+def library_facet_search(request: Request, group: str, q: str = Query(default="", max_length=100),
+                         filters: Filters = Depends(facet_filters),
+                         current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
+    """Search inside one facet group (a library can have far more authors than the top 50 shown).
+
+    `q` here is the facet text; the library's own text search is not applied to this endpoint."""
+    if group not in ("author", "subject"):
+        raise HTTPException(404, detail="Not found")
+    return LibraryService(db).facet_search(current_user.id, group, q, filters)
 
 
 @router.post("/library/lookup")

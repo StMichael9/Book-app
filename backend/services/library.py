@@ -1,8 +1,4 @@
 """Owner-scoped, bounded library queries and atomic flag commands."""
-import base64
-import hashlib
-import hmac
-import json
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -13,6 +9,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from database import settings
 from models import Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, UserBook, UserBookStatus, book_authors
 from reading_schemas import EntryDetail, FlagUpdate, LibraryEntry, LibraryPage
+from services.library_view import STATES, Filters, LibraryView
 
 
 def reading_enabled(user_id) -> bool:
@@ -103,7 +100,7 @@ class LibraryService:
                  "is_wanted": found[book_id][4] if book_id in found else False,
                  "reading_state": found[book_id][5] if book_id in found else None} for book_id in book_ids]
 
-    def page(self, user_id, *, q="", facet="all", limit=25, cursor=None, label=""):
+    def _conditions(self, user_id, q, label):
         pattern = "%" + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         conditions = [UserBook.user_id == user_id]
         if label:
@@ -122,59 +119,35 @@ class LibraryService:
                 UserBook.private_title.ilike(pattern, escape="\\"), UserBook.private_author.ilike(pattern, escape="\\"),
                 UserBook.book_id.in_(matching_books),
             ))
-        facet_conditions = {"all": True, "owned": UserBook.is_owned.is_(True), "want": UserBook.is_wanted.is_(True)}
-        # Status shelves describe one current/latest reading, not every state
-        # ever recorded. Keep older attempts intact in the book's history.
-        ranked = select(ReadingAttempt.user_book_id, ReadingAttempt.state,
-            func.row_number().over(partition_by=ReadingAttempt.user_book_id,
-                order_by=(case((ReadingAttempt.state.in_(["reading", "paused"]), 0), else_=1),
-                          ReadingAttempt.created_at.desc(), ReadingAttempt.id.desc())).label("position")
-        ).where(ReadingAttempt.user_book_id.in_(select(UserBook.id).where(UserBook.user_id == user_id))).subquery()
-        current = select(ranked.c.user_book_id, ranked.c.state).where(ranked.c.position == 1).subquery()
-        facet_conditions.update({state: UserBook.id.in_(select(current.c.user_book_id).where(current.c.state == state))
-            for state in ("reading", "paused", "finished", "dnf")})
-        # One statement: the facet counts, the per-state counts (each entry counted under its current/latest reading) and
-        # the newest entry id that anchors a first page's cursor.
-        newest = select(func.max(UserBook.id)).where(UserBook.user_id == user_id).scalar_subquery()
-        count_query = select(
-            *[func.count(UserBook.id).filter(facet_conditions[name]).label(name) for name in ("all", "owned", "want")],
-            *[func.count(UserBook.id).filter(current.c.state == state).label(state) for state in ("reading", "paused", "finished", "dnf")],
-            newest.label("newest"),
-        ).select_from(UserBook).outerjoin(current, current.c.user_book_id == UserBook.id).where(*conditions)
-        counts = dict(self.db.execute(count_query).mappings().one())
-        newest_id = counts.pop("newest") or 0
-        cursor_scope = [str(user_id), q.strip(), facet] + ([label] if label else [])
-        scope = hashlib.sha256(json.dumps(cursor_scope, separators=(",", ":")).encode()).hexdigest()
+        return conditions
+
+    def page(self, user_id, *, q="", facet="all", limit=25, cursor=None, label="", filters: Filters | None = None):
+        f = filters or Filters(q=q, facet=facet, label=label)
+        view = LibraryView(self.db)
+        rows, tag_names = view.load(user_id, self._conditions(user_id, f.q, f.label), f.sort)
+        # Status counts, the total and the page all describe the same set: text search + every active filter.
+        matching = [row for row in rows if view.passes(row, f)]
+        counts = {name: sum(1 for row in matching if view.in_facet(row, name)) for name in ("all", "owned", "want", *STATES)}
+        visible = [row for row in matching if view.in_facet(row, f.facet)]
+        scope = f.scope(user_id)
+        ordered = view.ordered(visible, f.sort)
         if cursor:
-            anchor, last = self._decode_cursor(cursor, scope)
-        else:
-            anchor = newest_id
-            last = anchor + 1
-        query = select(UserBook, _reading_state()).where(*conditions, facet_conditions[facet],
-            UserBook.id <= anchor, UserBook.id < last).options(*_summary_options()).order_by(UserBook.id.desc()).limit(limit + 1)
-        rows = self.db.execute(query).unique().all()
-        items = [entry_dto(*row) for row in rows[:limit]]
-        next_cursor = self._encode_cursor(anchor, items[-1].id, scope) if len(rows) > limit else None
-        return LibraryPage(items=items, counts=counts, total=counts[facet], next_cursor=next_cursor)
+            ordered = view.after(ordered, f.sort, view.decode(cursor, f.sort, scope))
+        chosen = ordered[:limit]
+        by_id = {}
+        if chosen:
+            by_id = {entry.id: (entry, state) for entry, state in self.db.execute(
+                select(UserBook, _reading_state()).where(UserBook.user_id == user_id, UserBook.id.in_([row.id for row in chosen]))
+                .options(*_summary_options())).unique().all()}
+        items = [entry_dto(*by_id[row.id]) for row in chosen if row.id in by_id]
+        next_cursor = view.encode(f.sort, chosen[-1], scope) if len(ordered) > limit and chosen else None
+        return LibraryPage(items=items, counts=counts, total=counts[f.facet], next_cursor=next_cursor,
+                           facets=view.facets(rows, f, tag_names), index=view.index(visible, f.sort))
 
-    def _encode_cursor(self, anchor, last, scope):
-        payload = json.dumps([1, anchor, last, scope], separators=(",", ":")).encode()
-        signature = hmac.new(settings.secret_key.encode(), payload, hashlib.sha256).digest()
-        return base64.urlsafe_b64encode(signature + payload).decode().rstrip("=")
-
-    def _decode_cursor(self, cursor, scope):
-        try:
-            raw = base64.b64decode(cursor + "=" * (-len(cursor) % 4), altchars=b"-_", validate=True)
-            signature, payload = raw[:32], raw[32:]
-            expected = hmac.new(settings.secret_key.encode(), payload, hashlib.sha256).digest()
-            if not hmac.compare_digest(signature, expected):
-                raise ValueError()
-            version, anchor, last, saved_scope = json.loads(payload)
-            if version != 1 or saved_scope != scope or type(anchor) is not int or type(last) is not int or not (0 < last <= anchor + 1):
-                raise ValueError()
-            return anchor, last
-        except (ValueError, TypeError, UnicodeError):
-            raise HTTPException(422, detail="Invalid library cursor. Return to the first page.") from None
+    def facet_search(self, user_id, group, q, filters: Filters):
+        view = LibraryView(self.db)
+        rows, tag_names = view.load(user_id, self._conditions(user_id, filters.q, filters.label))
+        return {"items": view.search_facet(rows, filters, tag_names, group, q)}
 
     def _conflict(self, user_id, entry_id):
         current = self.detail(user_id, entry_id).model_dump(mode="json")
