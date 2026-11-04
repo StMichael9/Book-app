@@ -302,7 +302,7 @@ for (const legacy of [true, false]) {
           // Settle React callbacks from both a late success and a late failure.
           await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
           await expect(page.getByRole("heading", { name: "No books found.", exact: true })).toBeVisible();
-          await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+          await expect(page.getByRole("link", { name: "Your profile", exact: true })).toBeVisible();
           await expect(page.locator(".bv-book-card")).toHaveCount(0);
           // A departed session's 401 must not rotate B's cookies or replay its
           // operation using B's identity, even for an otherwise safe read.

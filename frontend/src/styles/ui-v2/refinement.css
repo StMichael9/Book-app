@@ -50,7 +50,6 @@
   .bv-root--landing .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
   .bv-root--landing .bv-hero-actions { flex-direction: column; }
   .bv-root--landing .bv-header-inner { gap: 12px; }
-  .bv-root:not(.bv-root--landing) .bv-header-actions a[aria-label="Your account"] { display: none; }
   .bv-root .bv-landing-benefits { grid-template-columns: 1fr; gap: 24px; }
   .bv-root .bv-landing-benefits h3 { font-size: 1.125rem; }
   .bv-root .bv-import-confirm { padding: 18px; }

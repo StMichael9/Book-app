@@ -1,7 +1,7 @@
 @font-face { font-family: "Bookvane Lora"; src: url("../../components/ui-v2/assets/lora.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
 @font-face { font-family: "Bookvane Sans"; src: url("../../components/ui-v2/assets/sourcesans.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
 
-:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; }
+:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; --bv-fs-page: 1.75rem; --bv-fs-section: 1.375rem; --bv-fs-card: 1.0625rem; --bv-fs-helper: 0.875rem; }
 body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root :is(button, input, select, textarea) { font-family: inherit; }
 .bv-root {

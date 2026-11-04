@@ -178,7 +178,7 @@ test('prefill is document-only and cannot survive an account switch', async ({ p
   await page.getByLabel('Password', { exact: true }).fill('NotARealPassword123!');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/);
-  await expect(page.getByRole('link', { name: 'Your account', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Your profile', exact: true })).toBeVisible();
   await page.evaluate(state => { history.pushState(state, '', '/my-books/private'); dispatchEvent(new PopStateEvent('popstate', { state })); }, oldState);
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('Author (optional)')).toHaveValue('');

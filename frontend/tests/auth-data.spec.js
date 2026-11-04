@@ -112,7 +112,7 @@ test("unreachable startup keeps private data gated and retries without navigatio
   app.refreshNetworkFails = false;
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your profile", exact: true })).toBeVisible();
   expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(2);
 });
 
@@ -155,7 +155,7 @@ test("a refresh outage does not silently sign out or overwrite a saved shelf", a
   await expect(own).toBeDisabled();
   await page.getByRole("button", { name: "Check again" }).click();
   await expect(own).toBeEnabled();
-  await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Your profile", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Remove Browser-only book from Want to read" })).toBeVisible();
   expect(app.saved[0].status).toBe("want");
 });
@@ -215,7 +215,7 @@ test("logout waits for a cookie-writing automatic refresh", async ({ page, app }
   await page.getByRole("link", { name: /Choose subjects/ }).click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).waitFor();
-  await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.waitForTimeout(100);
@@ -277,6 +277,6 @@ test("a departed account's late write 401 cannot replay under a new account", as
     expect(app.requests.filter(r => r.path === "/books/1/status")).toHaveLength(1);
     expect(app.requests.filter(r => r.path === "/auth/refresh")).toHaveLength(1);
     expect(app.saved).toEqual([]);
-    await expect(page.getByRole("link", { name: "Your account", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Your profile", exact: true })).toBeVisible();
   } finally { release(); }
 });

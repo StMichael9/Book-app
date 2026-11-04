@@ -1,7 +1,7 @@
 import { trackEvent } from "./events.js";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "lucide-react";
+import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
@@ -16,7 +16,9 @@ import RouteErrorBoundary from "./RouteErrorBoundary.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
 import { ReadingDataPage, ReadingPrivacyPage } from "../reading/ReadingDataControls.jsx";
+import Avatar from "../profile/Avatar.jsx";
 import { ProfileProvider } from "../profile/ProfileContext.jsx";
+import { useProfile } from "../profile/profileState.js";
 import { ProfileHubPage, ProfileListPage, ProfilePrompt, PublicListPage, PublicProfilePage } from "../profile/ProfilePages.jsx";
 import ReadingDraftProvider from "../reading/ReadingDraftProvider.jsx";
 import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx";
@@ -34,6 +36,10 @@ function Brand() {
   return <Link className="bv-brand" to={readingActions ? "/home" : "/"} aria-label="Bookvane home"><img src="/bookvane-logo.png" alt="" width="35" height="35" /><span>Bookvane</span></Link>;
 }
 
+// The reader's own avatar, for the header and the You tab. It follows the profile once that has loaded.
+function MyAvatar({ size }) { return <Avatar person={useProfile()?.profile} size={size} />; }
+const YouIcon = () => <MyAvatar size={22} />;
+
 function Header() {
   const auth = useAuth();
   const reader = useReader();
@@ -44,7 +50,7 @@ function Header() {
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
   const library = location.pathname.startsWith("/my-books");
   const home = location.pathname === "/home";
-  const account = !discover && !library && !home;
+  const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/account";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
   const mobileNav = useRef(null);
@@ -66,10 +72,10 @@ function Header() {
   return <><header className="bv-header"><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{readingActions && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}{auth.isAuthenticated && !readingActions && <Link className={location.pathname === "/preferences" ? "bv-active" : ""} to="/preferences">Preferences</Link>}</nav>
     <div className={`bv-header-actions${auth.isAuthenticated ? "" : " bv-header-actions--guest"}`}><Button variant="quiet" className="bv-desktop-theme bv-icon-button" aria-label={`Use ${reader.theme === "dark" ? "light" : "dark"} theme`} onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button>
-      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <ActionLink variant="quiet" to="/profile" aria-label="Your account"><User aria-hidden="true" /><span className="bv-desktop-label">Your account</span></ActionLink> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
+      {!authScreen && (auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : auth.isAuthenticated ? <Link className="bv-header-avatar" to="/profile" aria-label="Your profile"><MyAvatar size={32} /></Link> : <><ActionLink variant="quiet" to="/login">Sign in</ActionLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${readingActions ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
-    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/profile", "You", User, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+    {[...(readingActions ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/profile", "You", YouIcon, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
   </nav>}</>;
 }
 
