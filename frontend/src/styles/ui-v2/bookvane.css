@@ -220,8 +220,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-description { max-width: 70ch; margin-top: 28px; }
 .bv-root .bv-description h2 { font-size: 1.4375rem; }
 .bv-root .bv-description p { line-height: 1.65; white-space: pre-line; }
-.bv-root .bv-share button { font: 600 0.9375rem var(--bv-body); padding: 10px 12px; min-height: 44px; border-radius: 6px; border: 1px solid var(--bv-control); background: transparent; color: var(--bv-ink); cursor: pointer; }
-.bv-root .bv-share .error-message { display: block; color: var(--bv-danger); font-size: 0.9375rem; margin: 10px 0; }
+.bv-root .bv-share .bv-share-error { display: block; color: var(--bv-danger); font-size: 0.9375rem; margin: 10px 0; }
 .bv-root .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 16px; }
 .bv-root .bv-library-heading .bv-page-heading { padding-bottom: 28px; }
 .bv-root .bv-tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--bv-line); margin-bottom: 25px; }
