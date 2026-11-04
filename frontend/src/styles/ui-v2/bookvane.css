@@ -1,14 +1,15 @@
 @font-face { font-family: "Bookvane Lora"; src: url("../../components/ui-v2/assets/lora.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
 @font-face { font-family: "Bookvane Sans"; src: url("../../components/ui-v2/assets/sourcesans.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
 
-body:has(.bv-root) { margin: 0; }
+:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; }
+body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
+.bv-root :is(button, input, select, textarea) { font-family: inherit; }
 .bv-root {
   --bv-paper: #faf8f2; --bv-panel: #fff; --bv-wash: #f0eee5;
   --bv-ink: #202e28; --bv-muted: #59675e; --bv-line: #d8ddd3;
   --bv-green: #28513f; --bv-on-green: #fffdf5; --bv-soft-green: #e7ede3;
   --bv-rust: #9c432d; --bv-hero: #e8ebe0; --bv-control: #7e8c80;
   --bv-danger: #9b2f32; --bv-shadow: 0 12px 24px #172e2219;
-  --bv-body: "Bookvane Sans", "Segoe UI", sans-serif;
   --bv-display: "Bookvane Lora", Georgia, serif;
   background: var(--bv-paper); color: var(--bv-ink);
   min-height: 100svh; font: 1.0625rem/1.5 var(--bv-body);
