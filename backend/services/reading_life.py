@@ -14,17 +14,14 @@ from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from models import Author, Book, ReadingAttempt, Tag, TagType, UserBook, book_authors, book_tags
+from services.library_view import LENGTHS, length_of
 
 SUBJECT_TYPES = (TagType.genre, TagType.topic, TagType.form, TagType.audience)
-# Same length bands as the My Books filter: short < 250 pages, medium 250-450, long > 450.
-# TODO(T36 landing): import LENGTHS and length_of from services.library_view so the bands live in one place.
-SHORT_BELOW, LONG_ABOVE = 250, 450
 
 
 def length_band(pages: int | None) -> str:
-    if not pages or pages <= 0:
-        return "unknown"
-    return "short" if pages < SHORT_BELOW else "medium" if pages <= LONG_ABOVE else "long"
+    """The My Books length bands (one definition, in services.library_view), or "unknown" without a page count."""
+    return length_of(pages) or "unknown"
 
 
 def author_key(name: str) -> str:
@@ -93,7 +90,7 @@ def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> d
         "stopped": stopped, "months": months,
         "top_subjects": [{"name": name, "count": count} for name, count in
                          sorted(subjects.items(), key=lambda item: (-item[1], item[0]))[:5]],
-        "length_mix": {band: mix.get(band, 0) for band in ("short", "medium", "long", "unknown")},
+        "length_mix": {band: mix.get(band, 0) for band in (*LENGTHS, "unknown")},
         "authors_new": len(this_year - earlier), "authors_returning": len(this_year & earlier),
     }
 
