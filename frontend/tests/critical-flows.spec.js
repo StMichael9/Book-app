@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { shootMatrix, shotsEnabled } from "./support/shots.js";
 
 // Browser-only fixtures. Every API request is intercepted; no database or
 // hosted API is contacted and these records are never imported anywhere.
@@ -572,4 +573,14 @@ test("shelf read failure blocks detail-page writes until retry succeeds", async 
   expect(app.requests.some((request) => request.path.endsWith("/status"))).toBe(false);
   await page.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want to read" })).toBeEnabled();
+});
+
+test("foundations screenshots: landing, browse, book page, login", async ({ page, app }) => {
+  test.skip(!shotsEnabled(), "set FOUNDATIONS_SHOTS=before or after to export screenshots");
+  app.authenticated = false;
+  await shootMatrix(page, "landing", async () => { await page.goto("/"); await expect(page.locator("h1")).toBeVisible(); await expect(page.locator(".bv-hero-covers .bv-cover").first()).toBeVisible(); });
+  await shootMatrix(page, "browse", async () => { await page.goto("/browse"); await expect(page.locator(".bv-book-card").first()).toBeVisible(); });
+  await shootMatrix(page, "login", async () => { await page.goto("/login"); await expect(page.locator("h1")).toBeVisible(); });
+  app.authenticated = true;
+  await shootMatrix(page, "book", async () => { await page.goto("/book/1"); await expect(page.locator("#bv-book-title")).toBeVisible(); });
 });

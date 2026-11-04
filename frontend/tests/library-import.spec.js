@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { shootMatrix, shotsEnabled } from "./support/shots.js";
 import { test as base, expect } from "@playwright/test";
 
 // Synthetic browser/API fixtures exercise local file parsing, NOT native-export
@@ -438,4 +439,9 @@ test("enrichment screenshots", async ({ page, app }) => {
     await expect(page.getByText("Finding covers and descriptions for 12 books…")).toBeVisible();
     await page.screenshot({ path: `${dir}/import-${label}-${theme}.png` });
   }
+});
+
+test("foundations screenshots: import start", async ({ page, app: _app }) => {
+  test.skip(!shotsEnabled(), "set FOUNDATIONS_SHOTS=before or after to export screenshots");
+  await shootMatrix(page, "import-start", async () => { await page.goto("/my-books/import"); await expect(page.locator("h1")).toBeVisible(); });
 });
