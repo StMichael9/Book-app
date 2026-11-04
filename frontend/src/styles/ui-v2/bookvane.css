@@ -1,14 +1,15 @@
 @font-face { font-family: "Bookvane Lora"; src: url("../../components/ui-v2/assets/lora.woff2") format("woff2"); font-weight: 400 700; font-display: swap; }
 @font-face { font-family: "Bookvane Sans"; src: url("../../components/ui-v2/assets/sourcesans.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
 
-body:has(.bv-root) { margin: 0; }
+:root { --bv-body: "Bookvane Sans", "Segoe UI", sans-serif; }
+body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
+.bv-root :is(button, input, select, textarea) { font-family: inherit; }
 .bv-root {
   --bv-paper: #faf8f2; --bv-panel: #fff; --bv-wash: #f0eee5;
   --bv-ink: #202e28; --bv-muted: #59675e; --bv-line: #d8ddd3;
   --bv-green: #28513f; --bv-on-green: #fffdf5; --bv-soft-green: #e7ede3;
   --bv-rust: #9c432d; --bv-hero: #e8ebe0; --bv-control: #7e8c80;
   --bv-danger: #9b2f32; --bv-shadow: 0 12px 24px #172e2219;
-  --bv-body: "Bookvane Sans", "Segoe UI", sans-serif;
   --bv-display: "Bookvane Lora", Georgia, serif;
   background: var(--bv-paper); color: var(--bv-ink);
   min-height: 100svh; font: 1.0625rem/1.5 var(--bv-body);
@@ -167,6 +168,9 @@ body:has(.bv-root) { margin: 0; }
 .bv-root .bv-cover { container-type: inline-size; position: relative; }
 .bv-root .bv-cover img { position: relative; transition: opacity 150ms ease-out; }
 .bv-root .bv-cover--loading img { opacity: 0; position: absolute; inset: 0; }
+/* The jacket under loading artwork waits a beat, so a cover that arrives quickly never flashes its title text. */
+.bv-root .bv-cover--loading .bv-jacket { animation: bv-jacket-in 160ms ease-out 180ms both; }
+@keyframes bv-jacket-in { from { opacity: 0; } to { opacity: 1; } }
 .bv-root .bv-jacket { position: relative; height: 100%; display: flex; flex-direction: column; gap: 6cqi; padding: 12cqi 10cqi 10cqi 16cqi; overflow: hidden; background: var(--bv-jacket-bg); color: var(--bv-jacket-ink); box-shadow: inset 5cqi 0 0 color-mix(in srgb, var(--bv-jacket-ink) 14%, transparent); }
 .bv-root .bv-jacket::after { content: ""; position: absolute; left: 7.5cqi; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--bv-jacket-ink) 22%, transparent); }
 .bv-root .bv-jacket strong { font: 500 clamp(9px, 12cqi, 26px)/1.15 var(--bv-display); letter-spacing: -.01em; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }

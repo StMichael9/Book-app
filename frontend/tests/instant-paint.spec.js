@@ -18,10 +18,11 @@ const live = (label, cover) => Array.from({ length: 30 }, (_, index) => ({
 
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
-    const state = { authenticated: false, holdRefresh: null, holdCover: null, cover: null, remoteCovers: [], coverStatus: 200 };
+    const state = { authenticated: false, holdRefresh: null, holdCover: null, cover: null, remoteCovers: [], cachedCovers: [], coverStatus: 200 };
     await page.route("**/*", async route => {
       const url = new URL(route.request().url());
       if (url.origin === "https://covers.openlibrary.org") { state.remoteCovers.push(url.pathname); return route.abort(); }
+      if (url.origin === "https://wsrv.nl") { state.cachedCovers.push(`${new URL(`https://${url.searchParams.get("url")}`).pathname} w=${url.searchParams.get("w")}`); return route.abort(); }
       if (url.origin !== new URL(baseURL).origin) return route.abort();
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.holdCover) await state.holdCover;
@@ -114,17 +115,20 @@ test("hero snapshot covers use the self-hosted files and only the three hero cov
   release();
 });
 
-test("remote Open Library covers are requested at -M, except the single large cover on a book page", async ({ page, app }) => {
+test("remote Open Library covers go through the image cache at card or page width, falling back to -M and the one -L", async ({ page, app }) => {
   app.cover = index => `https://covers.openlibrary.org/b/id/${1000 + index}-L.jpg`;
   await page.goto("/browse");
   await expect(page.getByRole("heading", { level: 3, name: "Live One 1", exact: true })).toBeVisible();
+  await expect.poll(() => app.cachedCovers.length).toBeGreaterThan(0);
+  expect(app.cachedCovers.every(entry => /^\/b\/id\/\d+-L\.jpg w=360$/.test(entry))).toBe(true);
+  // The cache is aborted in this test, so every card falls back to Open Library directly, at -M.
   await expect.poll(() => app.remoteCovers.length).toBeGreaterThan(0);
   expect(app.remoteCovers.every(path => /-M\.jpg$/.test(path))).toBe(true);
-  app.remoteCovers.length = 0;
+  app.cachedCovers.length = 0; app.remoteCovers.length = 0;
   await page.goto("/book/9001");
   await expect(page.getByRole("heading", { name: "Live One 1", exact: true }).first()).toBeVisible();
-  await expect.poll(() => app.remoteCovers.length).toBeGreaterThan(0);
-  expect(app.remoteCovers).toContain("/b/id/1000-L.jpg");
+  await expect.poll(() => app.cachedCovers).toContain("/b/id/1000-L.jpg w=600");
+  await expect.poll(() => app.remoteCovers).toContain("/b/id/1000-L.jpg");
 });
 
 test("a book without a cover still gets the typographic jacket", async ({ page, app }) => {
@@ -143,13 +147,14 @@ test("a cover that fails to load falls back to the jacket", async ({ page, app }
   await expect(card.getByRole("img", { name: "Cover unavailable for Live One 1" })).toBeVisible();
 });
 
-test("while a cover loads there is a plain tinted block with no jacket text, then the image fades in", async ({ page, app }) => {
+test("while a cover loads its title jacket shows, then the image fades in over it", async ({ page, app }) => {
   app.cover = index => `/test-cover/slow-${index}.png`;
   let release; app.holdCover = new Promise(done => { release = done; });
   await page.goto("/browse");
   const card = page.locator(".bv-book-card").filter({ has: page.getByRole("heading", { level: 3, name: "Live One 1", exact: true }) });
   await expect(card).toBeVisible();
-  await expect(card.locator(".bv-jacket")).toHaveCount(0);
+  await expect(card.locator(".bv-jacket")).toHaveCount(1);
+  await expect(card.locator(".bv-jacket")).toHaveAttribute("aria-hidden", "true");
   const cover = card.locator(".bv-cover");
   await expect(cover).toHaveClass(/bv-cover--loading/);
   expect(await cover.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
