@@ -489,13 +489,13 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       expect((await page.getByLabel("Search title or author").boundingBox()).width).toBeGreaterThan(normalSearchWidth);
       const nav = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
       const discover = nav.getByRole("link", { name: "Discover", exact: true });
-      // One-row navigation: a label never wraps or splits; at extreme sizes it may shorten with an ellipsis.
+      // A label never ellipsises or clips: at large text it may wrap to a second line and the nav grows.
       const label = await discover.locator("span").evaluate(node => {
         const style = getComputedStyle(node);
-        return { whiteSpace: style.whiteSpace, height: node.getBoundingClientRect().height, lineHeight: parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.5 };
+        return { overflow: style.textOverflow, clipped: node.scrollWidth > node.clientWidth + 1 };
       });
-      expect(label.whiteSpace).toBe("nowrap");
-      expect(label.height).toBeLessThan(label.lineHeight * 1.5);
+      expect(label.overflow).not.toBe("ellipsis");
+      expect(label.clipped).toBe(false);
       const navTops = await nav.getByRole("link").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
       expect(Math.max(...navTops) - Math.min(...navTops)).toBeLessThan(2);
       const box = await discover.boundingBox();

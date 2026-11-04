@@ -24,10 +24,16 @@ Branch `ui/v3-profile-rework`, from `origin/v3` (after the body-font fix, #106).
 - `profile.spec.js`: "Make public" now goes through the confirm sheet (was an inline username form); the Edit profile tests run in the sheet; the year test expects "Your 2026" (was "Your 2026 in books"), the plain-text genre line (was chips) and `.bv-shelf` (was `.bv-year-bars`); the lists test checks the card text (was a "Private list" icon); the list test renames from the "Rename or delete" sheet (was inline "Save details") and no longer expects a letter tile; Remove expects the Undo toast; the header test expects the avatar link "Your profile" (was "Your account").
 - `auth-data`, `critical-flows`, `extended-catalogue`, `instant-books`, `instant-navigation`, `reading-library`: the header link name "Your account" is now "Your profile".
 
+- `reading-library.spec.js` (independent review: library controls and missing covers, 4 viewports × themes): the mobile nav label is no longer asserted `nowrap` and one line; it is asserted not ellipsised and not clipped, because a label now wraps at large text (review item 4).
+- `profile.spec.js` (review batch): the list artwork test now expects spine blocks and an outlined empty strip (was a slot count), list rows expect spine blocks for coverless books (were `BookCover` jackets), and the hub list mock carries `previews` with book ids.
+
+## Review batch (UI lead, fix disposition)
+Coverless list-row books wear their bookcloth spine (never a blank tile); a book wears one cloth everywhere (keyed by book id; hub cards need `previews: [{id, cover_image_url}]` from `GET /me/lists`, mocked until the API sends it); cards are two across (one column in a narrow lists area or at large text); nav labels wrap instead of ellipsising; the privacy pill is two rows on phones; Account settings and Sign out are two ruled rows; tertiary links sit on the gutter; an empty list shows an outlined spine on a short baseline; type tokens replace literal sizes; on desktop (≥1024) the hub is 880 px with a 140 px shelf and 120 px list artwork. Rebased onto origin/v3 (#107 cover fixes in). Real-API pass against the local API after migration d2b7c4e9f1a3 (T24b): the avatar saved, showed on the hub, header, You tab and the public page after reload, cleared back to initials on green, and an unknown icon returned 422.
+
 ## Open points
-- Mock-only for the avatar: `avatar_icon` / `avatar_color` are not on the real API until T24b. Before that lands, the picker's PATCH would be rejected or ignored by the real backend, so this must not ship before T24b.
+- The avatar fields are mocked in the specs; the real API (T24b, v3 #109) was checked locally. The hub card previews still need the `previews` field.
 - Hub cards have only cover URLs from the API, so extra slots up to the book count are spine blocks.
 - Screenshots are in `frontend/node_modules/.bv-preview/profile/` (not committed): hub, edit sheet, Make public, list, list edit with the Undo toast, public and the one-time sheet at 375 and 1440, light and dark, plus the hub at 200% text at 375.
 
 ## Result
-Full suite: 441 passed, 4 skipped, 0 failed (15 min). Lint 13 warnings (unchanged). `node --test tests/avatar-contrast.test.mjs`: 3 passed.
+Full suite on the rebased branch: 443 passed, 4 skipped, 4 failed (the four reading-library nav-label assertions above, then fixed and re-run: 8 passed). Lint 13 warnings (unchanged). `node --test tests/avatar-contrast.test.mjs`: 3 passed.
