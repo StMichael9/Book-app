@@ -207,7 +207,7 @@ test("the cache and the sign-in hint are gone after logout", async ({ page, app 
   signedIn(app);
   await page.goto("/home");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Your account", exact: true }).click();
+  await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await page.getByRole("link", { name: "Account settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);

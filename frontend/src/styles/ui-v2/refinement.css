@@ -50,7 +50,6 @@
   .bv-root--landing .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
   .bv-root--landing .bv-hero-actions { flex-direction: column; }
   .bv-root--landing .bv-header-inner { gap: 12px; }
-  .bv-root:not(.bv-root--landing) .bv-header-actions a[aria-label="Your account"] { display: none; }
   .bv-root .bv-landing-benefits { grid-template-columns: 1fr; gap: 24px; }
   .bv-root .bv-landing-benefits h3 { font-size: 1.125rem; }
   .bv-root .bv-import-confirm { padding: 18px; }
@@ -94,9 +93,10 @@
   .bv-root .bv-reading-library .bv-library-caption { margin-bottom: 12px; }
   /* Navigation stays one row at any text size: equal columns, labels shorten rather than wrap or split. */
   .bv-root:not(.bv-root--landing) { padding-bottom: var(--bv-mobile-nav-clearance, calc(4em + 24px + env(safe-area-inset-bottom))); }
-  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); font-size: 0.75rem; gap: 4px; padding-inline: 8px; }
+  .bv-root .bv-mobile-nav, .bv-root .bv-mobile-nav.bv-mobile-nav--reading { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(min-content, 1fr); font-size: 0.75rem; gap: 4px; padding-inline: 8px; }
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
-  .bv-root .bv-mobile-nav a span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
+  .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
   /* Signed-in phone headers have room for the theme toggle; guests reach it from You. */
   .bv-root .bv-header-actions:not(.bv-header-actions--guest) .bv-desktop-theme { display: inline-flex; }
   .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }
