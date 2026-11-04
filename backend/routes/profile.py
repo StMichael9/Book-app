@@ -7,6 +7,7 @@ from auth.dependencies import get_current_user
 from database import get_db
 from models import User
 from services import profile as service
+from services.reading_life import reading_life
 
 router = APIRouter(tags=["profile"])
 PUBLIC_CACHE = "public, max-age=60"  # no stale-while-revalidate: going private must show within a minute
@@ -27,7 +28,9 @@ def patch_profile(changes: dict = Body(...), current_user: User = Depends(get_cu
 @router.get("/me/stats")
 def get_stats(year: int | None = Query(None, ge=1900, le=2200), current_user: User = Depends(get_current_user),
               db: Session = Depends(get_db)):
-    return service.year_stats(db, current_user.id, year or datetime.now(timezone.utc).year)
+    year = year or datetime.now(timezone.utc).year
+    # The long-standing keys come first and are unchanged; the reading-life figures are added beside them.
+    return {**service.year_stats(db, current_user.id, year), **reading_life(db, current_user.id, year)}
 
 
 @router.get("/me/lists")

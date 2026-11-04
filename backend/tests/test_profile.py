@@ -173,8 +173,9 @@ def test_stats_count_rereads_private_entries_missing_pages_and_boundaries(world)
 def test_stats_for_an_empty_year_and_the_default_year(world):
     world.act_as(world.make_user())
     body = world.client.get("/me/stats?year=2020").json()
-    assert body == {"year": 2020, "books_finished": 0, "pages_read": 0, "by_month": [0] * 12, "top_genres": [],
-                    "biggest_month": None}
+    # the long-standing keys are exactly as before; /me/stats also carries the reading-life figures (see test_reading_life.py)
+    assert {key: body[key] for key in ("year", "books_finished", "pages_read", "by_month", "top_genres", "biggest_month")} == {
+        "year": 2020, "books_finished": 0, "pages_read": 0, "by_month": [0] * 12, "top_genres": [], "biggest_month": None}
     assert world.client.get("/me/stats").json()["year"] == date.today().year
     assert world.client.get("/me/stats?year=abc").status_code == 422
 
