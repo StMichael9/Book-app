@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/bookvane-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bookvane</title>
+    <title>Bookvane · Your personal reading home</title>
+    <meta name="description" content="Bookvane is your personal reading home. Discover books, keep your library together, and track what you’re reading at your own pace. Free and private." />
+    <meta name="theme-color" content="#28513f" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bookvane" />
+    <meta property="og:title" content="Bookvane · Your personal reading home" />
+    <meta property="og:description" content="Discover books, keep your library together, and track what you’re reading at your own pace. Free and private." />
+    <meta property="og:image" content="https://bookvane.me/bookvane-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="apple-touch-icon" href="/bookvane-logo.png" />
+    <script type="application/ld+json">
+      {"@context": "https://schema.org", "@graph": [
+        {"@type": "WebSite", "@id": "https://bookvane.me/#website", "name": "Bookvane", "url": "https://bookvane.me/",
+         "description": "Your personal reading home: discover books, keep your library together, and track what you’re reading."},
+        {"@type": "Organization", "@id": "https://bookvane.me/#organization", "name": "Bookvane", "url": "https://bookvane.me/",
+         "logo": "https://bookvane.me/bookvane-logo.png"}
+      ]}
+    </script>
     <script>
       (() => {
         const valid = value => value === "light" || value === "dark";
@@ -29,6 +46,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Bookvane · Your personal reading home</h1>
+      <p>Discover books, keep your library together, and track what you’re reading at your own pace. Free and private.</p>
+      <p><a href="/browse">Explore books</a> · <a href="/register">Create your library</a> · <a href="/privacy">Privacy</a></p>
+      <p>Bookvane needs JavaScript to run.</p>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

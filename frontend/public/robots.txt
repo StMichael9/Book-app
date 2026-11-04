@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+# Signed-in pages hold nothing for search engines.
+Disallow: /home
+Disallow: /my-books
+Disallow: /my-data
+Disallow: /preferences
+Disallow: /profile
+Disallow: /login
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: https://bookvane.me/sitemap.xml

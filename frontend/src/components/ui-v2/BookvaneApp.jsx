@@ -184,6 +184,10 @@ function RouteEffects() {
     first.current = false;
     const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
     document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Book details")} · Bookvane`;
+    // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
+    let canonical = document.querySelector('link[rel="canonical"]');
+    if (!canonical) { canonical = document.createElement("link"); canonical.rel = "canonical"; document.head.appendChild(canonical); }
+    canonical.href = `https://bookvane.me${location.pathname === "/" ? "/" : location.pathname.replace(/\/+$/, "")}`;
   }, [location.pathname]);
   useEffect(() => {
     function keepFocusVisible(event) {
