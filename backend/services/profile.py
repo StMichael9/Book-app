@@ -182,7 +182,17 @@ def my_lists(db: Session, user_id, book_id: int | None = None) -> list[dict]:
     for list_id, url in db.execute(select(ranked.c.list_id, ranked.c.cover_image_url).where(ranked.c.n <= 3)
                                    .order_by(ranked.c.list_id, ranked.c.n)):
         covers.setdefault(list_id, []).append(url)
-    rows = [_list_row(item, book_count=counts.get(item.id, 0), covers=covers.get(item.id, [])) for item in lists]
+    # The first four books in list order, with or without a cover, so each book can wear the same colour everywhere.
+    first = (select(ReadingListItem.list_id, Book.id, Book.cover_image_url,
+                    func.row_number().over(partition_by=ReadingListItem.list_id, order_by=ReadingListItem.position).label("n"))
+             .join(Book, Book.id == ReadingListItem.book_id)
+             .where(ReadingListItem.list_id.in_([item.id for item in lists]))).subquery()
+    previews: dict[int, list[dict]] = {}
+    for list_id, book, url in db.execute(select(first.c.list_id, first.c.id, first.c.cover_image_url).where(first.c.n <= 4)
+                                         .order_by(first.c.list_id, first.c.n)):
+        previews.setdefault(list_id, []).append({"id": book, "cover_image_url": url})
+    rows = [_list_row(item, book_count=counts.get(item.id, 0), covers=covers.get(item.id, []),
+                      previews=previews.get(item.id, [])) for item in lists]
     if book_id is not None:
         holding = set(db.scalars(select(ReadingListItem.list_id).where(
             ReadingListItem.list_id.in_([item.id for item in lists]), ReadingListItem.book_id == book_id)))
@@ -202,7 +212,7 @@ def create_list(db: Session, user: User, name, description, is_public) -> dict:
     db.add(item)
     db.commit()
     forget_public(user.handle)
-    return _list_row(item, book_count=0, covers=[])
+    return _list_row(item, book_count=0, covers=[], previews=[])
 
 
 def edit_list(db: Session, user: User, list_id: int, changes: dict) -> dict:
