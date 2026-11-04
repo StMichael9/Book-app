@@ -42,4 +42,4 @@ Coverless list-row books wear their bookcloth spine (never a blank tile); a book
 - Screenshots are in `frontend/node_modules/.bv-preview/profile/` (not committed): hub, edit sheet, Make public, list, list edit with the Undo toast, public and the one-time sheet at 375 and 1440, light and dark, plus the hub at 200% text at 375.
 
 ## Result
-Full suite on the rebased branch: 443 passed, 4 skipped, 4 failed (the four reading-library nav-label assertions above, then fixed and re-run: 8 passed). Lint 13 warnings (unchanged). `node --test tests/avatar-contrast.test.mjs`: 3 passed.
+Full suite on the final rebased branch: 448 passed, 4 skipped, 1 failed (`instant-navigation.spec.js` "landing to Discover to a book and back…", a flake that also fails 4 of 8 repeats on plain origin/v3). Lint 13 warnings (unchanged). `node --test tests/avatar-contrast.test.mjs`: 3 passed.
