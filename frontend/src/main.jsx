@@ -11,6 +11,9 @@ import { installAnalytics, startObservability } from "./observability.js";
 startObservability().catch(() => {});
 installAnalytics();
 
+// The static summary in index.html is for crawlers that do not run JavaScript.
+document.getElementById("static-landing")?.remove();
+
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
