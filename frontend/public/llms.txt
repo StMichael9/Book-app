@@ -1,0 +1,20 @@
+# Bookvane
+
+> Bookvane (https://bookvane.me) is a free, private personal reading home. Readers discover books, keep their whole library in one place, and track what they are reading at their own pace.
+
+Bookvane is calm and private by default: there is no social feed, and a reader's library, ratings and notes are not shared. Readers can bring their existing library over from a Goodreads or StoryGraph export.
+
+## What readers can do
+
+- Discover books by subject and search a growing catalogue of books with covers and descriptions.
+- Save books to shelves: want to read, currently reading, finished, and books they own.
+- Track reading with start and finish dates.
+- Make their own book lists.
+- Import a library from Goodreads or StoryGraph.
+
+## Public pages
+
+- [Home](https://bookvane.me/): what Bookvane is.
+- [Explore books](https://bookvane.me/browse): browse the catalogue.
+- [Create your library](https://bookvane.me/register): free sign-up.
+- [Privacy](https://bookvane.me/privacy): how reader data is handled.

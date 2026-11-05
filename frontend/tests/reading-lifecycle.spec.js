@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { shootMatrix, shotsEnabled } from "./support/shots.js";
 
 // M2 UI regressions use in-memory API fixtures only, never a real database.
 const stamp = "2026-10-01T00:00:00Z";
@@ -1373,4 +1374,13 @@ test("reader screens never name data sources", async ({ page, app }) => {
     await page.locator("main details:not([open]) > summary").evaluateAll(nodes => nodes.forEach(node => node.click()));
     expect(await page.locator("main").innerText(), path).not.toMatch(banned);
   }
+});
+
+test("foundations screenshots: My Books, workspace, home", async ({ page, app }) => {
+  test.skip(!shotsEnabled(), "set FOUNDATIONS_SHOTS=before or after to export screenshots");
+  app.entries.set(103, makeEntry(103, "paused", true));
+  app.currentReads = [{ entry: app.entries.get(101), attempt: app.attempt }];
+  await shootMatrix(page, "my-books", async () => { await page.goto("/my-books"); await expect(page.getByRole("link", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
+  await shootMatrix(page, "workspace", async () => { await page.goto("/my-books/101"); await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
+  await shootMatrix(page, "home", async () => { await page.goto("/home"); await expect(page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true })).toBeVisible(); });
 });

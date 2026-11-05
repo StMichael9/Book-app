@@ -27,9 +27,9 @@ export function SpineBlock({ bookId }) {
 
 // `items` are { key, url } with the book id as the key: up to four are shown side by side. An empty list shows one
 // outlined spine on a short baseline.
-export default function ListArt({ items, tall = false }) {
-  const shown = items.slice(0, 4);
-  if (!shown.length) return <span className={`bv-art bv-art--empty${tall ? " bv-art--tall" : ""}`} aria-hidden="true"><i /></span>;
-  return <span className={`bv-art${tall ? " bv-art--tall" : ""}`} aria-hidden="true">
+export default function ListArt({ items, tall = false, compact = false }) {
+  const shown = items.slice(0, compact ? 3 : 4), size = `${tall ? " bv-art--tall" : ""}${compact ? " bv-art--compact" : ""}`;
+  if (!shown.length) return <span className={`bv-art bv-art--empty${size}`} aria-hidden="true"><i /></span>;
+  return <span className={`bv-art${size}`} aria-hidden="true">
     {shown.map(item => <Slot key={item.key} url={item.url} cloth={bookCloth(item.key)} />)}</span>;
 }

@@ -12,7 +12,9 @@ import { HANDLE, HANDLE_ERROR, saveMessage } from "./profileForm.js";
 import { collapse, expand, slideFrom } from "./motion.js";
 import { useProfile } from "./profileState.js";
 import { MONTHS } from "./shelfData.js";
-import { YearInBooks } from "./YearShelf.jsx";
+import { TabBar, TabPanel } from "./ProfileTabs.jsx";
+import { useProfileTab } from "./profileTab.js";
+import { YearFigures, YearInBooks } from "./YearShelf.jsx";
 
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const wait = ms => new Promise(done => setTimeout(done, ms));
@@ -52,19 +54,38 @@ function ListCover({ book }) {
 function Identity({ person, handle, size, children }) {
   return <header className="bv-profile-head"><Avatar person={person} size={size} />
     <div className="bv-profile-id">{person.display_name ? <h1>{person.display_name}</h1> : handle ? <h1>@{handle}</h1> : <h1 className="bv-sr-only">Your profile</h1>}
-      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}reading since {person.reading_since}</p>{children}</div></header>;
+      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}reading since {person.reading_since}</p>
+      {person.bio && <p className="bv-profile-bio">{person.bio}</p>}</div>{children}</header>;
 }
 
-function ListCard({ item, to, own }) {
-  const Icon = item.is_public ? Globe : Lock;
+// The cards, the overview rows and the hub all read a list's artwork the same way.
+function listItems(item) {
   // `previews` are [{ id, cover_image_url }] for up to four books, so a book wears its own cloth everywhere. Without
   // them (an older payload) the covers stand in, and the slots up to the book count are spine blocks.
   const covers = (item.covers || []).slice(0, 4).map((url, index) => ({ key: `${item.id}-${index}`, url }));
   const fallback = [...covers, ...Array.from({ length: Math.max(0, Math.min(4, item.book_count) - covers.length) }, (_, index) => ({ key: `${item.id}-s${index}`, url: null }))];
-  const items = Array.isArray(item.previews) ? item.previews.slice(0, 4).map(book => ({ key: book.id, url: book.cover_image_url })) : fallback;
-  return <li><Link className="bv-list-card" to={to}><ListArt items={items} />
+  return Array.isArray(item.previews) ? item.previews.slice(0, 4).map(book => ({ key: book.id, url: book.cover_image_url })) : fallback;
+}
+
+function ListMeta({ item, own }) {
+  const Icon = item.is_public ? Globe : Lock;
+  return <>{books(item.book_count)}{own && <><span aria-hidden="true"> · </span><Icon aria-hidden="true" />{item.is_public ? "shared" : "private"}</>}</>;
+}
+
+function ListCard({ item, to, own }) {
+  return <li><Link className="bv-list-card" to={to}><ListArt items={listItems(item)} />
     <strong>{item.name}</strong>
-    <small>{books(item.book_count)}{own && <><span aria-hidden="true"> · </span><Icon aria-hidden="true" />{item.is_public ? "shared" : "private"}</>}</small></Link></li>;
+    <small><ListMeta item={item} own={own} /></small></Link></li>;
+}
+
+// Overview: up to three lists as rows (spine art, name, count and privacy), then a way to the Lists tab for the rest.
+function OverviewLists({ lists, own, linkFor, onSeeAll }) {
+  if (!Array.isArray(lists)) return null;
+  if (!lists.length) return own ? <section className="bv-profile-lists" aria-labelledby="bv-overview-lists"><h2 id="bv-overview-lists">Lists</h2><p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p></section> : null;
+  return <section className="bv-profile-lists" aria-labelledby="bv-overview-lists"><h2 id="bv-overview-lists">Lists</h2>
+    <ul className="bv-list-rows">{lists.slice(0, 3).map(item => <li key={item.id}><Link className="bv-list-row" to={linkFor(item)}><ListArt compact items={listItems(item)} />
+      <span><strong>{item.name}</strong><small><ListMeta item={item} own={own} /></small></span></Link></li>)}</ul>
+    {lists.length > 3 && <Button variant="quiet" className="bv-link-button" onClick={onSeeAll}>See all lists</Button>}</section>;
 }
 
 function NewList() {
@@ -122,20 +143,31 @@ function AccountSection() {
 export function ProfileHubPage() {
   const { profile, loading, failed, reload } = useProfile();
   const stats = useLoad(getStats), lists = useLoad(getLists);
+  const [tab, setTab, switched] = useProfileTab();
   const [editing, setEditing] = useState(false), [announcement, setAnnouncement] = useState("");
   if (failed) return <section className="bv-container"><div className="bv-profile"><Failed retry={reload}>We couldn’t load your profile.</Failed><AccountSection /></div></section>;
   if (loading || !profile?.reading_since) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening your profile…</p><AccountSection /></div></section>;
-  return <section className="bv-container"><div className="bv-profile">
-    <Identity person={profile} handle={profile.handle} size={68}><Button variant="quiet" className="bv-link-button bv-profile-edit-button" onClick={() => setEditing(true)}>Edit profile</Button></Identity>
-    {profile.bio && <p className="bv-profile-bio">{profile.bio}</p>}
-    <EditProfileSheet profile={profile} open={editing} onClose={() => setEditing(false)} />
-    <Visibility profile={profile} announce={setAnnouncement} />
-    <p className="bv-sr-only" role="status" aria-live="polite">{announcement}</p>
-    {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearInBooks stats={stats.data} />}
-    <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
-      {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
-        ? <ul className="bv-list-cards">{lists.data.map(item => <ListCard key={item.id} item={item} to={`/profile/lists/${item.id}`} own />)}</ul>
-        : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>
+  const listLink = item => `/profile/lists/${item.id}`;
+  return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
+    <div className="bv-profile-top">
+      <Identity person={profile} handle={profile.handle} size={96}>
+        <Visibility profile={profile} announce={setAnnouncement} />
+        <Button variant="quiet" className="bv-link-button bv-profile-edit-button" onClick={() => setEditing(true)}>Edit profile</Button>
+      </Identity>
+      <EditProfileSheet profile={profile} open={editing} onClose={() => setEditing(false)} />
+      <p className="bv-sr-only" role="status" aria-live="polite">{announcement}</p>
+      <TabBar value={tab} onChange={setTab} />
+    </div>
+    <TabPanel key={tab} value={tab} settle={switched}>
+      {tab === "overview" && <>
+        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearFigures stats={stats.data} />}
+        {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
+      {tab === "lists" && <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
+        {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
+          ? <ul className="bv-list-cards">{lists.data.map(item => <ListCard key={item.id} item={item} to={listLink(item)} own />)}</ul>
+          : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>}
+      {tab === "year" && (stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearInBooks stats={stats.data} />)}
+    </TabPanel>
     <AccountSection />
   </div></section>;
 }
@@ -291,17 +323,25 @@ function GuestLine() {
 export function PublicProfilePage({ handle: given, notFound }) {
   const params = useParams(), handle = given || params.handle;
   const { profile } = useProfile();
+  const [tab, setTab, switched] = useProfileTab();
   const load = useLoad(() => getPublicProfile(handle));
   if (load.error) return load.error.status === 404 ? <NotFound page={notFound} /> : <section className="bv-container"><div className="bv-profile"><Failed retry={load.retry}>We couldn’t load this profile.</Failed></div></section>;
   if (!load.data) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening profile…</p></div></section>;
   const page = load.data, own = profile?.handle === handle;
-  return <section className="bv-container"><div className="bv-profile">
-    <Identity person={page} handle={handle} size={96} />
-    {own && <p className="bv-help">This is how others see your profile.</p>}
-    {page.bio && <p className="bv-profile-bio">{page.bio}</p>}
-    <YearInBooks stats={page.stats} own={false} chips={false} />
-    {page.lists.length > 0 && <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
-      <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={`/u/${handle}/lists/${item.id}`} />)}</ul></section>}
+  const listLink = item => `/u/${handle}/lists/${item.id}`;
+  return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
+    <div className="bv-profile-top">
+      <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
+      <TabBar value={tab} onChange={setTab} />
+    </div>
+    <TabPanel key={tab} value={tab} settle={switched}>
+      {tab === "overview" && <><YearFigures stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
+      {tab === "lists" && (page.lists.length > 0
+        ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
+          <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
+        : <p className="bv-muted">No public lists yet.</p>)}
+      {tab === "year" && <YearInBooks stats={page.stats} own={false} chips={false} />}
+    </TabPanel>
     <GuestLine />
   </div></section>;
 }

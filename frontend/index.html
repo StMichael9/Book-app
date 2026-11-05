@@ -40,18 +40,29 @@
         theme ||= window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", theme);
         document.documentElement.style.colorScheme = theme;
+        document.documentElement.classList.add("js");
       })();
     </script>
     <link rel="preconnect" href="https://wsrv.nl" />
+    <style>.js #static-landing { display: none; }</style>
   </head>
   <body>
     <div id="root"></div>
-    <noscript>
+    <!-- Plain-HTML summary for crawlers and AI assistants that do not run JavaScript; hidden, then removed, once the app starts. -->
+    <main id="static-landing">
       <h1>Bookvane · Your personal reading home</h1>
-      <p>Discover books, keep your library together, and track what you’re reading at your own pace. Free and private.</p>
+      <p>Bookvane is a free, private place to discover books, keep your whole library together, and track what you’re reading at your own pace. No social feed: your library, ratings and notes stay yours.</p>
+      <h2>What you can do</h2>
+      <ul>
+        <li>Discover books by subject and search a growing catalogue with covers and descriptions.</li>
+        <li>Save books to your shelves: want to read, reading, finished, and books you own.</li>
+        <li>Track your reading with start and finish dates.</li>
+        <li>Make your own book lists.</li>
+        <li>Bring your library over from Goodreads or StoryGraph.</li>
+      </ul>
       <p><a href="/browse">Explore books</a> · <a href="/register">Create your library</a> · <a href="/privacy">Privacy</a></p>
-      <p>Bookvane needs JavaScript to run.</p>
-    </noscript>
+      <noscript><p>Bookvane needs JavaScript to run.</p></noscript>
+    </main>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

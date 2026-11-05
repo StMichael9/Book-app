@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { trackEvent } from "./ui-v2/events.js";
+import { Button } from "./ui-v2/primitives.jsx";
 
 function drawWrappedText(context, value, x, y, maxWidth, lineHeight, maxLines) {
   const words = value.split(/\s+/);
@@ -73,8 +74,8 @@ export default function ShareBookButton({ book }) {
     }
   }
 
-  return <div className="share-book">
-    <button className="reset-button" type="button" onClick={() => { trackEvent("share_click"); share(); }}>Share book image</button>
-    {error && <span className="error-message" role="alert">{error}</span>}
+  return <div>
+    <Button variant="secondary" onClick={() => { trackEvent("share_click"); share(); }}>Share book image</Button>
+    {error && <span className="bv-share-error" role="alert">{error}</span>}
   </div>;
 }

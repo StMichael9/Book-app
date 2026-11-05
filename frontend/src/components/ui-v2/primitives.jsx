@@ -141,8 +141,8 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
       {["want", "owned"].map((value) => {
         const selected = known && (library.mode === "v3" ? entry?.[value === "owned" ? "is_owned" : "is_wanted"] : status === value);
         const Icon = selected ? Check : value === "want" ? Bookmark : BookOpen;
-        // Compact cards are too narrow for the full wording; the accessible name always carries it.
-        const visible = busy ? "Saving…" : value === "want" ? compact ? "Want" : "Want to read" : selected ? "Owned" : compact ? "Own" : "I own it";
+        // One wording everywhere: "Want to read" and "I own it" on the buttons, "Owned" once chosen. Narrow cards stack them.
+        const visible = busy ? "Saving…" : value === "want" ? "Want to read" : selected ? "Owned" : "I own it";
         const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
@@ -209,8 +209,8 @@ export function BookSkeletons({ count = 5 }) {
   </div>;
 }
 
-export function PageHeading({ eyebrow, title, children }) {
-  return <header className="bv-page-heading">{eyebrow && <p className="bv-eyebrow">{eyebrow}</p>}<h1>{title}</h1>{children && <div className="bv-muted">{children}</div>}</header>;
+export function PageHeading({ title, children }) {
+  return <header className="bv-page-heading"><h1>{title}</h1>{children && <div className="bv-muted">{children}</div>}</header>;
 }
 
 export function NativeDialog({ open, onClose, title, children, className = "", focusTitle = false }) {

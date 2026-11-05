@@ -37,7 +37,8 @@ export function CurrentReadingCard({ entry, attempt }) {
 
 // Plain text wraps between words, so a separator never starts a line on narrow cards.
 function StatusLine({ labels }) {
-  const [lead = "Saved", ...rest] = labels;
+  const [lead, ...rest] = labels;
+  if (!lead) return null;
   return <p className="bv-personal-book-state"><strong>{lead}</strong>{rest.length > 0 && <span>{` · ${rest.join(" · ")}`}</span>}</p>;
 }
 

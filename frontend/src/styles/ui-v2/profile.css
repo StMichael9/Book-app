@@ -5,13 +5,12 @@
 .bv-root .bv-profile h2, .bv-root .bv-profile-sheet h2 { font-size: var(--bv-fs-section); margin: 0; }
 .bv-root .bv-profile-sheet h2:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
 
-/* One tertiary link style: green, underlined. */
-.bv-root .bv-link-button, .bv-root .bv-profile .bv-text-link, .bv-root .bv-account-link { color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.bv-root .bv-link-button { min-height: 44px; padding-inline: 0; font-size: var(--bv-fs-body); white-space: nowrap; }
+/* The tertiary link style is shared (bookvane.css); text-style buttons just drop their padding. */
+.bv-root .bv-link-button { padding-inline: 0; font-size: var(--bv-fs-body); white-space: nowrap; }
 .bv-root .bv-link-button svg { width: 16px; height: 16px; }
 
 /* Avatar: a line icon on bookcloth. Decorative; the name or link beside it says who this is. */
-.bv-root .bv-avatar { flex: none; position: relative; width: var(--bv-avatar-size, 68px); height: var(--bv-avatar-size, 68px); border-radius: 50%; display: inline-grid; place-items: center; background: var(--bv-avatar-bg); color: var(--bv-avatar-ink, #fffdf5); font-weight: 700; font-size: calc(var(--bv-avatar-size, 68px) * 0.4); line-height: 1; }
+.bv-root .bv-avatar { flex: none; position: relative; width: var(--bv-avatar-size, 68px); height: var(--bv-avatar-size, 68px); border-radius: 50%; display: inline-grid; place-items: center; background: var(--bv-avatar-bg); color: var(--bv-avatar-ink, var(--bv-cloth-ink-light)); font-weight: 700; font-size: calc(var(--bv-avatar-size, 68px) * 0.4); line-height: 1; }
 .bv-root .bv-avatar-face { display: grid; place-items: center; }
 .bv-root .bv-avatar svg { width: calc(var(--bv-avatar-size, 68px) * 0.44); height: calc(var(--bv-avatar-size, 68px) * 0.44); }
 .bv-root .bv-avatar-face.is-changing { animation: bv-avatar-in 200ms ease-out both; }
@@ -19,28 +18,27 @@
 .bv-root .bv-header-avatar { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; border-radius: 50%; }
 .bv-root .bv-mobile-nav .bv-avatar { margin-block: -1px; }
 
-.bv-root .bv-profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding: 12px 0 8px; }
-.bv-root .bv-profile-id { flex: 1 1 9rem; min-width: 0; }
+/* The header is centred: avatar, name, handle and year, bio, the privacy pill, then Edit profile. */
+.bv-root .bv-profile-top { max-width: 720px; margin-inline: auto; }
+/* The Edit profile link keeps its 44px target but sits close to the tabs, so the header-to-tabs gap matches the public page. */
+.bv-root .bv-profile-head .bv-profile-edit-button { margin-block: -6px -12px; }
+.bv-root .bv-profile-head { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0 16px; text-align: center; }
+.bv-root .bv-profile-id { min-width: 0; }
 .bv-root .bv-profile-id p { margin: 4px 0 0; font-size: var(--bv-fs-body); overflow-wrap: anywhere; }
 .bv-root .bv-profile-id .bv-link-button { margin-top: 2px; }
-.bv-root .bv-profile-bio { margin: 12px 0 16px; overflow-wrap: anywhere; }
+.bv-root .bv-profile-bio { margin: 8px 0 0; overflow-wrap: anywhere; }
+.bv-root .bv-profile-id .bv-help { margin: 8px 0 0; }
 .bv-root .bv-profile-edit { margin: 8px 0 0; }
 .bv-root .bv-profile-edit textarea { width: 100%; font: inherit; }
 .bv-root .bv-profile-edit small, .bv-root .bv-visibility-form small { display: block; margin-top: 4px; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 
 /* The privacy pill. A long line wraps inside the pill rather than overflowing. */
-.bv-root .bv-visibility-block { margin: 12px 0 28px; }
-.bv-root .bv-visibility { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; background: var(--bv-wash); border-radius: 24px; padding: 4px 8px 4px 16px; font-size: var(--bv-fs-body); }
+.bv-root .bv-visibility-block { margin: 0; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.bv-root .bv-visibility { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; background: var(--bv-wash); border-radius: 24px; padding: 4px 16px; font-size: var(--bv-fs-body); justify-content: center; max-width: 100%; text-align: left; }
 .bv-root .bv-visibility svg { flex: none; width: 18px; height: 18px; color: var(--bv-muted); }
-.bv-root .bv-visibility span { flex: 1 1 9rem; min-width: 0; color: var(--bv-muted); }
+.bv-root .bv-visibility span { flex: 1 1 8rem; min-width: 0; color: var(--bv-muted); }
 .bv-root .bv-visibility-action { flex: none; white-space: nowrap; }
-@media (max-width: 700px) {
-  .bv-root .bv-visibility { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px 10px; padding: 12px 16px 4px; border-radius: 20px; }
-  .bv-root .bv-visibility svg { margin-top: 3px; }
-  .bv-root .bv-visibility span { grid-column: 2; }
-  .bv-root .bv-visibility-action { grid-column: 1 / -1; justify-self: start; }
-}
-.bv-root .bv-visibility-block > .bv-help { margin: 8px 0 0 16px; }
+.bv-root .bv-visibility-block > .bv-help { margin: 8px 0 0; }
 
 /* Your year: a spine shelf on an ink baseline. */
 .bv-root .bv-profile-year { margin: 0 0 32px; }
@@ -48,8 +46,8 @@
 .bv-root .bv-shelf { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; align-items: end; height: 96px; margin-top: calc(var(--bv-fs-helper) + 14px); border-bottom: 3px solid var(--bv-ink); padding-inline: 2px; }
 .bv-root .bv-shelf-month { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: 100%; min-width: 0; }
 .bv-root .bv-shelf-more { position: absolute; bottom: 100%; margin-bottom: 4px; inset-inline: -4px; text-align: center; font-size: var(--bv-fs-helper); line-height: 1; color: var(--bv-muted); }
-.bv-root .bv-shelf-spine { position: relative; flex: 0 1 5px; min-width: 4px; border-radius: 1px 1px 0 0; box-shadow: inset 1.5px 0 0 color-mix(in srgb, #fffdf5 30%, transparent); }
-.bv-root .bv-shelf-spine::before { content: ""; position: absolute; inset-inline: 0; top: 12%; height: 1px; background: color-mix(in srgb, #fffdf5 38%, transparent); }
+.bv-root .bv-shelf-spine { position: relative; flex: 0 1 5px; min-width: 4px; border-radius: 1px 1px 0 0; box-shadow: inset 1.5px 0 0 color-mix(in srgb, var(--bv-cloth-ink-light) 30%, transparent); }
+.bv-root .bv-shelf-spine::before { content: ""; position: absolute; inset-inline: 0; top: 12%; height: 1px; background: color-mix(in srgb, var(--bv-cloth-ink-light) 38%, transparent); }
 .bv-root .bv-shelf.is-rising .bv-shelf-spine { transform-origin: bottom; animation: bv-spine-rise 240ms ease-out both; animation-delay: calc(var(--bv-month, 0) * 20ms); }
 @keyframes bv-spine-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 .bv-root .bv-shelf-months { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 5px; padding: 4px 2px 0; font-size: var(--bv-fs-helper); color: var(--bv-muted); text-align: center; }
@@ -82,8 +80,8 @@
 .bv-root .bv-art--empty i::before { content: ""; position: absolute; left: 5px; top: 0; bottom: 0; width: 1.5px; background: var(--bv-control); opacity: 0.7; }
 .bv-root .bv-art--tall.bv-art--empty { height: 96px; }
 .bv-root .bv-art--tall.bv-art--empty i { width: 56px; height: 88px; }
-.bv-root .bv-art-spine { position: absolute; inset: 0; box-shadow: inset 5px 0 0 color-mix(in srgb, #000 20%, transparent); }
-.bv-root .bv-art-spine::after { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, #fffdf5 28%, transparent); }
+.bv-root .bv-art-spine { position: absolute; inset: 0; box-shadow: inset 5px 0 0 color-mix(in srgb, var(--bv-spine-shade) 20%, transparent); }
+.bv-root .bv-art-spine::after { content: ""; position: absolute; left: 8px; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--bv-cloth-ink-light) 28%, transparent); }
 .bv-root .bv-art-spine.is-waiting { animation: bv-jacket-in 160ms ease-out 180ms both; }
 
 .bv-root .bv-profile-account { margin: 32px 0 0; border-top: 1px solid var(--bv-line); display: flex; flex-direction: column; align-items: stretch; }
@@ -137,7 +135,7 @@
 .bv-root .bv-pick:has(input:focus-visible) { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
 .bv-root .bv-pick > span svg { width: 22px; height: 22px; }
 .bv-root .bv-pick--colour { justify-content: flex-start; padding: 6px 10px; }
-.bv-root .bv-pick--colour span { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--bv-pick-ink, #fffdf5); }
+.bv-root .bv-pick--colour span { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--bv-pick-ink, var(--bv-cloth-ink-light)); }
 .bv-root .bv-pick--colour span svg { width: 16px; height: 16px; opacity: 0; }
 .bv-root .bv-pick--colour input:checked + span svg { opacity: 1; }
 .bv-root .bv-pick em { font-style: normal; font-size: var(--bv-fs-helper); }
@@ -149,13 +147,12 @@
   .bv-root .bv-shelf-spine { flex-basis: 5px; }
 }
 @media (min-width: 701px) { .bv-root .bv-shelf-spine { flex-basis: 12px; min-width: 8px; } }
-@media (prefers-reduced-motion: reduce) {
-  .bv-root .bv-avatar-face.is-changing, .bv-root .bv-shelf.is-rising .bv-shelf-spine, .bv-root .bv-undo-toast, .bv-root .bv-art-slot.is-loaded img, .bv-root .bv-art-spine.is-waiting { animation: none; }
-}
 
 /* Desktop: a wider hub, a taller shelf and larger list cards, so it doesn't read as a stretched phone column. */
 @media (min-width: 1024px) {
   .bv-root .bv-profile:not(.bv-profile-list) { max-width: 880px; }
+  /* The tabbed pages use one width for the header, the tabs and the panels, so their left edges line up. */
+  .bv-root .bv-profile.bv-profile--tabs { max-width: 720px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-shelf { height: 140px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art { height: 120px; }
   .bv-root .bv-profile:not(.bv-profile-list) .bv-art--empty { width: 140px; height: 120px; }
@@ -163,4 +160,52 @@
   .bv-root .bv-list-cards { gap: 20px; }
   .bv-root .bv-list-card { padding: 16px; }
   .bv-root .bv-profile-sheet { max-width: 520px; }
+}
+
+/* Tabs: a wash track with the selected tab as a white pill. Labels never wrap; padding shrinks first, then the track scrolls. */
+.bv-root .bv-profile-tabs { display: flex; gap: 2px; margin-top: 4px; padding: 4px; background: var(--bv-wash); border-radius: 10px; overflow-x: auto; scrollbar-width: none; }
+.bv-root .bv-profile-tabs::-webkit-scrollbar { display: none; }
+.bv-root .bv-profile-tab { flex: 1 1 0; min-width: max-content; min-height: 44px; padding: 8px clamp(4px, 3vw, 16px); border: 0; border-radius: 7px; background: transparent; color: var(--bv-muted); font: 600 var(--bv-fs-body)/1.2 var(--bv-body); white-space: nowrap; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.bv-root .bv-profile-tab:hover { color: var(--bv-ink); }
+.bv-root .bv-profile-tab.is-selected { background: var(--bv-panel); color: var(--bv-ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--bv-ink) 14%, transparent); }
+/* In dark the selected tab is lifted above the track (the panel colour would sink below it). */
+.bv-root[data-theme="dark"] .bv-profile-tab.is-selected { background: color-mix(in srgb, var(--bv-wash), var(--bv-ink) 12%); }
+.bv-root .bv-profile-tab:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
+.bv-root .bv-profile-tab-panel { padding-top: 20px; }
+.bv-root .bv-profile-tab-panel.is-settling { animation: bv-panel-in 160ms ease-out both; }
+@keyframes bv-panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.bv-root .bv-profile-tab-panel:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+
+/* Overview: three big figures in Lora, each with a small label, then up to three list rows. */
+.bv-root .bv-figures { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 8px 0 0; }
+.bv-root .bv-figures > div { display: flex; flex-direction: column-reverse; }
+.bv-root .bv-figures dd { margin: 0; font: 500 var(--bv-fs-page)/1.1 var(--bv-display); color: var(--bv-green); }
+.bv-root .bv-figures dt { font-size: var(--bv-fs-helper); color: var(--bv-muted); }
+.bv-root .bv-list-rows { list-style: none; padding: 0; margin: 4px 0 0; }
+.bv-root .bv-list-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--bv-line); color: inherit; text-decoration: none; min-height: 44px; }
+.bv-root .bv-list-row > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.bv-root .bv-list-row strong { font: 500 var(--bv-fs-card)/1.25 var(--bv-display); overflow-wrap: anywhere; }
+.bv-root .bv-list-rows li:last-child .bv-list-row { border-bottom: 0; }
+.bv-root .bv-list-row small { display: block; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-list-row small svg { display: inline; width: 14px; height: 14px; vertical-align: -2px; margin-inline: 2px 3px; }
+.bv-root .bv-list-row > span:last-child { flex: 1; }
+.bv-root .bv-art--compact { height: 58px; flex: none; }
+.bv-root .bv-art--compact.bv-art--empty { width: 46px; padding-inline: 4px; }
+.bv-root .bv-art--compact.bv-art--empty i { width: 24px; height: 50px; }
+
+/* An empty year is a short baseline with the month letters, not a tall empty shelf. */
+.bv-root .bv-shelf.is-empty { height: 6px; margin-top: 12px; }
+
+@media (min-width: 1024px) {
+  .bv-root .bv-profile--tabs .bv-shelf.is-empty { height: 6px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-art--compact { height: 58px; }
+  .bv-root .bv-profile:not(.bv-profile-list) .bv-art--compact.bv-art--empty { width: 46px; height: 58px; }
+}
+
+/* Narrow widths: a deliberate two-row pill, the label on one line (it may wrap only at large text) and Make public under it. */
+@media (max-width: 700px) {
+  .bv-root .bv-visibility { display: inline-grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 4px 10px; padding: 12px 16px 4px; border-radius: 20px; }
+  .bv-root .bv-visibility svg { margin-top: 3px; }
+  .bv-root .bv-visibility span { grid-column: 2; }
+  .bv-root .bv-visibility-action { grid-column: 1 / -1; justify-self: center; }
 }
