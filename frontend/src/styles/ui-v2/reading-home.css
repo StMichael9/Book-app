@@ -86,7 +86,7 @@
 }
 
 .bv-import-link { flex-direction: column; gap: 2px; }
-.bv-import-link > span { font-size: var(--bv-fs-small); font-weight: 400; }
+.bv-import-link > span { font-size: var(--bv-fs-helper); font-weight: 400; }
 
 /* One line under the author on a My Books card: the reader's own reason (italic) or the start of the description. */
 .bv-root .bv-card-line { margin: 4px 0 6px; font-size: var(--bv-fs-helper); line-height: 1.4; color: var(--bv-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; overflow-wrap: anywhere; }
