@@ -268,7 +268,7 @@ for (const moveFocus of [false, true]) test(`M6 delayed book focus preserves key
 
 for (const filter of ["shelf_status=want", "exclude_owned=true"]) test(`M6 legacy filtered discovery reflects committed shelf writes: ${filter}`, async ({ page, app }) => {
   await page.goto(`/browse?${filter}`);
-  await page.getByRole("button", { name: "Add Test-only Fantasy to Owned", exact: true }).click();
+  await page.getByRole("button", { name: "I own it: Add Test-only Fantasy to Owned", exact: true }).click();
   await expect(page.getByRole("link", { name: "Test-only Fantasy", exact: true })).toHaveCount(0);
   expect(app.saved.find(entry => entry.book_id === 1).status).toBe("owned");
   await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThanOrEqual(2);
