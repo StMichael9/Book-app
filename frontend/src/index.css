@@ -4,11 +4,6 @@
 /* 2. Your existing project styles */
 @import "./styles/variables.css";
 @import "./styles/base.css";
-@import "./styles/layout.css";
-@import "./styles/components.css";
-@import "./styles/mobile.css";
-@import "./styles/browse-shelves.css";
-@import "./styles/my-books.css";
 
 /* Match the document canvas to Bookvane before and after the app paints. */
 html[data-theme] { --bv-canvas: #faf8f2; background: var(--bv-canvas); }
