@@ -7,7 +7,7 @@
 .bv-root .bv-reading-desk:only-child { grid-column: 1 / -1; }
 .bv-root .bv-reading-home .bv-current-grid { grid-template-columns: 1fr; gap: 0; }
 .bv-root .bv-reading-home .bv-current-book > a { flex-basis: 96px; }
-.bv-root .bv-reading-home .bv-current-book h3 { font-size: 1.5rem; }
+.bv-root .bv-reading-home .bv-current-book h3 { font-size: var(--bv-fs-card); }
 .bv-root .bv-reading-home .bv-current-book .bv-button { margin-top: 4px; }
 .bv-root .bv-reading-meter { display: block; width: 100%; max-width: 240px; height: 6px; margin: 0 0 20px; border: 0; border-radius: 6px; overflow: hidden; background: var(--bv-line); color: var(--bv-green); accent-color: var(--bv-green); }
 .bv-root .bv-reading-meter::-webkit-progress-bar { background: var(--bv-line); }
@@ -15,16 +15,16 @@
 .bv-root .bv-reading-meter::-moz-progress-bar { background: var(--bv-green); }
 .bv-root .bv-home-next { min-width: 0; }
 .bv-root .bv-home-next .bv-next-read { border-top: 0; padding-top: 24px; }
-.bv-root .bv-home-next .bv-next-read > h2 { font-size: 1.625rem; }
+.bv-root .bv-home-next .bv-next-read > h2 { font-size: var(--bv-fs-section); }
 .bv-root .bv-home-next .bv-choice-grid { grid-template-columns: 1fr; gap: 20px; }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 0 16px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; max-width: 64px; }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card > :not(.bv-cover) { grid-column: 2; }
-.bv-root .bv-home-next .bv-choice-grid .bv-book-card h3 { margin-top: 0; font-size: 1.25rem; }
+.bv-root .bv-home-next .bv-choice-grid .bv-book-card h3 { margin-top: 0; font-size: var(--bv-fs-card); }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card .bv-author { margin: 4px 0 8px; }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card .bv-help { margin: 4px 0 8px; }
 .bv-root .bv-home-next .bv-choice-grid .bv-book-card > .bv-button { justify-self: start; }
-.bv-root .bv-home-next .bv-choice-grid .bv-book-card > .bv-text-link { margin-top: 8px; font-size: 0.875rem; }
+.bv-root .bv-home-next .bv-choice-grid .bv-book-card > .bv-text-link { margin-top: 8px; font-size: var(--bv-fs-helper); }
 .bv-root .bv-reading-home .bv-home-start { border: 0; background: transparent; padding: 0; margin-bottom: 28px; }
 .bv-root .bv-reading-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 24px 0 20px; }
 .bv-root .bv-reading-heading h2 { margin: 0; }
@@ -32,27 +32,27 @@
 .bv-root .bv-current-book { display: flex; gap: 20px; align-items: flex-start; border-top: 1px solid var(--bv-line); padding: 24px 0; min-width: 0; }
 .bv-root .bv-current-book > a { flex: 0 0 88px; min-width: 0; }
 .bv-root .bv-current-book > div { min-width: 0; }
-.bv-root .bv-current-book h3 { margin: 0 0 8px; font-size: 1.25rem; }
-.bv-root .bv-current-book .bv-reading-state { margin-bottom: 6px; color: var(--bv-green); font-size: 0.875rem; font-weight: 600; }
+.bv-root .bv-current-book h3 { margin: 0 0 8px; font-size: var(--bv-fs-card); }
+.bv-root .bv-current-book .bv-reading-state { margin-bottom: 6px; color: var(--bv-green); font-size: var(--bv-fs-helper); font-weight: 600; }
 .bv-root .bv-current-book .bv-author { margin: 0 0 12px; }
 .bv-root .bv-reading-progress { font-weight: 600; margin-bottom: 12px; }
 .bv-root .bv-home-support { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 12px 0 32px; }
 .bv-root .bv-home-start { padding: 28px; border: 1px solid var(--bv-line); border-radius: 8px; background: var(--bv-panel); margin-top: 20px; }
 .bv-root .bv-home-start p { max-width: 42rem; }
-.bv-root .bv-personal-book-state { margin: 0; color: var(--bv-muted); font-size: 0.875rem; }
+.bv-root .bv-personal-book-state { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-personal-book-state strong { color: var(--bv-green); font-weight: 600; }
 .bv-root .bv-personal-book .bv-author { margin-bottom: 4px; }
 .bv-root .bv-personal-book > .bv-text-link { display: block; margin-top: 12px; }
-.bv-root .bv-personal-book > .bv-catalogue-link { color: var(--bv-muted); font-size: 0.875rem; }
+.bv-root .bv-personal-book > .bv-catalogue-link { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-filter-groups { display: grid; gap: 12px; margin-bottom: 16px; }
 .bv-root .bv-filter-groups .bv-library-facets { align-items: center; }
-.bv-root .bv-filter-label { min-width: 5rem; font-size: 0.875rem; color: var(--bv-muted); }
+.bv-root .bv-filter-label { min-width: 5rem; font-size: var(--bv-fs-helper); color: var(--bv-muted); }
 .bv-root .bv-library-tools { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
 .bv-root .bv-reading-workspace .bv-page-heading { padding-bottom: 16px; }
 .bv-root .bv-reading-status { margin: 24px 0 12px; padding-top: 24px; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-workspace-actions { margin-bottom: 28px; }
 .bv-root .bv-reading-secondary { border-top: 1px solid var(--bv-line); margin-top: 24px; }
-.bv-root .bv-reading-secondary > summary { cursor: pointer; padding: 20px 0; font-family: var(--bv-display); font-size: 1.4375rem; }
+.bv-root .bv-reading-secondary > summary { cursor: pointer; padding: 20px 0; font-family: var(--bv-display); font-size: var(--bv-fs-section); }
 .bv-root .bv-next-read { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-next-read > .bv-help { max-width: 42rem; }
 .bv-root .bv-choice-grid .bv-cover { max-width: 150px; }
@@ -70,10 +70,10 @@
   .bv-root .bv-reading-desk { padding: 0 20px; }
   .bv-root .bv-reading-home .bv-current-book { gap: 16px; }
   .bv-root .bv-reading-home .bv-current-book > a { flex-basis: 68px; }
-  .bv-root .bv-reading-home .bv-current-book h3 { font-size: 1.3125rem; }
+  .bv-root .bv-reading-home .bv-current-book h3 { font-size: var(--bv-fs-card); }
   .bv-root .bv-reading-home .bv-current-book .bv-button { padding: 10px 12px; }
   .bv-root .bv-reading-heading { align-items: flex-start; }
-  .bv-root .bv-reading-heading h2 { font-size: 1.5625rem; }
+  .bv-root .bv-reading-heading h2 { font-size: var(--bv-fs-section); }
   .bv-root .bv-choice-grid { grid-template-columns: 1fr; gap: 24px; }
   .bv-root .bv-choice-grid .bv-book-card { border-top: 1px solid var(--bv-line); display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 0 16px; align-items: start; }
   .bv-root .bv-choice-grid .bv-book-card > .bv-cover { grid-column: 1; grid-row: 1 / span 8; max-width: 84px; }
@@ -86,17 +86,16 @@
 }
 
 .bv-import-link { flex-direction: column; gap: 2px; }
-.bv-import-link > span { font-size: .75rem; font-weight: 400; }
+.bv-import-link > span { font-size: var(--bv-fs-helper); font-weight: 400; }
 
 /* One line under the author on a My Books card: the reader's own reason (italic) or the start of the description. */
-.bv-root .bv-card-line { margin: 4px 0 6px; font-size: 0.875rem; line-height: 1.4; color: var(--bv-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; overflow-wrap: anywhere; }
+.bv-root .bv-card-line { margin: 4px 0 6px; font-size: var(--bv-fs-helper); line-height: 1.4; color: var(--bv-muted); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; overflow-wrap: anywhere; }
 .bv-root .bv-card-line--reason { font-style: italic; font-synthesis: style; color: var(--bv-ink); } /* the bundled fonts have no italic face, so the slant is drawn by the browser */
 .bv-root .bv-toast.bv-toast--quiet:not(:empty) { position: absolute; left: auto; bottom: auto; transform: none; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .bv-root .bv-why { margin: 12px 0; max-width: 420px; }
-.bv-root .bv-why textarea { width: 100%; font: inherit; }
 .bv-root .bv-why .bv-editor-caption { display: block; margin: 4px 0 8px; color: var(--bv-muted); }
 
 /* Google's description is shown whole and exactly as sent; line breaks in its text are kept. */
 .bv-root .bv-description-full { white-space: pre-line; overflow-wrap: anywhere; }
-.bv-root .bv-description-credit { margin: 8px 0 0; font-size: 0.875rem; color: var(--bv-muted); }
+.bv-root .bv-description-credit { margin: 8px 0 0; font-size: var(--bv-fs-helper); color: var(--bv-muted); }
 .bv-root .bv-description-credit a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }

@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/bookvane-logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bookvane</title>
+    <title>Bookvane · Your personal reading home</title>
+    <meta name="description" content="Bookvane is your personal reading home. Discover books, keep your library together, and track what you’re reading at your own pace. Free and private." />
+    <meta name="theme-color" content="#28513f" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bookvane" />
+    <meta property="og:title" content="Bookvane · Your personal reading home" />
+    <meta property="og:description" content="Discover books, keep your library together, and track what you’re reading at your own pace. Free and private." />
+    <meta property="og:image" content="https://bookvane.me/bookvane-logo.png" />
+    <meta name="twitter:card" content="summary" />
+    <link rel="apple-touch-icon" href="/bookvane-logo.png" />
+    <script type="application/ld+json">
+      {"@context": "https://schema.org", "@graph": [
+        {"@type": "WebSite", "@id": "https://bookvane.me/#website", "name": "Bookvane", "url": "https://bookvane.me/",
+         "description": "Your personal reading home: discover books, keep your library together, and track what you’re reading."},
+        {"@type": "Organization", "@id": "https://bookvane.me/#organization", "name": "Bookvane", "url": "https://bookvane.me/",
+         "logo": "https://bookvane.me/bookvane-logo.png"}
+      ]}
+    </script>
     <script>
       (() => {
         const valid = value => value === "light" || value === "dark";
@@ -23,12 +40,29 @@
         theme ||= window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
         document.documentElement.setAttribute("data-theme", theme);
         document.documentElement.style.colorScheme = theme;
+        document.documentElement.classList.add("js");
       })();
     </script>
     <link rel="preconnect" href="https://wsrv.nl" />
+    <style>.js #static-landing { display: none; }</style>
   </head>
   <body>
     <div id="root"></div>
+    <!-- Plain-HTML summary for crawlers and AI assistants that do not run JavaScript; hidden, then removed, once the app starts. -->
+    <main id="static-landing">
+      <h1>Bookvane · Your personal reading home</h1>
+      <p>Bookvane is a free, private place to discover books, keep your whole library together, and track what you’re reading at your own pace. No social feed: your library, ratings and notes stay yours.</p>
+      <h2>What you can do</h2>
+      <ul>
+        <li>Discover books by subject and search a growing catalogue with covers and descriptions.</li>
+        <li>Save books to your shelves: want to read, reading, finished, and books you own.</li>
+        <li>Track your reading with start and finish dates.</li>
+        <li>Make your own book lists.</li>
+        <li>Bring your library over from Goodreads or StoryGraph.</li>
+      </ul>
+      <p><a href="/browse">Explore books</a> · <a href="/register">Create your library</a> · <a href="/privacy">Privacy</a></p>
+      <noscript><p>Bookvane needs JavaScript to run.</p></noscript>
+    </main>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
