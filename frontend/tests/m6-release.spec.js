@@ -27,7 +27,7 @@ for (const scenario of [
     try {
       await page.goto("/login", { waitUntil: "commit" });
       await expect(page.locator("html")).toHaveAttribute("data-theme", scenario.expected);
-      await expect(page).toHaveTitle("Bookvane");
+      await expect(page).toHaveTitle("Bookvane · Your personal reading home");
       expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe(scenario.expected);
       await expect(page.locator("body")).toHaveCSS("background-color", scenario.expected === "dark" ? "rgb(30, 29, 27)" : "rgb(250, 248, 242)");
       expect(await page.getByRole("heading", { name: "Welcome back." }).count()).toBe(0);
