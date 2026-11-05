@@ -164,7 +164,7 @@ components:
     backgroundColor: "{colors.cloth-green}"
     textColor: "{colors.cloth-ink-light}"
     rounded: "{rounded.full}"
-    size: "68px"
+    size: "96px"
   book-cover:
     backgroundColor: "{colors.wash}"
     rounded: "{rounded.cover}"
@@ -180,7 +180,7 @@ Bookvane is a reading home printed on ivory paper. The page is quiet: warm off-w
 
 The shared unit is the book spine. A book with artwork sits in a 2:3 frame; a book without it becomes a typographic jacket with a spine stripe down its left edge, a bookcloth spine block in list artwork, or a single spine standing on the year shelf. Wherever a book appears, it is never a blank tile or a letter tile.
 
-Density is calm and one-handed: a single reading column on phones with a 20px gutter and 44px+ tap targets, widening to a 640px (phone/tablet) or 880px (desktop) hub on the profile and a 1240px container elsewhere. Lora carries names and headings at three sizes; Source Sans carries everything else. Light and dark themes share every rule; dark mode swaps the paper for warm charcoal and lifts the greens to a pale sage.
+Density is calm and one-handed: a single reading column on phones with a 20px gutter and 44px+ tap targets, with the profile as one centred 720px column (header, tabs, panels and account rows) and a 1240px container elsewhere. Lora carries names and headings at three sizes; Source Sans carries everything else. Light and dark themes share every rule; dark mode swaps the paper for warm charcoal and lifts the greens to a pale sage.
 
 **Key Characteristics:**
 - Ivory paper (light) and warm charcoal (dark), with ink-green text and hairline sage rules.
@@ -250,9 +250,9 @@ The jacket title and author scale with the cover's own width (container query un
 
 ## Layout
 
-- **Containers:** the main container is 1240px with 32px side padding (28px at 701–1050px, 20px under 700px, 16px under 350px). The profile hub is a 640px column, widening to 880px from 1024px; a single list page stays 640px.
+- **Containers:** the main container is 1240px with 32px side padding (28px at 701–1050px, 20px under 700px, 16px under 350px). The profile is one centred 720px column from 1024px (header, tabs, panels and account rows share its left edge); a single list page stays 640px.
 - **Rhythm:** spacing runs in 4px steps (4, 8, 12, 16, 20, 24, 28, 32, 36). Sections sit 36px apart on desktop and 25px on phones; profile sections end with 24–32px bottom margins.
-- **Breakpoints:** 350px (smallest phones), 700/701px (phone to tablet; the mobile nav appears and sheets become bottom sheets), 1024px (wider profile hub, taller shelf), 1050px (tablet tightening).
+- **Breakpoints:** 350px (smallest phones), 700/701px (phone to tablet; the mobile nav appears and sheets become bottom sheets), 1024px (profile column and taller shelf), 1050px (tablet tightening).
 - **Phones:** a fixed bottom nav (70px plus safe area) with four items; the page pads 78px plus safe area at the bottom so content clears it. The nav hides while a text input has focus. Toasts sit above the nav.
 - **Lists grid:** list cards are two across, falling to one when the lists area is narrower than 20.5rem (a container query, so it also responds to enlarged text).
 - **Book grid:** five across on desktop, three on tablet, two on phones.
@@ -298,7 +298,7 @@ Tactile but quiet: solid shapes, no gradients, a single filled action per view.
 - **Error:** a danger message with a 3px danger left rule on a wash fill.
 
 ### Chips and Pills
-- **Privacy pill:** a wash pill (24px) holding a muted 18px line icon, a muted sentence that wraps inside the pill, and a single tertiary link action. On phones it becomes a two-row grid with the action on its own line.
+- **Privacy pill:** a wash pill (24px) holding a muted 18px line icon, a muted sentence that wraps inside the pill, and a single tertiary link action. At 700px and below it becomes a two-row grid: the sentence on one line, the action centred on its own line. On desktop it is a single line with 16px padding on both sides.
 - **Subject chips:** fully rounded, 44px tall; on phones they scroll horizontally behind a soft right-edge fade rather than wrapping.
 
 ### Cards / Containers
@@ -312,8 +312,11 @@ Native modal dialogs on panel fill with a hairline border, 10px radius, 28px pad
 - **Desktop:** a 84px header on paper with a hairline bottom rule; Lora wordmark with the logo; 600-weight nav links, the active one green with a 2px green underline.
 - **Phones:** a fixed four-item bottom nav (Home, Discover, My Books, You), 12px labels under 21px icons, muted at rest and green and bold when active. The You item shows the reader's avatar; labels wrap between words rather than truncating.
 
+### Tabs
+The profile's Overview · Lists · Year switcher. A wash track with equal segments (`flex: 1 1 0`, never narrower than the label), the selected segment raised as a pill: panel white in light, a lift of 12% ink over the wash in dark, so it always reads above the track. It is a real ARIA tablist: arrow keys move, Home/End jump, and the selection lives in `?tab=` so Back and links work. Labels never wrap or truncate, at 320px or 200% text. The incoming panel settles over 160ms on a switch, never on first load.
+
 ### Avatar
-A round bookcloth disc with a single line icon, chosen from twelve (open book, coffee cup, cat, feather, moon, leaf, lamp, glasses, bird, mountain, sun, library). The glyph is 44% of the diameter, with a 2px stroke at 32px and below and 1.75px above. The disc's ink follows the Measured Ink Rule. Sizes: 68px in the profile identity row, 96px in the edit-sheet preview, small in the header and mobile nav. With no icon chosen it shows the reader's initials, else an open book. It is decorative; the name beside it identifies the reader. A changed avatar crossfades over 200ms; the first paint never animates. The picker is a four-column icon grid and a two-column colour grid of 48px tiles; the checked tile gets a green stroke and 2px inset ring.
+A round bookcloth disc with a single line icon, chosen from twelve (open book, coffee cup, cat, feather, moon, leaf, lamp, glasses, bird, mountain, sun, library). The glyph is 44% of the diameter, with a 2px stroke at 32px and below and 1.75px above. The disc's ink follows the Measured Ink Rule. Sizes: 96px in the centred profile header and the edit-sheet preview, small in the header and mobile nav. With no icon chosen it shows the reader's initials, else an open book. It is decorative; the name beside it identifies the reader. A changed avatar crossfades over 200ms; the first paint never animates. The picker is a four-column icon grid and a two-column colour grid of 48px tiles; the checked tile gets a green stroke and 2px inset ring.
 
 ### Book Cover and Typographic Jacket (signature)
 Every book image sits in a 2:3 frame with a 4px radius on a wash ground. While artwork loads, or when none exists, the cover is a typographic jacket: one of five tints derived from the palette (sage, ivory, rust, forest, ink) chosen by a stable hash of the title, a spine stripe down the left edge (an inset band at 14% of the jacket ink plus a 1px hairline at 22%), the title in Lora and the author in small caps above a hairline. Type scales with the cover's own width; under 96px the author drops, under 48px only tint and spine remain. The jacket under loading art waits 180ms then fades in over 160ms, so fast covers never flash text; cached covers paint at once.
@@ -325,7 +328,7 @@ Up to four covers side by side in 2:3 slots (3px radius, 2px gaps) on a 64px str
 The reader's year as a shelf: twelve month columns on a 3px ink baseline, 96px tall (140px on the desktop hub), with helper-size month initials beneath (the biggest month in bold ink). Each finished book is one spine in a bookcloth colour with a stable height between 78% and 100%, a 1.5px warm-light edge and a 1px band near the top. Spines are at least 4px wide on phones and 8px on desktop; when a month has more books than fit, the extra show as a muted "+N" above the column. Spines rise from the baseline once per page load (240ms, staggered 20ms per month). The shelf is decorative; a screen-reader list carries the counts.
 
 ### Motion
-Every state change gets one quiet acknowledgement between 140ms and 240ms, ease-out: button state 150ms, details disclosure 140ms, jacket and artwork fade 160ms, dialog rise 180ms, avatar crossfade 200ms, spine rise 240ms. Nothing bounces. Under `prefers-reduced-motion` every animation and transition is removed.
+Every state change gets one quiet acknowledgement between 140ms and 240ms, ease-out: button state 150ms, details disclosure 140ms, jacket and artwork fade 160ms, dialog rise 180ms, avatar crossfade 200ms, tab panel settle 160ms (switches only), spine rise 240ms. Nothing bounces. Under `prefers-reduced-motion` every animation and transition is removed.
 
 ## Do's and Don'ts
 
