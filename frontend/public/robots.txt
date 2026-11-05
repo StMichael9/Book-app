@@ -10,4 +10,28 @@ Disallow: /login
 Disallow: /reset-password
 Disallow: /forgot-password
 
+# AI search and assistants may read and cite Bookvane's public pages.
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot
+User-agent: Applebot-Extended
+User-agent: CCBot
+User-agent: Bingbot
+Allow: /
+Disallow: /home
+Disallow: /my-books
+Disallow: /my-data
+Disallow: /preferences
+Disallow: /profile
+Disallow: /login
+Disallow: /reset-password
+Disallow: /forgot-password
+
 Sitemap: https://bookvane.me/sitemap.xml
