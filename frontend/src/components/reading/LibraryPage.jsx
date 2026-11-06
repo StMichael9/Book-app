@@ -21,6 +21,7 @@ const VIEW_KEY = "bookvane-library-view";
 const readView = () => { try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "covers"; } catch { return "covers"; } };
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const LENGTH_FALLBACK = { short: "Short", medium: "Medium", long: "Long" };
+const SHORT_SORT = { added: "Added", title: "Title", author: "Author", finished: "Finished", updated: "Updated" };
 const FACET_NAME = { source: "source_label", year: "year_finished" };
 
 function SortMenu({ value, onChange }) {
@@ -42,7 +43,7 @@ function SortMenu({ value, onChange }) {
   }
   const current = SORTS.find(([key]) => key === value)[1];
   return <div className="bv-sort" ref={root} onKeyDown={onKeyDown}>
-    <Button ref={button} variant="secondary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>Sort: {current}<ChevronDown aria-hidden="true" /></Button>
+    <Button ref={button} variant="secondary" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}><span className="bv-sort-long">Sort: {current}</span><span className="bv-sort-short" aria-hidden="true">{SHORT_SORT[value]}</span><ChevronDown aria-hidden="true" /></Button>
     {open && <div className="bv-sort-menu" role="menu" aria-label="Sort your books">
       {SORTS.map(([key, text]) => <button key={key} type="button" role="menuitemradio" aria-checked={key === value} onClick={() => { setOpen(false); button.current?.focus(); onChange(key); }}>{text}</button>)}
     </div>}
@@ -195,7 +196,7 @@ export default function LibraryPage() {
     <div className="bv-shelf-row">
       <div className="bv-shelf-tabs">
         <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}</div>
-        {moreShelves.length > 0 && <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary>
+        {desktop && moreShelves.length > 0 && <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary>
           <div className="bv-more-menu">{moreShelves.filter(([shelf]) => shelf !== state.shelf).map(shelfButton)}</div></details>}
       </div>
       <button type="button" role="switch" aria-checked={state.owned} className="bv-owned-switch" onClick={() => flag("owned")}>Owned only<span className="bv-switch" aria-hidden="true" /></button>
@@ -236,7 +237,11 @@ export default function LibraryPage() {
     </div>
     {library.readingActions && !library.readOnly && <p className="bv-library-tools"><TextLink to="/my-books/private">Add one book manually</TextLink></p>}
     {!desktop && <NativeDialog open={sheet} onClose={() => setSheet(false)} title="Filters" className="bv-sheet">
-      <div className="bv-sheet-body">{facets}</div>
+      <div className="bv-sheet-body">
+        {moreShelves.length > 0 && <fieldset className="bv-facet-group"><legend>Other shelves</legend>
+          <div className="bv-sheet-shelves">{moreShelves.map(([shelf, text]) => <button key={shelf} type="button" className="bv-shelf-pill" aria-pressed={state.shelf === shelf} onClick={() => apply({ ...state, shelf: state.shelf === shelf ? "all" : shelf })}>{text}<small>{counts?.[shelf] ?? "…"}</small></button>)}</div></fieldset>}
+        {facets}
+      </div>
       <div className="bv-sheet-foot"><Button onClick={() => setSheet(false)}>{`Show ${books(total)}`}</Button><Button variant="quiet" onClick={clearAll} disabled={!filtered}>Clear all</Button></div>
     </NativeDialog>}
   </section>;

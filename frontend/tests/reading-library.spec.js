@@ -413,6 +413,24 @@ test("the A–Z index groups the list by letter and jumps, loading more pages wh
   await expect(page.getByRole("navigation", { name: "Jump to a letter" })).toHaveCount(0);
 });
 
+test("on a phone Sort is one 44px line and Paused/Stopped live in the filter sheet", async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries = new Map(books.slice(0, 4).map(book => [book.id, { ...row(book.id), reading_state: book.id === 1 ? "paused" : null }]));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books?sort=title");
+  const sort = page.getByRole("button", { name: "Sort: Title" });
+  await expect(sort).toBeVisible();
+  await expect(sort).toContainText("Title");
+  expect((await sort.boundingBox()).height).toBe(44);
+  const filters = page.getByRole("button", { name: /^Filters/ });
+  const fb = await filters.boundingBox(), sb = await sort.boundingBox();
+  expect(Math.abs(fb.y - sb.y)).toBeLessThan(2);
+  await expect(page.getByText("More filters", { exact: true })).toHaveCount(0);
+  await filters.click();
+  await page.getByRole("dialog", { name: "Filters" }).getByRole("button", { name: /^Paused/ }).click();
+  await expect(page).toHaveURL(/status=paused/);
+});
+
 test("a cursor the server rejects reloads the list from the start", async ({ page, app }) => {
   app.entries = new Map(books.map(book => [book.id, row(book.id)]));
   await page.goto("/my-books?status=want");
@@ -715,9 +733,6 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
       await page.getByRole("button", { name: /^Sort:/ }).click();
       await page.screenshot({ path: `${dir}/sort-open-${width}-${theme}.png` });
       await page.keyboard.press("Escape");
-      await page.getByText("More filters", { exact: true }).click();
-      await page.screenshot({ path: `${dir}/more-filters-open-${width}-${theme}.png` });
-      await page.getByText("More filters", { exact: true }).click();
     }
     if (width < 900) {
       await page.getByRole("button", { name: /^Filters/ }).click();
