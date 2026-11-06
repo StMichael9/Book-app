@@ -131,7 +131,7 @@ export default function LibraryPage() {
   return <section className="bv-container bv-reading-library bv-library">
     <div className="bv-library-head">
       <div><h1>My Books</h1>{page && <p className="bv-library-count" role="status">{filtered && unfiltered != null && unfiltered >= total ? `${total} of ${books(unfiltered)}` : books(total)}</p>}</div>
-      {library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-import-link">Import books</ActionLink>}
+      {library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link">Import books</ActionLink>}
     </div>
     <div className="bv-library-bar">
       <form className="bv-library-search bv-field" role="search" aria-label="Search your library" onSubmit={event => { event.preventDefault(); apply({ ...state, q: draft.trim() }); }}>

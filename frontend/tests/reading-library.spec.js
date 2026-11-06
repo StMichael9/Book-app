@@ -608,3 +608,28 @@ test("an English title shows on My Books cards and the reading page; private boo
   }
   delete books[0].published_year; delete books[1].published_year;
 });
+
+// Screenshots for design review: MY_BOOKS_SHOTS=1 writes them to ../.bv-shots/my-books; skipped otherwise.
+for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390, 844, false], [1440, 900, false], [390, 844, true]]) {
+  test(`my books screenshots ${theme} ${width}${zoom ? " 200%" : ""}`, async ({ page, app }) => {
+    test.skip(!process.env.MY_BOOKS_SHOTS, "design review only");
+    app.readingActions = true;
+    app.libraryImport = true;
+    app.entries = new Map(books.map(book => [book.id, { ...row(book.id, book.id % 3 === 0, true), reading_state: book.id % 5 === 0 ? "reading" : null, book: { ...books[book.id - 1], tags: book.id <= 12 ? [{ id: 7, name: "Fantasy" }] : [] } }]));
+    app.facets = { subject: [{ value: 7, label: "Fantasy", count: 12 }, { value: 8, label: "Literary fiction", count: 9 }, { value: 9, label: "History", count: 5 }, { value: 10, label: "Poetry", count: 0 }],
+      author: [{ value: "Isolated test author", label: "Isolated test author", count: 30 }], year_finished: [], length: [{ value: "short", label: "Short", count: 11 }, { value: "medium", label: "Medium", count: 12 }, { value: "long", label: "Long", count: 7 }],
+      source_label: [{ value: "Goodreads: to-read", label: "Goodreads: to-read", count: 8 }] };
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.setViewportSize({ width, height });
+    await page.goto("/my-books?subject=7&owned=1");
+    await expect(page.locator(".bv-book-card").first()).toBeVisible();
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const dir = "../.bv-shots/my-books";
+    const name = `${dir}/library-${width}${zoom ? "-200" : ""}-${theme}.png`;
+    await page.screenshot({ path: name, fullPage: true });
+    if (width < 900) {
+      await page.getByRole("button", { name: /^Filters/ }).click();
+      await page.screenshot({ path: `${dir}/sheet-${width}${zoom ? "-200" : ""}-${theme}.png` });
+    }
+  });
+}

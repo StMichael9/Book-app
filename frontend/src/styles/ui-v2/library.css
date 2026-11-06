@@ -8,7 +8,7 @@
 .bv-root .bv-library-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .bv-root .bv-library .bv-library-search { flex: 1 1 260px; position: relative; margin: 0; max-width: none; }
 .bv-root .bv-library-search svg { position: absolute; left: 14px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--bv-muted); pointer-events: none; }
-.bv-root .bv-library-search input { width: 100%; min-height: 44px; padding-left: 42px; border-radius: 999px; }
+.bv-root .bv-library .bv-library-search input { width: 100%; min-height: 44px; padding: 8px 16px 8px 44px; border-radius: 999px; }
 .bv-root .bv-library-bar .bv-button { gap: 8px; }
 .bv-root .bv-library-bar .bv-button svg { width: 16px; height: 16px; }
 .bv-root .bv-count-badge { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--bv-green); color: var(--bv-on-green); font-size: var(--bv-fs-small); line-height: 20px; text-align: center; }
