@@ -11,8 +11,9 @@ import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
-import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useDocumentTitle, useRequest } from "./data.js";
+import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
+import { useBookSeo } from "./bookSeo.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
@@ -188,6 +189,7 @@ export function BookPage() {
   // Opened from a card: draw its title, cover and facts at once; the description and subjects fill in when the request returns.
   const seed = String(location.state?.book?.id) === String(bookId) ? location.state.book : null;
   const book = request.data || seed;
+  useBookSeo(book);
   const loadingNode = useRef(null), errorNode = useRef(null), articleNode = useRef(null), restoreHeadingFocus = useRef(false);
   const completeFocusTransition = useCallback(node => {
     if (!node) return;
@@ -218,7 +220,6 @@ export function BookPage() {
   }, [completeFocusTransition]);
   const saved = reader.libraryReady && !library.loading && !library.error && library.booksById[bookId]?.status;
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
-  useDocumentTitle(book?.title);
   const copyUrl = bookshopAffiliateUrl(book);
   const sharedVisit = new URLSearchParams(location.search).get("src") === "share" && Boolean(book);
   useEffect(() => { if (sharedVisit) trackEvent("share_visit", { src: "share" }); }, [sharedVisit, bookId]);
