@@ -1,12 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpen, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import { BookOpen, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useRequest } from "../ui-v2/data.js";
 import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
-import { LibraryEntryCard } from "./ReadingCards.jsx";
+import { LibraryEntryCard, LibraryEntryRow } from "./ReadingCards.jsx";
+import { LETTERS, entryLetter, letterId } from "./library/libraryIndex.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
 import { MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
@@ -16,6 +17,8 @@ const DESKTOP = "(min-width: 901px)";
 const subscribeDesktop = notify => { const query = window.matchMedia(DESKTOP); query.addEventListener("change", notify); return () => query.removeEventListener("change", notify); };
 const useDesktop = () => useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP).matches, () => true);
 
+const VIEW_KEY = "bookvane-library-view";
+const readView = () => { try { return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "covers"; } catch { return "covers"; } };
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const LENGTH_FALLBACK = { short: "Short", medium: "Medium", long: "Long" };
 const FACET_NAME = { source: "source_label", year: "year_finished" };
@@ -62,6 +65,8 @@ export default function LibraryPage() {
   const [draft, setDraft] = useState(state.q);
   const [seenQuery, setSeenQuery] = useState(state.q);
   if (seenQuery !== state.q) { setSeenQuery(state.q); setDraft(state.q); }
+  const [view, setView] = useState(readView);
+  const changeView = next => { setView(next); try { localStorage.setItem(VIEW_KEY, next); } catch { /* the choice just isn't remembered on this device */ } };
   const { rememberEntries } = library;
   // Coming back from a book, the view reloads as far as the reader had got with Show more (state left in history), then scrolls there.
   const navigate = useNavigate();
@@ -105,6 +110,19 @@ export default function LibraryPage() {
     }
   }
 
+  // The A–Z index: a tap on a letter loads more pages until that letter's group is on the page, then moves there.
+  const jumpTo = useRef(null), [jumpTick, setJumpTick] = useState(0);
+  useEffect(() => {
+    const letter = jumpTo.current;
+    if (!letter) return;
+    const node = document.getElementById(letterId(letter));
+    if (node) { jumpTo.current = null; node.scrollIntoView({ block: "start", behavior: "instant" }); node.focus({ preventScroll: true }); }
+    else if (current.loading) return;
+    else if (current.next && !current.failed) showMore();
+    else jumpTo.current = null;
+    // showMore closes over the latest pages; this re-runs as each page arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTick, current.next, current.loading, current.failed, current.items.length]);
   function rememberView() {
     const loaded = items.length > PAGE_SIZE ? items.length : 0, scroll = Math.round(window.scrollY);
     navigation.remember(location.key, { href: location.pathname + location.search, previous: location.state?.libraryPrevious, loaded, scroll });
@@ -129,6 +147,12 @@ export default function LibraryPage() {
 
   const total = page?.total ?? 0;
   const items = page ? [...page.items, ...current.items] : [];
+  // In the list, books sit under their letter when sorted by title or author (consecutive runs, so the order never changes).
+  const groups = view === "list" && page?.index ? items.reduce((out, entry) => {
+    const letter = entryLetter(entry, state.sort);
+    if (out.at(-1)?.letter === letter) out.at(-1).items.push(entry); else out.push({ letter, items: [entry] });
+    return out;
+  }, []) : [{ letter: null, items }];
   // After a chip comes off, focus goes to the next chip, or to the results heading when none are left; never to the page.
   const chipsNode = useRef(null), resultsHeading = useRef(null), focusChip = useRef(null);
   useEffect(() => {
@@ -163,6 +187,9 @@ export default function LibraryPage() {
         <input type="search" aria-label="Search title or author" enterKeyHint="search" value={draft} maxLength={200} placeholder="Search your books by title or author" onChange={event => setDraft(event.target.value)} />
       </form>
       <SortMenu value={state.sort} onChange={sort => apply({ ...state, sort })} />
+      <div className="bv-view-toggle" role="group" aria-label="View">
+        {[["covers", "Covers", LayoutGrid], ["list", "List", List]].map(([key, text, Icon]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => changeView(key)}><Icon aria-hidden="true" /><span className="bv-view-text">{text}</span></button>)}
+      </div>
       {!desktop && <Button variant="secondary" className="bv-filters-button" onClick={() => setSheet(true)}><SlidersHorizontal aria-hidden="true" />Filters{filterCount > 0 && <><span className="bv-count-badge" aria-hidden="true">{filterCount}</span><span className="bv-sr-only">{` (${filterCount} active)`}</span></>}</Button>}
     </div>
     <div className="bv-shelf-row">
@@ -185,8 +212,17 @@ export default function LibraryPage() {
         <h2 className="bv-sr-only" tabIndex={-1} ref={resultsHeading}>Your books</h2>
         {!page && request.loading ? <BookSkeletons /> : !page ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved books haven’t changed.</EmptyState>
           : items.length ? <>
-            <div className="bv-book-grid">{items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView}
-              buyUrl={state.shelf === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : undefined} />)}</div>
+            {view === "list" ? <div className="bv-list-wrap">
+              {page.index && <nav className="bv-az" aria-label="Jump to a letter">{LETTERS.map(letter => {
+                const count = page.index[letter] ?? 0;
+                return <button key={letter} type="button" disabled={!count} aria-label={count ? `Jump to ${letter === "#" ? "other" : letter}, ${books(count)}` : `${letter === "#" ? "Other" : letter}, no books`}
+                  onClick={() => { jumpTo.current = letter; setJumpTick(tick => tick + 1); }}>{letter}</button>;
+              })}</nav>}
+              <div className="bv-library-list">{groups.map((group, groupIndex) => <section key={groupIndex} className="bv-letter-group" aria-label={group.letter ? `${group.letter === "#" ? "Other" : group.letter}` : undefined}>
+                {group.letter && <h3 className="bv-letter" tabIndex={-1} {...(groups.findIndex(other => other.letter === group.letter) === groupIndex ? { id: letterId(group.letter) } : {})}>{group.letter === "#" ? "Other" : group.letter}</h3>}
+                <ul>{group.items.map(entry => <LibraryEntryRow key={entry.id} entry={entry} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView} />)}</ul></section>)}</div>
+            </div> : <div className="bv-book-grid">{items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView}
+              buyUrl={state.shelf === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : undefined} />)}</div>}
             {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
             <div className="bv-show-more">
               {current.next && <Button variant="secondary" disabled={current.loading} onClick={showMore}>{current.loading ? "Loading…" : "Show more"}</Button>}

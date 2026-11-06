@@ -93,7 +93,8 @@ const test = base.extend({
         const offset = Number(url.searchParams.get("cursor") || 0);
         if (state.badCursor && offset) { state.badCursor = false; return reply(422, { detail: { code: "invalid_cursor", message: "Invalid library cursor. Return to the first page." } }); }
         return reply(200, { items: entries.slice(offset, offset + limit), counts, total: counts[facet] ?? entries.length,
-          next_cursor: entries.length > offset + limit ? String(offset + limit) : null, facets: state.facets || {}, index: null });
+          next_cursor: entries.length > offset + limit ? String(offset + limit) : null, facets: state.facets || {},
+          index: ["title", "author"].includes(sort) ? Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZ#"].map(letter => [letter, entries.filter(entry => (/^[a-z]/i.test(titleOf(entry)) ? titleOf(entry)[0].toUpperCase() : "#") === letter).length])) : null });
       }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
@@ -368,6 +369,48 @@ test("coming back from a book restores how far Show more had got", async ({ page
   await page.goBack();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
   expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+});
+
+test("the Covers / List choice is remembered on this device", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 5).map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(5);
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("bookvane-library-view"))).toBe("list");
+  await page.reload();
+  await expect(page.locator(".bv-library-row")).toHaveCount(5);
+  await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Covers" }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+});
+
+test("the list view works with storage blocked", async ({ page, app }) => {
+  await page.addInitScript(() => { Storage.prototype.getItem = () => { throw new DOMException("Blocked", "SecurityError"); }; Storage.prototype.setItem = () => { throw new DOMException("Blocked", "SecurityError"); }; });
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(3);
+});
+
+test("the A–Z index groups the list by letter and jumps, loading more pages when needed", async ({ page, app }) => {
+  const letters = [..."ABCDEFGHIJKLMNOPRSTUVWY"], titles = [...letters.map(letter => `${letter} story`), "Aa extra", "Zebra tale", "Zen path", "Zoo day", "Zulu war", "Zinc age"];
+  app.entries = new Map(titles.map((title, index) => { const id = index + 1; return [id, { ...row(id), book: { ...books[index], id, title } }]; }));
+  await page.goto("/my-books?sort=title");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(24);
+  const az = page.getByRole("navigation", { name: "Jump to a letter" });
+  await expect(az.getByRole("button", { name: "Q, no books" })).toBeDisabled();
+  await expect(az.getByRole("button", { name: "Jump to B, 1 book" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "A", exact: true })).toBeVisible();
+  await expect(page.locator("#bv-letter-Z")).toHaveCount(0);
+  await az.getByRole("button", { name: /^Jump to Z,/ }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(29);
+  await expect(page.locator("#bv-letter-Z")).toBeFocused();
+  await expect(page.locator(".bv-library-row")).toHaveCount(29);
+  await page.goto("/my-books");
+  await expect(page.getByRole("navigation", { name: "Jump to a letter" })).toHaveCount(0);
 });
 
 test("a cursor the server rejects reloads the list from the start", async ({ page, app }) => {
@@ -660,6 +703,14 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
     const dir = "../.bv-shots/my-books";
     const name = `${dir}/library-${width}${zoom ? "-200" : ""}-${theme}.png`;
     await page.screenshot({ path: name, fullPage: true });
+    if (!zoom) {
+      const names = ["Americanah", "Beloved", "Circe", "Dune", "Emma", "Frankenstein", "Gilead", "Hamnet", "Invisible Man", "Jane Eyre", "Kindred", "Middlemarch", "Normal People", "Orlando", "Piranesi", "Rebecca", "Sula", "Tess", "Ulysses", "Villette", "Wolf Hall", "Zorba"];
+      app.entries = new Map(app.entries.entries().map(([id, entry]) => [id, { ...entry, book: { ...entry.book, title: names[(id - 1) % names.length], authors: [{ id: 1, name: ["Chimamanda Adichie", "Toni Morrison", "Madeline Miller", "Frank Herbert"][id % 4] }] } }]));
+      await page.goto("/my-books?sort=title");
+      await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+      await expect(page.locator(".bv-library-row").first()).toBeVisible();
+      await page.screenshot({ path: `${dir}/list-${width}-${theme}.png`, fullPage: false });
+    }
     if (width < 900 && !zoom) {
       await page.getByRole("button", { name: /^Sort:/ }).click();
       await page.screenshot({ path: `${dir}/sort-open-${width}-${theme}.png` });
