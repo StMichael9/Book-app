@@ -158,7 +158,7 @@ test('manual fallback keeps bibliographic input and distinguishes CSV import', a
   await expect(page.getByLabel('Author (optional)')).toHaveValue('Someone');
   await expect(page.getByRole('link', { name: 'Back to search' })).toHaveAttribute('href', '/browse?book=My%20missing%20title&author=Someone');
   expect(await page.evaluate(() => JSON.stringify(history.state))).not.toContain('My missing title');
-  await page.getByRole('link', { name: 'Import books', exact: true }).click();
+  await page.getByRole('link', { name: 'Bring your library', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Import from Goodreads or StoryGraph' })).toBeVisible();
   await expect(page.locator('#import-file')).toHaveAttribute('accept', '.csv,.tsv,text/csv,text/tab-separated-values');
   await page.locator('#import-file').setInputFiles({ name: 'library.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('not an accepted CSV') });

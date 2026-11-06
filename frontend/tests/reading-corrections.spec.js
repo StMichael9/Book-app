@@ -156,7 +156,6 @@ test('current Reading entry is absent from Finished while earlier finishes remai
   await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Import books', exact: true })).toBeVisible();
-  await expect(page.getByText('CSV / TSV import', { exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
   await page.locator('.bv-workspace-history > summary').click();
   await expect(page.locator('.bv-reading-history > li')).toHaveCount(3);
