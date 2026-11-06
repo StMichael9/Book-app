@@ -1,15 +1,13 @@
 import { useCallback, useEffect } from "react";
 import { getBooks } from "../../api/books.js";
-import { getLibraryPage, getReadingHome, getReadingWorkspace } from "../../api/reading.js";
+import { getReadingHome, getReadingWorkspace } from "../../api/reading.js";
+import { defaultLibraryState, libraryKey, loadLibraryPage } from "../reading/library/libraryQuery.js";
 import { prefetchRequest, readRequestCache } from "../../api/requestCache.js";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 
 const WORKSPACES_AHEAD = 3;
-const libraryFirstPage = () => getLibraryPage({ q: "", facet: "all" }).then(page => {
-  if (!Array.isArray(page?.items) || !page.counts || typeof page.total !== "number") throw new Error("Unable to load your library.");
-  return page;
-});
+const libraryFirstPage = () => loadLibraryPage(defaultLibraryState());
 
 // Warms the signed-in pages a reader is about to open. The keys are the ones the pages use for their own requests
 // (see ReadingHomePage and LibraryPage), so a page that opens afterwards finds its data already in the cache.
@@ -34,7 +32,7 @@ export function usePageWarmers() {
   }, [ready, generation, revision, warmWorkspaces]);
   const warmLibrary = useCallback(() => {
     if (!ready) return;
-    const key = `library:${generation}::all:::${revision}`;
+    const key = libraryKey(generation, defaultLibraryState(), revision);
     prefetchRequest(key, () => libraryFirstPage().then(page => { warmWorkspaces(page.items); return page; }));
     const cached = readRequestCache(key);
     if (cached) warmWorkspaces(cached.data?.items);

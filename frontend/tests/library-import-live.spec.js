@@ -18,7 +18,7 @@ test("M5 real file import, source privacy, replay, CSV and cross-account isolati
       await tab.waitForTimeout(61000);
       await tab.getByRole("button", { name: "Create account", exact: true }).click();
     } else expect(registered.status(), await registered.text()).toBe(201);
-    await expect(tab.getByRole("heading", { name: "Bring your library", exact: true })).toBeVisible();
+    await expect(tab.getByRole("heading", { name: "Import books", exact: true })).toBeVisible();
   }
   await register(page, "m5-live-owner@example.com");
   await page.goto(`/book/${book.id}`);

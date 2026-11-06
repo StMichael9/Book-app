@@ -86,7 +86,7 @@ const test = base.extend({
 
 test("My Books entry and real local CSV parser preserve Unicode, quotes and embedded newlines", async ({ page, app }) => {
   await page.goto("/my-books");
-  await page.getByRole("link", { name: "Bring your library", exact: true }).click();
+  await page.getByRole("link", { name: "Import books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Import from Goodreads or StoryGraph", exact: true })).toBeVisible();
   const content = '\uFEFFtitle,author,review\r\n"夜の本, Part 2",É. Auteur,"A review\nwith ""quotes"""\r\nAnother Book,Another Author,=1+1\r\n';
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "engineering.csv", mimeType: "text/csv", buffer: Buffer.from(content) });
@@ -152,7 +152,7 @@ test("feature off keeps V2/V3 My Books and blocks the direct import route", asyn
   await page.goto("/my-books/import");
   await expect(page).toHaveURL(/\/my-books$/);
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Import books", exact: true })).toHaveCount(0);
   expect(app.requests.filter(request => request.path.startsWith(root))).toHaveLength(0);
 });
 
@@ -208,7 +208,7 @@ test("the start screen is one calm path with Goodreads and StoryGraph cards and 
   await expect(page.getByRole("link", { name: /Open StoryGraph export/ })).toHaveAttribute("href", "https://app.thestorygraph.com/user-export");
   await expect(page.getByLabel("Choose your export file (.csv)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Check my library" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Bring your library" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Import books" })).toHaveCount(0);
   for (const name of ["CSV / spreadsheet", "Export my Bookvane library"]) await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download Bookvane CSV template" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download library CSV" })).toBeVisible();
