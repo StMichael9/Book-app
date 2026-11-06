@@ -135,3 +135,7 @@
   .bv-root .bv-row-thumb { grid-row: 1 / span 2; }
   .bv-root .bv-row-shelf { grid-column: 2; }
 }
+
+@media (max-width: 340px) {
+  .bv-root .bv-sort, .bv-root .bv-filters-button { flex-basis: 4.5rem; }
+}
