@@ -5,6 +5,7 @@ import { getLibraryPage } from "../../../api/reading.js";
 export const SHELVES = ["all", "reading", "want", "finished", "paused", "dnf"];
 export const SORTS = [["added", "Recently added"], ["title", "Title"], ["author", "Author (surname)"], ["finished", "Date finished"], ["updated", "Recently updated"]];
 export const PAGE_SIZE = 24;
+export const MAX_RESTORE = 100;
 const GROUPS = { subject: "subject", author: "author", length: "length", source: "source_label", year: "year_finished" };
 export const FILTER_GROUPS = Object.keys(GROUPS);
 export const JUST_IMPORTED_DAYS = 7;
@@ -74,9 +75,9 @@ export const libraryKey = (generation, state, revision) => `library:${generation
 export const defaultLibraryState = () => readLibraryState(new URLSearchParams());
 
 // One page of the library for this state, checked for the shape the page relies on. The prefetcher uses it too.
-export async function loadLibraryPage(state, cursor = "") {
+export async function loadLibraryPage(state, cursor = "", limit = PAGE_SIZE) {
   const params = libraryApiParams(state);
-  params.set("limit", String(PAGE_SIZE));
+  params.set("limit", String(limit));
   if (cursor) params.set("cursor", cursor);
   const page = await getLibraryPage(params);
   if (!Array.isArray(page?.items) || !page.counts || typeof page.total !== "number") throw new Error("Unable to load your library.");

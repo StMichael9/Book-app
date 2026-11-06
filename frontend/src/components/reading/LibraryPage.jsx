@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BookOpen, ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
@@ -9,7 +9,7 @@ import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, TextLink }
 import { LibraryEntryCard } from "./ReadingCards.jsx";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
-import { SORTS, activeFilterCount, clearFilters, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
+import { MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
 import "../../styles/ui-v2/library.css";
 
 const DESKTOP = "(min-width: 901px)";
@@ -63,8 +63,19 @@ export default function LibraryPage() {
   const [seenQuery, setSeenQuery] = useState(state.q);
   if (seenQuery !== state.q) { setSeenQuery(state.q); setDraft(state.q); }
   const { rememberEntries } = library;
-  const key = `${libraryKey(auth.sessionGeneration, state, library.revision)}${reload ? `:r${reload}` : ""}`;
-  const request = useRequest(() => loadLibraryPage(state), key);
+  // Coming back from a book, the view reloads as far as the reader had got with Show more (state left in history), then scrolls there.
+  const navigate = useNavigate();
+  const [restore] = useState(() => {
+    const loaded = Number(location.state?.libraryLoaded);
+    return Number.isInteger(loaded) && loaded > PAGE_SIZE ? { loaded: Math.min(loaded, MAX_RESTORE), scroll: Number(location.state?.libraryScroll) || 0 } : null;
+  });
+  const restoring = restore && !reload ? restore.loaded : PAGE_SIZE;
+  const key = `${libraryKey(auth.sessionGeneration, state, library.revision)}${reload ? `:r${reload}` : ""}${restoring !== PAGE_SIZE ? `:n${restoring}` : ""}`;
+  const request = useRequest(() => loadLibraryPage(state, "", restoring), key);
+  const scrolled = useRef(false);
+  useLayoutEffect(() => {
+    if (restore && request.data && !scrolled.current) { scrolled.current = true; window.scrollTo({ top: restore.scroll, left: 0, behavior: "instant" }); }
+  }, [restore, request.data]);
   useEffect(() => { if (request.data) rememberEntries(request.data.items); }, [request.data, rememberEntries]);
 
   // The last answer stays on screen while the next one loads, so the panel and tabs don't blink away.
@@ -72,9 +83,10 @@ export default function LibraryPage() {
   if (request.data && request.data !== held) setHeld(request.data);
   const page = request.data || held;
   const refreshing = request.loading && Boolean(held);
-  // The size of the whole library, for "N of M": remembered from the last view with nothing narrowing it.
-  const [unfiltered, setUnfiltered] = useState(null);
-  if (request.data && !isFiltered(state) && state.shelf === "all" && unfiltered !== request.data.counts.all) setUnfiltered(request.data.counts.all);
+  // The size of the whole library, for "N of M": one small unfiltered request, only while something narrows the list.
+  const filtered = isFiltered(state);
+  const everything = useRequest(() => loadLibraryPage(defaultLibraryState(), "", 1), `library-size:${auth.sessionGeneration}:${library.revision}`, filtered);
+  const unfiltered = everything.data?.counts?.all ?? null;
 
   // More pages append to the first one and are dropped whenever the first page changes.
   const [more, setMore] = useState({ base: null, items: [], next: null, loading: false, failed: false });
@@ -94,7 +106,10 @@ export default function LibraryPage() {
   }
 
   function rememberView() {
-    navigation.remember(location.key, { href: location.pathname + location.search, previous: location.state?.libraryPrevious });
+    const loaded = items.length > PAGE_SIZE ? items.length : 0, scroll = Math.round(window.scrollY);
+    navigation.remember(location.key, { href: location.pathname + location.search, previous: location.state?.libraryPrevious, loaded, scroll });
+    // Browser Back returns to this entry, so it carries how far the reader had got.
+    if (loaded) navigate(location.pathname + location.search, { replace: true, state: { ...location.state, libraryLoaded: loaded, libraryScroll: scroll } });
   }
   const apply = next => setParams(writeLibraryState(next));
   const labelFor = (group, value) => picked[`${group}:${value}`]
@@ -114,7 +129,16 @@ export default function LibraryPage() {
 
   const total = page?.total ?? 0;
   const items = page ? [...page.items, ...current.items] : [];
-  const filtered = isFiltered(state);
+  // After a chip comes off, focus goes to the next chip, or to the results heading when none are left; never to the page.
+  const chipsNode = useRef(null), resultsHeading = useRef(null), focusChip = useRef(null);
+  useEffect(() => {
+    const index = focusChip.current;
+    if (index == null) return;
+    focusChip.current = null;
+    const chipButtons = chipsNode.current?.querySelectorAll(".bv-chip");
+    if (chipButtons?.length) chipButtons[Math.min(index, chipButtons.length - 1)].focus();
+    else resultsHeading.current?.focus({ preventScroll: true });
+  }, [paramsText]);
   const chips = [
     state.q && ["q", `“${state.q}”`, () => apply({ ...state, q: "" })],
     state.owned && ["owned", "Owned", () => apply({ ...state, owned: false })],
@@ -123,7 +147,7 @@ export default function LibraryPage() {
     state.recent && ["recent", "Just imported", () => apply({ ...state, recent: false })],
     state.label && ["label", `Import: ${state.label}`, () => apply({ ...state, label: "" })],
   ].filter(Boolean);
-  const clearAll = () => apply(clearFilters(state));
+  const clearAll = () => { focusChip.current = -1; apply(clearFilters(state)); };
   const filterCount = activeFilterCount(state);
   const affiliateLinks = state.shelf === "want" && items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
   const facets = <LibraryFilters facets={page?.facets} state={state} labelFor={labelFor} onToggle={toggle} onFlag={flag} />;
@@ -139,25 +163,26 @@ export default function LibraryPage() {
         <input type="search" aria-label="Search title or author" enterKeyHint="search" value={draft} maxLength={200} placeholder="Search your books by title or author" onChange={event => setDraft(event.target.value)} />
       </form>
       <SortMenu value={state.sort} onChange={sort => apply({ ...state, sort })} />
-      {!desktop && <Button variant="secondary" className="bv-filters-button" onClick={() => setSheet(true)}><SlidersHorizontal aria-hidden="true" />Filters{filterCount > 0 && <span className="bv-count-badge" aria-label={`, ${filterCount} active`}>{filterCount}</span>}</Button>}
+      {!desktop && <Button variant="secondary" className="bv-filters-button" onClick={() => setSheet(true)}><SlidersHorizontal aria-hidden="true" />Filters{filterCount > 0 && <><span className="bv-count-badge" aria-hidden="true">{filterCount}</span><span className="bv-sr-only">{` (${filterCount} active)`}</span></>}</Button>}
     </div>
     <div className="bv-shelf-row">
-      <div className="bv-shelf-tabs" role="group" aria-label="Shelf">
-        {[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}
+      <div className="bv-shelf-tabs">
+        <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}</div>
         {moreShelves.length > 0 && <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary>
           <div className="bv-more-menu">{moreShelves.filter(([shelf]) => shelf !== state.shelf).map(shelfButton)}</div></details>}
       </div>
       <button type="button" role="switch" aria-checked={state.owned} className="bv-owned-switch" onClick={() => flag("owned")}>Owned only<span className="bv-switch" aria-hidden="true" /></button>
     </div>
     {["reading", "paused", "finished", "dnf"].includes(state.shelf) && <p className="bv-help">Earlier readings are kept in each book’s Reading history.</p>}
-    {chips.length > 0 && <div className="bv-chips" role="group" aria-label="Active filters">
-      {chips.map(([id, text, remove]) => <button key={id} type="button" className="bv-chip" aria-label={`Remove filter: ${text}`} onClick={remove}>{text}<X aria-hidden="true" /></button>)}
+    {chips.length > 0 && <div className="bv-chips" role="group" aria-label="Active filters" ref={chipsNode}>
+      {chips.map(([id, text, remove], index) => <button key={id} type="button" className="bv-chip" aria-label={`Remove filter: ${text}`} onClick={() => { focusChip.current = index; remove(); }}>{text}<X aria-hidden="true" /></button>)}
       <button type="button" className="bv-link-button" onClick={clearAll}>Clear all</button>
     </div>}
     {library.readOnly && <p className="bv-notice" role="status">Your library is available to read. Changes are temporarily paused.</p>}
     <div className={`bv-library-body${desktop ? " has-panel" : ""}`}>
       {desktop && <aside className="bv-facet-panel" aria-label="Filters">{facets}</aside>}
       <div className="bv-library-results" aria-busy={refreshing}>
+        <h2 className="bv-sr-only" tabIndex={-1} ref={resultsHeading}>Your books</h2>
         {!page && request.loading ? <BookSkeletons /> : !page ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved books haven’t changed.</EmptyState>
           : items.length ? <>
             <div className="bv-book-grid">{items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView}

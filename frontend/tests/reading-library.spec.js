@@ -225,7 +225,7 @@ test("large library: Show more, search and Owned use bounded server queries", as
   await page.getByRole("switch", { name: "Owned only" }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
   await expect(page).toHaveURL(/owned=1/);
-  expect(app.requests.filter(r => r.path === "/me/library").every(r => r.query.get("limit") === "24")).toBe(true);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").every(r => r.query.get("limit") === "24")).toBe(true);
   expect(app.requests.some(request => request.path === "/me/books")).toBe(false);
 });
 
@@ -338,6 +338,38 @@ for (const legacy of [true, false]) {
   });
 }
 
+test("filter chips hand focus on, the badge reads aloud, and N of M shows on a fresh filtered load", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, row(book.id, book.id % 2 === 0, true)]));
+  await page.goto("/my-books?owned=1&status=want");
+  await expect(page.getByText("3 of 6 books", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: /^Filters/ })).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/my-books?owned=1&q=fixture");
+  await page.getByRole("button", { name: "Remove filter: Owned" }).click();
+  await expect(page.getByRole("button", { name: "Remove filter: “fixture”" })).toBeFocused();
+  await page.getByRole("button", { name: "Remove filter: “fixture”" }).click();
+  await expect(page.getByRole("heading", { name: "Your books" })).toBeFocused();
+});
+
+test("on a phone the Filters button says how many are active", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books?has=1&note=1");
+  await expect(page.getByRole("button", { name: "Filters (1 active)" })).toBeVisible();
+});
+
+test("coming back from a book restores how far Show more had got", async ({ page, app }) => {
+  app.entries = new Map(books.map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+  await page.locator(".bv-book-card h3 a").nth(27).click();
+  await page.goBack();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+});
+
 test("a cursor the server rejects reloads the list from the start", async ({ page, app }) => {
   app.entries = new Map(books.map(book => [book.id, row(book.id)]));
   await page.goto("/my-books?status=want");
@@ -369,13 +401,13 @@ test("shelves, Owned and sort combine, and the URL holds the view", async ({ pag
   await expect(page).toHaveURL(/status=want&owned=1/);
   await expect(page.locator(".bv-book-card")).toHaveCount(3);
   await expect(page.getByText("3 of 6 books", { exact: true })).toBeVisible();
-  const last = app.requests.filter(r => r.path === "/me/library").at(-1).query;
+  const last = app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query;
   expect(last.get("facet")).toBe("want");
   expect(last.get("owned")).toBe("true");
   await page.getByRole("button", { name: "Sort: Recently added" }).click();
   await page.getByRole("menuitemradio", { name: "Title" }).click();
   await expect(page).toHaveURL(/sort=title/);
-  expect(app.requests.filter(r => r.path === "/me/library").at(-1).query.get("sort")).toBe("title");
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("sort")).toBe("title");
   await page.goBack();
   await expect(page).not.toHaveURL(/sort=title/);
   await expect(page.getByRole("button", { name: "Sort: Recently added" })).toBeVisible();
@@ -579,7 +611,7 @@ test("independent review: twenty-thousand saved books retain bounded pages and r
   await page.getByLabel("Search title or author").press("Enter");
   await expect(page.locator(".bv-personal-book")).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(app.requests.filter(r => r.path === "/me/library")).toHaveLength(3);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1")).toHaveLength(3);
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
 });
 
@@ -621,12 +653,21 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
       source_label: [{ value: "Goodreads: to-read", label: "Goodreads: to-read", count: 8 }] };
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/my-books?subject=7&owned=1");
     await expect(page.locator(".bv-book-card").first()).toBeVisible();
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     const dir = "../.bv-shots/my-books";
     const name = `${dir}/library-${width}${zoom ? "-200" : ""}-${theme}.png`;
     await page.screenshot({ path: name, fullPage: true });
+    if (width < 900 && !zoom) {
+      await page.getByRole("button", { name: /^Sort:/ }).click();
+      await page.screenshot({ path: `${dir}/sort-open-${width}-${theme}.png` });
+      await page.keyboard.press("Escape");
+      await page.getByText("More filters", { exact: true }).click();
+      await page.screenshot({ path: `${dir}/more-filters-open-${width}-${theme}.png` });
+      await page.getByText("More filters", { exact: true }).click();
+    }
     if (width < 900) {
       await page.getByRole("button", { name: /^Filters/ }).click();
       await page.screenshot({ path: `${dir}/sheet-${width}${zoom ? "-200" : ""}-${theme}.png` });
