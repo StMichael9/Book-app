@@ -99,7 +99,7 @@ export default function ReadingHomePage() {
     {ready && <>
       <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
-      {shelf.data && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
+      {!shelf.loading && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
       <YearGlance stats={stats.data} libraryImport={library.libraryImport && !library.readOnly} />
     </>}
     {sheet && <ProgressSheet read={sheet} onClose={() => setSheet(null)} onSaved={saved} />}

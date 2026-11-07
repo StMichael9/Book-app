@@ -47,6 +47,10 @@
 .bv-root .bv-pick .bv-button { margin-top: auto; justify-content: center; }
 .bv-root .bv-choose-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
 .bv-root .bv-choose-foot p { margin: 0; }
+.bv-root .bv-pick-next .bv-help { margin: 0 0 8px; }
+.bv-root .bv-pick-next .bv-button { margin-top: 8px; }
+.bv-root .bv-adjust { margin-top: 14px; }
+.bv-root .bv-adjust summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
 
 .bv-root .bv-glance { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: end; }
 .bv-root .bv-glance .bv-figures { display: grid; grid-template-columns: repeat(3, auto); gap: 28px; margin: 0; }
@@ -80,3 +84,10 @@
 
 .bv-root .bv-pin-action { margin: 4px 0 0; }
 .bv-root .bv-pin-action .bv-help { margin: 4px 0 0; }
+
+/* "Something new" cards carry a reason line and links, so on a phone they stay inside their narrow column. */
+.bv-root .bv-pick-next { min-width: 0; }
+.bv-root .bv-pick-next .bv-button { width: 100%; min-width: 0; padding-inline: 6px; text-align: center; }
+.bv-root .bv-pick-next a { font-size: var(--bv-fs-helper); overflow-wrap: anywhere; }
+.bv-root .bv-pick-next h3 { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .bv-root .bv-pick-next h3 { font-size: var(--bv-fs-helper); } }

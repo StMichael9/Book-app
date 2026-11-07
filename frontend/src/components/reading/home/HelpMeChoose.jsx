@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLibraryPage } from "../../../api/reading.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
+import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { BookCover, Button } from "../../ui-v2/primitives.jsx";
+import NextReadSection from "../NextReadSection.jsx";
 import { PICKS_PER_TRY, cardFromEntry, coverBook, startable, startReading } from "./homeLogic.js";
 
 const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
@@ -41,13 +43,15 @@ async function fetchPicks(pill, oldest) {
 }
 
 export default function HelpMeChoose({ shelf, oldest, readOnly }) {
-  const pills = pillsFor(shelf), usable = pills.filter(pill => pill.enabled);
+  const library = useUserBooks();
+  // "Something new" is Next Read's engine (catalogue picks, filters, rotation); it lives in the same panel as the shelf pills.
+  const pills = [...pillsFor(shelf), ...(library.nextRead ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], usable = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
   const pill = pills.find(item => item.key === active);
   useEffect(() => {
-    if (!pill) return undefined;
+    if (!pill || pill.next) return undefined;
     const token = ++request.current;
     fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); } });
     return () => { request.current += 1; };
@@ -63,7 +67,8 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     <div className="bv-pills" role="group" aria-label="Help me choose">
       {pills.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} disabled={!item.enabled} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill && <div role="status" aria-live="polite">
+    {pill?.next && <NextReadSection panel />}
+    {pill && !pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
         <div className="bv-picks">{shown.map(card => <article key={card.entry_id} className="bv-pick">
           <BookCover book={coverBook(card)} /><h3>{card.title}</h3><p className="bv-author">{card.authors.join(", ") || "Author not listed"}</p>
