@@ -15,7 +15,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
-from datetime import date
+from datetime import date, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import ARRAY, Boolean, Date, DateTime, Integer, Text, case, cast, func, literal_column, null, or_, select, union_all
@@ -27,7 +27,7 @@ from models import (
 )
 from services.catalogue_resolver import surname
 
-SORTS = ("added", "title", "author", "finished", "updated")
+SORTS = ("added", "added_oldest", "title", "author", "finished", "updated")
 LENGTHS = ("short", "medium", "long")
 LENGTH_LABELS = {"short": "Short", "medium": "Medium", "long": "Long"}
 STATES = ("reading", "paused", "finished", "dnf")
@@ -96,7 +96,7 @@ class Filters:
 
 class Row:
     __slots__ = ("id", "owned", "wanted", "state", "title_key", "author_key", "author_labels", "subjects", "years",
-                 "finished_on", "updated_at", "length", "labels", "has_note", "imported_on")
+                 "finished_on", "updated_at", "created_at", "length", "labels", "has_note", "imported_on")
 
 
 class LibraryView:
@@ -111,14 +111,15 @@ class LibraryView:
         Five independent, simple reads (entries, authors, subject tags, reading figures, import labels) sent as ONE
         statement with UNION ALL over a fixed set of typed columns: a round trip costs ~60 ms on the hosted database, and
         joining the reads to each other in SQL gave the planner room to choose very slow plans on a freshly loaded
-        library. Columns: (kind, key, c1..c12), each branch filling the ones it needs."""
+        library. Columns: (kind, key, c1..c13), each branch filling the ones it needs."""
         mine = select(UserBook.book_id).where(UserBook.user_id == user_id, UserBook.book_id.is_not(None))
         mine_entries = select(UserBook.id).where(UserBook.user_id == user_id)
         blank = null()
-        types = (Integer, Boolean, Boolean, Text, Text, Boolean, DateTime(timezone=True), Text, ARRAY(Integer), Date, JSONB, Integer)
+        types = (Integer, Boolean, Boolean, Text, Text, Boolean, DateTime(timezone=True), Text, ARRAY(Integer), Date, JSONB, Integer,
+                 DateTime(timezone=True))
 
         def branch(letter, key, **named):
-            """Columns c1..c12 by position; unnamed ones are typed NULLs so every branch lines up."""
+            """Columns c1..c13 by position; unnamed ones are typed NULLs so every branch lines up."""
             columns = [literal_column(f"'{letter}'").label("kind"), key.label("key")]
             for n, kind_ in enumerate(types, start=1):
                 value = named.get(f"c{n}")
@@ -128,7 +129,7 @@ class LibraryView:
         entries = select(*branch(
             "e", UserBook.id, c1=UserBook.book_id, c2=UserBook.is_owned, c3=UserBook.is_wanted, c4=UserBook.private_title,
             c5=UserBook.private_author, c6=func.btrim(func.coalesce(UserBook.save_note, "")) != "",
-            c7=UserBook.updated_at, c8=Book.title, c12=Book.page_count)).select_from(UserBook).outerjoin(
+            c7=UserBook.updated_at, c8=Book.title, c12=Book.page_count, c13=UserBook.created_at)).select_from(UserBook).outerjoin(
             Book, Book.id == UserBook.book_id).where(*conditions)
         authors = select(*branch("a", book_authors.c.book_id, c8=Author.name)).select_from(book_authors).join(
             Author, Author.id == book_authors.c.author_id).where(book_authors.c.book_id.in_(mine))
@@ -159,9 +160,9 @@ class LibraryView:
         tag_names: dict[int, str] = {}
         facts: dict = {}
         imported: dict = {}
-        for letter, key, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 in result:
+        for letter, key, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13 in result:
             if letter == "e":
-                entry_data.append((key, c1, c2, c3, c4, c5, c6, c7, c8, c12))
+                entry_data.append((key, c1, c2, c3, c4, c5, c6, c7, c8, c12, c13))
             elif letter == "a":
                 authors_of.setdefault(key, []).append(c8)
             elif letter == "t":
@@ -172,9 +173,11 @@ class LibraryView:
             else:
                 imported[key] = (c11, c7)
         rows = []
-        for entry_id, book_id, owned, wanted, private_title, private_author, has_save_note, updated, title, pages in entry_data:
+        for (entry_id, book_id, owned, wanted, private_title, private_author, has_save_note, updated, title, pages,
+             created) in entry_data:
             row = Row()
             row.id, row.owned, row.wanted, row.updated_at = entry_id, bool(owned), bool(wanted), updated.isoformat()
+            row.created_at = created.astimezone(timezone.utc).isoformat()
             state, years, finished_on, attempt_note, attempt_pages = facts.get(entry_id, (None, None, None, False, None))
             row.state = state
             row.finished_on = finished_on.isoformat() if finished_on else None
@@ -281,6 +284,8 @@ class LibraryView:
             return (row.finished_on or "", row.id), True
         if sort == "updated":
             return (row.updated_at, row.id), True
+        if sort == "added_oldest":
+            return (row.created_at, row.id), False
         return (row.id,), True
 
     def cursor_value(self, row: Row, sort: str):
