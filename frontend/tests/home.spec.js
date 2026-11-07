@@ -1,0 +1,272 @@
+import { test as base, expect } from "@playwright/test";
+
+// Browser fixtures only. Home: greeting, Reading now with the progress sheet, Up next (T41 pins are mocked from the
+// contract), Can't decide? and the year at a glance.
+const TITLES = ["Middlemarch", "Circe", "Kindred", "The Overstory", "Beloved", "Gilead", "Hamnet", "Orlando"];
+const book = (id, title, pages = 300) => ({ id, title, authors: [{ id, name: `Author ${id}` }], tags: [], cover_image_url: null, page_count: pages, english_title: null });
+const entry = (id, extra = {}) => ({ id: 100 + id, book_id: id, book: book(id, TITLES[id - 1], id <= 3 ? 200 : 400), is_owned: id % 2 === 1, is_wanted: id % 2 === 0, version: 1, reading_state: null,
+  private_title: null, private_author: null, save_note: null, snippet: null, created_at: `2026-0${(id % 9) + 1}-01T00:00:00Z`, updated_at: "2026-10-01T00:00:00Z", ...extra });
+const reading = (id, title, value, total) => ({ entry: { ...entry(id), id: 200 + id, book_id: 50 + id, book: book(50 + id, title, total), reading_state: "reading", version: 3 },
+  attempt: { id: `attempt-${id}`, state: "reading", started_on: "2026-11-03", progress_unit: "pages", progress_value: value, total_pages: total } });
+
+const pin = (id, extra = {}) => ({ entry_id: 100 + id, book_id: id, title: TITLES[id - 1], authors: [`Author ${id}`], cover_url: null, owned: id % 2 === 1, want: id % 2 === 0, page_count: 300, ...extra });
+
+const test = base.extend({
+  app: async ({ page, baseURL }, provide) => {
+    const state = { errors: [], requests: [], name: "Rae Fixture", currentReads: [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468)],
+      entries: TITLES.map((_, index) => entry(index + 1)), pins: null, pinsStatus: 200, putStatus: 200, stats: null, facets: { length: [{ value: "short", label: "Short", count: 3 }], subject: [{ value: 7, label: "Fantasy", count: 4 }] }, hour: null };
+    page.on("pageerror", error => state.errors.push(error.message));
+    await page.route("**/*", async route => {
+      const url = new URL(route.request().url()), method = route.request().method();
+      if (url.origin !== new URL(baseURL).origin) return route.abort();
+      if (!url.pathname.startsWith("/test-api/")) return route.continue();
+      const path = url.pathname.slice("/test-api".length), reply = (status, json) => route.fulfill({ status, json });
+      const body = ["POST", "PUT", "PATCH"].includes(method) ? route.request().postDataJSON() : null;
+      state.requests.push({ path, method, body, query: url.searchParams });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
+      if (path === "/health") return reply(200, { status: "ok" });
+      if (path === "/auth/refresh") return reply(200, {});
+      if (path === "/me/profile") return reply(200, { display_name: state.name, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: true } });
+      if (path === "/me/home") return reply(200, { current_reads: state.currentReads, reading_count: state.currentReads.length, paused_count: 0 });
+      if (path === "/me/stats") return reply(200, state.stats || { year: 2026, books_finished: 23, pages_read: 7840, median_days: 11, biggest_month: 5, by_month: [2, 1, 3, 2, 4, 1, 3, 2, 1, 3, 1, 0], top_genres: [] });
+      if (path === "/me/up-next") {
+        if (method === "PUT") {
+          if (state.putStatus !== 200) return reply(state.putStatus, { detail: "Up next can hold 5 books." });
+          state.pins = body.entry_ids.map(id => pin(id - 100));
+          return reply(200, state.pins);
+        }
+        return state.pinsStatus === 200 ? reply(200, state.pins ?? []) : reply(state.pinsStatus, { detail: "Not found" });
+      }
+      if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => { const found = state.entries.find(item => item.book_id === id); return { book_id: id, entry_id: found?.id ?? null, version: found?.version ?? null, is_owned: found?.is_owned ?? false, is_wanted: found?.is_wanted ?? false, reading_state: null }; }) });
+      if (path === "/me/library") {
+        const facet = url.searchParams.get("facet"), owned = url.searchParams.get("owned") === "true";
+        let items = [...state.entries].sort((a, b) => b.id - a.id);
+        if (facet === "want") items = items.filter(item => item.is_wanted);
+        if (owned) items = items.filter(item => item.is_owned);
+        if (url.searchParams.get("length") === "short") items = items.filter(item => item.book.page_count < 250);
+        return reply(200, { items, counts: { all: state.entries.length, owned: state.entries.filter(item => item.is_owned).length, want: state.entries.filter(item => item.is_wanted).length, reading: 2, paused: 0, finished: 0, dnf: 0 }, total: items.length, next_cursor: null, facets: state.facets, index: null });
+      }
+      const workspace = path.match(/^\/me\/library\/(\d+)\/reading$/);
+      if (workspace) return reply(200, { entry: entry(Number(workspace[1]) - 100), current_attempt: null, editions: [] });
+      const attempt = path.match(/^\/me\/reading-attempts\/(.+)$/);
+      if (attempt && method === "PUT") return reply(200, { entry: { ...entry(body.entry_id - 100), reading_state: "reading" }, attempt: { id: attempt[1], state: "reading", started_on: body.started_on } });
+      if (attempt && method === "PATCH") {
+        const read = state.currentReads.find(item => item.attempt.id === attempt[1]);
+        read.attempt = { ...read.attempt, ...body }; delete read.attempt.expected_version;
+        read.entry = { ...read.entry, version: read.entry.version + 1 };
+        return reply(200, { entry: read.entry, attempt: read.attempt });
+      }
+      const one = path.match(/^\/books\/(\d+)$/);
+      if (one) return reply(200, { ...book(Number(one[1]), TITLES[Number(one[1]) - 1]), description: null, published_year: 2000, isbn13: null });
+      if (/\/description$/.test(path)) return reply(404, { detail: "Not found" });
+      return reply(404, { detail: "Not found" });
+    });
+    await provide(state);
+  },
+});
+
+test("Home greets the reader and shows what they are reading", async ({ page, app }) => {
+  await page.clock.install({ time: new Date("2026-11-06T19:30:00") });
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Good evening, Rae", level: 1 })).toBeVisible();
+  await expect(page.getByText("You’re reading 2 books", { exact: true })).toBeVisible();
+  await expect(page.getByText("Page 156 of 245 · started 3 Nov", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Update progress for Piranesi" })).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
+
+test("a reader with no name sees just Home", async ({ page, app }) => {
+  app.name = null;
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+});
+
+test("Update progress saves on Home, updates the card in place and returns focus", async ({ page, app }) => {
+  await page.goto("/home");
+  const button = page.getByRole("button", { name: "Update progress for Piranesi" });
+  await button.click();
+  const sheet = page.getByRole("dialog", { name: "Piranesi" });
+  await expect(sheet.getByText("Last time: Page 156 of 245")).toBeVisible();
+  await sheet.getByLabel("Page you’re on").fill("172");
+  await expect(sheet.getByText("of 245 · 70%")).toBeVisible();
+  await sheet.getByRole("button", { name: "Save progress" }).click();
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByText("Page 172 of 245 · started 3 Nov", { exact: true })).toBeVisible();
+  await expect(button).toBeFocused();
+  const save = app.requests.find(request => request.method === "PATCH");
+  expect(save.body).toMatchObject({ progress_unit: "pages", progress_value: 172, expected_version: 3 });
+  await button.click();
+  await expect(page.getByRole("link", { name: "I finished it" })).toHaveAttribute("href", "/my-books/201");
+  await expect(page.getByRole("link", { name: "Add a note" })).toHaveAttribute("href", "/my-books/201");
+});
+
+test("the progress sheet rejects a page past the end", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
+  await page.getByLabel("Page you’re on").fill("300");
+  await expect(page.getByRole("button", { name: "Save progress" })).toBeDisabled();
+});
+
+test("without pins Up next is suggested from the shelf, with no Edit", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  await expect(page.getByText("Suggested from your shelf", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
+  const cards = page.locator(".bv-next-card");
+  await expect(cards).toHaveCount(4);
+  // Owned books first (odd ids are owned), the oldest saved first.
+  await expect(cards.first()).toContainText("Owned");
+});
+
+test("Up next falls back quietly when pinning isn't available yet", async ({ page, app }) => {
+  app.pinsStatus = 404;
+  await page.goto("/home");
+  await expect(page.getByText("Suggested from your shelf", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(app.errors).toEqual([]);
+});
+
+test("pinned books lead Up next, and Edit reorders and unpins without dragging", async ({ page, app }) => {
+  app.pins = [pin(1), pin(2), pin(3)];
+  await page.goto("/home");
+  await expect(page.getByText("Pinned by you · 3 of 5", { exact: true })).toBeVisible();
+  await expect(page.locator(".bv-pin-badge")).toHaveCount(3);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Move Middlemarch down" }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [102, 101, 103] });
+  await page.getByRole("button", { name: "Unpin Kindred" }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [102, 101] });
+  await expect(page.getByRole("status").filter({ hasText: "Kindred unpinned" })).toHaveCount(1);
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText("Pinned by you · 2 of 5", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit", exact: true })).toBeFocused();
+});
+
+test("a pin change the server refuses leaves the list as it was and says so", async ({ page, app }) => {
+  app.pins = [pin(1), pin(2)];
+  app.putStatus = 422;
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Unpin Circe" }).click();
+  await expect(page.getByRole("alert")).toContainText("Up next can hold 5 books");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText("Pinned by you · 2 of 5", { exact: true })).toBeVisible();
+});
+
+test("Start opens a reading from an Up next card", async ({ page, app }) => {
+  app.pins = [pin(1)];
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Start reading Middlemarch" }).click();
+  await expect.poll(() => app.requests.some(request => request.method === "PUT" && request.path.startsWith("/me/reading-attempts/"))).toBe(true);
+  const create = app.requests.find(request => request.method === "PUT" && request.path.startsWith("/me/reading-attempts/"));
+  expect(create.body).toMatchObject({ entry_id: 101, started_via: "next_read" });
+});
+
+test("Can't decide? shows three at a time and Try again walks through the rest", async ({ page, app }) => {
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await expect(pills.getByRole("button", { name: "More fantasy" })).toBeEnabled();
+  await pills.getByRole("button", { name: "Something I own" }).click();
+  const picks = page.locator(".bv-pick");
+  await expect(picks).toHaveCount(3);
+  await expect(page.getByText("3 books you own and haven’t started", { exact: true })).toBeVisible();
+  const first = await picks.allTextContents();
+  await page.getByRole("button", { name: "Try again" }).click();
+  const second = await picks.allTextContents();
+  expect(second.some(text => first.includes(text))).toBe(false);
+  expect(app.requests.some(request => request.path === "/me/library" && request.query.get("owned") === "true")).toBe(true);
+});
+
+test("Something short asks the library for short books", async ({ page, app }) => {
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Something short" }).click();
+  await expect(page.locator(".bv-pick").first()).toBeVisible();
+  expect(app.requests.some(request => request.path === "/me/library" && request.query.get("length") === "short")).toBe(true);
+  await expect(page.getByText(/short books you own or want · under 250 pages/)).toBeVisible();
+});
+
+test("a pill with nothing behind it is disabled, and the panel hides when every pill is empty", async ({ page, app }) => {
+  app.facets = { length: [], subject: [] };
+  await page.goto("/home");
+  await expect(page.getByRole("button", { name: "Something short" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^More / })).toHaveCount(0);
+  app.entries = [];
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Can’t decide?" })).toHaveCount(0);
+});
+
+test("the year at a glance shows figures and the shelf, and links to the reading life", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  const glance = page.getByRole("region", { name: "Your 2026 so far" });
+  await expect(glance.getByText("23", { exact: true })).toBeVisible();
+  await expect(glance.getByText("7,840", { exact: true })).toBeVisible();
+  await expect(glance.getByText("11 days", { exact: true })).toBeVisible();
+  await expect(glance.getByRole("link", { name: "Your reading life" })).toHaveAttribute("href", "/reading-life");
+});
+
+test("with nothing finished the year is one calm line, never zeros", async ({ page, app }) => {
+  app.stats = { year: 2026, books_finished: 0, pages_read: 0, median_days: null, biggest_month: null, by_month: new Array(12).fill(0), top_genres: [] };
+  await page.goto("/home");
+  const glance = page.getByRole("region", { name: "Your 2026 so far" });
+  await expect(glance.getByText("When you finish a book, your year starts filling in here.")).toBeVisible();
+  await expect(glance.getByRole("link", { name: "Import your history" })).toBeVisible();
+  await expect(glance.locator("dl")).toHaveCount(0);
+});
+
+test("on a phone Home shows the first book and a Show link for the rest", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await expect(page.locator(".bv-now-card")).toHaveCount(1);
+  await expect(page.getByText(/\+ 1 more you’re reading/)).toBeVisible();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await expect(page.locator(".bv-now-card")).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
+  app.pins = [];
+  await page.goto("/book/1");
+  await page.getByRole("button", { name: "Pin to Up next" }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [101] });
+  await expect(page.getByRole("button", { name: "Unpin", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Unpin", exact: true }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [] });
+});
+
+test("a book's page has no pin button before pinning exists", async ({ page, app }) => {
+  app.pinsStatus = 404;
+  await page.goto("/book/1");
+  await expect(page.getByRole("heading", { name: "Middlemarch", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Pin to Up next/ })).toHaveCount(0);
+});
+
+// Screenshots for design review: HOME_SHOTS=1 writes them to ../.bv-shots/home; skipped otherwise.
+for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390, 844, false], [1440, 900, false], [390, 844, true]]) {
+  test(`home screenshots ${theme} ${width}${zoom ? " 200%" : ""}`, async ({ page, app }) => {
+    test.skip(!process.env.HOME_SHOTS, "design review only");
+    app.pins = [pin(1), pin(2), pin(3), pin(4)];
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width, height });
+    await page.clock.install({ time: new Date("2026-11-06T19:30:00") });
+    await page.goto("/home");
+    await expect(page.getByRole("heading", { name: "Good evening, Rae", level: 1 })).toBeVisible();
+    await page.getByRole("button", { name: "Something short" }).click();
+    await expect(page.locator(".bv-pick").first()).toBeVisible();
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const dir = "../.bv-shots/home", tag = `${width}${zoom ? "-200" : ""}-${theme}`;
+    await page.screenshot({ path: `${dir}/home-${tag}.png`, fullPage: true });
+    await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
+    await expect(page.getByRole("dialog", { name: "Piranesi" })).toBeVisible();
+    await page.screenshot({ path: `${dir}/progress-sheet-${tag}.png` });
+    if (!zoom) {
+      await page.keyboard.press("Escape");
+      app.stats = { year: 2026, books_finished: 0, pages_read: 0, median_days: null, biggest_month: null, by_month: new Array(12).fill(0), top_genres: [] };
+      app.pins = null;
+      app.currentReads = [];
+      await page.reload();
+      await expect(page.getByText("When you finish a book, your year starts filling in here.")).toBeVisible();
+      await page.screenshot({ path: `${dir}/home-empty-${tag}.png`, fullPage: true });
+    }
+  });
+}

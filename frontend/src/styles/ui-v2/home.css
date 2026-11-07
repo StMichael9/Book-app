@@ -1,0 +1,81 @@
+/* Home: greeting, Reading now, Up next, Can't decide?, and the year at a glance. */
+.bv-root .bv-home { padding-bottom: 56px; }
+.bv-root .bv-home section { margin-top: 36px; }
+.bv-root .bv-home-greeting { padding: 28px 0 0; }
+.bv-root .bv-home-greeting h1 { margin: 0; font-family: var(--bv-display); font-size: var(--bv-fs-page); line-height: 1.1; }
+.bv-root .bv-home-greeting p { margin: 6px 0 0; }
+.bv-root .bv-home h2 { margin: 0 0 14px; font-family: var(--bv-display); font-size: var(--bv-fs-section); line-height: 1.2; }
+.bv-root .bv-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.bv-root .bv-section-head h2 { margin: 0; }
+.bv-root .bv-section-head p { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
+
+.bv-root .bv-now-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.bv-root .bv-now-card { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 20px; padding: 18px; background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 12px; align-items: start; }
+.bv-root .bv-now-card .bv-cover { width: 100%; }
+.bv-root .bv-now-body h3 { margin: 0; font: 600 var(--bv-fs-card)/1.25 var(--bv-display); }
+.bv-root .bv-now-body .bv-author { margin: 2px 0 12px; }
+.bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; margin: 0 0 8px; }
+.bv-root .bv-now-body .bv-muted { margin: 0 0 14px; font-size: var(--bv-fs-helper); }
+.bv-root .bv-more-reading { margin: 12px 0 0; color: var(--bv-muted); }
+.bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; text-decoration: underline; }
+
+.bv-root .bv-next-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; }
+.bv-root .bv-next-cover { position: relative; }
+.bv-root .bv-pin-badge { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--bv-green); color: var(--bv-on-green); font-size: var(--bv-fs-helper); font-weight: 600; }
+.bv-root .bv-next-card h3 { margin: 10px 0 0; font: 600 var(--bv-fs-body)/1.25 var(--bv-display); }
+.bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
+.bv-root .bv-next-label { margin: 6px 0 10px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 600; }
+.bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; }
+.bv-root .bv-pin-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-pin-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--bv-line); }
+.bv-root .bv-pin-title { font: 600 var(--bv-fs-card)/1.25 var(--bv-display); min-width: 0; overflow-wrap: anywhere; }
+.bv-root .bv-pin-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+
+.bv-root .bv-choose { padding: 20px; background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 12px; }
+.bv-root .bv-choose-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.bv-root .bv-choose-head h2 { margin: 0; }
+.bv-root .bv-choose-head p { margin: 0; }
+.bv-root .bv-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.bv-root .bv-pill { appearance: none; min-height: 44px; padding: 0 16px; border: 1px solid var(--bv-control); border-radius: 999px; background: var(--bv-panel); color: var(--bv-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.bv-root .bv-pill[aria-pressed="true"] { background: var(--bv-soft-green); border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
+.bv-root .bv-pill:disabled { color: var(--bv-muted); border-color: var(--bv-line); opacity: .6; cursor: default; }
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; max-width: 640px; }
+.bv-root .bv-pick { display: flex; flex-direction: column; min-width: 0; }
+.bv-root .bv-pick h3 { margin: 8px 0 0; font: 600 var(--bv-fs-body)/1.25 var(--bv-display); }
+.bv-root .bv-pick .bv-author { margin: 2px 0 8px; font-size: var(--bv-fs-helper); }
+.bv-root .bv-pick .bv-button { margin-top: auto; justify-content: center; }
+.bv-root .bv-choose-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+.bv-root .bv-choose-foot p { margin: 0; }
+
+.bv-root .bv-glance { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 32px; align-items: end; }
+.bv-root .bv-glance .bv-figures { display: grid; gap: 14px; margin: 0; }
+.bv-root .bv-glance .bv-figures div { display: flex; flex-direction: column-reverse; }
+.bv-root .bv-glance .bv-figures dt { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-glance .bv-figures dd { margin: 0; font: 600 1.6rem/1.1 var(--bv-display); }
+.bv-root .bv-glance .bv-profile-year { margin: 0; }
+.bv-root .bv-year-glance > p { margin: 0; }
+
+/* The progress sheet: a centred dialog on a desktop, a bottom sheet on a phone. */
+.bv-root .bv-progress-sheet { width: min(420px, calc(100% - 40px)); }
+.bv-root .bv-progress-unit { display: inline-flex; margin-bottom: 8px; border: 1px solid var(--bv-control); border-radius: 999px; overflow: hidden; }
+.bv-root .bv-progress-unit button { appearance: none; border: 0; min-height: 44px; min-width: 64px; padding: 0 16px; background: var(--bv-panel); color: var(--bv-muted); font: inherit; font-weight: 600; cursor: pointer; }
+.bv-root .bv-progress-unit button[aria-pressed="true"] { background: var(--bv-soft-green); color: var(--bv-ink); }
+.bv-root .bv-progress-save { width: 100%; justify-content: center; margin-top: 8px; }
+.bv-root .bv-progress-links { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; }
+
+@media (max-width: 900px) {
+  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); }
+  .bv-root .bv-next-row { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 42%; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+  .bv-root .bv-next-row::-webkit-scrollbar { display: none; }
+  .bv-root .bv-glance { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); justify-content: start; gap: 24px; }
+}
+@media (max-width: 700px) {
+  .bv-root .bv-now-card { grid-template-columns: 88px minmax(0, 1fr); gap: 14px; padding: 14px; }
+  .bv-root .bv-picks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .bv-root .bv-progress-sheet { width: 100%; max-width: none; margin: auto 0 0; padding: 12px 20px 20px; border-radius: 20px 20px 0 0; border-bottom: 0; }
+}
+
+.bv-root .bv-pin-action { margin: 4px 0 0; }
+.bv-root .bv-pin-action .bv-help { margin: 4px 0 0; }
