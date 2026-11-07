@@ -1,0 +1,51 @@
+/* Your reading life: a private page of plain figures, a spine shelf and a few quiet cards. No goals, streaks or red. */
+.bv-root .bv-life { padding-bottom: 56px; }
+.bv-root .bv-life-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 28px 0 8px; flex-wrap: wrap; }
+.bv-root .bv-life-head h1 { margin: 0; font-family: var(--bv-display); font-size: var(--bv-fs-page); line-height: 1.1; }
+.bv-root .bv-life-head p { margin: 6px 0 0; }
+.bv-root .bv-life-switch { min-width: 0; max-width: 100%; }
+.bv-root .bv-life-switch .bv-pills { margin: 0 0 6px; justify-content: flex-end; }
+.bv-root .bv-life-switch .bv-help { margin: 0; text-align: right; }
+.bv-root .bv-life-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px 28px; margin: 24px 0 28px; align-items: start; }
+/* The number comes first with its label under it; the label is first in the markup so a screen reader hears it before the value. */
+.bv-root .bv-life-fig { display: flex; flex-direction: column-reverse; }
+.bv-root .bv-life-fig dd { margin: 0; font: 600 1.9rem/1.1 var(--bv-display); }
+.bv-root .bv-life-fig dt { margin-top: 4px; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-life-empty { margin: 24px 0; }
+.bv-root .bv-life-card { padding: 20px; background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 12px; min-width: 0; }
+.bv-root .bv-life-card h3 { margin: 0 0 14px; font: 600 var(--bv-fs-card)/1.25 var(--bv-display); }
+.bv-root .bv-life-year { margin-bottom: 20px; }
+.bv-root .bv-life-year .bv-profile-year { margin: 0; }
+.bv-root .bv-life-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-bottom: 20px; }
+.bv-root .bv-life-cols--shelf { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.bv-root .bv-life-cols--all { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 24px; }
+.bv-root .bv-life-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.bv-root .bv-life-bars li { display: grid; grid-template-columns: minmax(0, 8.5rem) minmax(0, 1fr) 2ch; align-items: center; gap: 10px; }
+.bv-root .bv-life-bars li > span:first-child { overflow-wrap: anywhere; }
+.bv-root .bv-life-track { display: block; height: 10px; border-radius: 999px; background: var(--bv-soft-green); overflow: hidden; }
+.bv-root .bv-life-track i { display: block; height: 100%; background: var(--bv-green); border-radius: 999px; }
+.bv-root .bv-life-bars b { text-align: right; font-weight: 600; }
+.bv-root .bv-life-stack { display: flex; height: 14px; border-radius: 999px; overflow: hidden; border: 1px solid var(--bv-line); }
+.bv-root .bv-life-stack i { display: block; height: 100%; }
+.bv-root .bv-life-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 0 0; padding: 0; font-size: var(--bv-fs-helper); }
+.bv-root .bv-life-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.bv-root .bv-life-legend i { width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--bv-line); }
+.bv-root .bv-life-authors { margin: 18px 0 0; }
+.bv-root .bv-life-authors b, .bv-root .bv-life-big b { font: 600 1.5rem/1.2 var(--bv-display); }
+.bv-root .bv-life-compare { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.bv-root .bv-life-line { margin: 0; }
+.bv-root .bv-life-wait { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+.bv-root .bv-life-wait .bv-help { margin: 0; }
+.bv-root .bv-life-wait-title { margin: 2px 0 10px; font: 600 var(--bv-fs-card)/1.25 var(--bv-display); }
+.bv-root .bv-life-big { margin: 0; }
+.bv-root .bv-profile-life-link { margin: 12px 0 0; }
+
+@media (max-width: 900px) {
+  .bv-root .bv-life-cols, .bv-root .bv-life-cols--shelf, .bv-root .bv-life-cols--all { grid-template-columns: minmax(0, 1fr); }
+  .bv-root .bv-life-switch { width: 100%; }
+  .bv-root .bv-life-switch .bv-help { text-align: left; }
+}
+@media (max-width: 700px) {
+  .bv-root .bv-life-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bv-root .bv-life-switch .bv-pills { justify-content: flex-start; margin-inline: 0; padding-inline: 0; padding-right: 40px; mask-image: linear-gradient(90deg, #000 calc(100% - 56px), transparent); }
+}
