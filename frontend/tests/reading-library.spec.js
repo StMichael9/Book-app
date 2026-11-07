@@ -79,19 +79,29 @@ const test = base.extend({
       if (path === "/me/library") {
         if (state.pageFails) return reply(503, {});
         const query = (url.searchParams.get("q") || "").toLowerCase(), facet = url.searchParams.get("facet");
-        let entries = [...state.entries.values()].sort((a, b) => b.id - a.id).filter(entry => (entry.book?.title || entry.private_title).toLowerCase().includes(query));
+        const sort = url.searchParams.get("sort") || "added", owned = url.searchParams.get("owned") === "true", limit = Number(url.searchParams.get("limit") || 25);
+        const titleOf = entry => entry.book?.title || entry.private_title;
+        let entries = [...state.entries.values()].sort((a, b) => b.id - a.id).filter(entry => titleOf(entry).toLowerCase().includes(query));
+        if (owned) entries = entries.filter(entry => entry.is_owned);
+        const subjects = url.searchParams.getAll("subject").map(Number);
+        if (subjects.length) entries = entries.filter(entry => entry.book?.tags?.some(tag => subjects.includes(tag.id)));
+        if (sort === "title") entries.sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
         const counts = { all: entries.length, owned: entries.filter(entry => entry.is_owned).length, want: entries.filter(entry => entry.is_wanted).length, ...Object.fromEntries(["reading", "paused", "finished", "dnf"].map(state => [state, entries.filter(entry => entry.reading_state === state).length])) };
         if (facet === "owned") entries = entries.filter(entry => entry.is_owned);
         if (facet === "want") entries = entries.filter(entry => entry.is_wanted);
+        if (["reading", "paused", "finished", "dnf"].includes(facet)) entries = entries.filter(entry => entry.reading_state === facet);
         const offset = Number(url.searchParams.get("cursor") || 0);
-        return reply(200, { items: entries.slice(offset, offset + 25), counts, total: entries.length,
-          next_cursor: entries.length > offset + 25 ? String(offset + 25) : null });
+        if (state.badCursor && offset) { state.badCursor = false; return reply(422, { detail: { code: "invalid_cursor", message: "Invalid library cursor. Return to the first page." } }); }
+        return reply(200, { items: entries.slice(offset, offset + limit), counts, total: counts[facet] ?? entries.length,
+          next_cursor: entries.length > offset + limit ? String(offset + limit) : null, facets: state.facets || {},
+          index: ["title", "author"].includes(sort) ? Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZ#"].map(letter => [letter, entries.filter(entry => (/^[a-z]/i.test(titleOf(entry)) ? titleOf(entry)[0].toUpperCase() : "#") === letter).length])) : null });
       }
       if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);
@@ -201,25 +211,23 @@ test("a stale update shows current state without overwriting it", async ({ page,
   await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Owned", exact: true })).toBeVisible();
 });
 
-test("large library pagination, search and both facets use bounded server queries", async ({ page, app }) => {
+test("large library: Show more, search and Owned use bounded server queries", async ({ page, app }) => {
   app.entries = new Map(books.map(book => [book.id, row(book.id, true, true)]));
   await page.goto("/my-books");
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await page.goBack();
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  await page.goForward();
-  await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await page.getByRole("button", { name: "Previous page", exact: true }).click();
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  await expect(page.locator(".bv-book-card")).toHaveCount(24);
+  await expect(page.getByText("Showing 24 of 30", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+  await expect(page.getByText("Showing 30 of 30", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show more", exact: true })).toHaveCount(0);
   await page.getByLabel("Search title or author").fill("fixture 01");
-  await page.getByRole("search", { name: "Search your library" }).getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByLabel("Search title or author").press("Enter");
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
-  await page.getByText("More filters", { exact: true }).click();
-  await page.getByRole("group", { name: "More library filters" }).getByRole("button", { name: /^Own/ }).click();
+  await page.getByRole("switch", { name: "Owned only" }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
+  await expect(page).toHaveURL(/owned=1/);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").every(r => r.query.get("limit") === "24")).toBe(true);
   expect(app.requests.some(request => request.path === "/me/books")).toBe(false);
 });
 
@@ -332,79 +340,179 @@ for (const legacy of [true, false]) {
   });
 }
 
-for (const theme of ["light", "dark"]) {
-  test(`empty later library page retains recovery after mutation (${theme})`, async ({ page, app }) => {
-    app.entries = new Map(books.slice(0, 26).map(book => [book.id, row(book.id)]));
-    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/my-books?status=want");
-    await expect(page.locator(".bv-book-card")).toHaveCount(25);
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
-    await expect(page.locator(".bv-book-card")).toHaveCount(1);
-    await page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
-    // Capture from the top so off-viewport fixed elements are not included at
-    // the prior scroll offset by a full-document browser screenshot.
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-    await page.screenshot({ path: `../backend/.v3-test-runtime/m1-empty-page-${theme}.png`, fullPage: true });
-    expect([...app.entries.values()].filter(entry => entry.is_wanted)).toHaveLength(25);
-    await page.getByRole("button", { name: "Previous page", exact: true }).click();
-    await expect(page.locator(".bv-book-card")).toHaveCount(25);
-    // Previous navigates to an explicit known page, rather than browser Back.
-    await page.goBack();
-    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Return to first page", exact: true }).click();
-    await expect(page.locator(".bv-book-card")).toHaveCount(25);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  });
+test("filter chips hand focus on, the badge reads aloud, and N of M shows on a fresh filtered load", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, row(book.id, book.id % 2 === 0, true)]));
+  await page.goto("/my-books?owned=1&status=want");
+  await expect(page.getByText("3 of 6 books", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: /^Filters/ })).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/my-books?owned=1&q=fixture");
+  await page.getByRole("button", { name: "Remove filter: Owned" }).click();
+  await expect(page.getByRole("button", { name: "Remove filter: “fixture”" })).toBeFocused();
+  await page.getByRole("button", { name: "Remove filter: “fixture”" }).click();
+  await expect(page.getByRole("heading", { name: "Your books" })).toBeFocused();
+});
 
-  test(`direct empty cursor recovers in read-only mode (${theme})`, async ({ page, app }) => {
-    app.readOnly = true;
-    app.entries = new Map(books.slice(0, 25).map(book => [book.id, row(book.id)]));
-    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/my-books?status=want&cursor=25");
-    await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Return to first page", exact: true }).click();
-    await expect(page.locator(".bv-book-card")).toHaveCount(25);
-    await expect(page.getByRole("button", { name: "Remove Library fixture 01 from Want to read", exact: true })).toBeDisabled();
-    expect(app.requests.filter(r => r.method === "PUT" || r.method === "PATCH")).toHaveLength(0);
-  });
-}
+test("on a phone the Filters button says how many are active", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books?has=1&note=1");
+  await expect(page.getByRole("button", { name: "Filters (1 active)" })).toBeVisible();
+});
 
-test("an empty first-page facet does not claim the entire library is empty", async ({ page, app }) => {
+test("coming back from a book restores how far Show more had got", async ({ page, app }) => {
+  app.entries = new Map(books.map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+  await page.locator(".bv-book-card h3 a").nth(27).click();
+  await page.goBack();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+});
+
+test("the Covers / List choice is remembered on this device", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 5).map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(5);
+  await expect(page.locator(".bv-book-card")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("bookvane-library-view"))).toBe("list");
+  await page.reload();
+  await expect(page.locator(".bv-library-row")).toHaveCount(5);
+  await expect(page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "Covers" }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+});
+
+test("the list view works with storage blocked", async ({ page, app }) => {
+  await page.addInitScript(() => { Storage.prototype.getItem = () => { throw new DOMException("Blocked", "SecurityError"); }; Storage.prototype.setItem = () => { throw new DOMException("Blocked", "SecurityError"); }; });
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(3);
+});
+
+test("the A–Z index groups the list by letter and jumps, loading more pages when needed", async ({ page, app }) => {
+  const letters = [..."ABCDEFGHIJKLMNOPRSTUVWY"], titles = [...letters.map(letter => `${letter} story`), "Aa extra", "Zebra tale", "Zen path", "Zoo day", "Zulu war", "Zinc age"];
+  app.entries = new Map(titles.map((title, index) => { const id = index + 1; return [id, { ...row(id), book: { ...books[index], id, title } }]; }));
+  await page.goto("/my-books?sort=title");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(24);
+  const az = page.getByRole("navigation", { name: "Jump to a letter" });
+  await expect(az.getByRole("button", { name: "Q, no books" })).toBeDisabled();
+  await expect(az.getByRole("button", { name: "Jump to B, 1 book" })).toBeEnabled();
+  await expect(page.getByRole("heading", { name: "A", exact: true })).toBeVisible();
+  await expect(page.locator("#bv-letter-Z")).toHaveCount(0);
+  await az.getByRole("button", { name: /^Jump to Z,/ }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(29);
+  await expect(page.locator("#bv-letter-Z")).toBeFocused();
+  await expect(page.locator(".bv-library-row")).toHaveCount(29);
+  await page.goto("/my-books");
+  await expect(page.getByRole("navigation", { name: "Jump to a letter" })).toHaveCount(0);
+});
+
+test("on a phone Sort is one 44px line and Paused/Stopped live in the filter sheet", async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries = new Map(books.slice(0, 4).map(book => [book.id, { ...row(book.id), reading_state: book.id === 1 ? "paused" : null }]));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books?sort=title");
+  const sort = page.getByRole("button", { name: "Sort: Title" });
+  await expect(sort).toBeVisible();
+  await expect(sort).toContainText("Title");
+  expect((await sort.boundingBox()).height).toBe(44);
+  const filters = page.getByRole("button", { name: /^Filters/ });
+  const fb = await filters.boundingBox(), sb = await sort.boundingBox();
+  expect(Math.abs(fb.y - sb.y)).toBeLessThan(2);
+  await expect(page.getByText("More filters", { exact: true })).toHaveCount(0);
+  await filters.click();
+  await page.getByRole("dialog", { name: "Filters" }).getByRole("button", { name: /^Paused/ }).click();
+  await expect(page).toHaveURL(/status=paused/);
+});
+
+test("a cursor the server rejects reloads the list from the start", async ({ page, app }) => {
+  app.entries = new Map(books.map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books?status=want");
+  await expect(page.locator(".bv-book-card")).toHaveCount(24);
+  app.badCursor = true;
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(24);
+  await expect(page.getByRole("button", { name: "Show more", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
+});
+
+test("an empty shelf says so once and offers the way back", async ({ page, app }) => {
   app.entries.set(1, row(1, true, false));
   await page.goto("/my-books?status=want");
-  await expect(page.getByRole("heading", { name: "No saved books match this view.", exact: true })).toBeVisible();
-  await page.getByRole("group", { name: "Filter your library" }).getByRole("button", { name: /^All/ }).click();
+  await expect(page.getByText("No books match these filters", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show all books", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
 });
 
-test("a concurrent change on page three preserves history and first-page recovery", async ({ page, app }) => {
-  app.entries = new Map(Array.from({ length: 51 }, (_, index) => {
-    const id = index + 1;
-    return [id, { ...row(id), book: { ...books[0], id, title: `Library fixture ${id}` } }];
-  }));
-  await page.goto("/my-books?status=want");
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page).toHaveURL(/cursor=25/);
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.locator(".bv-book-card")).toHaveCount(1);
-  // Another browser changes this view while the reader returns to page two.
+test("shelves, Owned and sort combine, and the URL holds the view", async ({ page, app }) => {
+  app.readingActions = true;
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, row(book.id, book.id % 2 === 0, true)]));
+  await page.goto("/my-books");
+  const shelf = page.getByRole("group", { name: "Shelf", exact: true });
+  await expect(shelf.getByRole("button", { name: /^All/ })).toContainText("6");
+  await shelf.getByRole("button", { name: /^Want to read/ }).click();
+  await page.getByRole("switch", { name: "Owned only" }).click();
+  await expect(page).toHaveURL(/status=want&owned=1/);
+  await expect(page.locator(".bv-book-card")).toHaveCount(3);
+  await expect(page.getByText("3 of 6 books", { exact: true })).toBeVisible();
+  const last = app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query;
+  expect(last.get("facet")).toBe("want");
+  expect(last.get("owned")).toBe("true");
+  await page.getByRole("button", { name: "Sort: Recently added" }).click();
+  await page.getByRole("menuitemradio", { name: "Title" }).click();
+  await expect(page).toHaveURL(/sort=title/);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("sort")).toBe("title");
   await page.goBack();
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  app.entries.set(1, { ...app.entries.get(1), is_wanted: false, version: 2 });
-  await page.goForward();
-  await expect(page.getByRole("heading", { name: "No books on this page.", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Previous page", exact: true }).click();
-  await expect(page).toHaveURL(/cursor=25/);
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  await page.getByRole("button", { name: "Return to first page", exact: true }).click();
-  await expect(page).not.toHaveURL(/cursor=/);
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  await expect(page).not.toHaveURL(/sort=title/);
+  await expect(page.getByRole("button", { name: "Sort: Recently added" })).toBeVisible();
+  await page.goto("/my-books?status=want&owned=1&sort=author");
+  await expect(page.getByRole("button", { name: /Sort: Author/ })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Owned only" })).toHaveAttribute("aria-checked", "true");
+  await expect(shelf.getByRole("button", { name: /^Want to read/ })).toHaveAttribute("aria-pressed", "true");
 });
 
+test("filters show live counts, narrow the list and come off as chips", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id), book: { ...books[book.id - 1], tags: book.id <= 2 ? [{ id: 7, name: "Fantasy" }] : [] } }]));
+  app.facets = { subject: [{ value: 7, label: "Fantasy", count: 2 }, { value: 8, label: "Poetry", count: 0 }], author: [], year_finished: [], length: [{ value: "short", label: "Short", count: 1 }, { value: "medium", label: "Medium", count: 0 }, { value: "long", label: "Long", count: 0 }], source_label: [] };
+  await page.goto("/my-books");
+  const panel = page.getByRole("complementary", { name: "Filters" });
+  await expect(panel.getByRole("checkbox", { name: /Fantasy/ })).toBeVisible();
+  await expect(panel.getByRole("checkbox", { name: /Poetry/ })).toBeDisabled();
+  await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await expect(page).toHaveURL(/subject=7/);
+  await expect(page.locator(".bv-book-card")).toHaveCount(2);
+  await expect(page.getByText("2 of 6 books", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove filter: Fantasy" }).click();
+  await expect(page.locator(".bv-book-card")).toHaveCount(6);
+  await expect(page).not.toHaveURL(/subject=/);
+  await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await page.getByRole("button", { name: "Clear all", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+});
+
+test("on a phone the filters open in a sheet that shows the result count", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id), book: { ...books[book.id - 1], tags: book.id <= 2 ? [{ id: 7, name: "Fantasy" }] : [] } }]));
+  app.facets = { subject: [{ value: 7, label: "Fantasy", count: 2 }], author: [], year_finished: [], length: [], source_label: [] };
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books");
+  await expect(page.getByRole("complementary", { name: "Filters" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  const sheet = page.getByRole("dialog", { name: "Filters" });
+  await sheet.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await expect(sheet.getByRole("button", { name: "Show 2 books", exact: true })).toBeVisible();
+  await sheet.getByRole("button", { name: "Show 2 books", exact: true }).click();
+  await expect(page.getByRole("button", { name: /^Filters/ })).toContainText("1");
+  await expect(page.locator(".bv-book-card")).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 
 test("independent review: mobile collection reaches books without a wall of controls", async ({ page, app }, testInfo) => {
   app.readingActions = true;
@@ -412,7 +520,7 @@ test("independent review: mobile collection reaches books without a wall of cont
   app.entries = new Map(books.map(book => [book.id, row(book.id, true, true)]));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books");
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
+  await expect(page.locator(".bv-book-card")).toHaveCount(24);
   const top = await page.locator(".bv-book-card").first().evaluate(el => el.getBoundingClientRect().top + scrollY);
   console.log(`LIBRARY_GEOMETRY ${JSON.stringify({ width: 390, firstBookTop: top })}`);
   await testInfo.attach("library-first-book-position", { body: JSON.stringify({ width: 390, firstBookTop: top }), contentType: "application/json" });
@@ -424,20 +532,15 @@ test("independent review: workspace returns to the searched filtered library pag
   app.readingActions = true;
   app.entries = new Map(books.map(book => [book.id, row(book.id, true, true)]));
   await page.goto("/my-books?q=Library&status=want&label=Imported");
-  await expect(page.locator(".bv-book-card")).toHaveCount(25);
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.locator(".bv-book-card")).toHaveCount(5);
+  await expect(page.locator(".bv-book-card")).toHaveCount(24);
   const original = page.url();
   await page.locator(".bv-book-card h3 a").first().click();
   await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
   await expect(page).toHaveURL(original);
-  await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await page.getByRole("button", { name: "Previous page", exact: true }).click();
-  await expect(page).not.toHaveURL(/cursor=/);
   await expect(page.getByLabel("Search title or author")).toHaveValue("Library");
+  await expect(page.getByRole("button", { name: "Remove filter: Import: Imported" })).toBeVisible();
 });
-
 
 for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]) {
   test(`independent review: library controls and missing covers ${theme} ${width}`, async ({ page, app }, testInfo) => {
@@ -460,7 +563,7 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       await expect(fallback).toHaveClass(/bv-jacket--(sage|ivory|rust|forest|ink)/);
     }
     await expect(page.getByText("Cover unavailable", { exact: true })).toHaveCount(0);
-    const controls = page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button");
+    const controls = page.getByRole("group", { name: "Shelf", exact: true }).getByRole("button");
     const normalControlWidth = (await controls.first().boundingBox()).width;
     const normalSearchWidth = (await page.getByLabel("Search title or author").boundingBox()).width;
     for (const control of await controls.all()) {
@@ -486,7 +589,7 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
     await expect(page.getByLabel("Search title or author")).toBeVisible();
     if (width <= 390) {
       expect((await controls.first().boundingBox()).width).toBeGreaterThan(normalControlWidth);
-      expect((await page.getByLabel("Search title or author").boundingBox()).width).toBeGreaterThan(normalSearchWidth);
+      expect((await page.getByLabel("Search title or author").boundingBox()).width).toBeGreaterThanOrEqual(normalSearchWidth);
       const nav = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
       const discover = nav.getByRole("link", { name: "Discover", exact: true });
       // A label never ellipsises or clips: at large text it may wrap to a second line and the nav grows.
@@ -507,70 +610,19 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       }).toBe(true);
     }
     await page.screenshot({ path: testInfo.outputPath(`library-review-${theme}-${width}-enlarged.png`), fullPage: false });
-    const importLink = page.getByRole("link", { name: "Bring your library", exact: true });
+    const importLink = page.getByRole("link", { name: "Import books", exact: true });
     await importLink.focus();
     await expect(importLink).toBeFocused();
   });
 }
 
-test("independent review: known previous page survives book return and browser navigation", async ({ page, app }) => {
-  app.readingActions = true;
-  app.entries = new Map(Array.from({ length: 76 }, (_, index) => {
-    const id = index + 1;
-    return [id, { ...row(1), id, book_id: id, book: { ...books[0], id, title: `Saved book ${id}` } }];
-  }));
-  await page.goto("/my-books?status=want");
-  for (let i = 0; i < 2; i++) {
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`cursor=${25 * (i + 1)}`));
-  }
-  await expect(page.locator(".bv-personal-book")).toHaveCount(25);
-  await page.locator(".bv-personal-book h3 a").first().click();
-  await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toHaveAttribute("href", "/my-books?status=want&cursor=50");
-  await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
-  await page.getByRole("button", { name: "Previous page", exact: true }).click();
-  await expect(page).toHaveURL(/status=want&cursor=25$/);
-  await page.getByRole("button", { name: "Previous page", exact: true }).click();
-  await expect(page).toHaveURL(/my-books\?status=want$/);
-  await page.goBack();
-  await expect(page).toHaveURL(/cursor=25$/);
-  await page.goForward();
-  await expect(page).not.toHaveURL(/cursor=/);
-  await page.getByLabel("Search title or author").fill("Saved book 76");
-  await page.getByRole("search").getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.locator(".bv-personal-book")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Previous page", exact: true })).toHaveCount(0);
-  expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
-});
-
-for (const direct of [false, true]) test(`independent review: ${direct ? "direct" : "refreshed"} later page has truthful bounded recovery`, async ({ page, app }) => {
-  app.entries = new Map(books.map(book => [book.id, row(book.id)]));
-  if (direct) await page.goto("/my-books?status=want&q=Library&label=Keep&cursor=25");
-  else {
-    await page.goto("/my-books?status=want&q=Library&label=Keep");
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
-    await expect(page.locator(".bv-personal-book")).toHaveCount(5);
-    await page.reload();
-  }
-  await expect(page.locator(".bv-personal-book")).toHaveCount(5);
-  await expect(page.getByRole("button", { name: "Previous page", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Return to first page", exact: true }).click();
-  await expect(page).not.toHaveURL(/cursor=/);
-  await expect(page).toHaveURL(/label=Keep/);
-  await expect(page.getByLabel("Search title or author")).toHaveValue("Library");
-  await expect(page.getByRole("button", { name: /^Want/ })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".bv-personal-book")).toHaveCount(25);
-  expect(app.requests.filter(r => r.path === "/me/library").every(r => !r.query.has("limit"))).toBe(true);
-});
-
 test("independent review: another account cannot recover old library navigation metadata", async ({ page, app }) => {
   app.readingActions = true;
   app.entries = new Map(books.map(book => [book.id, row(book.id)]));
   await page.goto("/my-books?q=Library&status=want");
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.locator(".bv-personal-book")).toHaveCount(5);
+  await expect(page.locator(".bv-personal-book")).toHaveCount(24);
   await page.locator(".bv-personal-book h3 a").first().click();
-  await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toHaveAttribute("href", "/my-books?status=want&q=Library&cursor=25");
+  await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toHaveAttribute("href", "/my-books?q=Library&status=want");
   const oldState = await page.evaluate(() => ({ ...history.state, url: location.pathname }));
   await expireAndSignInAsB(page, app, oldState.url, true);
   await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toBeVisible();
@@ -581,18 +633,14 @@ test("independent review: another account cannot recover old library navigation 
   expect(stored).not.toContain("Library");
 });
 
-
-test("independent review: paging from the bottom reveals the new page instead of its footer", async ({ page, app }) => {
+test("independent review: Show more reveals the new books on a phone", async ({ page, app }) => {
   app.entries = new Map(books.map(book => [book.id, row(book.id)]));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books");
-  await expect(page.locator(".bv-personal-book")).toHaveCount(25);
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page.locator(".bv-personal-book")).toHaveCount(5);
-  await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeFocused();
-  const top = await page.locator(".bv-personal-book").first().evaluate(el => el.getBoundingClientRect().top);
-  expect(top).toBeGreaterThanOrEqual(0);
-  expect(top).toBeLessThan(420);
+  await expect(page.locator(".bv-personal-book")).toHaveCount(24);
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-personal-book")).toHaveCount(30);
+  await expect(page.getByText("Showing 30 of 30", { exact: true })).toBeVisible();
 });
 
 test("independent review: workspace history pagination retains the collection return context", async ({ page, app }) => {
@@ -617,17 +665,15 @@ test("independent review: twenty-thousand saved books retain bounded pages and r
   }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books");
-  await expect(page.locator(".bv-personal-book")).toHaveCount(25);
-  await expect(page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button", { name: /^All/ })).toContainText("20000");
-  await page.getByRole("button", { name: "Next page", exact: true }).click();
-  await expect(page).toHaveURL(/cursor=25$/);
-  await expect(page.locator(".bv-personal-book")).toHaveCount(25);
+  await expect(page.locator(".bv-personal-book")).toHaveCount(24);
+  await expect(page.getByRole("group", { name: "Shelf", exact: true }).getByRole("button", { name: /^All/ })).toContainText("20000");
+  await page.getByRole("button", { name: "Show more", exact: true }).click();
+  await expect(page.locator(".bv-personal-book")).toHaveCount(48);
   await page.getByLabel("Search title or author").fill("Saved library book 20000");
-  await page.getByRole("search").getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByLabel("Search title or author").press("Enter");
   await expect(page.locator(".bv-personal-book")).toHaveCount(1);
-  await expect(page).not.toHaveURL(/cursor=/);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  expect(app.requests.filter(r => r.path === "/me/library")).toHaveLength(3);
+  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1")).toHaveLength(3);
   expect(app.requests.filter(r => r.path === "/me/books")).toHaveLength(0);
 });
 
@@ -656,3 +702,42 @@ test("an English title shows on My Books cards and the reading page; private boo
   }
   delete books[0].published_year; delete books[1].published_year;
 });
+
+// Screenshots for design review: MY_BOOKS_SHOTS=1 writes them to ../.bv-shots/my-books; skipped otherwise.
+for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390, 844, false], [1440, 900, false], [390, 844, true]]) {
+  test(`my books screenshots ${theme} ${width}${zoom ? " 200%" : ""}`, async ({ page, app }) => {
+    test.skip(!process.env.MY_BOOKS_SHOTS, "design review only");
+    app.readingActions = true;
+    app.libraryImport = true;
+    app.entries = new Map(books.map(book => [book.id, { ...row(book.id, book.id % 3 === 0, true), reading_state: book.id % 5 === 0 ? "reading" : null, book: { ...books[book.id - 1], tags: book.id <= 12 ? [{ id: 7, name: "Fantasy" }] : [] } }]));
+    app.facets = { subject: [{ value: 7, label: "Fantasy", count: 12 }, { value: 8, label: "Literary fiction", count: 9 }, { value: 9, label: "History", count: 5 }, { value: 10, label: "Poetry", count: 0 }],
+      author: [{ value: "Isolated test author", label: "Isolated test author", count: 30 }], year_finished: [], length: [{ value: "short", label: "Short", count: 11 }, { value: "medium", label: "Medium", count: 12 }, { value: "long", label: "Long", count: 7 }],
+      source_label: [{ value: "Goodreads: to-read", label: "Goodreads: to-read", count: 8 }] };
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    await page.setViewportSize({ width, height });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/my-books?subject=7&owned=1");
+    await expect(page.locator(".bv-book-card").first()).toBeVisible();
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const dir = "../.bv-shots/my-books";
+    const name = `${dir}/library-${width}${zoom ? "-200" : ""}-${theme}.png`;
+    await page.screenshot({ path: name, fullPage: true });
+    if (!zoom) {
+      const names = ["Americanah", "Beloved", "Circe", "Dune", "Emma", "Frankenstein", "Gilead", "Hamnet", "Invisible Man", "Jane Eyre", "Kindred", "Middlemarch", "Normal People", "Orlando", "Piranesi", "Rebecca", "Sula", "Tess", "Ulysses", "Villette", "Wolf Hall", "Zorba"];
+      app.entries = new Map(app.entries.entries().map(([id, entry]) => [id, { ...entry, book: { ...entry.book, title: names[(id - 1) % names.length], authors: [{ id: 1, name: ["Chimamanda Adichie", "Toni Morrison", "Madeline Miller", "Frank Herbert"][id % 4] }] } }]));
+      await page.goto("/my-books?sort=title");
+      await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+      await expect(page.locator(".bv-library-row").first()).toBeVisible();
+      await page.screenshot({ path: `${dir}/list-${width}-${theme}.png`, fullPage: false });
+    }
+    if (width < 900 && !zoom) {
+      await page.getByRole("button", { name: /^Sort:/ }).click();
+      await page.screenshot({ path: `${dir}/sort-open-${width}-${theme}.png` });
+      await page.keyboard.press("Escape");
+    }
+    if (width < 900) {
+      await page.getByRole("button", { name: /^Filters/ }).click();
+      await page.screenshot({ path: `${dir}/sheet-${width}${zoom ? "-200" : ""}-${theme}.png` });
+    }
+  });
+}

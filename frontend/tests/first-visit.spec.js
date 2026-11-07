@@ -137,7 +137,7 @@ test("pointing at a navigation link warms that page's data", async ({ page, app 
 for (const [name, signedIn, path, heading] of [
   ["a signed-out visit to Discover", false, "/browse", null],
   ["a signed-out visit straight to a book", false, "/book/9003", null],
-  ["a signed-in visit to Home", true, "/home", "Pick up where you left off."],
+  ["a signed-in visit to Home", true, "/home", /^(Home|Good (morning|afternoon|evening), .+)$/],
   ["a signed-in visit to My Books", true, "/my-books", "My Books"],
 ]) test(`${name} is never an empty page, even with a ${450} ms API`, async ({ page, app }) => {
   app.authenticated = signedIn;

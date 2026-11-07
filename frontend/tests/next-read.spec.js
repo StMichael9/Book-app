@@ -9,6 +9,25 @@ const attempt = (id, state = "reading") => ({ id, state, started_on: null, ended
   progress_value: null, total_pages: null, edition_id: null, edition_source_id: null, edition_format: null,
   note: null, reaction: null, created_at: stamp, updated_at: stamp });
 
+const REGION = "Can’t decide?";
+async function adjust(page) {
+  const details = page.locator("details.bv-adjust");
+  await expect(async () => { if (!(await details.evaluate(node => node.open))) await details.locator("summary").click(); await expect(details).toHaveJSProperty("open", true, { timeout: 1000 }); }).toPass();
+}
+async function wantSwitch(page, on) {
+  await adjust(page);
+  const toggle = page.getByRole("switch", { name: "Include my Want to read" });
+  if (on) await toggle.check(); else await toggle.uncheck();
+  await page.getByRole("button", { name: "Update choices", exact: true }).click();
+}
+async function openNew(page, want = false) {
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
+  const region = page.getByRole("region", { name: REGION });
+  if (want) { await expect(region.getByRole("button", { name: /^Start reading/ }).first()).toBeVisible(); await wantSwitch(page, true); }
+  return region;
+}
+
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
     const state = { entries: new Map([[1, entry(1)], [2, entry(2)], [3, entry(3, true)]]),
@@ -77,7 +96,7 @@ const test = base.extend({
         if (state.loseStartResponse) { state.loseStartResponse = false; return route.abort("failed"); }
         return reply(200, { entry: saved, attempt: created });
       }
-      if (route.request().method() === "GET" && /^\/me\/(home|library|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
+      if (route.request().method() === "GET" && /^\/me\/(library|up-next|library\/\d+\/reading)$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } }); // account pages prefetched in the background, not part of this fixture
       if (/^\/(books|me\/library)\/\d+\/description$/.test(path) || /^\/me\/library-imports\/[^/]+\/enrichment$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
@@ -169,65 +188,52 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
   expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
 });
 
-test("M4 Home is shelf-first, short and private; viewing and switching modes never writes", async ({ page, app }) => {
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
-  const choices = page.getByRole("region", { name: "Choose your next read" });
+test("M4 Home folds Next Read into Can't decide?; viewing and switching sources never writes", async ({ page, app }) => {
+  const choices = await openNew(page);
+  await expect(choices.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await expect(choices.getByText("Books you don’t have yet", { exact: true })).toBeVisible();
+  await wantSwitch(page, true);
+  await expect(choices.getByText("From your Want to read", { exact: true })).toBeVisible();
   await expect(choices.getByRole("article")).toHaveCount(2);
   await expect(choices.getByRole("heading", { name: "Private queued reading", exact: true })).toBeVisible();
-  expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
-  await choices.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await wantSwitch(page, false);
   await expect(choices.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
-  await expect(choices.getByRole("button", { name: "Explore something new", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await choices.getByRole("button", { name: "My Want to read books", exact: true }).click();
-  await expect(choices.getByRole("article")).toHaveCount(2);
+  await expect(page.getByRole("region", { name: "Choose your next read" })).toHaveCount(0);
   expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
 });
 
-for (const theme of ["light", "dark"]) test(`Home reading desk and compact next choices remain distinct from the collection; theme=${theme}`, async ({ page, app }) => {
+for (const theme of ["light", "dark"]) test(`Home Something new keeps the three-card layout without overflow; theme=${theme}`, async ({ page, app }) => {
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
-    const desk = page.getByRole("region", { name: "Your current reading", exact: true });
-    const next = page.getByRole("region", { name: "Choose your next read", exact: true });
-    await expect(desk.getByRole("link", { name: "Continue your reading: M4 fixture 1" })).toBeVisible();
+    const next = await openNew(page, true);
     await expect(next.getByRole("article")).toHaveCount(2);
     await expect(next.getByRole("button", { name: "Start reading Private queued reading", exact: true })).toBeEnabled();
-    const currentBox = await desk.boundingBox(), nextBox = await next.boundingBox();
-    if (width === 1440) expect(nextBox.x).toBeGreaterThan(currentBox.x + currentBox.width);
-    else expect(nextBox.y).toBeGreaterThan(currentBox.y + currentBox.height);
-    await expect(page.locator(".bv-book-grid")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: test.info().outputPath(`home-with-choices-${theme}-${width}.png`), fullPage: true });
+    await page.screenshot({ path: test.info().outputPath(`home-something-new-${theme}-${width}.png`), fullPage: true });
   }
-  const continueReading = page.getByRole("link", { name: "Continue your reading: M4 fixture 1", exact: true });
-  await continueReading.focus();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/my-books\/1$/);
   expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
 });
 
 test("M4 controls preserve intent across sources, explain unknown metadata and clear unsaved fields", async ({ page, app }) => {
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
-  await page.getByText("Refine choices (optional)", { exact: true }).click();
-  await page.getByLabel("At most this many pages (optional)", { exact: true }).fill("100");
-  await page.getByLabel("Subject (optional)", { exact: true }).selectOption("1");
+  const choices = await openNew(page, true);
+  await adjust(page);
+  await page.getByLabel("At most this many pages", { exact: true }).fill("100");
+  await page.getByLabel("Subject", { exact: true }).selectOption("1");
   await page.getByRole("button", { name: "Update choices", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(1);
-  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await expect(choices.getByRole("article")).toHaveCount(1);
+  await wantSwitch(page, false);
   await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
   expect(app.requests.filter(item => item.path === "/me/next-read").at(-1).params).toMatchObject({ max_pages: "100", interest_id: "1" });
-  await page.getByText("Refine choices (optional)", { exact: true }).click();
-  await expect(page.getByLabel("At most this many pages (optional)", { exact: true })).toHaveValue("100");
-  await page.getByRole("button", { name: "Clear filters and start over", exact: true }).click();
+  await adjust(page);
+  await expect(page.getByLabel("At most this many pages", { exact: true })).toHaveValue("100");
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").at(-1).params.max_pages).toBeUndefined();
-  await page.getByText("Refine choices (optional)", { exact: true }).click();
-  await page.getByLabel("At most this many pages (optional)", { exact: true }).fill("222");
-  await page.getByRole("button", { name: "Clear filters and start over", exact: true }).click();
-  await expect(page.getByLabel("At most this many pages (optional)", { exact: true })).toHaveValue("");
+  await adjust(page);
+  await page.getByLabel("At most this many pages", { exact: true }).fill("222");
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await adjust(page);
+  await expect(page.getByLabel("At most this many pages", { exact: true })).toHaveValue("");
 });
 
 for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "failed"} choices do not undo a committed finish; the preview says so quietly`, async ({ page, app }) => {
@@ -264,8 +270,7 @@ test("M4 failed finish never opens next choices", async ({ page, app }) => {
 
 test("M4 explicit private start retries a lost response without duplicate attempts", async ({ page, app }) => {
   app.loseStartResponse = true;
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
+  await openNew(page, true);
   const start = page.getByRole("button", { name: "Start reading Private queued reading", exact: true });
   await start.click();
   await expect(page.getByRole("alert")).toBeVisible();
@@ -277,8 +282,7 @@ test("M4 explicit private start retries a lost response without duplicate attemp
 });
 
 test("M4 stale choice cannot silently create a reread", async ({ page, app }) => {
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
+  await openNew(page, true);
   await expect(page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true })).toBeVisible();
   app.entries.get(2).version = 9; app.entries.get(2).is_wanted = false;
   app.attempts.set(2, attempt("22222222-2222-4222-8222-222222222222", "finished"));
@@ -289,43 +293,39 @@ test("M4 stale choice cannot silently create a reread", async ({ page, app }) =>
 
 test("M4 read-only and older backends never expose a writable or unsupported next flow", async ({ page, app }) => {
   app.readOnly = true;
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
+  await openNew(page, true);
   await expect(page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true })).toBeDisabled();
   await expect(page.getByText("You can view choices. Starting a reading is temporarily paused.", { exact: true })).toBeVisible();
   app.oldM3 = true;
   const before = app.requests.filter(item => item.path === "/me/next-read").length;
   await page.reload();
-  await expect(page.getByRole("region", { name: "Choose your next read" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Something new", exact: true })).toHaveCount(0);
   expect(app.requests.filter(item => item.method === "PUT")).toHaveLength(0);
   expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(before);
 });
 
 test("M4 different choices preserve filters and bounded session exclusions without changing shelves", async ({ page, app }) => {
   for (const id of [4, 5, 6]) app.entries.set(id, { ...entry(id), is_owned: true });
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
-  const choices = page.getByRole("region", { name: "Choose your next read" });
-  await choices.getByText("Refine choices (optional)", { exact: true }).click();
-  await page.getByLabel("Only books I own", { exact: true }).check();
+  await openNew(page, true);
+  const choices = page.getByRole("region", { name: REGION });
+  await adjust(page);
+  await page.getByLabel("At most this many pages", { exact: true }).fill("100");
   await choices.getByRole("button", { name: "Update choices", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(3);
   const first = app.requests.filter(item => item.path === "/me/next-read").at(-1);
-  await choices.getByRole("button", { name: "Show different choices", exact: true }).click();
+  await choices.getByRole("button", { name: "Try again", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(1);
   const rotated = app.requests.filter(item => item.path === "/me/next-read").at(-1);
-  expect(rotated.params).toMatchObject({ owned_only: "true", session_id: first.params.session_id, rotation: "1" });
-  expect(rotated.excludes).toEqual(["entry:3", "book:4", "book:5"]);
-  await choices.getByRole("button", { name: "Start choices over", exact: true }).click();
+  expect(rotated.params).toMatchObject({ max_pages: "100", session_id: first.params.session_id, rotation: "1" });
+  expect(rotated.excludes).toEqual(["book:2", "book:4", "book:5"]);
+  await choices.getByRole("button", { name: "Start over", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(3);
   expect(app.requests.filter(item => ["PUT", "PATCH"].includes(item.method))).toHaveLength(0);
   expect([...app.entries.values()].filter(item => item.id !== 1).every(item => item.is_wanted)).toBe(true);
 });
 
 test("M4 explicit catalogue start uses the existing entry and attempt contracts without inventing ownership", async ({ page, app }) => {
-  await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
-  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await openNew(page);
   await page.getByRole("button", { name: "Start reading M4 fixture 4", exact: true }).click();
   await expect(page).toHaveURL(/\/my-books\/4$/);
   expect(app.entries.get(4).is_owned).toBe(false);
@@ -338,12 +338,12 @@ test("M4 pending start blocks conflicting choice controls and keeps one command"
   let release;
   app.holdWorkspace = new Promise(resolve => { release = resolve; });
   try {
-    await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
+    await openNew(page, true);
     const button = page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true });
     await button.click();
     await expect(button).toBeDisabled();
-    await expect(page.getByRole("button", { name: "Explore something new", exact: true })).toBeDisabled();
+    await adjust(page);
+    await expect(page.getByRole("switch", { name: "Include my Want to read" })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Start reading Private queued reading", exact: true })).toBeDisabled();
     release();
     await expect(page).toHaveURL(/\/my-books\/2$/);
@@ -355,8 +355,7 @@ test("M4 late private choices cannot reappear after account departure", async ({
   let release;
   app.holdChoices = new Promise(resolve => { release = resolve; });
   try {
-    await page.goto("/home");
-  await page.getByRole("button", { name: "Choose next", exact: true }).click();
+    await openNew(page);
     await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").length).toBe(1);
     app.authenticated = false;
     await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
@@ -374,8 +373,7 @@ test.describe("Next Read start dates use the reader's local calendar day", () =>
   test("Start reading sends today's local date and a retry after midnight sends the same body", async ({ page, app }) => {
     await page.clock.setFixedTime(new Date("2026-10-22T23:59:30-07:00"));
     app.startFails = true;
-    await page.goto("/home");
-    await page.getByRole("button", { name: "Choose next", exact: true }).click();
+    await openNew(page, true);
     const start = page.getByRole("button", { name: "Start reading M4 fixture 2", exact: true });
     await start.click();
     await expect(page.getByRole("alert")).toBeVisible();
@@ -388,4 +386,19 @@ test.describe("Next Read start dates use the reader's local calendar day", () =>
     expect(second.path).toBe(first.path);
     expect(second.body).toEqual(first.body);
   });
+});
+
+// Design review: NEXT_SHOTS=1 writes Home with "Something new" and Adjust open to ../.bv-shots/home.
+for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`shot: Something new with Adjust open ${theme} ${width}`, async ({ page, app: _app }) => {
+  test.skip(!process.env.NEXT_SHOTS, "design review only");
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await page.setViewportSize({ width, height: 900 });
+  const choices = await openNew(page, true);
+  await adjust(page);
+  await expect(choices.getByRole("article").first()).toBeVisible();
+  // The skip link is only ever visible on keyboard focus: off screen at rest, and nothing here leaves it focused.
+  expect(await page.evaluate(() => ({ focused: document.activeElement?.classList.contains("bv-skip"), bottom: document.querySelector(".bv-skip").getBoundingClientRect().bottom }))).toMatchObject({ focused: false });
+  expect(await page.evaluate(() => document.querySelector(".bv-skip").getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
+  await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+  await page.screenshot({ path: `../.bv-shots/home/something-new-adjust-${width}-${theme}.png`, fullPage: true });
 });

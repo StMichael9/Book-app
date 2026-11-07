@@ -152,6 +152,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
     });
@@ -165,13 +166,13 @@ test("UI refactor current reading leads Home on desktop and phone", async ({ pag
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: width <= 390 ? 844 : 1000 });
     await page.goto("/home");
-    const current = page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
+    const current = page.getByRole("button", { name: "Update progress for Reading fixture 101", exact: true });
     await expect(current).toBeVisible();
     expect((await current.boundingBox()).y).toBeLessThan(width === 390 ? 650 : 750);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`v3-ui-home-${width}.png`), fullPage: true });
   }
-  await page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true }).click();
+  await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
   await expect(page).toHaveURL(/\/my-books\/101$/);
   expect(app.requests.filter(request => request.method === "PUT")).toHaveLength(0);
 });
@@ -179,7 +180,7 @@ test("UI refactor current reading leads Home on desktop and phone", async ({ pag
 test("UI refactor paused Home has a truthful empty-current state", async ({ page, app }) => {
   app.pausedCount = 2;
   await page.goto("/home");
-  await expect(page.getByRole("heading", { name: "A book can wait for you.", exact: true })).toBeVisible();
+  await expect(page.getByText("A book can wait for you.", { exact: false })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open paused books", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
   await expect(page.getByText("Progress is optional.", { exact: true })).toHaveCount(0);
 });
@@ -197,26 +198,26 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/home");
-    const desk = page.getByRole("region", { name: "Your current reading", exact: true });
-    await expect(desk.getByRole("article")).toHaveCount(3);
+    const desk = page.getByRole("region", { name: "Reading now", exact: true });
+    const wide = width > 700;
+    await expect(desk.getByRole("article")).toHaveCount(wide ? 3 : 1);
     await expect(desk.getByRole("progressbar", { name: "Reading progress for Reading fixture 101" })).toHaveAttribute("value", "40");
     await expect(desk.getByRole("progressbar")).toHaveCount(1);
-    await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
+    if (wide) await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
-    await expect(page.getByRole("link", { name: "Paused books (2)", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Shelf" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Import books", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
-    const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
+    const first = desk.getByRole("link", { name: "Reading fixture 101", exact: true });
     await expect(first).toBeVisible();
     expect((await first.boundingBox()).y).toBeLessThan(750);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`reading-desk-${theme}-${width}.png`), fullPage: true });
     await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "My Books", exact: true }).click();
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Shelf", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Import books", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toBeVisible();
     await expect(page.locator(".bv-current-book")).toHaveCount(0);
     await expect(page.locator(".bv-personal-book")).toHaveCount(3);
@@ -240,7 +241,7 @@ test("UI refactor catalogue and private library titles open personal workspaces"
 test("UI current-state facets keep past readings inside the book without overlap badges", async ({ page, app }) => {
   await page.goto("/my-books?status=finished");
   await expect(page.getByText("Earlier readings are kept in each book’s Reading history.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "No saved books match this view.", exact: true })).toBeVisible();
+  await expect(page.getByText("No books match these filters", { exact: true })).toBeVisible();
   await expect(page.locator(".bv-personal-book")).toHaveCount(0);
   await page.getByRole("button", { name: /^Reading/ }).click();
   await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
@@ -844,7 +845,7 @@ for (const theme of ["light", "dark"]) test(`zero-friction active reader journey
     await expect(cards).toHaveCount(3);
     await expect(cards.getByRole("button")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /^Open your reading:/ })).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button")).toHaveCount(4);
+    await expect(page.getByRole("group", { name: "Shelf", exact: true }).getByRole("button")).toHaveCount(4);
     await page.screenshot({ path: test.info().outputPath(`simplified-library-${theme}-${width}.png`), fullPage: true });
     await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
     await expect(page.getByRole("button", { name: "Update progress", exact: true })).toBeVisible();

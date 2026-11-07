@@ -148,15 +148,14 @@ test('current Reading entry is absent from Finished while earlier finishes remai
   app.attempts.unshift({ ...finished('active', 2026), state: 'reading', ended_on: null });
   await page.goto('/my-books?status=finished');
   await expect(page.getByText('Earlier readings are kept in each book’s Reading history.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No saved books match this view.' })).toBeVisible();
+  await expect(page.getByText('No books match these filters', { exact: true })).toBeVisible();
   await expect(page.locator('.bv-personal-book')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
   await page.getByRole('button', { name: /^Reading/ }).click();
   await expect(page.locator('.bv-personal-book')).toHaveCount(1);
   await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Bring your library', exact: true })).toBeVisible();
-  await expect(page.getByText('CSV / TSV import', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Import books', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
   await page.locator('.bv-workspace-history > summary').click();
   await expect(page.locator('.bv-reading-history > li')).toHaveCount(3);
@@ -250,7 +249,7 @@ for (const width of [390, 1440]) test(`same book Finish → Mark as reading upda
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'Back to My Books', exact: true }).click();
   await expect(page).toHaveURL(/status=finished/);
-  await expect(page.getByRole('heading', { name: 'No saved books match this view.' })).toBeVisible();
+  await expect(page.getByText('No books match these filters', { exact: true })).toBeVisible();
   await expect(page.locator('.bv-personal-book')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Finished/ })).toHaveText(/Finished\s*0/);
   await expect(page.getByRole('button', { name: /^Reading/ })).toHaveText(/Reading\s*1/);

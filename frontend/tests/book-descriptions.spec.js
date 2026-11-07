@@ -57,6 +57,7 @@ const test = base.extend({
         const next = { ...found, ...body, version: found.version + 1 }; delete next.expected_version;
         state.entries.set(found.book_id ?? found.id, next); return reply(200, next);
       }
+      if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);

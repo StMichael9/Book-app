@@ -78,7 +78,7 @@ test("a book whose text came from Google gets the plain fallback, never the Goog
   expect(app.errors).toEqual([]);
 });
 
-test("the defaults come back when the reader leaves the book", async ({ page, app }) => {
+test("the defaults come back when the reader leaves the book", async ({ page, app: _app }) => {
   await page.goto("/browse");
   const before = await head(page);
   await page.goto("/book/1", { waitUntil: "commit" });
@@ -93,7 +93,7 @@ test("the defaults come back when the reader leaves the book", async ({ page, ap
   expect(after.ogTitle).toBe(DEFAULT_TITLE);
 });
 
-test("moving from one book to another replaces, not stacks, the head tags", async ({ page, app }) => {
+test("moving from one book to another replaces, not stacks, the head tags", async ({ page, app: _app }) => {
   await page.goto("/book/1");
   await expect(page).toHaveTitle(/Quiet Harbour/);
   await page.evaluate(() => { history.pushState({}, "", "/book/2"); dispatchEvent(new PopStateEvent("popstate")); });
