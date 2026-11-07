@@ -9,12 +9,12 @@ export function yearsOf(stats) {
   return years;
 }
 
-// "2023 and 2024 come from your import" (only when the data names imported years).
+// "2023 and 2024 include your import" (a year can mix imported and native finishes) (only when the data names imported years).
 export function importNote(stats, years) {
   const imported = (Array.isArray(stats?.imported_years) ? stats.imported_years : []).filter(year => years.includes(year)).sort((a, b) => a - b);
   if (!imported.length) return "";
   const text = imported.length === 1 ? String(imported[0]) : `${imported.slice(0, -1).join(", ")} and ${imported.at(-1)}`;
-  return `${text} ${imported.length === 1 ? "comes" : "come"} from your import`;
+  return `${text} ${imported.length === 1 ? "includes" : "include"} your import`;
 }
 
 export const hasData = figures => Boolean(figures && (figures.books > 0 || figures.pages > 0));

@@ -15,7 +15,7 @@ import "../../../styles/ui-v2/reading-life.css";
 const LENGTHS = [["short", "Short", "var(--bv-soft-green)"], ["medium", "Medium", "var(--bv-sage, #5f7d66)"], ["long", "Long", "var(--bv-green)"]];
 
 function Figure({ value, label }) {
-  return <div className="bv-life-fig"><dd>{value}</dd><dt>{label}</dt></div>;
+  return <div className="bv-life-fig"><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
 function Figures({ stats }) {

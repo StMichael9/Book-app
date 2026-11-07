@@ -91,7 +91,7 @@ test("without T42 the switcher offers this year and All time only", async ({ pag
   const years = page.getByRole("group", { name: "Year" });
   await expect(years.getByRole("button")).toHaveText(["2026", "All time"]);
   await expect(years.getByRole("button", { name: "2026" })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText(/come from your import/)).toHaveCount(0);
+  await expect(page.getByText(/include your import|includes your import/)).toHaveCount(0);
   expect(app.requests.filter(item => item.path === "/me/stats")).toHaveLength(1);
 });
 
@@ -100,7 +100,7 @@ test("the year switcher lists years_with_reading, fetches that year and names im
   await page.goto("/reading-life");
   const years = page.getByRole("group", { name: "Year" });
   await expect(years.getByRole("button")).toHaveText(["2023", "2024", "2025", "2026", "All time"]);
-  await expect(page.getByText("2023 and 2024 come from your import", { exact: true })).toBeVisible();
+  await expect(page.getByText("2023 and 2024 include your import", { exact: true })).toBeVisible();
   await years.getByRole("button", { name: "2025" }).click();
   await expect(page).toHaveURL(/year=2025/);
   await expect(page.getByRole("region", { name: "Your 2025 on the shelf" })).toBeVisible();
