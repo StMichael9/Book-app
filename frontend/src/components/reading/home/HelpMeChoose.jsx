@@ -20,15 +20,27 @@ function pillsFor(shelf) {
   ];
 }
 
-async function fetchPicks(pill) {
-  const lists = await Promise.all(pill.from.map(source => getLibraryPage({ facet: source === "want" ? "want" : "all", ...(source === "owned" ? { owned: "true" } : {}), sort: "added", limit: "100", ...pill.filters })));
+const pagesFor = (pill, sort) => Promise.all(pill.from.map(source => getLibraryPage({ facet: source === "want" ? "want" : "all", ...(source === "owned" ? { owned: "true" } : {}), sort, limit: "100", ...pill.filters })));
+
+async function fetchPicks(pill, oldest) {
+  let lists, flip = false;
+  if (pill.oldest) {
+    // The server can sort oldest first; until it can, the newest 100 are read from the other end.
+    try { lists = await pagesFor(pill, "added_oldest"); } catch { lists = await pagesFor(pill, "added"); flip = true; }
+  } else lists = await pagesFor(pill, "added");
   const seen = new Set(), merged = [];
   for (const entry of lists.flatMap(page => page.items)) if (!seen.has(entry.id) && startable(entry)) { seen.add(entry.id); merged.push(entry); }
-  // Newest saved first from the server; "waiting longest" reads it from the other end.
-  return (pill.oldest ? merged.reverse() : merged).map(cardFromEntry);
+  const cards = (flip ? merged.reverse() : merged).map(cardFromEntry);
+  // The oldest saved book on the shelf (from the reading-life figures) is always the first pick for "Waiting longest".
+  if (pill.oldest && oldest?.entry_id) {
+    const first = { entry_id: oldest.entry_id, book_id: oldest.book_id ?? null, title: oldest.title, authors: [], cover_url: oldest.cover_url || null, owned: false, want: true, page_count: null, label: "Want to read" };
+    const known = cards.find(card => card.entry_id === first.entry_id);
+    return [known || first, ...cards.filter(card => card.entry_id !== first.entry_id)];
+  }
+  return cards;
 }
 
-export default function HelpMeChoose({ shelf, readOnly }) {
+export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const pills = pillsFor(shelf), usable = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false);
@@ -37,9 +49,9 @@ export default function HelpMeChoose({ shelf, readOnly }) {
   useEffect(() => {
     if (!pill) return undefined;
     const token = ++request.current;
-    fetchPicks(pill).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); } });
+    fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); } });
     return () => { request.current += 1; };
-  }, [pill]);
+  }, [pill, oldest]);
   if (!usable.length) return null;
   const choose = key => { setActive(key); setResults(null); setTurn(0); setFailed(false); };
   // Try again walks through the results three at a time and only repeats a book once they have all been shown.

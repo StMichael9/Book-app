@@ -29,7 +29,7 @@ const test = base.extend({
       if (path === "/me/profile") return reply(200, { display_name: state.name, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: state.currentReads, reading_count: state.currentReads.length, paused_count: 0 });
-      if (path === "/me/stats") return reply(200, state.stats || { year: 2026, books_finished: 23, pages_read: 7840, median_days: 11, biggest_month: 5, by_month: [2, 1, 3, 2, 4, 1, 3, 2, 1, 3, 1, 0], top_genres: [] });
+      if (path === "/me/stats") return reply(200, state.stats || { year: 2026, books_finished: 23, pages_read: 7840, median_days: 11, biggest_month: 5, by_month: [2, 1, 3, 2, 4, 1, 3, 2, 1, 3, 1, 0], top_genres: [], shelf: { owned_unfinished: 4, want: 4, oldest_waiting: { entry_id: 108, book_id: 8, title: "Orlando", cover_url: null, saved_at: "2021-03-01T00:00:00Z" } } });
       if (path === "/me/up-next") {
         if (method === "PUT") {
           if (state.putStatus !== 200) return reply(state.putStatus, { detail: "Up next can hold 5 books." });
@@ -41,7 +41,9 @@ const test = base.extend({
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => { const found = state.entries.find(item => item.book_id === id); return { book_id: id, entry_id: found?.id ?? null, version: found?.version ?? null, is_owned: found?.is_owned ?? false, is_wanted: found?.is_wanted ?? false, reading_state: null }; }) });
       if (path === "/me/library") {
         const facet = url.searchParams.get("facet"), owned = url.searchParams.get("owned") === "true";
-        let items = [...state.entries].sort((a, b) => b.id - a.id);
+        const sort = url.searchParams.get("sort");
+        if (sort === "added_oldest" && state.noOldestSort) return reply(422, { detail: "Unknown sort" });
+        let items = [...state.entries].sort((a, b) => sort === "added_oldest" ? a.id - b.id : b.id - a.id);
         if (facet === "want") items = items.filter(item => item.is_wanted);
         if (owned) items = items.filter(item => item.is_owned);
         if (url.searchParams.get("length") === "short") items = items.filter(item => item.book.page_count < 250);
@@ -175,6 +177,22 @@ test("Can't decide? shows three at a time and Try again walks through the rest",
   const second = await picks.allTextContents();
   expect(second.some(text => first.includes(text))).toBe(false);
   expect(app.requests.some(request => request.path === "/me/library" && request.query.get("owned") === "true")).toBe(true);
+});
+
+test("Waiting longest leads with the oldest saved book from the reading-life figures", async ({ page, app }) => {
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Waiting longest" }).click();
+  await expect(page.locator(".bv-pick").first()).toContainText("Orlando");
+  expect(app.requests.some(request => request.path === "/me/library" && request.query.get("sort") === "added_oldest")).toBe(true);
+});
+
+test("Waiting longest falls back to the newest saved books read from the other end before the sort ships", async ({ page, app }) => {
+  app.noOldestSort = true;
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Waiting longest" }).click();
+  await expect(page.locator(".bv-pick")).toHaveCount(3);
+  expect(app.requests.some(request => request.path === "/me/library" && request.query.get("sort") === "added")).toBe(true);
+  expect(app.errors).toEqual([]);
 });
 
 test("Something short asks the library for short books", async ({ page, app }) => {

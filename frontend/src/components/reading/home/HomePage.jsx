@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { getUpNext } from "../../../api/home.js";
@@ -26,7 +27,7 @@ function ReadingCard({ read, onUpdate, readOnly, buttonRef }) {
   return <article className="bv-now-card">
     <BookCover book={book} priority />
     <div className="bv-now-body">
-      <h3>{book.title}</h3>
+      <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
       <p className="bv-author">{(book.authors || []).map(author => author.name).join(", ") || "Author not listed"}</p>
       {percent != null && <progress className="bv-reading-meter" value={percent} max="100" aria-label={`Reading progress for ${book.title}`} />}
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
@@ -92,12 +93,13 @@ export default function ReadingHomePage() {
         : reads.length ? <>
           <div className="bv-now-grid">{shown.map(read => <ReadingCard key={read.entry.id} read={read} readOnly={library.readOnly} buttonRef={node => { if (node) buttons.current[read.entry.id] = node; }} onUpdate={item => setSheet({ ...item, book: entryBook(item.entry) })} />)}</div>
           {narrow && reads.length > 1 && <p className="bv-more-reading">{showAll ? <Button variant="quiet" onClick={() => setShowAll(false)}>Show fewer</Button> : <>+ {reads.length - 1} more you’re reading · <Button variant="quiet" onClick={() => setShowAll(true)}>Show</Button></>}</p>}
+          {readingCount > reads.length && <p className="bv-more-reading"><TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink></p>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
     {ready && <>
       <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
-      {shelf.data && <HelpMeChoose shelf={shelf.data} readOnly={library.readOnly} />}
+      {shelf.data && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
       <YearGlance stats={stats.data} libraryImport={library.libraryImport && !library.readOnly} />
     </>}
     {sheet && <ProgressSheet read={sheet} onClose={() => setSheet(null)} onSaved={saved} />}

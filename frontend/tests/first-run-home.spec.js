@@ -40,6 +40,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);
@@ -50,7 +51,7 @@ const test = base.extend({
 test("an account with no books gets a first-run Home with a few books to pick, in first-impression order", async ({ page, app }) => {
   await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Welcome. Let’s fill your first shelf.", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Pick up where you left off." })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^(Home|Good (morning|afternoon|evening), .+)$/ })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Pick a few books", exact: true })).toBeVisible();
   const cards = page.locator(".bv-first-run .bv-book-card");
   await expect(cards).toHaveCount(10);
@@ -89,6 +90,6 @@ test("after three saves the page says the shelf is started and offers My Books",
 test("an account that already has books keeps the usual Home", async ({ page, app }) => {
   app.entries.set(2, row(2, { is_wanted: true }));
   await page.goto("/home");
-  await expect(page.getByRole("heading", { name: "Pick up where you left off." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^(Home|Good (morning|afternoon|evening), .+)$/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Welcome. Let’s fill your first shelf." })).toHaveCount(0);
 });
