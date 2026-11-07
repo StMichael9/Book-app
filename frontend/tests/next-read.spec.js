@@ -210,7 +210,8 @@ test("Adjust is genre names and a length choice, with one Show books and one Res
   const choices = await openNew(page);
   await adjust(page);
   const form = page.locator(".bv-adjust-form");
-  await expect(form.getByRole("radio")).toHaveCount(1 + 2 + 4);
+  await expect(form.getByRole("radio")).toHaveCount(1 + 2 + 3);
+  await expect(form.getByRole("radio", { name: "Long" })).toHaveCount(0);
   await expect(form.getByText("Historical fiction", { exact: true })).toBeVisible();
   await expect(form.getByText("Fantasy", { exact: true })).toBeVisible();
   await expect(form).not.toContainText(/\d{2,}|historical-fiction|\(/);

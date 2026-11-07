@@ -68,9 +68,9 @@ function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
 }
 
 // Adjust offers the My Books lengths. The server only knows a page cap, so Short is under 250 pages and Medium up to 450;
-// "Long" has no cap until the server can ask for a minimum.
+// "Long" stays hidden until the server can ask for a minimum page count (a pill that changed nothing would mislead).
 const LENGTH_CAP = { short: 249, medium: 450 };
-const LENGTHS = [["", "Any"], ["short", "Short"], ["medium", "Medium"], ["long", "Long"]];
+const LENGTHS = [["", "Any"], ["short", "Short"], ["medium", "Medium"]];
 
 const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", length: "", rotation: 0, exclude: [] });
 
