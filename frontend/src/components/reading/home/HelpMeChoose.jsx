@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLibraryPage } from "../../../api/reading.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
@@ -46,7 +46,10 @@ async function fetchPicks(pill, oldest) {
 export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const library = useUserBooks();
   // "Something new" is Next Read's engine (catalogue picks, filters, rotation); it lives in the same panel as the shelf pills.
-  const pills = [...pillsFor(shelf), ...(library.nextRead ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], usable = pills.filter(pill => pill.enabled);
+  // Memoised so the active pill keeps its identity between renders: the fetch effect depends on it, and a fresh object
+  // every render would refetch (and discard) after each result, looping on /me/library.
+  const hasNext = Boolean(library.nextRead);
+  const pills = useMemo(() => [...pillsFor(shelf), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext]), usable = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
@@ -69,7 +72,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     <div className="bv-pills" role="group" aria-label="Help me choose">
       {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill && <div className="bv-results" aria-busy={(!pill.next && loading) || undefined}>
+    {pill && <div className={`bv-results${!pill.next && !loading && results !== null && (failed || !results.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
     {pill.next && <NextReadSection panel />}
     {!pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>

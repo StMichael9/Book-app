@@ -318,6 +318,21 @@ test("switching a pill keeps the old cards, dimmed, and the page never shrinks w
   expect(app.errors).toEqual([]);
 });
 
+test("a shelf pill asks the library a bounded number of times and then stops", async ({ page, app }) => {
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await expect(pills.getByRole("button", { name: "More fantasy" })).toBeVisible();
+  app.requests.length = 0;
+  await pills.getByRole("button", { name: "More fantasy" }).click();
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  const library = () => app.requests.filter(request => request.path === "/me/library").length;
+  const settled = library();
+  // "More fantasy" reads Want to read and what you own: at most two requests per source.
+  expect(settled).toBeLessThanOrEqual(4);
+  await page.waitForTimeout(2000);
+  expect(library()).toBe(settled);
+});
+
 test("Home asks the library for its books once, for a reader mid-book and for a quiet one", async ({ page, app }) => {
   await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Can’t decide?" })).toBeVisible();
