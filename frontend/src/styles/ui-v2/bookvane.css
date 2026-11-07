@@ -186,7 +186,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-jacket--ink { --bv-jacket-bg: var(--bv-ink); --bv-jacket-ink: var(--bv-paper); }
 /* Thumbnails keep the title only; tiny marks keep just the tint and spine. */
 @container (max-width: 96px) { .bv-root .bv-jacket span { display: none; } .bv-root .bv-jacket strong { -webkit-line-clamp: 4; } }
-@container (max-width: 48px) { .bv-root .bv-jacket strong { display: none; } }
+/* A thumbnail jacket is just its cloth and spine line: title text that small only breaks inside words. */
+@container (max-width: 80px) { .bv-root .bv-jacket strong { display: none; } }
 .bv-root .bv-book-card h3 { font: 600 var(--bv-fs-card)/1.3 var(--bv-body); margin: 13px 0 4px; overflow-wrap: anywhere; }
 .bv-root .bv-book-card h3 a:hover { text-decoration: underline; }
 .bv-root .bv-author { color: var(--bv-muted); font-size: var(--bv-fs-body); margin: 0 0 12px; overflow-wrap: anywhere; }

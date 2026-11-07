@@ -160,7 +160,7 @@ export function ProfileHubPage() {
     </div>
     <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <>
-        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearFigures stats={stats.data} />}
+        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <><YearFigures stats={stats.data} />{Array.isArray(stats.data?.by_month) && <p className="bv-profile-life-link"><TextLink to="/reading-life">Your reading life</TextLink></p>}</>}
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
       {tab === "lists" && <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length

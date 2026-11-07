@@ -12,6 +12,7 @@ import { safeReturnTo } from "./data.js";
 import { likelySignedIn } from "../../api/bookCache.js";
 import { checkService, isServiceDown } from "../../api/client.js";
 import { usePageWarmers } from "./pagePrefetch.js";
+import ReadingLifePage from "../reading/life/ReadingLifePage.jsx";
 import RouteErrorBoundary from "./RouteErrorBoundary.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { PrivateBookPage, ReadingGate, ReadingHomePage, ReadingWorkspacePage, StartReadingPage } from "../reading/ReadingPages.jsx";
@@ -184,7 +185,7 @@ function RouteEffects() {
     first.current = false;
     const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
-    if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
+    if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) { canonical = document.createElement("link"); canonical.rel = "canonical"; document.head.appendChild(canonical); }
@@ -232,6 +233,7 @@ function Shell() {
         <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />
         <Route path="/my-books/import" element={<RequireAccount><ReadingGate><Suspense fallback={<p className="bv-container" role="status">Opening your library import…</p>}><LibraryImportPage /></Suspense></ReadingGate></RequireAccount>} />
         <Route path="/home" element={<RequireAccount title="Pick up where you left off."><ReadingGate title="Pick up where you left off."><ReadingHomePage /></ReadingGate></RequireAccount>} />
+        <Route path="/reading-life" element={<RequireAccount title="Your reading life"><ReadingGate title="Your reading life"><ReadingLifePage /></ReadingGate></RequireAccount>} />
         <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/privacy" element={<ReadingPrivacyPage />} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
