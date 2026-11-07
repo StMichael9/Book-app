@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     resend_api_key: str | None = Field(default=None, alias="RESEND_API_KEY")
     password_reset_from: str | None = Field(default=None, alias="PASSWORD_RESET_FROM")
     frontend_base_url: str | None = Field(default=None, alias="FRONTEND_BASE_URL")
+    public_api_base_url: str = Field(default="https://api.bookvane.me", alias="PUBLIC_API_BASE_URL")
     reading_v3_enabled: bool = Field(default=False, alias="READING_V3_ENABLED")
     reading_v3_user_ids: str = Field(default="", alias="READING_V3_USER_IDS")
     admin_emails: str = Field(default="", alias="ADMIN_EMAILS")

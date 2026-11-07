@@ -35,3 +35,4 @@ Disallow: /reset-password
 Disallow: /forgot-password
 
 Sitemap: https://bookvane.me/sitemap.xml
+Sitemap: https://api.bookvane.me/sitemaps/index.xml

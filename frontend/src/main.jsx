@@ -13,6 +13,8 @@ installAnalytics();
 
 // The static summary in index.html is for crawlers that do not run JavaScript.
 document.getElementById("static-landing")?.remove();
+// Book pages served to crawlers carry their own JSON-LD; the app adds its own, so drop the server copy.
+document.getElementById("bv-book-ld")?.remove();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
