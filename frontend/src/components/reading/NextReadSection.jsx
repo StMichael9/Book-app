@@ -6,6 +6,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
 import { BookCover, Button, GetACopy, TextLink } from "../ui-v2/primitives.jsx";
+import PickCard from "./home/PickCard.jsx";
 import { localToday } from "./localToday.js";
 
 function reasonText(reason) {
@@ -42,8 +43,14 @@ async function startChoice(choice, source, identity, startedOn, assertCurrent) {
     return createReadingAttempt(identity, { entry_id: entryId, expected_version: workspace.entry.version, started_via: "next_read", started_on: startedOn });
 }
 
-function NextReadCard({ choice, disabled, pending, onStart }) {
+function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
   const book = choice.book || { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
+  if (compact) return <PickCard card={{ ...choice, title: book.title, authors: book.authors.map(author => author.name), cover_url: book.cover_image_url }} href={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}
+    label={choice.reasons.slice(0, 1).map(reasonText).join(" ")} onStart={onStart} pending={pending} disabled={disabled}>
+    {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
+    {!choice.book && <p className="bv-help">Private book · only in your library</p>}
+    {choice.book && <GetACopy book={book} />}
+  </PickCard>;
   return <article className="bv-book-card"><BookCover book={book} /><h3>{book.title}</h3>
     <p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>
     <p className="bv-help">{choice.reasons.slice(0, 2).map(reasonText).join(" ")}</p>
@@ -55,9 +62,11 @@ function NextReadCard({ choice, disabled, pending, onStart }) {
   </article>;
 }
 
-const defaultSettings = () => ({ source: "want", owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
+const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
 
-export default function NextReadSection({ preview = false, home = false, currentKey, finishId, enabled = true, hidden = false }) {
+// `panel` is the "Something new" pick inside Home's "Can't decide?": cards only, filters tucked behind "Adjust".
+export default function NextReadSection({ preview = false, home = false, panel = false, onSource, currentKey, finishId, enabled = true, hidden = false }) {
+  const base = panel ? "catalogue" : "want";
   const auth = useAuth(), library = useUserBooks();
   const go = useNavigate(), command = useReadingCommand();
   const intent = useRef(null);
@@ -70,11 +79,13 @@ export default function NextReadSection({ preview = false, home = false, current
   if (finishSeen !== finishId) { setFinishSeen(finishId); if (finishId) setExpanded(false); }
   const heading = useRef(null), previewButton = useRef(null), returning = useRef(false);
   const scope = finishId ? `finish:${finishId}` : "choices";
-  const [stored, setStored] = useState(() => ({ scope, values: defaultSettings() }));
-  const settings = stored.scope === scope ? stored.values : defaultSettings();
+  const [stored, setStored] = useState(() => ({ scope, values: defaultSettings(base) }));
+  const settings = stored.scope === scope ? stored.values : defaultSettings(base);
+  // Home's panel subtitle follows the Want switch.
+  useEffect(() => { onSource?.(settings.source); }, [onSource, settings.source]);
   function setSettings(update) {
     setStored(previous => {
-      const values = previous.scope === scope ? previous.values : defaultSettings();
+      const values = previous.scope === scope ? previous.values : defaultSettings(base);
       return { scope, values: typeof update === "function" ? update(values) : update };
     });
   }
@@ -115,6 +126,29 @@ export default function NextReadSection({ preview = false, home = false, current
   }
   const result = request.data;
   if (hidden || !enabled) return null;
+  if (panel) {
+    const rotate = result && result.items.length > 0 && result.remaining_count > result.items.length && settings.rotation < 10000;
+    return <div className="bv-next-panel">
+      {library.readOnly && <p role="status" className="bv-help">You can view choices. Starting a reading is temporarily paused.</p>}
+      {command.error && <p role="alert">{command.error} Your other readings haven’t changed. <Button variant="quiet" disabled={command.pending} onClick={request.retry}>Reload choices</Button></p>}
+      {request.loading ? <p role="status" className="bv-muted">Finding a few choices…</p> : request.error ? <div role="alert"><p>Choices couldn’t load. Your library is unchanged.</p><Button onClick={request.retry}>Try choices again</Button><Button variant="quiet" onClick={() => reset()}>Clear choice filters</Button></div> : <>
+        {result.items.length ? <div className="bv-picks">{result.items.map(choice => <NextReadCard compact key={`${settings.source}:${choice.key}`} choice={choice} disabled={library.readOnly || command.pending} pending={command.pending && chosen === choice.key} onStart={() => begin(choice)} />)}</div>
+          : <p role="status" className="bv-muted">{result.eligible_count ? "You’ve seen the available choices for these settings. Start over or change a filter." : settings.source === "want" ? "No Want to read books match these choices. Adjust the filters, or try something new." : "No new books match these choices. Adjust the filters or browse for yourself."}</p>}
+        <div className="bv-choose-foot">{rotate && <Button disabled={command.pending} variant="secondary" onClick={() => setSettings(current => ({ ...current, rotation: current.rotation + 1, exclude: [...new Set([...current.exclude, ...result.items.map(item => item.key)])].slice(-30) }))}>Try again</Button>}
+          {(settings.rotation > 0 || !result.items.length) && <Button disabled={command.pending} variant="quiet" onClick={() => reset()}>Start over</Button>}<TextLink to="/browse">Browse for myself</TextLink></div>
+      </>}
+      {result && <details className="bv-adjust"><summary>Adjust</summary>
+        <form key={scope + settings.source} ref={filterForm} className="bv-adjust-form" onSubmit={event => {
+          event.preventDefault(); const values = new FormData(event.currentTarget);
+          setSettings(current => ({ ...current, source: values.has("want") ? "want" : "catalogue", interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
+        }}>
+          <label htmlFor={`next-interest-${sessionId}`}>Subject</label><select id={`next-interest-${sessionId}`} name="interest" disabled={command.pending} defaultValue={settings.interest_id}><option value="">Any subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
+          {(result.known_page_count > 0 || settings.max_pages) && <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" disabled={command.pending} defaultValue={settings.max_pages} /></>}
+          <label className="bv-adjust-switch"><input type="checkbox" name="want" role="switch" disabled={command.pending} defaultChecked={settings.source === "want"} /> Include my Want to read</label>
+          <div className="bv-adjust-actions"><Button type="submit" disabled={command.pending}>Update choices</Button><Button variant="quiet" disabled={command.pending} onClick={() => reset(base)}>Clear</Button></div>
+        </form></details>}
+    </div>;
+  }
   if (preview && !expanded) {
     const choice = result?.items[0];
     const book = choice?.book || (choice ? { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] } : null);

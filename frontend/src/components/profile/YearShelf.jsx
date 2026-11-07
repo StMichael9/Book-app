@@ -21,7 +21,7 @@ export function YearFigures({ stats, own = true }) {
 let risen = false;
 
 // One spine per finished book in its month, on an ink baseline. The colour and height are decoration only.
-export function YearInBooks({ stats, own = true, chips = true }) {
+export function YearInBooks({ stats, own = true, chips = true, bare = false }) {
   const [rise] = useState(() => !risen);
   useEffect(() => { risen = true; }, []);
   // How many spines fit a month at the minimum width (4 px on phones, 8 px on desktop); the rest show as "+N".
@@ -45,8 +45,8 @@ export function YearInBooks({ stats, own = true, chips = true }) {
   if (!Array.isArray(stats?.by_month)) return null;
   const empty = !stats.books_finished;
   const finished = <><strong>{books(stats.books_finished)}</strong> and <strong>{stats.pages_read.toLocaleString("en-US")} {stats.pages_read === 1 ? "page" : "pages"}</strong></>;
-  return <section className="bv-profile-year" aria-labelledby="bv-year-heading"><h2 id="bv-year-heading">{own ? `Your ${stats.year}` : `${stats.year} in books`}</h2>
-    {empty ? <p>{own ? "Finish a book this year and it’ll show up here." : "It starts with their first finished book."}</p>
+  return <section className="bv-profile-year" aria-labelledby={bare ? undefined : "bv-year-heading"} aria-label={bare ? `Your ${stats.year} on the shelf` : undefined}>{!bare && <h2 id="bv-year-heading">{own ? `Your ${stats.year}` : `${stats.year} in books`}</h2>}
+    {bare ? null : empty ? <p>{own ? "Finish a book this year and it’ll show up here." : "It starts with their first finished book."}</p>
       : <p>{own ? "You’ve finished " : "Finished "}{finished} this year.{stats.biggest_month ? ` ${MONTHS[stats.biggest_month - 1]} was ${own ? "your" : "their"} biggest month.` : ""}</p>}
     <div ref={shelf} className={`bv-shelf${rise ? " is-rising" : ""}${empty ? " is-empty" : ""}`} aria-hidden="true">
       {stats.by_month.map((count, month) => <div key={month} className="bv-shelf-month" data-month={month + 1} style={{ "--bv-month": month }}>
