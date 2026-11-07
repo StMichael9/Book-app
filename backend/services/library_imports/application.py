@@ -166,8 +166,13 @@ def apply_groups(db, run, groups):
                 exact = [attempt for attempt in existing if attempt.state == event["state"]
                     and (str(attempt.started_on) if attempt.started_on else None) == event["started_on"]
                     and (str(attempt.ended_on) if attempt.ended_on else None) == event["ended_on"]]
+                fillable = _fillable(existing, event) if row.plan.get("history_policy") != "add" else None
                 if len(exact) == 1 and (event["started_on"] or event["ended_on"]):
                     event_plans.append((row, event, "link", exact[0].id))
+                elif fillable:
+                    # The reader already has this read but without the dates the file knows: the file's dates fill the
+                    # empty ones. Dates they already have are never changed.
+                    event_plans.append((row, event, "fill", fillable.id))
                 elif existing and row.plan.get("history_policy") != "add":
                     event_plans.append((row, event, "context", None))
                 elif event["state"] in ("reading", "paused") and any(attempt.state in ("reading", "paused") for attempt in existing):
@@ -258,6 +263,12 @@ def apply_groups(db, run, groups):
                 new_event_ids[event_identity] = attempt_id
                 count["added_reads"] += 1
                 touched = True
+            elif action == "fill":
+                attempt = next(item for item in histories[entry.id] if item.id == attempt_id)
+                attempt.started_on = attempt.started_on or date.fromisoformat(event["started_on"]) if event["started_on"] else attempt.started_on
+                attempt.ended_on = attempt.ended_on or date.fromisoformat(event["ended_on"]) if event["ended_on"] else attempt.ended_on
+                count["filled_reads"] = count.get("filled_reads", 0) + 1
+                touched = True
             elif action == "context":
                 count["preserved_reads"] += 1
             if action == "new":
@@ -281,6 +292,23 @@ def apply_groups(db, run, groups):
     db.flush()
     db.add_all(link_inserts)
     return count
+
+
+def _fillable(existing, event):
+    """The one existing read of this state whose empty dates the file can fill without changing a date already there."""
+    same = [attempt for attempt in existing if attempt.state == event["state"]]
+    if len(same) != 1:
+        return None
+    attempt = same[0]
+    started = attempt.started_on or (date.fromisoformat(event["started_on"]) if event["started_on"] else None)
+    ended = attempt.ended_on or (date.fromisoformat(event["ended_on"]) if event["ended_on"] else None)
+    if (attempt.started_on and event["started_on"] and str(attempt.started_on) != event["started_on"])             or (attempt.ended_on and event["ended_on"] and str(attempt.ended_on) != event["ended_on"]):
+        return None
+    if (started, ended) == (attempt.started_on, attempt.ended_on) or (started and ended and ended < started):
+        return None
+    if ended and event["state"] not in ("finished", "dnf"):
+        return None
+    return attempt
 
 
 def _lookup(payload):

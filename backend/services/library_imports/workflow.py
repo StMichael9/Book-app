@@ -3,6 +3,8 @@
 No background tasks, external source requests, shared catalogue writes or
 per-record commits. The authenticated browser drives one short step at a time.
 """
+import json
+import time
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
@@ -16,6 +18,8 @@ from models import Book, CatalogueImportRun, ImportedLibraryRecord, UserBook
 from services.library_imports.formats import FormatError, canonical, digest, inspect_headers, normalize_row, size, staged_size
 from services.library_imports.matching import evidence, proposed_match
 
+ANALYSIS_CHUNKS_PER_CALL = 6
+ANALYSIS_SECONDS_PER_CALL = 4
 ACTIVE = ("uploading", "analyzing", "grouping", "preview_ready", "applying")
 TERMINAL = ("completed", "completed_with_issues", "cancelled", "expired")
 
@@ -199,35 +203,58 @@ class ImportWorkflow:
         return self.status(user_id, run.id)
 
     def advance_analysis(self, user_id, run_id):
+        """One call does as much analysis as fits a small time budget: up to six 100-row chunks (analysis, then grouping), so a
+        300-row file is one request. Each chunk is bounded; the whole call is still one transaction."""
         run = self._lock(user_id, run_id)
         if run.phase not in ("analyzing", "grouping"):
             fail("import_not_analyzing")
         self._capacity()
-        if run.phase == "analyzing":
-            rows = list(self.db.scalars(select(Row).where(Row.run_id == run.id, Row.user_id == user_id,
-                Row.ordinal > run.analyze_cursor).order_by(Row.ordinal).limit(100)))
-            valid = [row for row in rows if row.payload]
-            found = evidence(self.db, user_id, run.source, run.scope, [row.payload for row in valid]) if valid else None
-            added_bytes = 0
-            for row in valid:
-                result = proposed_match(row.payload, found)
-                previous = found["previous"].get(row.record_key)
-                result["plan"]["expected_source_updated_at"] = previous.updated_at.isoformat() if previous else None
-                added_bytes += staged_size(result["candidates"], result["plan"]) - staged_size(row.candidates, row.plan)
-                row.target_key, row.candidates, row.plan = result["target_key"], result["candidates"], result["plan"]
-                row.disposition = "review" if row.plan["kind"] in ("review", "removed") or row.payload["warnings"] else "ready"
-            if run.stage_bytes + added_bytes > 32 * 1024 * 1024:
-                fail("import_staging_limit_cancel_or_use_smaller_file", 413)
-            run.stage_bytes += added_bytes
-            if rows:
-                run.analyze_cursor = rows[-1].ordinal
-            if run.analyze_cursor == run.row_count:
-                run.phase = "grouping"
-        else:
-            self._group(run)
+        began = time.monotonic()
+        for _ in range(ANALYSIS_CHUNKS_PER_CALL):
+            if run.phase == "analyzing":
+                self._analyze_chunk(run, user_id)
+            elif run.phase == "grouping":
+                self._group(run)
+            if run.phase not in ("analyzing", "grouping") or time.monotonic() - began > ANALYSIS_SECONDS_PER_CALL:
+                break
         self._touch(run)
         self.db.commit()
         return self.status(user_id, run.id)
+
+    def _analyze_chunk(self, run, user_id):
+        rows = list(self.db.scalars(select(Row).where(Row.run_id == run.id, Row.user_id == user_id,
+            Row.ordinal > run.analyze_cursor).order_by(Row.ordinal).limit(100)))
+        valid = [row for row in rows if row.payload]
+        found = evidence(self.db, user_id, run.source, run.scope, [row.payload for row in valid]) if valid else None
+        added_bytes, updates = 0, []
+        for row in valid:
+            result = proposed_match(row.payload, found)
+            previous = found["previous"].get(row.record_key)
+            result["plan"]["expected_source_updated_at"] = previous.updated_at.isoformat() if previous else None
+            added_bytes += staged_size(result["candidates"], result["plan"]) - staged_size(row.candidates, row.plan)
+            # Notes about the file's own values (an unreadable date, an odd status) are kept with the row but never
+            # stop a match: only a real choice does.
+            disposition = "review" if result["plan"]["kind"] in ("review", "removed") else "ready"
+            updates.append({"ordinal": row.ordinal, "target_key": result["target_key"], "candidates": result["candidates"],
+                            "plan": result["plan"], "disposition": disposition})
+        if run.stage_bytes + added_bytes > 32 * 1024 * 1024:
+            fail("import_staging_limit_cancel_or_use_smaller_file", 413)
+        run.stage_bytes += added_bytes
+        if updates:
+            # One statement for the whole chunk (not one per row): this is the difference between ~2 s and ~0.1 s a call
+            # on a database a network away.
+            self.db.flush()
+            self.db.execute(text(
+                "UPDATE library_import_rows AS r SET target_key = d.target_key, candidates = d.candidates, plan = d.plan, "
+                "disposition = d.disposition FROM jsonb_to_recordset(CAST(:data AS jsonb)) AS d(ordinal int, target_key text, "
+                "candidates jsonb, plan jsonb, disposition text) WHERE r.run_id = :run AND r.user_id = :user AND r.ordinal = d.ordinal"),
+                {"data": json.dumps(updates), "run": run.id, "user": user_id})
+            for row in valid:
+                self.db.expire(row)
+        if rows:
+            run.analyze_cursor = rows[-1].ordinal
+        if run.analyze_cursor == run.row_count:
+            run.phase = "grouping"
 
     def _group_rows(self, run):
         query = select(Row).where(Row.run_id == run.id, Row.user_id == run.user_id, Row.ordinal > run.group_cursor)
@@ -312,6 +339,18 @@ class ImportWorkflow:
             run.phase = "preview_ready"
             run.summary = self._summary(run)
 
+    def _counts(self, run):
+        """Every row is in exactly one of these, so they always add up to `total`."""
+        kind = Row.plan["kind"].astext
+        bucket = case((Row.disposition == "applied", "applied"), (Row.disposition == "skipped", "skipped"),
+                      (Row.disposition == "duplicate", "duplicates"), (Row.disposition.in_(("review", "invalid")), "needs_choice"),
+                      (Row.disposition == "pending", "pending"), (kind == "private", "private"), else_="matched")
+        found = dict(self.db.execute(select(bucket, func.count()).where(Row.run_id == run.id, Row.user_id == run.user_id)
+                                     .group_by(bucket)).all())
+        counts = {key: found.get(key, 0) for key in ("matched", "private", "needs_choice", "duplicates", "skipped", "applied", "pending")}
+        counts["total"] = run.row_count
+        return counts
+
     def _summary(self, run):
         summary = {"rows": run.row_count, "dispositions": dict(self.db.execute(select(Row.disposition, func.count())
             .where(Row.run_id == run.id, Row.user_id == run.user_id).group_by(Row.disposition)).all()),
@@ -319,7 +358,8 @@ class ImportWorkflow:
             "targets_by_kind": dict(self.db.execute(select(Row.plan["kind"].astext, func.count(func.distinct(Row.target_key)))
                 .where(Row.run_id == run.id, Row.user_id == run.user_id, Row.target_key.is_not(None))
                 .group_by(Row.plan["kind"].astext)).all()),
-            "ignored_columns": run.options.get("ignored_columns", [])}
+            "ignored_columns": run.options.get("ignored_columns", []),
+            "counts": self._counts(run)}
         # Committed counters survive review, cancellation and expiry. Only
         # advance_apply adds to them, atomically with the corresponding writes.
         if "applied" in run.summary:

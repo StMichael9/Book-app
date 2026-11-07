@@ -1,10 +1,36 @@
 """Batched local work/edition evidence. No source API calls or catalogue writes."""
 from collections import defaultdict
 
-from sqlalchemy import func, select, union, or_
+from sqlalchemy import case, func, select, union, or_
 
-from models import Author, Book, CatalogueSourceAlias, Edition, EditionISBN, ImportedLibraryRecord, UserBook, book_authors
+import re
+
+from models import Author, Book, CatalogueSourceAlias, Edition, EditionISBN, ImportedLibraryRecord, ReadingAttempt, UserBook, book_authors
+from services.catalogue_resolver import norm_title, surname
 from services.library_imports.formats import canonical, digest
+
+CANDIDATE_CAP = 20
+_LIKE_ESCAPE = str.maketrans({"\\": "\\\\", "%": "\\%", "_": "\\_"})
+_SUBTITLE = re.compile(r"\s*[:(\[]|\s+-\s+|\s+--\s+")
+
+
+def _like_base(title):
+    """Lowercase title up to its subtitle/edition note, to look up books whose longer title starts with it."""
+    return " ".join(_SUBTITLE.split(title.casefold())[0].split())
+
+
+def _name_key(value):
+    return " ".join(re.findall(r"[^\W_]+", value.casefold()))
+
+
+def author_tier(file_author, names):
+    """2: the whole name matches (initials/punctuation ignored); 1: only the surname does; 0: no match."""
+    wanted = surname(file_author or "")
+    if not wanted:
+        return 0
+    if _name_key(file_author) in {_name_key(name) for name in names}:
+        return 2
+    return 1 if wanted in {surname(name) for name in names} else 0
 
 
 def _bounded_partition(query, key, maximum=6):
@@ -30,12 +56,17 @@ def evidence(db, user_id, source, scope, payloads):
         canonical_keys = work_keys | set(aliases.values())
         found = dict(db.execute(select(Book.source_id, Book.id).where(Book.source_id.in_(canonical_keys))).all())
         by_work = {key: found.get(aliases.get(key, key)) for key in work_keys}
-    # Lowercase/whitespace only; no lossy ASCII/transliteration/qualifier removal.
+    # A title matches when its subtitle/edition note is ignored (norm_title). The query finds books whose title equals or
+    # starts with the file's title; the exact comparison is made in Python.
     title_key = func.lower(func.regexp_replace(func.btrim(Book.title), r"\s+", " ", "g"))
-    if titles:
-        query = select(title_key.label("title_key"), Book.id.label("book_id")).where(title_key.in_(titles))
-        for row in db.execute(_bounded_partition(query, "title_key")):
-            by_title[row.title_key].add(row.book_id)
+    bases = {key: _like_base(row["title"]) for row in payloads if row["title"] and (key := norm_title(row["title"]))}
+    if bases:
+        starts = [title_key.like(base.translate(_LIKE_ESCAPE) + "%", escape="\\") for base in set(bases.values())]
+        query = select(Book.id.label("book_id"), Book.title).where(or_(*starts))            .order_by(case((title_key.in_(set(bases.values())), 0), else_=1), Book.id).limit(CANDIDATE_CAP * len(bases) + 100)
+        for row in db.execute(query):
+            key = norm_title(row.title)
+            if key in bases and len(by_title[key]) < CANDIDATE_CAP:
+                by_title[key].add(row.book_id)
     previous = {row.record_key: row for row in db.scalars(select(ImportedLibraryRecord).where(
         ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.source == source,
         ImportedLibraryRecord.scope == scope, ImportedLibraryRecord.record_key.in_([row["record_key"] for row in payloads])))}
@@ -67,6 +98,16 @@ def evidence(db, user_id, source, scope, payloads):
                 books[book_id]["authors"].append(name)
         for book in books.values():
             book["authors"].sort(key=canonical)
+    # The latest few reads of each matched entry, in one statement, so a clash can be named without another round trip.
+    attempts = defaultdict(list)
+    if entries:
+        newest = select(ReadingAttempt.user_book_id, ReadingAttempt.state, ReadingAttempt.started_on, ReadingAttempt.ended_on,
+                        func.row_number().over(partition_by=ReadingAttempt.user_book_id, order_by=(
+                            func.coalesce(ReadingAttempt.ended_on, ReadingAttempt.started_on).desc().nulls_last(),
+                            ReadingAttempt.id)).label("rank")).where(ReadingAttempt.user_book_id.in_([e.id for e in entries])).subquery()
+        for row in db.execute(select(newest).where(newest.c.rank <= 5).order_by(newest.c.user_book_id, newest.c.rank)):
+            attempts[row.user_book_id].append({"state": row.state, "started_on": row.started_on.isoformat() if row.started_on else None,
+                                               "ended_on": row.ended_on.isoformat() if row.ended_on else None})
     edition_matches = defaultdict(set)
     if isbns:
         query = select(EditionISBN.isbn13, Edition.id, Edition.book_id, Edition.source_id, Edition.physical_format, Edition.page_count).join(Edition).where(EditionISBN.isbn13.in_(isbns)).subquery()
@@ -74,7 +115,25 @@ def evidence(db, user_id, source, scope, payloads):
         for row in db.execute(select(ranked).where(ranked.c.rank <= 6)):
             edition_matches[row.isbn13].add((row.id, row.book_id, row.source_id, row.physical_format, row.page_count))
     return {"isbn": by_isbn, "title": by_title, "work": by_work, "books": books, "entries": entries_by_book,
-            "entries_by_id": entries_by_id, "previous": previous, "editions": edition_matches, "private": private_candidates}
+            "entries_by_id": entries_by_id, "previous": previous, "editions": edition_matches, "private": private_candidates,
+            "attempts": attempts}
+
+
+def differences(payload, existing):
+    """Where the file disagrees with what the reader already has for this book, by field. Never blocks the match:
+    an empty existing value takes the file's, a filled one keeps its own (`use`)."""
+    event = payload["events"][-1] if payload["events"] else None
+    if not event or not existing:
+        return []
+    latest = existing[0]
+    if event["state"] != latest["state"]:
+        return [{"field": "status", "file": event["state"], "existing": latest["state"], "use": "existing"}]
+    found = []
+    for field, file_value, current in (("started_on", event["started_on"], latest["started_on"]),
+                                       ("finished_on", event["ended_on"], latest["ended_on"])):
+        if file_value and file_value != current:
+            found.append({"field": field, "file": file_value, "existing": current, "use": "file" if current is None else "existing"})
+    return found
 
 
 def proposed_match(payload, found):
@@ -82,7 +141,7 @@ def proposed_match(payload, found):
     explicit = found["work"].get(payload["work_source_id"])
     previous = found["previous"].get(payload["record_key"])
     native_entry = found["entries_by_id"].get(payload.get("native_entry_id"))
-    suggestions = set(found["title"][canonical(payload["title"])]) if payload["title"] else set()
+    suggestions = set(found["title"].get(norm_title(payload["title"]), ())) if payload["title"] and norm_title(payload["title"]) else set()
     strong_ids = identifiers | ({explicit} if explicit else set())
     reasons, selected, confidence = [], None, "none"
     if native_entry and native_entry.book_id is None:
@@ -113,18 +172,32 @@ def proposed_match(payload, found):
         reasons.append("unknown_work_key")
     if selected:
         book = found["books"].get(selected)
-        if not book or (payload["title"] and canonical(book["title"]) != canonical(payload["title"])):
-            reasons.append("title_disagreement")
-        author_evidence = {canonical(author) for author in book["authors"]} if book else set()
-        if book and confidence == "owned_bookvane_id":
-            author_evidence.add(canonical(", ".join(book["authors"])))
-        if book and payload["author"] and canonical(payload["author"]) not in author_evidence:
-            reasons.append("author_disagreement")
-    if selected is None and not reasons and payload["author"]:
-        exact = [book_id for book_id in suggestions if canonical(payload["author"]) in {canonical(name) for name in found["books"][book_id]["authors"]}]
-        if len(exact) == 1 and len(suggestions) < 6:
-            selected, confidence = exact[0], "title_author"
-    candidates = sorted(strong_ids | suggestions)
+        names = book["authors"] if book else []
+        if confidence in ("previous", "owned_bookvane_id"):
+            # The reader's own earlier link or Bookvane id: unchanged, exact checks.
+            if not book or (payload["title"] and canonical(book["title"]) != canonical(payload["title"])):
+                reasons.append("title_disagreement")
+            author_evidence = {canonical(author) for author in names}
+            if book and confidence == "owned_bookvane_id":
+                author_evidence.add(canonical(", ".join(names)))
+            if book and payload["author"] and canonical(payload["author"]) not in author_evidence:
+                reasons.append("author_disagreement")
+        else:
+            # An ISBN or work key is decisive. Only a file that disagrees on BOTH title and author points at a wrong id.
+            same_title = bool(book) and (not payload["title"] or norm_title(book["title"]) == norm_title(payload["title"])
+                                         or canonical(book["title"]) == canonical(payload["title"]))
+            same_author = bool(book) and (not payload["author"] or author_tier(payload["author"], names) > 0)
+            if not book or not (same_title or same_author) or (not same_title and not payload["author"]):
+                reasons.append("title_disagreement")
+            elif not identifiers and payload["author"] and not same_author:
+                reasons.append("author_disagreement")      # a work key alone (no ISBN) does not outrank a contradicting author
+    tiers = {book_id: author_tier(payload["author"], found["books"][book_id]["authors"]) for book_id in suggestions if book_id in found["books"]}
+    if selected is None and not reasons and payload["author"] and tiers:
+        best = max(tiers.values())
+        top = [book_id for book_id, tier in tiers.items() if tier == best]
+        if best > 0 and len(top) == 1 and len(suggestions) < CANDIDATE_CAP:
+            selected, confidence = top[0], "title_author"
+    candidates = sorted(strong_ids | suggestions, key=lambda book_id: (-tiers.get(book_id, 0), book_id))
     previews = [found["books"][book_id] for book_id in candidates[:5] if book_id in found["books"]]
     private = found["private"][canonical(payload["title"])] if payload["title"] else []
     if private and confidence not in ("previous", "owned_bookvane_id") and (selected is None or selected not in found["entries"]):
@@ -150,4 +223,8 @@ def proposed_match(payload, found):
             "edition_source_id": edition[2] if edition else None,
             "evidence": digest({"book": found["books"][selected], "isbns": sorted(identifiers), "edition": edition}),
             "needs_approval": confidence == "title_author"}
+    if entry:
+        plan["differences"] = differences(payload, found["attempts"].get(entry.id, []))
+        if not plan["differences"]:
+            del plan["differences"]
     return {"target_key": f"book:{selected}", "candidates": previews, "plan": plan}
