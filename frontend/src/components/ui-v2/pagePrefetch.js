@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { getBooks } from "../../api/books.js";
 import { getReadingHome, getReadingWorkspace } from "../../api/reading.js";
 import { defaultLibraryState, libraryKey, loadLibraryPage } from "../reading/library/libraryQuery.js";
@@ -12,7 +13,7 @@ const libraryFirstPage = () => loadLibraryPage(defaultLibraryState());
 // Warms the signed-in pages a reader is about to open. The keys are the ones the pages use for their own requests
 // (see ReadingHomePage and LibraryPage), so a page that opens afterwards finds its data already in the cache.
 export function usePageWarmers() {
-  const auth = useAuth(), library = useUserBooks();
+  const auth = useAuth(), library = useUserBooks(), onHome = useLocation().pathname === "/home";
   const generation = auth.sessionGeneration, revision = library.revision;
   const ready = auth.isAuthenticated && !auth.isLoading && library.readingActions && !library.loading && !library.error;
   // Best effort and never fatal: a response with an unexpected shape just warms nothing, and cannot fail the page's request.
@@ -38,7 +39,8 @@ export function usePageWarmers() {
     if (cached) warmWorkspaces(cached.data?.items);
   }, [ready, generation, revision, warmWorkspaces]);
   // As soon as the session is known (and after signing in), the reader's own pages are fetched in the background.
-  useEffect(() => { warmHome(); warmLibrary(); }, [warmHome, warmLibrary]);
+  // Home reads the library itself (one request), so it does not also warm My Books; pointing at the link still does.
+  useEffect(() => { warmHome(); if (!onHome) warmLibrary(); }, [warmHome, warmLibrary, onHome]);
   // Pointing at or focusing a navigation link warms that page too.
   return useCallback(path => {
     if (path === "/home") warmHome();

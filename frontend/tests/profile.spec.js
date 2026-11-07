@@ -118,6 +118,21 @@ test("Esc on the sheet keeps the profile private and sends prompted", async ({ p
   expect(sent(app, "PATCH", "/me/profile").map(request => request.body)).toEqual([{ prompted: true }]);
 });
 
+test("closing the sheet is a final answer even when saving it fails: it stays closed on the next page and after a reload", async ({ page, app }) => {
+  app.profile.show_prompt = true;
+  await page.route("**/test-api/me/profile", route => route.request().method() === "PATCH" ? route.fulfill({ status: 500, json: { detail: "down" } }) : route.fallback());
+  await page.goto("/browse");
+  await expect(page.getByRole("dialog", { name: "Let friends find you?" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("link", { name: "Profile" }).first().click();
+  await expect(page.getByRole("heading", { name: "St Michael" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "St Michael" })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("Make it public on the sheet asks for a username first, then sends it with prompted", async ({ page, app }) => {
   app.profile.show_prompt = true;
   await page.goto("/profile");

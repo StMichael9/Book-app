@@ -61,7 +61,7 @@ test("the Get a copy row is hidden without an affiliate ID", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Copy fixture 7" })).toBeVisible();
   await expect(page.getByText("About this book")).toBeVisible();
   await expect(copyLink(page)).toHaveCount(0);
-  await expect(page.getByText("Bookvane may earn a small commission.")).toHaveCount(0);
+  await expect(page.getByText(/may earn a small commission/)).toHaveCount(0);
 });
 
 test("Want to read cards keep their link; Own, Reading, Finished and Discover have none", async ({ page }) => {
@@ -95,7 +95,8 @@ test("next-read cards offer a quiet sponsored Get a copy link with the disclosur
   await expect(link).toHaveAttribute("href", buyUrl(1));
   await expect(link).toHaveAttribute("target", "_blank");
   expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "noreferrer", "sponsored"]);
-  await expect(preview.getByText("Bookvane may earn a small commission.")).toBeVisible();
+  await expect(preview.getByText("Bookvane may earn a small commission on Get a copy links.")).toBeVisible();
+  await expect(preview.getByText(/may earn a small commission/)).toHaveCount(1);
 });
 
 test("next-read shows no Get a copy link without an affiliate ID", async ({ page }) => {

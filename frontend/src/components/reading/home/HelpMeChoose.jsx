@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLibraryPage } from "../../../api/reading.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
@@ -46,35 +46,41 @@ async function fetchPicks(pill, oldest) {
 export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const library = useUserBooks();
   // "Something new" is Next Read's engine (catalogue picks, filters, rotation); it lives in the same panel as the shelf pills.
-  const pills = [...pillsFor(shelf), ...(library.nextRead ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], usable = pills.filter(pill => pill.enabled);
+  // Memoised so the active pill keeps its identity between renders: the fetch effect depends on it, and a fresh object
+  // every render would refetch (and discard) after each result, looping on /me/library.
+  const hasNext = Boolean(library.nextRead);
+  const pills = useMemo(() => [...pillsFor(shelf), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext]), usable = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
-  const [nextSource, setNextSource] = useState("catalogue"), [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false);
+  const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
   const pill = pills.find(item => item.key === active);
   useEffect(() => {
     if (!pill || pill.next) return undefined;
     const token = ++request.current;
-    fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); } });
+    fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
     return () => { request.current += 1; };
   }, [pill, oldest]);
   if (!usable.length) return null;
-  const choose = key => { setActive(key); setResults(null); setTurn(0); setFailed(false); };
+  // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
+  const choose = key => { if (key === active) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
   // Try again walks through the results three at a time and only repeats a book once they have all been shown.
   const pages = results?.length ? Math.ceil(results.length / PICKS_PER_TRY) : 0;
   const shown = results ? results.slice((turn % Math.max(pages, 1)) * PICKS_PER_TRY, (turn % Math.max(pages, 1)) * PICKS_PER_TRY + PICKS_PER_TRY) : [];
   const start = card => { setPending(card.entry_id); command.run(() => startReading(card.entry_id), () => go(`/my-books/${card.entry_id}`)); };
   return <section className="bv-choose" aria-labelledby="bv-choose-title">
-    <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? (nextSource === "want" ? "From your Want to read" : "Books you don’t have yet") : "Pick from your own shelf"}</p></div>
+    <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? "Books you don’t have yet" : "Pick from your own shelf"}</p></div>
     <div className="bv-pills" role="group" aria-label="Help me choose">
-      {pills.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} disabled={!item.enabled} onClick={() => choose(item.key)}>{item.text}</button>)}
+      {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill?.next && <NextReadSection panel onSource={setNextSource} />}
-    {pill && !pill.next && <div role="status" aria-live="polite">
+    {pill && <div className={`bv-results${!pill.next && !loading && results !== null && (failed || !results.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
+    {pill.next && <NextReadSection panel />}
+    {!pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
-        <div className="bv-picks">{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>
-        <div className="bv-choose-foot">{results.length > PICKS_PER_TRY && <Button variant="secondary" onClick={() => setTurn(value => value + 1)}>Try again</Button>}
-          <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/books/, "book") : pill.about}</p></div>
+        <div className={`bv-picks${loading ? " bv-picks--busy" : ""}`}>{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending || loading} />)}</div>
+        <div className="bv-choose-foot">{results.length > PICKS_PER_TRY && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
+          {!loading && <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/\bbooks\b/, "book") : pill.about}</p>}</div>
       </>}
+    </div>}
     </div>}
     {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}
   </section>;

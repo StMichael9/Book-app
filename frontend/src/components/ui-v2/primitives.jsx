@@ -49,9 +49,10 @@ function Jacket({ book, className = "", ...props }) {
   </div>;
 }
 
-export function GetACopy({ book }) {
+// `disclosure={false}`: the caller shows the commission line once for the whole row.
+export function GetACopy({ book, disclosure = true }) {
   const url = bookshopAffiliateUrl(book);
-  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })} aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a><small>Bookvane may earn a small commission.</small></p> : null;
+  return url ? <p className="bv-get-copy-quiet"><a href={url} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })} aria-label={`Get a copy of ${book.title}, opens Bookshop.org in a new tab`}>Get a copy <ExternalLink aria-hidden="true" /></a>{disclosure && <small>Bookvane may earn a small commission.</small>}</p> : null;
 }
 
 export function EnglishTitle({ book }) {
@@ -72,6 +73,8 @@ function isCached(src) {
   return probe.complete && probe.naturalWidth > 0;
 }
 
+const CACHE_PATIENCE_MS = 1500;
+
 export function BookCover({ book, priority = false, hero = false, size = "medium" }) {
   const [failed, setFailed] = useState({ url: null, step: 0 });
   const [loadedUrl, setLoadedUrl] = useState(null);
@@ -83,6 +86,12 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   const cached = useMemo(() => isCached(src), [src]);
   const loaded = loadedUrl === src || cached;
   const fail = () => setFailed({ url, step: step === 0 && coverFallback(url, size) ? 1 : 2 });
+  // The image cache can take many seconds on a first fetch. If it hasn't answered in 1.5 s, ask Open Library directly (once).
+  useEffect(() => {
+    if (step !== 0 || loaded || !src || !coverFallback(url, size)) return undefined;
+    const timer = setTimeout(() => setFailed({ url, step: 1 }), CACHE_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [step, loaded, src, url, size]);
   // The jacket (title and author) shows at once and the artwork fades in over it, so a card is never blank.
   return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
