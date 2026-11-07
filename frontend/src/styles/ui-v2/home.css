@@ -100,3 +100,19 @@
   .bv-root .bv-picks .bv-next-body .bv-button { align-self: flex-start; width: auto; min-width: 96px; margin-top: 8px; }
   .bv-root .bv-picks .bv-next-card h3 { margin-top: 0; }
 }
+
+/* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */
+.bv-root .bv-results { min-height: 480px; }
+.bv-root .bv-results .bv-choose-foot { min-height: 48px; }
+.bv-root .bv-picks--busy { opacity: .5; transition: opacity .15s; pointer-events: none; }
+.bv-root .bv-next-card .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bv-root .bv-adjust-form { max-width: 560px; gap: 14px; }
+.bv-root .bv-adjust-group { margin: 0; padding: 0; border: 0; min-width: 0; }
+.bv-root .bv-adjust-group legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
+.bv-root .bv-adjust-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.bv-root .bv-choice { position: relative; display: inline-flex; }
+.bv-root .bv-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.bv-root .bv-choice span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--bv-control); border-radius: 999px; background: var(--bv-panel); font-weight: 600; }
+.bv-root .bv-choice input:checked + span { background: var(--bv-soft-green); border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
+.bv-root .bv-choice input:focus-visible + span { outline: 2px solid var(--bv-green); outline-offset: 2px; }
+@media (max-width: 700px) { .bv-root .bv-results { min-height: 520px; } }

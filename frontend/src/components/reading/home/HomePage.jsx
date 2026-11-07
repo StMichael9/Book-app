@@ -57,12 +57,11 @@ export default function ReadingHomePage() {
   const key = `${auth.sessionGeneration}:${library.revision}`;
   const request = useRequest(getReadingHome, `home:${key}`);
   const quiet = Boolean(request.data) && !request.data.current_reads.length && !request.data.reading_count && !request.data.paused_count;
-  const first = useRequest(() => getLibraryPage({}), `home-books:${auth.sessionGeneration}`, quiet);
+  // One library request serves everything on Home, including the empty-library check. A failure leaves that block out instead of failing the page.
+  const shelf = useRequest(() => getLibraryPage({ facet: "all", sort: "added", limit: "100" }).catch(() => null), `home-shelf:${key}`, Boolean(request.data));
   const [firstRun, setFirstRun] = useState(false);
-  if (!firstRun && first.data?.counts?.all === 0) setFirstRun(true);
+  if (!firstRun && quiet && shelf.data?.counts?.all === 0) setFirstRun(true);
   const ready = Boolean(request.data) && !firstRun;
-  // Everything below the current reading is best effort: a failure leaves that block out instead of failing the page.
-  const shelf = useRequest(() => getLibraryPage({ facet: "all", sort: "added", limit: "100" }).catch(() => null), `home-shelf:${key}`, ready);
   const stats = useRequest(() => getStats().catch(() => null), `home-stats:${key}`, ready);
   const pinned = useRequest(() => getUpNext().catch(() => null), `home-pins:${key}`, ready);
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
@@ -70,7 +69,7 @@ export default function ReadingHomePage() {
   const [sheet, setSheet] = useState(null), [showAll, setShowAll] = useState(false);
   const narrow = useNarrow(), buttons = useRef({});
   if (firstRun) return <FirstRunHome />;
-  if (quiet && first.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
+  if (quiet && shelf.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
 
   const reads = (request.data?.current_reads || []).map(read => current.reads[read.entry.id] || read);
   const pins = current.pins !== undefined ? current.pins : pinned.data;

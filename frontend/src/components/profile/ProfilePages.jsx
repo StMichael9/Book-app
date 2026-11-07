@@ -367,19 +367,25 @@ export function PublicListPage({ notFound }) {
 
 // ---- the one-time sheet ----------------------------------------------------------------------------------------
 
+// Closing the sheet counts as "not now". The answer is also kept in this browser, so it stays closed on the next page and on
+// reload even if saving it to the profile failed or is slow.
+const PROMPT_KEY = "bv-profile-prompt-answered";
+const promptAnswered = () => { try { return localStorage.getItem(PROMPT_KEY) === "1"; } catch { return false; } };
+const rememberAnswer = () => { try { localStorage.setItem(PROMPT_KEY, "1"); } catch { /* private mode */ } };
+
 export function ProfilePrompt() {
   const { profile, save } = useProfile();
   const reader = useReader();
   const location = useLocation();
   const [asking, setAsking] = useState(false), [handle, setHandle] = useState(""), [error, setError] = useState(""), [pending, setPending] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(promptAnswered);
   const quiet = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname) || location.pathname.startsWith("/my-books/import") || Boolean(reader.gate);
   const open = Boolean(profile?.show_prompt) && !dismissed && !quiet;
   async function finish(changes) {
     setPending(true); setError("");
-    try { await save({ ...changes, prompted: true }); setDismissed(true); } catch (requestError) {
+    try { await save({ ...changes, prompted: true }); rememberAnswer(); setDismissed(true); } catch (requestError) {
       if (changes.profile_public) { setError(saveMessage(requestError)); setPending(false); return; }
-      setDismissed(true);
+      rememberAnswer(); setDismissed(true);
     }
     setPending(false);
   }

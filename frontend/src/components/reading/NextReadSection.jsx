@@ -5,14 +5,16 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
+import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { BookCover, Button, GetACopy, TextLink } from "../ui-v2/primitives.jsx";
+import { genreName } from "./genreName.js";
 import PickCard from "./home/PickCard.jsx";
 import { localToday } from "./localToday.js";
 
 function reasonText(reason) {
   switch (reason.code) {
     case "want": return "On your Want to read list.";
-    case "catalogue": return "Something new to explore.";
+    case "catalogue": return "";
     case "owned": return "You marked this as owned.";
     case "interest": return `Matches your choice: ${reason.value}.`;
     case "preferences": return "Matches your saved discovery subjects.";
@@ -43,13 +45,16 @@ async function startChoice(choice, source, identity, startedOn, assertCurrent) {
     return createReadingAttempt(identity, { entry_id: entryId, expected_version: workspace.entry.version, started_via: "next_read", started_on: startedOn });
 }
 
+// Home keeps "Get a copy" on Something new cards (approved 6 Nov). Turn this off to remove it there; the commission line goes with it.
+export const HOME_GET_A_COPY = true;
+
 function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
   const book = choice.book || { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
   if (compact) return <PickCard card={{ ...choice, title: book.title, authors: book.authors.map(author => author.name), cover_url: book.cover_image_url }} href={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}
-    label={choice.reasons.slice(0, 1).map(reasonText).join(" ")} onStart={onStart} pending={pending} disabled={disabled}>
+    label={choice.reasons.slice(0, 1).map(reasonText).join(" ")} startText="Start reading" onStart={onStart} pending={pending} disabled={disabled}>
     {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
     {!choice.book && <p className="bv-help">Private book · only in your library</p>}
-    {choice.book && <GetACopy book={book} />}
+    {choice.book && HOME_GET_A_COPY && <GetACopy book={book} disclosure={false} />}
   </PickCard>;
   return <article className="bv-book-card"><BookCover book={book} /><h3>{book.title}</h3>
     <p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>
@@ -62,10 +67,15 @@ function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
   </article>;
 }
 
-const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
+// Adjust offers the My Books lengths. The server only knows a page cap, so Short is under 250 pages and Medium up to 450;
+// "Long" has no cap until the server can ask for a minimum.
+const LENGTH_CAP = { short: 249, medium: 450 };
+const LENGTHS = [["", "Any"], ["short", "Short"], ["medium", "Medium"], ["long", "Long"]];
+
+const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", length: "", rotation: 0, exclude: [] });
 
 // `panel` is the "Something new" pick inside Home's "Can't decide?": cards only, filters tucked behind "Adjust".
-export default function NextReadSection({ preview = false, home = false, panel = false, onSource, currentKey, finishId, enabled = true, hidden = false }) {
+export default function NextReadSection({ preview = false, home = false, panel = false, currentKey, finishId, enabled = true, hidden = false }) {
   const base = panel ? "catalogue" : "want";
   const auth = useAuth(), library = useUserBooks();
   const go = useNavigate(), command = useReadingCommand();
@@ -81,8 +91,6 @@ export default function NextReadSection({ preview = false, home = false, panel =
   const scope = finishId ? `finish:${finishId}` : "choices";
   const [stored, setStored] = useState(() => ({ scope, values: defaultSettings(base) }));
   const settings = stored.scope === scope ? stored.values : defaultSettings(base);
-  // Home's panel subtitle follows the Want switch.
-  useEffect(() => { onSource?.(settings.source); }, [onSource, settings.source]);
   function setSettings(update) {
     setStored(previous => {
       const values = previous.scope === scope ? previous.values : defaultSettings(base);
@@ -100,7 +108,8 @@ export default function NextReadSection({ preview = false, home = false, panel =
     else if (returning.current) { returning.current = false; previewButton.current?.focus(); }
   }, [expanded, preview]);
   const request = useRequest(async () => {
-    const result = await getNextRead(values);
+    const { length, ...query } = values;
+    const result = await getNextRead(LENGTH_CAP[length] ? { ...query, max_pages: LENGTH_CAP[length] } : query);
     if (!Array.isArray(result?.items) || result.items.length > 3 || !Array.isArray(result.interests) ||
         !Number.isInteger(result.eligible_count) || !Number.isInteger(result.remaining_count) ||
         result.items.some(item => typeof item.key !== "string" || !Array.isArray(item.reasons) ||
@@ -110,9 +119,13 @@ export default function NextReadSection({ preview = false, home = false, panel =
     return result;
   },
     `next:${auth.sessionGeneration}:${library.revision}:${JSON.stringify(values)}`, enabled && !hidden);
+  // Choices already on screen stay (dimmed) while the next ones load, so the page never collapses and grows back.
+  const [held, setHeld] = useState(null);
+  if (request.data && held !== request.data) setHeld(request.data);
+  const [formKey, setFormKey] = useState(0);
   function reset(source = settings.source) {
-    filterForm.current?.reset();
-    setSettings({ source, owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
+    setFormKey(value => value + 1);
+    setSettings({ source, owned_only: false, interest_id: "", max_pages: "", length: "", rotation: 0, exclude: [] });
   }
   function switchSource(source) {
     setSettings(current => ({ ...current, source, rotation: 0, exclude: [] }));
@@ -124,28 +137,34 @@ export default function NextReadSection({ preview = false, home = false, panel =
       library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`);
     });
   }
-  const result = request.data;
+  const result = request.data ?? (request.error ? null : held), refreshing = request.loading && Boolean(held);
   if (hidden || !enabled) return null;
   if (panel) {
     const rotate = result && result.items.length > 0 && result.remaining_count > result.items.length && settings.rotation < 10000;
-    return <div className="bv-next-panel">
+    const commission = HOME_GET_A_COPY && Boolean(result?.items.some(choice => choice.book && bookshopAffiliateUrl(choice.book)));
+    return <div className="bv-next-panel" aria-busy={refreshing || undefined}>
       {library.readOnly && <p role="status" className="bv-help">You can view choices. Starting a reading is temporarily paused.</p>}
       {command.error && <p role="alert">{command.error} Your other readings haven’t changed. <Button variant="quiet" disabled={command.pending} onClick={request.retry}>Reload choices</Button></p>}
-      {request.loading ? <p role="status" className="bv-muted">Finding a few choices…</p> : request.error ? <div role="alert"><p>Choices couldn’t load. Your library is unchanged.</p><Button onClick={request.retry}>Try choices again</Button><Button variant="quiet" onClick={() => reset()}>Clear choice filters</Button></div> : <>
-        {result.items.length ? <div className="bv-picks">{result.items.map(choice => <NextReadCard compact key={`${settings.source}:${choice.key}`} choice={choice} disabled={library.readOnly || command.pending} pending={command.pending && chosen === choice.key} onStart={() => begin(choice)} />)}</div>
-          : <p role="status" className="bv-muted">{result.eligible_count ? "You’ve seen the available choices for these settings. Start over or change a filter." : settings.source === "want" ? "No Want to read books match these choices. Adjust the filters, or try something new." : "No new books match these choices. Adjust the filters or browse for yourself."}</p>}
-        <div className="bv-choose-foot">{rotate && <Button disabled={command.pending} variant="secondary" onClick={() => setSettings(current => ({ ...current, rotation: current.rotation + 1, exclude: [...new Set([...current.exclude, ...result.items.map(item => item.key)])].slice(-30) }))}>Try again</Button>}
-          {(settings.rotation > 0 || !result.items.length) && <Button disabled={command.pending} variant="quiet" onClick={() => reset()}>Start over</Button>}<TextLink to="/browse">Browse for myself</TextLink></div>
+      {!result && request.loading ? <p role="status" className="bv-muted">Finding a few choices…</p> : request.error ? <div role="alert"><p>Choices couldn’t load. Your library is unchanged.</p><Button onClick={request.retry}>Try choices again</Button></div> : <>
+        {result.items.length ? <div className={`bv-picks${refreshing ? " bv-picks--busy" : ""}`}>{result.items.map(choice => <NextReadCard compact key={`${settings.source}:${choice.key}`} choice={choice} disabled={library.readOnly || command.pending || refreshing} pending={command.pending && chosen === choice.key} onStart={() => begin(choice)} />)}</div>
+          : <p role="status" className="bv-muted">{result.eligible_count ? "You’ve seen all the choices for now. Open Adjust and choose Reset to see them again." : "No new books match these choices. Open Adjust to change them, or browse for yourself."}</p>}
+        {commission && <p className="bv-help">Bookvane may earn a small commission on Get a copy links.</p>}
+        <div className="bv-choose-foot">{rotate && <Button disabled={command.pending || refreshing} variant="secondary" onClick={() => setSettings(current => ({ ...current, rotation: current.rotation + 1, exclude: [...new Set([...current.exclude, ...result.items.map(item => item.key)])].slice(-30) }))}>Try again</Button>}
+          <TextLink to="/browse">Browse for myself</TextLink></div>
       </>}
       {result && <details className="bv-adjust"><summary>Adjust</summary>
-        <form key={scope + settings.source} ref={filterForm} className="bv-adjust-form" onSubmit={event => {
+        <form key={`${scope}:${formKey}`} ref={filterForm} className="bv-adjust-form" onSubmit={event => {
           event.preventDefault(); const values = new FormData(event.currentTarget);
-          setSettings(current => ({ ...current, source: values.has("want") ? "want" : "catalogue", interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
+          setSettings(current => ({ ...current, interest_id: String(values.get("interest") || ""), length: String(values.get("length") || ""), max_pages: "", rotation: 0, exclude: [] }));
         }}>
-          <label htmlFor={`next-interest-${sessionId}`}>Subject</label><select id={`next-interest-${sessionId}`} name="interest" disabled={command.pending} defaultValue={settings.interest_id}><option value="">Any subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
-          {(result.known_page_count > 0 || settings.max_pages) && <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" disabled={command.pending} defaultValue={settings.max_pages} /></>}
-          <label className="bv-adjust-switch"><input type="checkbox" name="want" role="switch" disabled={command.pending} defaultChecked={settings.source === "want"} /> Include my Want to read</label>
-          <div className="bv-adjust-actions"><Button type="submit" disabled={command.pending}>Update choices</Button><Button variant="quiet" disabled={command.pending} onClick={() => reset(base)}>Clear</Button></div>
+          <fieldset className="bv-adjust-group" disabled={command.pending}><legend>Genre</legend>
+            <div className="bv-adjust-choices">
+              <label className="bv-choice"><input type="radio" name="interest" value="" defaultChecked={!settings.interest_id} /><span>Any</span></label>
+              {result.interests.map(item => <label key={item.id} className="bv-choice"><input type="radio" name="interest" value={item.id} defaultChecked={String(item.id) === String(settings.interest_id)} /><span>{genreName(item.name)}</span></label>)}
+            </div></fieldset>
+          <fieldset className="bv-adjust-group" disabled={command.pending}><legend>Length</legend>
+            <div className="bv-adjust-choices">{LENGTHS.map(([value, text]) => <label key={value || "any"} className="bv-choice"><input type="radio" name="length" value={value} defaultChecked={value === settings.length} /><span>{text}</span></label>)}</div></fieldset>
+          <div className="bv-adjust-actions"><Button type="submit" disabled={command.pending}>Show books</Button><Button variant="quiet" disabled={command.pending} onClick={() => reset(base)}>Reset</Button></div>
         </form></details>}
     </div>;
   }
@@ -171,7 +190,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
       setSettings(current => ({ ...current, owned_only: values.has("owned"), interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
     }}><fieldset disabled={command.pending}><legend>Your choice for now</legend>
       <label><input type="checkbox" name="owned" defaultChecked={settings.owned_only} /> Only books I own</label>
-      <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
+      <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{genreName(item.name)}</option>)}</select>
       {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">Page counts aren’t available for these books.</p>}
       <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
     </fieldset></form></details>}

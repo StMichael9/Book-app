@@ -68,11 +68,11 @@ function ShelfCard({ shelf, readOnly }) {
     {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}</section>;
 }
 
-function AllTime({ totals }) {
+function AllTime({ totals, imported }) {
   if (!totals) return null;
   return <section className="bv-life-card" aria-labelledby="bv-life-all"><h3 id="bv-life-all">All time</h3>
     <p className="bv-life-big"><b>{num(totals.books)}</b> {totals.books === 1 ? "book" : "books"}<br /><b>{num(totals.pages)}</b> {totals.pages === 1 ? "page" : "pages"}</p>
-    <p className="bv-help">Includes your imported history.</p></section>;
+    {imported && <p className="bv-help">Includes your imported history.</p>}</section>;
 }
 
 export default function ReadingLifePage() {
@@ -104,7 +104,7 @@ export default function ReadingLifePage() {
         {note && <p className="bv-help">{note}</p>}
       </div>
     </div>
-    {allTime ? <div className="bv-life-cols bv-life-cols--all"><AllTime totals={totals} /><Subjects items={subjects} /></div>
+    {allTime ? <div className="bv-life-cols bv-life-cols--all"><AllTime totals={totals} imported={Boolean(note)} /><Subjects items={subjects} /></div>
       : !stats ? (picked.error ? <EmptyState error title="That year couldn’t load." action={<Button onClick={picked.retry}>Try again</Button>}>Your books haven’t changed.</EmptyState> : <p role="status" className="bv-muted">Opening {year}…</p>)
       : <>
         {empty ? <p className="bv-life-empty">Nothing finished in {stats.year} yet. <TextLink to="/my-books">Open My Books</TextLink> to pick something to read.</p> : <Figures stats={stats} />}
@@ -112,7 +112,7 @@ export default function ReadingLifePage() {
           <YearInBooks stats={{ ...stats, pages_read: stats.pages_read ?? stats.pages }} chips={false} bare /></div>
         {!empty && <div className="bv-life-cols"><Subjects items={stats.top_subjects} /><LengthAndAuthors stats={stats} /><Compared stats={stats} /></div>}
         {empty && <div className="bv-life-cols"><Compared stats={stats} /></div>}
-        <div className="bv-life-cols bv-life-cols--shelf"><ShelfCard shelf={base.data.shelf} readOnly={readOnly} /><AllTime totals={totals} /></div>
+        <div className="bv-life-cols bv-life-cols--shelf"><ShelfCard shelf={base.data.shelf} readOnly={readOnly} /><AllTime totals={totals} imported={Boolean(note)} /></div>
       </>}
   </section>;
 }
