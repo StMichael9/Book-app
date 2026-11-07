@@ -24,3 +24,10 @@ def test_database_outage_returns_plain_503(broken_database):
     assert response.json() == {"detail": {"code": "service_unavailable", "message": "Bookvane is temporarily unavailable."}}
     assert response.headers["retry-after"] == "30"
     assert "quota" not in response.text
+
+
+def test_liveness_never_touches_the_database(broken_database):
+    # Render pings /livez every few seconds; it must answer without a database session so Neon can suspend.
+    response = broken_database.get("/livez")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

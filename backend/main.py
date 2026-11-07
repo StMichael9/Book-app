@@ -157,6 +157,14 @@ app.include_router(library_imports.sources_router)
 # Enable fastapi-pagination for the entire FastAPI application.
 add_pagination(app)
 
+@app.get("/livez")
+def liveness():
+    # Render's health check (every few seconds) uses this. It must never touch the database: a query every few
+    # seconds stops Neon from ever suspending and burns the monthly compute allowance.
+    return {"status": "ok"}
+
+
+# The site's outage banner ("Check again") uses this to see whether the database is back. Not for automated pings.
 @app.get("/health")
 def health_check(db: Session = Depends(get_db)):
     db.execute(text("SELECT 1"))
