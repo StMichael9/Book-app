@@ -23,6 +23,7 @@ const test = base.extend({
       const path = url.pathname.slice("/test-api".length), reply = (status, json) => route.fulfill({ status, json });
       const body = ["POST", "PUT", "PATCH"].includes(method) ? route.request().postDataJSON() : null;
       state.requests.push({ path, method, body, query: url.searchParams });
+      if (path === "/books") return reply(200, { items: TITLES.map((title, index) => book(index + 1, title)), total: 47248, page: 1, size: 20 });
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/health") return reply(200, { status: "ok" });
       if (path === "/auth/refresh") return reply(200, {});
@@ -40,6 +41,7 @@ const test = base.extend({
       }
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => { const found = state.entries.find(item => item.book_id === id); return { book_id: id, entry_id: found?.id ?? null, version: found?.version ?? null, is_owned: found?.is_owned ?? false, is_wanted: found?.is_wanted ?? false, reading_state: null }; }) });
       if (path === "/me/library") {
+        if (state.delay) await new Promise(done => setTimeout(done, state.delay));
         const facet = url.searchParams.get("facet"), owned = url.searchParams.get("owned") === "true";
         const sort = url.searchParams.get("sort");
         if (sort === "added_oldest" && state.noOldestSort) return reply(422, { detail: "Unknown sort" });
@@ -203,10 +205,11 @@ test("Something short asks the library for short books", async ({ page, app }) =
   await expect(page.getByText(/short books you own or want · under 250 pages/)).toBeVisible();
 });
 
-test("a pill with nothing behind it is disabled, and the panel hides when every pill is empty", async ({ page, app }) => {
+test("a pill with nothing behind it is hidden, and the panel hides when every pill is empty", async ({ page, app }) => {
   app.facets = { length: [], subject: [] };
   await page.goto("/home");
-  await expect(page.getByRole("button", { name: "Something short" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Something I own" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Something short" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^More / })).toHaveCount(0);
   app.entries = [];
   await page.reload();
@@ -290,3 +293,109 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
     }
   });
 }
+
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+const mainHeight = page => page.locator("main").evaluate(node => node.getBoundingClientRect().height);
+
+test("switching a pill keeps the old cards, dimmed, and the page never shrinks while the new ones load", async ({ page, app }) => {
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" }), picks = page.locator(".bv-picks .bv-next-card"), results = page.locator(".bv-results");
+  await pills.getByRole("button", { name: "Something I own" }).click();
+  await expect(picks).toHaveCount(3);
+  const before = await mainHeight(page);
+  app.delay = 1000;
+  await page.evaluate(() => { const main = document.querySelector("main"); window.__heights = []; window.__timer = setInterval(() => window.__heights.push(main.getBoundingClientRect().height), 25); });
+  await pills.getByRole("button", { name: "Waiting longest" }).click();
+  await expect(results).toHaveAttribute("aria-busy", "true");
+  await expect(page.locator(".bv-picks--busy")).toHaveCount(1);
+  await expect(picks).toHaveCount(3);
+  await expect(results).not.toHaveAttribute("aria-busy", "true", { timeout: 5000 });
+  await expect(picks.first()).toContainText("Orlando");
+  const heights = await page.evaluate(() => { clearInterval(window.__timer); return window.__heights; });
+  expect(heights.length).toBeGreaterThan(10);
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(before - 1);
+  expect(Math.abs((await mainHeight(page)) - before)).toBeLessThan(40);
+  expect(app.errors).toEqual([]);
+});
+
+test("a shelf pill asks the library a bounded number of times and then stops", async ({ page, app }) => {
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await expect(pills.getByRole("button", { name: "More fantasy" })).toBeVisible();
+  app.requests.length = 0;
+  await pills.getByRole("button", { name: "More fantasy" }).click();
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  const library = () => app.requests.filter(request => request.path === "/me/library").length;
+  const settled = library();
+  // "More fantasy" reads Want to read and what you own: at most two requests per source.
+  expect(settled).toBeLessThanOrEqual(4);
+  await page.waitForTimeout(2000);
+  expect(library()).toBe(settled);
+});
+
+test("Home asks the library for its books once, for a reader mid-book and for a quiet one", async ({ page, app }) => {
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Can’t decide?" })).toBeVisible();
+  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+  app.requests.length = 0; app.currentReads = [];
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Can’t decide?" })).toBeVisible();
+  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+});
+
+test("a cover that the image cache never answers switches to Open Library after 1.5 s, once", async ({ page, app }) => {
+  app.currentReads[0].entry.book.cover_image_url = "https://covers.openlibrary.org/b/id/111-M.jpg";
+  const hits = { cache: 0, direct: [] };
+  await page.route("https://wsrv.nl/**", () => { hits.cache += 1; });
+  await page.route("https://covers.openlibrary.org/**", route => { hits.direct.push(route.request().url()); return route.fulfill({ contentType: "image/png", body: PNG }); });
+  await page.goto("/home");
+  const image = page.locator('img[alt="Cover of Piranesi"]');
+  await expect(image).toHaveAttribute("src", /covers\.openlibrary\.org\/b\/id\/111-M\.jpg/, { timeout: 5000 });
+  expect(hits.cache).toBe(1);
+  expect(hits.direct).toEqual(["https://covers.openlibrary.org/b/id/111-M.jpg"]);
+  await expect(page.getByRole("img", { name: "Cover unavailable for Piranesi" })).toHaveCount(0);
+});
+
+test("a cover the image cache refuses falls back to Open Library at once, and a second failure shows the jacket", async ({ page, app }) => {
+  app.currentReads[0].entry.book.cover_image_url = "https://covers.openlibrary.org/b/id/222-M.jpg";
+  const hits = { direct: 0 };
+  await page.route("https://wsrv.nl/**", route => route.fulfill({ status: 404, body: "" }));
+  await page.route("https://covers.openlibrary.org/**", route => { hits.direct += 1; return route.fulfill({ status: 404, body: "" }); });
+  await page.goto("/home");
+  await expect(page.getByRole("img", { name: "Cover unavailable for Piranesi" })).toBeVisible();
+  expect(hits.direct).toBe(1);
+  await page.waitForTimeout(1800);
+  expect(hits.direct).toBe(1);
+});
+
+test("Discover shows no catalogue total", async ({ page, app }) => {
+  await page.goto("/browse");
+  await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
+  await expect(page.getByText(/47,248/)).toHaveCount(0);
+  await expect(page.getByText(/Page 1 of/)).toBeVisible();
+  expect(app.errors).toEqual([]);
+});
+
+// Design review: HOME_POLISH_SHOTS=1 writes ../.bv-shots/home-polish.
+for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`shot: Home polish ${theme} ${width}`, async ({ page, app }) => {
+  test.skip(!process.env.HOME_POLISH_SHOTS, "design review only");
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await page.setViewportSize({ width, height: 900 });
+  const settle = async () => { await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); }); };
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await pills.getByRole("button", { name: "Something I own" }).click();
+  await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(3);
+  app.delay = 2500;
+  await pills.getByRole("button", { name: "Waiting longest" }).click();
+  await expect(page.locator(".bv-picks--busy")).toHaveCount(1);
+  await settle();
+  await page.screenshot({ path: `../.bv-shots/home-polish/home-mid-switch-${width}-${theme}.png`, fullPage: true });
+  await expect(page.locator(".bv-results")).not.toHaveAttribute("aria-busy", "true", { timeout: 6000 });
+  await settle();
+  await page.screenshot({ path: `../.bv-shots/home-polish/home-after-${width}-${theme}.png`, fullPage: true });
+  await page.goto("/browse");
+  await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
+  await settle();
+  await page.screenshot({ path: `../.bv-shots/home-polish/discover-head-${width}-${theme}.png`, clip: { x: 0, y: 0, width, height: 700 } });
+});

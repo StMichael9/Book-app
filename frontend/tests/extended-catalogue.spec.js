@@ -195,12 +195,6 @@ test('selected private cover survives the integrated workspace, library and Next
   await expect(cover).toHaveAttribute('src', '/fixture-cover.svg');
   await page.goto('/my-books');
   await expect(cover).toHaveAttribute('src', '/fixture-cover.svg');
-  await page.goto('/home');
-  await page.getByRole('button', { name: 'Something new', exact: true }).click();
-  await page.locator('details.bv-adjust summary').click();
-  await page.getByRole('switch', { name: 'Include my Want to read' }).check();
-  await page.getByRole('button', { name: 'Update choices', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'Can’t decide?' }).getByRole('img', { name: `Cover of ${external.title}`, exact: true })).toHaveAttribute('src', '/fixture-cover.svg');
 });
 
 test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app: _app }) => {

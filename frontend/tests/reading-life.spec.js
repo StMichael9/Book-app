@@ -45,7 +45,8 @@ const test = base.extend({
   },
 });
 
-test("the page shows every figure, the shelf with a text version, the cards and the shelf totals", async ({ page, app: _app }) => {
+test("the page shows every figure, the shelf with a text version, the cards and the shelf totals", async ({ page, app }) => {
+  app.imported = [2026];
   await page.goto("/reading-life");
   await expect(page.getByRole("heading", { name: "Your reading life", level: 1 })).toBeVisible();
   await expect(page.getByText("Private to you", { exact: true })).toBeVisible();
@@ -84,6 +85,12 @@ test("the page shows every figure, the shelf with a text version, the cards and 
   await expect(page.getByRole("region", { name: "All time" })).toContainText("68,400 pages");
   await expect(page.getByRole("region", { name: "All time" })).toContainText("Includes your imported history.");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("All time says nothing about imports when there is no import data", async ({ page, app: _app }) => {
+  await page.goto("/reading-life");
+  await expect(page.getByRole("region", { name: "All time" })).toContainText("212 books");
+  await expect(page.getByText("Includes your imported history.")).toHaveCount(0);
 });
 
 test("without T42 the switcher offers this year and All time only", async ({ page, app }) => {
