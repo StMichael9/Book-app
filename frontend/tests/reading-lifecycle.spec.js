@@ -205,8 +205,8 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
     await expect(page.getByRole("link", { name: "Paused books (2)", exact: true })).toHaveAttribute("href", "/my-books?status=paused");
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Filter your library" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Shelf" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Import books", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
     const first = desk.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true });
     await expect(first).toBeVisible();
@@ -215,8 +215,8 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await page.screenshot({ path: test.info().outputPath(`reading-desk-${theme}-${width}.png`), fullPage: true });
     await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "My Books", exact: true }).click();
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
-    await expect(page.getByRole("group", { name: "Filter your library", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Bring your library", exact: true })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Shelf", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Import books", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toBeVisible();
     await expect(page.locator(".bv-current-book")).toHaveCount(0);
     await expect(page.locator(".bv-personal-book")).toHaveCount(3);
@@ -240,7 +240,7 @@ test("UI refactor catalogue and private library titles open personal workspaces"
 test("UI current-state facets keep past readings inside the book without overlap badges", async ({ page, app }) => {
   await page.goto("/my-books?status=finished");
   await expect(page.getByText("Earlier readings are kept in each book’s Reading history.", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "No saved books match this view.", exact: true })).toBeVisible();
+  await expect(page.getByText("No books match these filters", { exact: true })).toBeVisible();
   await expect(page.locator(".bv-personal-book")).toHaveCount(0);
   await page.getByRole("button", { name: /^Reading/ }).click();
   await expect(page.locator(".bv-personal-book-state").first()).toContainText("Reading");
@@ -844,7 +844,7 @@ for (const theme of ["light", "dark"]) test(`zero-friction active reader journey
     await expect(cards).toHaveCount(3);
     await expect(cards.getByRole("button")).toHaveCount(0);
     await expect(page.getByRole("link", { name: /^Open your reading:/ })).toHaveCount(0);
-    await expect(page.getByRole("group", { name: "Filter your library", exact: true }).getByRole("button")).toHaveCount(4);
+    await expect(page.getByRole("group", { name: "Shelf", exact: true }).getByRole("button")).toHaveCount(4);
     await page.screenshot({ path: test.info().outputPath(`simplified-library-${theme}-${width}.png`), fullPage: true });
     await page.getByRole("link", { name: "Reading fixture 101", exact: true }).click();
     await expect(page.getByRole("button", { name: "Update progress", exact: true })).toBeVisible();

@@ -271,7 +271,7 @@ export function ReadingWorkspacePage() {
   const momentId = moment?.id;
   useEffect(() => { if (momentId) finishHeading.current?.focus(); }, [momentId]);
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-editorial-workspace">
-    <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous } : null}>Back to My Books</TextLink></div>
+    <div className="bv-breadcrumb"><TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous, libraryLoaded: libraryView.loaded, libraryScroll: libraryView.scroll } : null}>Back to My Books</TextLink></div>
     <SlowReadingNotice loading={request.loading} />
     <div className={`bv-workspace-layout${moment ? " bv-workspace-layout--finished" : ""}${editing?.kind === "progress" ? " bv-workspace-layout--progress-open" : ""}`}>
       {!entry && request.loading && seed ? <div key="seed" ref={trackLoading} className="bv-workspace-seed" aria-busy="true"><ReadingBookIdentity entry={seed} /><div className="bv-workspace-reading"><BookSkeletons count={1} /></div></div>

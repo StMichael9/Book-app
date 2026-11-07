@@ -33,3 +33,4 @@ export const forgetLibraryEntry = (id, version) => apiRequest(`/me/library/${id}
 });
 export const getReadingExport = () => apiRequest("/me/reading-export", { responseType: "response" });
 export const getLibraryCsvExport = () => apiRequest("/me/library/export.csv", { responseType: "response" });
+export const searchLibraryFacet = (group, params, signal) => apiRequest(`/me/library/facets/${group}?${params}`, { signal });
