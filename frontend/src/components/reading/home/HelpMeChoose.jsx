@@ -48,7 +48,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   // "Something new" is Next Read's engine (catalogue picks, filters, rotation); it lives in the same panel as the shelf pills.
   const pills = [...pillsFor(shelf), ...(library.nextRead ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], usable = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
-  const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false);
+  const [nextSource, setNextSource] = useState("catalogue"), [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
   const pill = pills.find(item => item.key === active);
   useEffect(() => {
@@ -64,11 +64,11 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const shown = results ? results.slice((turn % Math.max(pages, 1)) * PICKS_PER_TRY, (turn % Math.max(pages, 1)) * PICKS_PER_TRY + PICKS_PER_TRY) : [];
   const start = card => { setPending(card.entry_id); command.run(() => startReading(card.entry_id), () => go(`/my-books/${card.entry_id}`)); };
   return <section className="bv-choose" aria-labelledby="bv-choose-title">
-    <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">Pick from your own shelf</p></div>
+    <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? (nextSource === "want" ? "From your Want to read" : "Books you don’t have yet") : "Pick from your own shelf"}</p></div>
     <div className="bv-pills" role="group" aria-label="Help me choose">
       {pills.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} disabled={!item.enabled} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill?.next && <NextReadSection panel />}
+    {pill?.next && <NextReadSection panel onSource={setNextSource} />}
     {pill && !pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
         <div className="bv-picks">{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>

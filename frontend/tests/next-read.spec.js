@@ -191,7 +191,9 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
 test("M4 Home folds Next Read into Can't decide?; viewing and switching sources never writes", async ({ page, app }) => {
   const choices = await openNew(page);
   await expect(choices.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  await expect(choices.getByText("Books you don’t have yet", { exact: true })).toBeVisible();
   await wantSwitch(page, true);
+  await expect(choices.getByText("From your Want to read", { exact: true })).toBeVisible();
   await expect(choices.getByRole("article")).toHaveCount(2);
   await expect(choices.getByRole("heading", { name: "Private queued reading", exact: true })).toBeVisible();
   await wantSwitch(page, false);

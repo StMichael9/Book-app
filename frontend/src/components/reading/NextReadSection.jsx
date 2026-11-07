@@ -65,7 +65,7 @@ function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
 const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", rotation: 0, exclude: [] });
 
 // `panel` is the "Something new" pick inside Home's "Can't decide?": cards only, filters tucked behind "Adjust".
-export default function NextReadSection({ preview = false, home = false, panel = false, currentKey, finishId, enabled = true, hidden = false }) {
+export default function NextReadSection({ preview = false, home = false, panel = false, onSource, currentKey, finishId, enabled = true, hidden = false }) {
   const base = panel ? "catalogue" : "want";
   const auth = useAuth(), library = useUserBooks();
   const go = useNavigate(), command = useReadingCommand();
@@ -81,6 +81,8 @@ export default function NextReadSection({ preview = false, home = false, panel =
   const scope = finishId ? `finish:${finishId}` : "choices";
   const [stored, setStored] = useState(() => ({ scope, values: defaultSettings(base) }));
   const settings = stored.scope === scope ? stored.values : defaultSettings(base);
+  // Home's panel subtitle follows the Want switch.
+  useEffect(() => { onSource?.(settings.source); }, [onSource, settings.source]);
   function setSettings(update) {
     setStored(previous => {
       const values = previous.scope === scope ? previous.values : defaultSettings(base);
