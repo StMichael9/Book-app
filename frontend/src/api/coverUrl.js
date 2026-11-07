@@ -3,7 +3,7 @@
 // to WebP and serves later requests from a nearby copy. coverFallback is the direct Open Library URL, used if the cache
 // fails. The stored URL is never changed, only what the browser requests.
 const OPEN_LIBRARY_COVER = /^https:\/\/(covers\.openlibrary\.org\/b\/[a-z0-9]+\/[^/?#]+)-[SML](\.jpg)(?:\?[^#]*)?$/i;
-const WIDTH = { medium: 360, large: 600 };
+const WIDTH = { small: 120, medium: 360, large: 600 };
 
 export function coverSrc(url, size = "medium") {
   const match = typeof url === "string" ? OPEN_LIBRARY_COVER.exec(url) : null;

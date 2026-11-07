@@ -42,6 +42,20 @@ function StatusLine({ labels }) {
   return <p className="bv-personal-book-state"><strong>{lead}</strong>{rest.length > 0 && <span>{` · ${rest.join(" · ")}`}</span>}</p>;
 }
 
+// One line of the list view: a small cover, the title (the link), the author and the shelf state. Like the card, one link per row.
+export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen }) {
+  const book = entryBook(entry);
+  const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
+  navigationState = readingActions ? { ...navigationState, entry } : navigationState;
+  const labels = [readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean);
+  return <li className="bv-library-row bv-personal-book">
+    <span className="bv-row-thumb" aria-hidden="true"><BookCover book={book} size="small" /></span>
+    <div className="bv-row-title"><h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3></div>
+    <p className="bv-row-author">{authorLabel(book)}</p>
+    <p className="bv-row-shelf">{labels.join(" · ")}</p>
+  </li>;
+}
+
 export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navigationState, onOpen }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
