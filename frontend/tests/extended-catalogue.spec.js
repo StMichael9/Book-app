@@ -198,7 +198,8 @@ test('selected private cover survives the integrated workspace, library and Next
   await page.goto('/home');
   await page.getByRole('button', { name: 'Something new', exact: true }).click();
   await page.locator('details.bv-adjust summary').click();
-  await page.getByRole('button', { name: 'My Want to read books', exact: true }).click();
+  await page.getByRole('switch', { name: 'Include my Want to read' }).check();
+  await page.getByRole('button', { name: 'Update choices', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Can’t decide?' }).getByRole('img', { name: `Cover of ${external.title}`, exact: true })).toHaveAttribute('src', '/fixture-cover.svg');
 });
 

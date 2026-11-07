@@ -3,19 +3,10 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { putUpNext } from "../../../api/home.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
-import { BookCover, Button } from "../../ui-v2/primitives.jsx";
-import { MAX_PINS, UP_NEXT_SHOWN, coverBook, startReading } from "./homeLogic.js";
+import { Button } from "../../ui-v2/primitives.jsx";
+import PickCard from "./PickCard.jsx";
+import { MAX_PINS, UP_NEXT_SHOWN, startReading } from "./homeLogic.js";
 
-function NextCard({ card, onStart, pending, disabled }) {
-  const book = coverBook(card);
-  return <article className="bv-next-card">
-    <div className="bv-next-cover"><BookCover book={book} />{card.pinned && <span className="bv-pin-badge">Pinned</span>}</div>
-    <h3>{card.title}</h3>
-    <p className="bv-author">{card.authors.join(", ") || "Author not listed"}</p>
-    <p className="bv-next-label">{card.label}</p>
-    <Button variant="secondary" disabled={disabled} aria-label={`Start reading ${card.title}`} onClick={() => onStart(card)}>{pending === card.entry_id ? "Opening…" : "Start"}</Button>
-  </article>;
-}
 
 // The reader's pinned list (or the shelf's suggestions) with Start on each book; Edit reorders and unpins without dragging.
 export default function UpNext({ pins, suggested, canEdit, readOnly, onPinsChanged }) {
@@ -49,7 +40,7 @@ export default function UpNext({ pins, suggested, canEdit, readOnly, onPinsChang
         </span></li>)}</ol>
       {edit.error && <p className="bv-field-error" role="alert">{edit.error}</p>}
       <p className="bv-sr-only" role="status" ref={live} />
-    </> : <div className="bv-next-row">{cards.slice(0, UP_NEXT_SHOWN).map(card => <NextCard key={card.entry_id} card={card} onStart={start} pending={pending} disabled={readOnly || command.pending} />)}</div>}
+    </> : <div className="bv-next-row">{cards.slice(0, UP_NEXT_SHOWN).map(card => <PickCard key={card.entry_id} card={card} label={card.pinned ? `${card.label} · Pinned` : card.label} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>}
     {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}
   </section>;
 }

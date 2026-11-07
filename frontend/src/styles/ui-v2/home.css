@@ -20,13 +20,18 @@
 .bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; text-decoration: underline; }
 
 .bv-root .bv-next-row { display: grid; grid-template-columns: repeat(4, minmax(0, 176px)); gap: 20px 24px; }
-.bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; }
+.bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; text-align: left; }
+.bv-root .bv-next-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.bv-root .bv-next-body .bv-help { margin: 6px 0 0; }
+.bv-root .bv-next-card h3 a { color: inherit; text-decoration: none; }
+.bv-root .bv-next-card h3 a:hover { text-decoration: underline; }
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 176px)); gap: 20px 24px; }
 .bv-root .bv-next-cover { position: relative; }
-.bv-root .bv-pin-badge { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--bv-green); color: var(--bv-on-green); font-size: var(--bv-fs-helper); font-weight: 600; }
 .bv-root .bv-next-card h3 { margin: 10px 0 0; font: 600 var(--bv-fs-body)/1.25 var(--bv-display); }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 .bv-root .bv-next-label { margin: 6px 0 10px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 600; }
 .bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; }
+.bv-root .bv-next-body .bv-next-label + .bv-button { margin-top: 4px; }
 .bv-root .bv-pin-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-pin-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-pin-title { font: 600 var(--bv-fs-card)/1.25 var(--bv-display); min-width: 0; overflow-wrap: anywhere; }
@@ -40,17 +45,8 @@
 .bv-root .bv-pill { appearance: none; min-height: 44px; padding: 0 16px; border: 1px solid var(--bv-control); border-radius: 999px; background: var(--bv-panel); color: var(--bv-ink); font: inherit; font-weight: 600; cursor: pointer; }
 .bv-root .bv-pill[aria-pressed="true"] { background: var(--bv-soft-green); border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
 .bv-root .bv-pill:disabled { color: var(--bv-muted); border-color: var(--bv-line); opacity: .6; cursor: default; }
-.bv-root .bv-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 176px)); gap: 20px 24px; }
-.bv-root .bv-pick { display: flex; flex-direction: column; min-width: 0; }
-.bv-root .bv-pick h3 { margin: 8px 0 0; font: 600 var(--bv-fs-body)/1.25 var(--bv-display); }
-.bv-root .bv-pick .bv-author { margin: 2px 0 8px; font-size: var(--bv-fs-helper); }
-.bv-root .bv-pick .bv-button { margin-top: auto; justify-content: center; }
 .bv-root .bv-choose-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
 .bv-root .bv-choose-foot p { margin: 0; }
-.bv-root .bv-pick-next .bv-help { margin: 0 0 8px; }
-.bv-root .bv-pick-next .bv-button { margin-top: 8px; }
-.bv-root .bv-adjust { margin-top: 14px; }
-.bv-root .bv-adjust summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
 
 .bv-root .bv-glance { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: end; }
 .bv-root .bv-glance .bv-figures { display: grid; grid-template-columns: repeat(3, auto); gap: 28px; margin: 0; }
@@ -77,17 +73,30 @@
 }
 @media (max-width: 700px) {
   .bv-root .bv-now-card { grid-template-columns: 88px minmax(0, 1fr); gap: 14px; padding: 14px; }
-  .bv-root .bv-picks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); gap: 18px; }
+    .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); gap: 18px; }
   .bv-root .bv-progress-sheet { width: 100%; max-width: none; margin: auto 0 0; padding: 12px 20px 20px; border-radius: 20px 20px 0 0; border-bottom: 0; }
 }
 
 .bv-root .bv-pin-action { margin: 4px 0 0; }
 .bv-root .bv-pin-action .bv-help { margin: 4px 0 0; }
 
-/* "Something new" cards carry a reason line and links, so on a phone they stay inside their narrow column. */
-.bv-root .bv-pick-next { min-width: 0; }
-.bv-root .bv-pick-next .bv-button { width: 100%; min-width: 0; padding-inline: 6px; text-align: center; }
-.bv-root .bv-pick-next a { font-size: var(--bv-fs-helper); overflow-wrap: anywhere; }
-.bv-root .bv-pick-next h3 { overflow-wrap: anywhere; }
-@media (max-width: 700px) { .bv-root .bv-pick-next h3 { font-size: var(--bv-fs-helper); } }
+
+.bv-root .bv-adjust { margin-top: 14px; }
+.bv-root .bv-adjust summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.bv-root .bv-adjust-form { display: grid; gap: 8px; max-width: 360px; padding-top: 4px; }
+.bv-root .bv-adjust-form select, .bv-root .bv-adjust-form input[type="number"] { min-height: 44px; }
+.bv-root .bv-adjust-switch { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.bv-root .bv-adjust-actions { display: flex; align-items: center; gap: 16px; }
+.bv-root .bv-adjust-actions .bv-button[type="submit"] { flex: none; }
+
+@media (max-width: 700px) {
+  /* Pills: one row that scrolls sideways, with the same edge fade as the next row. */
+  .bv-root .bv-pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -20px; padding-inline: 20px; mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+  .bv-root .bv-pills::-webkit-scrollbar { display: none; }
+  .bv-root .bv-pill { flex: none; white-space: nowrap; }
+  /* Cards: one compact row per book, a 64px cover on the left. */
+  .bv-root .bv-picks { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .bv-root .bv-picks .bv-next-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
+  .bv-root .bv-picks .bv-next-body .bv-button { align-self: flex-start; width: auto; min-width: 96px; margin-top: 8px; }
+  .bv-root .bv-picks .bv-next-card h3 { margin-top: 0; }
+}

@@ -6,6 +6,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
 import { BookCover, Button, GetACopy, TextLink } from "../ui-v2/primitives.jsx";
+import PickCard from "./home/PickCard.jsx";
 import { localToday } from "./localToday.js";
 
 function reasonText(reason) {
@@ -44,7 +45,13 @@ async function startChoice(choice, source, identity, startedOn, assertCurrent) {
 
 function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
   const book = choice.book || { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
-  return <article className={compact ? "bv-pick bv-pick-next" : "bv-book-card"}><BookCover book={book} /><h3>{book.title}</h3>
+  if (compact) return <PickCard card={{ ...choice, title: book.title, authors: book.authors.map(author => author.name), cover_url: book.cover_image_url }} href={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}
+    label={choice.reasons.slice(0, 1).map(reasonText).join(" ")} onStart={onStart} pending={pending} disabled={disabled}>
+    {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
+    {!choice.book && <p className="bv-help">Private book · only in your library</p>}
+    {choice.book && <GetACopy book={book} />}
+  </PickCard>;
+  return <article className="bv-book-card"><BookCover book={book} /><h3>{book.title}</h3>
     <p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>
     <p className="bv-help">{choice.reasons.slice(0, 2).map(reasonText).join(" ")}</p>
     {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
@@ -129,16 +136,15 @@ export default function NextReadSection({ preview = false, home = false, panel =
           {(settings.rotation > 0 || !result.items.length) && <Button disabled={command.pending} variant="quiet" onClick={() => reset()}>Start over</Button>}<TextLink to="/browse">Browse for myself</TextLink></div>
       </>}
       {result && <details className="bv-adjust"><summary>Adjust</summary>
-        <div className="bv-form-actions" role="group" aria-label="Choice source"><Button disabled={command.pending} variant={settings.source === "want" ? "saved" : "quiet"} aria-pressed={settings.source === "want"} onClick={() => switchSource("want")}>My Want to read books</Button><Button disabled={command.pending} variant={settings.source === "catalogue" ? "saved" : "quiet"} aria-pressed={settings.source === "catalogue"} onClick={() => switchSource("catalogue")}>Explore something new</Button></div>
-        <form key={scope + settings.source} ref={filterForm} className="bv-reading-form" onSubmit={event => {
+        <form key={scope + settings.source} ref={filterForm} className="bv-adjust-form" onSubmit={event => {
           event.preventDefault(); const values = new FormData(event.currentTarget);
-          setSettings(current => ({ ...current, owned_only: values.has("owned"), interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
-        }}><fieldset disabled={command.pending}><legend>Your choice for now</legend>
-          <label><input type="checkbox" name="owned" defaultChecked={settings.owned_only} /> Only books I own</label>
-          <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
-          {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">Page counts aren’t available for these books.</p>}
-          <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
-        </fieldset></form></details>}
+          setSettings(current => ({ ...current, source: values.has("want") ? "want" : "catalogue", interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
+        }}>
+          <label htmlFor={`next-interest-${sessionId}`}>Subject</label><select id={`next-interest-${sessionId}`} name="interest" disabled={command.pending} defaultValue={settings.interest_id}><option value="">Any subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}</select>
+          {(result.known_page_count > 0 || settings.max_pages) && <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" disabled={command.pending} defaultValue={settings.max_pages} /></>}
+          <label className="bv-adjust-switch"><input type="checkbox" name="want" role="switch" disabled={command.pending} defaultChecked={settings.source === "want"} /> Include my Want to read</label>
+          <div className="bv-adjust-actions"><Button type="submit" disabled={command.pending}>Update choices</Button><Button variant="quiet" disabled={command.pending} onClick={() => reset(base)}>Clear</Button></div>
+        </form></details>}
     </div>;
   }
   if (preview && !expanded) {

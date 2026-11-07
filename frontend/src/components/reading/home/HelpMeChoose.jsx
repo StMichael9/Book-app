@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { getLibraryPage } from "../../../api/reading.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
-import { BookCover, Button } from "../../ui-v2/primitives.jsx";
+import { Button } from "../../ui-v2/primitives.jsx";
+import PickCard from "./PickCard.jsx";
 import NextReadSection from "../NextReadSection.jsx";
-import { PICKS_PER_TRY, cardFromEntry, coverBook, startable, startReading } from "./homeLogic.js";
+import { PICKS_PER_TRY, cardFromEntry, startable, startReading } from "./homeLogic.js";
 
 const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
 
@@ -70,9 +71,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     {pill?.next && <NextReadSection panel />}
     {pill && !pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
-        <div className="bv-picks">{shown.map(card => <article key={card.entry_id} className="bv-pick">
-          <BookCover book={coverBook(card)} /><h3>{card.title}</h3><p className="bv-author">{card.authors.join(", ") || "Author not listed"}</p>
-          <Button variant="secondary" disabled={readOnly || command.pending} aria-label={`Start reading ${card.title}`} onClick={() => start(card)}>{pending === card.entry_id ? "Opening…" : "Start"}</Button></article>)}</div>
+        <div className="bv-picks">{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>
         <div className="bv-choose-foot">{results.length > PICKS_PER_TRY && <Button variant="secondary" onClick={() => setTurn(value => value + 1)}>Try again</Button>}
           <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/books/, "book") : pill.about}</p></div>
       </>}

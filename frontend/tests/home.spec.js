@@ -132,7 +132,7 @@ test("pinned books lead Up next, and Edit reorders and unpins without dragging",
   app.pins = [pin(1), pin(2), pin(3)];
   await page.goto("/home");
   await expect(page.getByText("Pinned by you · 3 of 5", { exact: true })).toBeVisible();
-  await expect(page.locator(".bv-pin-badge")).toHaveCount(3);
+  await expect(page.locator(".bv-next-label", { hasText: "Pinned" })).toHaveCount(3);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("button", { name: "Move Middlemarch down" }).click();
   await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [102, 101, 103] });
@@ -169,7 +169,7 @@ test("Can't decide? shows three at a time and Try again walks through the rest",
   const pills = page.getByRole("group", { name: "Help me choose" });
   await expect(pills.getByRole("button", { name: "More fantasy" })).toBeEnabled();
   await pills.getByRole("button", { name: "Something I own" }).click();
-  const picks = page.locator(".bv-pick");
+  const picks = page.locator(".bv-picks .bv-next-card");
   await expect(picks).toHaveCount(3);
   await expect(page.getByText("3 books you own and haven’t started", { exact: true })).toBeVisible();
   const first = await picks.allTextContents();
@@ -182,7 +182,7 @@ test("Can't decide? shows three at a time and Try again walks through the rest",
 test("Waiting longest leads with the oldest saved book from the reading-life figures", async ({ page, app }) => {
   await page.goto("/home");
   await page.getByRole("button", { name: "Waiting longest" }).click();
-  await expect(page.locator(".bv-pick").first()).toContainText("Orlando");
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toContainText("Orlando");
   expect(app.requests.some(request => request.path === "/me/library" && request.query.get("sort") === "added_oldest")).toBe(true);
 });
 
@@ -190,7 +190,7 @@ test("Waiting longest falls back to the newest saved books read from the other e
   app.noOldestSort = true;
   await page.goto("/home");
   await page.getByRole("button", { name: "Waiting longest" }).click();
-  await expect(page.locator(".bv-pick")).toHaveCount(3);
+  await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(3);
   expect(app.requests.some(request => request.path === "/me/library" && request.query.get("sort") === "added")).toBe(true);
   expect(app.errors).toEqual([]);
 });
@@ -198,7 +198,7 @@ test("Waiting longest falls back to the newest saved books read from the other e
 test("Something short asks the library for short books", async ({ page, app }) => {
   await page.goto("/home");
   await page.getByRole("button", { name: "Something short" }).click();
-  await expect(page.locator(".bv-pick").first()).toBeVisible();
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
   expect(app.requests.some(request => request.path === "/me/library" && request.query.get("length") === "short")).toBe(true);
   await expect(page.getByText(/short books you own or want · under 250 pages/)).toBeVisible();
 });
@@ -270,9 +270,10 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
     await page.goto("/home");
     await expect(page.getByRole("heading", { name: "Good evening, Rae", level: 1 })).toBeVisible();
     await page.getByRole("button", { name: "Something short" }).click();
-    await expect(page.locator(".bv-pick").first()).toBeVisible();
+    await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     const dir = "../.bv-shots/home", tag = `${width}${zoom ? "-200" : ""}-${theme}`;
+    await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
     await page.screenshot({ path: `${dir}/home-${tag}.png`, fullPage: true });
     await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
     await expect(page.getByRole("dialog", { name: "Piranesi" })).toBeVisible();
@@ -284,6 +285,7 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
       app.currentReads = [];
       await page.reload();
       await expect(page.getByText("When you finish a book, your year starts filling in here.")).toBeVisible();
+      await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
       await page.screenshot({ path: `${dir}/home-empty-${tag}.png`, fullPage: true });
     }
   });
