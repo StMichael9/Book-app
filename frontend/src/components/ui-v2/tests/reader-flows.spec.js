@@ -17,7 +17,7 @@ const test = base.extend({
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
       if (url.origin === "https://covers.openlibrary.org" || url.origin === "https://wsrv.nl") return route.abort(); // cover art in the book snapshot; never a data request
-      if (url.origin !== "http://127.0.0.1:5189") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
+      if (url.origin !== "http://127.0.0.1:5289") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.brokenCover) return route.fulfill({ status: 404, body: "" });
         const number = Number(url.pathname.match(/(\d+)\.jpg/)?.[1]) % 5;
@@ -73,6 +73,7 @@ const test = base.extend({
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
+      if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await runFixture(state); expect(state.errors).toEqual([]);
@@ -379,7 +380,7 @@ test("minimalist root does not flash marketing during auth/capability checks and
     await expect(page.locator(".bv-hero")).toHaveCount(0);
     releaseCapabilities();
     await expect(page).toHaveURL(/\/home$/);
-    await expect(page.getByRole("heading", { name: "Pick up where you left off.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^(Home|Good (morning|afternoon|evening), .+)$/ })).toBeVisible();
     expect(await page.evaluate(() => window.marketingSeen)).toBe(false);
     expect(app.requests.filter(item => item.path === "/books")).toHaveLength(0);
   } finally { releaseAuth(); releaseCapabilities(); }

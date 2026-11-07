@@ -89,22 +89,20 @@ test("the privacy page discloses the Bookshop commission", async ({ page }) => {
 test("next-read cards offer a quiet sponsored Get a copy link with the disclosure", async ({ page }) => {
   await mock(page, { signedIn: true, nextRead: true });
   await page.goto(`${WITH_ID}/home`);
-  const preview = page.getByRole("region", { name: "Choose your next read" });
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
+  const preview = page.getByRole("region", { name: "Can’t decide?" });
   const link = preview.getByRole("link", { name: /Get a copy of Copy fixture 1.*opens Bookshop\.org in a new tab/ });
   await expect(link).toHaveAttribute("href", buyUrl(1));
   await expect(link).toHaveAttribute("target", "_blank");
   expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "noreferrer", "sponsored"]);
   await expect(preview.getByText("Bookvane may earn a small commission.")).toBeVisible();
-  await preview.getByRole("button", { name: "Choose next" }).click();
-  const card = page.locator(".bv-next-read .bv-book-card").first();
-  await expect(card.getByRole("link", { name: /Get a copy of Copy fixture 1.*opens Bookshop\.org in a new tab/ })).toHaveAttribute("href", buyUrl(1));
-  await expect(card.getByText("Bookvane may earn a small commission.")).toBeVisible();
 });
 
 test("next-read shows no Get a copy link without an affiliate ID", async ({ page }) => {
   await mock(page, { signedIn: true, nextRead: true });
   await page.goto(`${WITHOUT_ID}/home`);
-  await expect(page.getByRole("heading", { name: "Copy fixture 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Can’t decide?" }).getByRole("heading", { name: "Copy fixture 1" })).toBeVisible();
   await expect(page.locator('a[href*="bookshop.org"]')).toHaveCount(0);
   await expect(page.getByText("Bookvane may earn a small commission.")).toHaveCount(0);
 });
@@ -121,5 +119,6 @@ test("Get a copy clicks send get_copy_click with their placement and nothing els
   await page.goto(`${WITH_ID}/my-books?status=want`);
   expect(await clickBeacon(page.getByRole("link", { name: /Find on Bookshop/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
   await page.goto(`${WITH_ID}/home`);
-  expect(await clickBeacon(page.getByRole("region", { name: "Choose your next read" }).getByRole("link", { name: /Get a copy of/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
+  expect(await clickBeacon(page.getByRole("region", { name: "Can’t decide?" }).getByRole("link", { name: /Get a copy of/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
 });

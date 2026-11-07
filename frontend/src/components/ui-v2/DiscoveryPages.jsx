@@ -14,6 +14,7 @@ import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, subjectLabel, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
 import { useBookSeo } from "./bookSeo.js";
+import PinToUpNext from "../reading/home/PinToUpNext.jsx";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
@@ -232,7 +233,7 @@ export function BookPage() {
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
         <p className="bv-detail-author">{authorLabel(book)}</p>
         {/* Shelf choices come before subjects so they're on a phone's first screen. */}
-        <ShelfActions book={book} hideError={continuingSave} /><SaveContinuation />
+        <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
         {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
         {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
         {book.tags?.length > 0 && <div className="bv-book-tags">{book.tags.map((tag) => <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{subjectLabel(tag.name)}</Link>)}</div>}

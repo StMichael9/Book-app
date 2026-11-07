@@ -343,7 +343,7 @@ test("M4 real finish keeps success through suggestion failure, starts private Wa
   await page.route("**/me/next-read*", route => route.fulfill({ status: 503, json: {} }), { times: 1 });
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("heading", { name: /^You finished / })).toBeFocused();
-  const choices = page.getByRole("region", { name: "Next after this" });
+  let choices = page.getByRole("region", { name: "Next after this" });
   await expect(choices).toContainText("Your reading is unchanged");
   expect((await (await page.request.get(`${api}/me/library/${firstEntry.id}/reading`)).json()).current_attempt.state).toBe("finished");
   await choices.getByRole("button", { name: "Try choices again", exact: true }).click();
@@ -351,6 +351,12 @@ test("M4 real finish keeps success through suggestion failure, starts private Wa
   await expect(choices.getByRole("heading", { name: "M4 queued private reading", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Finished", exact: true })).toBeVisible();
   await page.goto("/home");
+  // Home folds Next Read into Can't decide? > Something new (catalogue first; the switch adds Want to read).
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
+  choices = page.getByRole("region", { name: "Can’t decide?" });
+  await choices.getByText("Adjust", { exact: true }).click();
+  await choices.getByRole("switch", { name: "Include my Want to read" }).check();
+  await choices.getByRole("button", { name: "Update choices", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(1);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -374,8 +380,7 @@ test("M4 real finish keeps success through suggestion failure, starts private Wa
   const exported = (await (await page.request.get(`${api}/me/reading-export`)).text()).trim().split("\n").map(line => JSON.parse(line));
   expect(exported.find(line => line.type === "reading" && line.data.user_book_id === queuedEntry.id).data.started_via).toBe("next_read");
   await page.goto("/home");
-  await expect(choices.getByText("No Want books match these choices.", { exact: false })).toBeVisible();
-  await choices.getByRole("button", { name: "Explore something new", exact: true }).click();
+  await page.getByRole("button", { name: "Something new", exact: true }).click();
   await expect(choices.getByRole("heading", { name: "Local library integration book", exact: true })).toBeVisible();
   await choices.getByRole("button", { name: "Start reading Local library integration book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();

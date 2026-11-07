@@ -32,6 +32,7 @@ const test = base.extend({
       if (path === '/auth/logout' || path === '/auth/login') { state.authenticated = path === '/auth/login'; return reply({}); }
       if (path === '/me/next-read') return reply({ items: url.searchParams.getAll('exclude').includes('entry:44') ? [] : [{ key: 'entry:44', entry_id: 44, version: 1, private_title: currentEntry.private_title, private_author: currentEntry.private_author, private_catalogue: currentEntry.private_catalogue, reasons: [{ code: 'want' }] }], eligible_count: 1, remaining_count: 1, interests: [], known_page_count: 0 });
       if (path === '/me/home') return reply({ current_reads: [], reading_count: 0, paused_count: 0 });
+      if (path === '/me/up-next') return route.fulfill({ status: 404, json: { detail: 'Not found' } });
       if (path === '/me/library-imports') return reply({ items: [] });
       if (path === '/me/library') return reply({ items: state.showLibrary ? [currentEntry] : [], total: state.showLibrary ? 1 : 0, counts: {}, next_cursor: null });
       if (path === '/me/library/44/reading') return reply({ entry: currentEntry, current_attempt: null, editions: [], imported_sources_count: 0 });
@@ -195,7 +196,11 @@ test('selected private cover survives the integrated workspace, library and Next
   await page.goto('/my-books');
   await expect(cover).toHaveAttribute('src', '/fixture-cover.svg');
   await page.goto('/home');
-  await expect(page.getByRole('region', { name: 'Choose your next read' }).getByRole('img', { name: `Cover of ${external.title}`, exact: true })).toHaveAttribute('src', '/fixture-cover.svg');
+  await page.getByRole('button', { name: 'Something new', exact: true }).click();
+  await page.locator('details.bv-adjust summary').click();
+  await page.getByRole('switch', { name: 'Include my Want to read' }).check();
+  await page.getByRole('button', { name: 'Update choices', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Can’t decide?' }).getByRole('img', { name: `Cover of ${external.title}`, exact: true })).toHaveAttribute('src', '/fixture-cover.svg');
 });
 
 test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app: _app }) => {

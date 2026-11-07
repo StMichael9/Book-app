@@ -154,7 +154,7 @@ test("Home to the reading workspace never shows an empty page", async ({ page, a
   await page.goto("/home");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
   await reset(page);
-  await page.getByRole("link", { name: "Continue your reading: Nav Book 1" }).click();
+  await page.getByRole("link", { name: "Nav Book 1", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Nav Book 1", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Finish book", exact: true })).toBeVisible();
   expect(await blanks(page)).toEqual([]);
@@ -184,7 +184,7 @@ test("revisiting My Books is instant from the cache", async ({ page, app }) => {
   await page.getByRole("link", { name: "My Books", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 3, name: "Nav Book 1", exact: true })).toBeVisible();
   await page.getByRole("link", { name: "Home", exact: true }).first().click();
-  await expect(page.getByRole("heading", { level: 1, name: "Pick up where you left off." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^(Home|Good (morning|afternoon|evening), .+)$/ })).toBeVisible();
   let release; app.hold.library = new Promise(done => { release = () => { app.hold.library = null; done(); }; });
   await page.getByRole("link", { name: "My Books", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 3, name: "Nav Book 1", exact: true })).toBeVisible();
@@ -195,7 +195,7 @@ test("no private data reaches localStorage, and the caches are memory only", asy
   signedIn(app);
   await page.goto("/home");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "Continue your reading: Nav Book 1" }).click();
+  await page.getByRole("link", { name: "Nav Book 1", exact: true }).click();
   await expect(page.getByRole("button", { name: "Finish book", exact: true })).toBeVisible();
   await page.goto("/my-books");
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toBeVisible();
