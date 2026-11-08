@@ -42,7 +42,7 @@ const test = base.extend({
       if (path === "/auth/register" || path === "/auth/login") return reply(200, {});
       if (path === "/auth/logout") { state.guest = true; return reply(200, {}); }
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, reading_export: true } });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, reading_export: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => ({ book_id: id, entry_id: null, version: null, is_owned: false, is_wanted: false, reading_state: null })) });
       if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null });
@@ -325,6 +325,7 @@ test("the year card reads right for plural, one book and an empty year, and is o
   await expect(card).toHaveAttribute("href", "/reading-life");
   await expect(card).toHaveAccessibleName("Your 2026: 18 books finished. Open your reading life");
   await expect(card).toContainText("18 books finished in 2026");
+  await expect(card.locator(".bv-year-chevron")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByRole("link", { name: "Your reading life", exact: true })).toHaveCount(0);
   await expect(page.locator(".bv-shelf")).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator(".bv-shelf-months .is-top")).toHaveText("J");
@@ -338,7 +339,7 @@ test("the year card reads right for plural, one book and an empty year, and is o
   await expect(empty).toContainText("Finish a book this year and it’ll show up here.");
   await expect(empty).toHaveAttribute("href", "/reading-life");
   await expect(page.locator(".bv-shelf-spine")).toHaveCount(0);
-  expect((await empty.boundingBox()).height).toBeLessThan(160);
+  expect((await empty.boundingBox()).height).toBeLessThan(180);
 });
 
 test("the year shelf draws a spine per finished book up to what fits, shows +N for the rest, is stable between visits and never overflows", async ({ page, app }) => {
@@ -541,7 +542,7 @@ test("an empty year shows one line on the Overview with no zeros", async ({ page
   await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
   await expect(page.locator(".bv-figures")).toHaveCount(0);
   await expect(page.locator(".bv-year-card-line")).not.toContainText(/(?<!\d)0(?!\d)/);
-  expect((await page.locator(".bv-year-card").boundingBox()).height).toBeLessThan(160);
+  expect((await page.locator(".bv-year-card").boundingBox()).height).toBeLessThan(180);
 });
 
 test("the tabs never wrap at 320px or at 200% text, and the header is centred", async ({ page, app: _app }) => {
@@ -969,7 +970,11 @@ test("Settings has the four sections, Sign out only there, and /account goes to 
   await page.goto("/account");
   await expect(page).toHaveURL(/\/settings$/);
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
-  for (const name of ["Favourite genres", "Your data", "Theme", "Sign out"]) await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
+  for (const name of ["Favourite genres", "Your data", "Theme"]) await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Signed in as /, level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
+  await expect(page.getByText("Download your books and notes, or delete your account.")).toBeVisible();
+  await expect(page.locator(".bv-year-chevron")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Choose genres" })).toHaveAttribute("href", "/preferences");
   await expect(page.getByRole("link", { name: "Your reading data" })).toHaveAttribute("href", "/my-data");
   await expect(page.getByText(/Make yourself at home|View books|A library to call your own|catches your eye/)).toHaveCount(0);

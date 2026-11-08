@@ -9,7 +9,7 @@ const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 export function YearCard({ stats, own = true, to = "/reading-life" }) {
   if (!Array.isArray(stats?.by_month)) return null;
   const count = stats.books_finished || 0;
-  const body = <><p className="bv-year-card-line">{count ? `${books(count)} finished in ${stats.year}` : "Finish a book this year and it’ll show up here."}</p>
+  const body = <><p className="bv-year-card-line"><span>{count ? `${books(count)} finished in ${stats.year}` : "Finish a book this year and it’ll show up here."}</span>{own && <span className="bv-year-chevron" aria-hidden="true">›</span>}</p>
     <YearInBooks stats={stats} own={own} chips={false} bare /></>;
   if (!own) return <section className="bv-year-card" aria-label={`${stats.year} in books`}>{body}</section>;
   return <Link className="bv-year-card bv-year-card--link" to={to} aria-label={count ? `Your ${stats.year}: ${books(count)} finished. Open your reading life` : `Your ${stats.year}: no books finished yet. Open your reading life`}>{body}</Link>;
