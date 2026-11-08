@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from data import clean
+from data import clean, cleaner
 from data.config import ImportConfig
 from data.reporting import _check_storage, _issue
 from data.staging import _existing_book_aliases, select_useful_editions
@@ -94,7 +94,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
     author_rows = session.execute(select(
         CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.author_key,
         CatalogueStageAuthor.name,
-    ).outerjoin(CatalogueStageAuthor, and_(
+    ).order_by(CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.position).outerjoin(CatalogueStageAuthor, and_(
         CatalogueStageAuthor.run_id == CatalogueStageWorkAuthor.run_id,
         CatalogueStageAuthor.author_key == CatalogueStageWorkAuthor.author_key,
     )).where(CatalogueStageWorkAuthor.run_id == run.id,
@@ -103,6 +103,15 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
     for source_id, author_key, name in author_rows:
         if name:
             authors_by_work[source_id].append((author_key, name))
+    for source_id, pairs in list(authors_by_work.items()):
+        # One cleaner for every entry point: first-listed author, variants folded, publisher names dropped, at most three.
+        kept, seen, filtered = set(cleaner.clean_authors([name for _, name in pairs])), set(), []
+        for key, name in pairs:
+            tidy = cleaner.tidy_name(name)
+            if tidy in kept and tidy not in seen:
+                seen.add(tidy)
+                filtered.append((key, name))
+        authors_by_work[source_id] = filtered
     staged_editions = session.execute(select(CatalogueStageEdition).where(
         CatalogueStageEdition.run_id == run.id,
         CatalogueStageEdition.source_id.in_(source_ids),
@@ -140,11 +149,19 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
                    "Two existing Book IDs resolve to the same Open Library work; no merge was guessed")
             continue
         book = next(iter(candidates.values())) if candidates else None
+        names = [name for _, name in authors_by_work[work.source_id]]
+        edition_titles = [item["title"] for item in (work.title_aliases or []) if item.get("english")
+                          for _ in range(min(item.get("count", 1), 20))]
+        title = cleaner.clean_title(work.title, names, edition_titles) or work.title
+        description = cleaner.clean_description(work.description)
+        if book is None and cleaner.is_derivative(title):
+            _issue(session, run.id, "derivative", work.source_id, "Derivative title (omnibus, collection, set); new Book skipped")
+            continue
         if book is None and not authors_by_work[work.source_id]:
             _issue(session, run.id, "missing_author", work.source_id, "No resolved author; new Book skipped")
             continue
         if book is None:
-            book = Book(title=work.title, source_id=work.source_id,
+            book = Book(title=title, source_id=work.source_id,
                         source_managed_fields=FIELD_TITLE)
             session.add(book)
             new_sources.add(work.source_id)
@@ -152,8 +169,8 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             book.source_id = work.source_id
         fill_only = popular and work.source_id not in new_sources
         for field_name, value, bit in (
-            ("title", work.title, FIELD_TITLE),
-            ("description", work.description, FIELD_DESCRIPTION),
+            ("title", title, FIELD_TITLE),
+            ("description", description, FIELD_DESCRIPTION),
             ("published_year", work.published_year, FIELD_YEAR),
             ("cover_image_url", work.cover_image_url, FIELD_COVER),
         ):
@@ -278,6 +295,12 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             _issue(session, run.id, "preferred_edition_conflict", source_id,
                    "Legacy ISBN/page values were preserved; preferred edition link remains pending")
     _load_title_aliases(session, works, book_for_work)
+    genres = Counter(link["book_id"] for link in tag_links)
+    for source_id, book in book_for_work.items():
+        book.quality_score = cleaner.quality_score(
+            title=book.title, authors=[name for _, name in authors_by_work[source_id]], description=book.description,
+            cover=book.cover_image_url, pages=book.page_count, year=book.published_year, popularity=book.popularity,
+            genres=genres.get(book.id, 0))
     run.merged_count += len(book_for_work)
     run.merge_cursor = works[-1].source_id
     _check_storage(session, run, config)

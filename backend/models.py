@@ -125,7 +125,8 @@ IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BL
 
 class Book(Base):
     __tablename__ = 'books'
-    __table_args__ = (Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
+    __table_args__ = (CheckConstraint('quality_score IS NULL OR quality_score BETWEEN 0 AND 100', name='ck_books_quality_score'),
+                      Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
                       Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
