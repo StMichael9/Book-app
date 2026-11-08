@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { MONTHS, clothFor, hash } from "./shelfData.js";
 
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 
-const plural = (count, one, many) => count === 1 ? one : many;
-
-// The Overview block: three big figures, or one line when nothing is finished (never zeros).
-export function YearFigures({ stats, own = true }) {
+// The compact year card: the count and the small month shelf. For the reader it is one link to the reading life
+// (the full year lives only there); on someone else's profile it is the same card without a link.
+export function YearCard({ stats, own = true, to = "/reading-life" }) {
   if (!Array.isArray(stats?.by_month)) return null;
-  if (!stats.books_finished) return <section className="bv-profile-year" aria-labelledby="bv-figures-heading"><h2 id="bv-figures-heading">{own ? `Your ${stats.year} so far` : `${stats.year} so far`}</h2>
-    <p>{own ? "Finish a book this year and it’ll show up here." : "Finish a book this year and it’ll show up here."}</p></section>;
-  const figures = [[stats.books_finished.toLocaleString("en-US"), own ? plural(stats.books_finished, "book finished", "books finished") : "finished"],
-    [stats.pages_read.toLocaleString("en-US"), plural(stats.pages_read, "page", "pages")]];
-  if (stats.biggest_month) figures.push([MONTHS[stats.biggest_month - 1].slice(0, 3), "biggest month"]);
-  return <section className="bv-profile-year" aria-labelledby="bv-figures-heading"><h2 id="bv-figures-heading">{own ? `Your ${stats.year} so far` : `${stats.year} so far`}</h2>
-    <dl className="bv-figures">{figures.map(([value, label]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>;
+  const count = stats.books_finished || 0;
+  const body = <><p className="bv-year-card-line">{count ? `${books(count)} finished in ${stats.year}` : "Finish a book this year and it’ll show up here."}</p>
+    <YearInBooks stats={stats} own={own} chips={false} bare /></>;
+  if (!own) return <section className="bv-year-card" aria-label={`${stats.year} in books`}>{body}</section>;
+  return <Link className="bv-year-card bv-year-card--link" to={to} aria-label={count ? `Your ${stats.year}: ${books(count)} finished. Open your reading life` : `Your ${stats.year}: no books finished yet. Open your reading life`}>{body}</Link>;
 }
 
 // The spines rise once per page load, not on every visit to the hub.

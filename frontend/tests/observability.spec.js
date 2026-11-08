@@ -2,7 +2,7 @@ import { test as base, expect } from "@playwright/test";
 
 // Browser-only fixtures: every API request is intercepted. The build under test has no monitoring keys, so nothing
 // of the monitoring or visit counting may run, and a page that breaks must still be recoverable.
-const PRIVACY_LINE = "If something goes wrong, we receive an error report so we can fix it. We count visits anonymously, without cookies.";
+const PRIVACY_LINE = "We get an error report when something breaks, and we count visits without cookies. Cookies only keep you signed in.";
 
 const test = base.extend({
   app: [async ({ page, baseURL }, provide) => {

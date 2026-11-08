@@ -114,7 +114,7 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     if (testInfo.config.metadata.readingTLS) await a.goto(`${origin}/my-books`);
     await expect(a.locator(".bv-book-card")).toHaveCount(1);
     const toRevoke = (await first.cookies(api)).find(c => c.name === "refresh_token").value;
-    await a.goto(`${origin}/account`); await a.getByRole("button", { name: "Sign out", exact: true }).click();
+    await a.goto(`${origin}/settings`); await a.getByRole("button", { name: "Sign out", exact: true }).click();
     await expect(a).toHaveURL(`${origin}/`);
     expect((await first.cookies(api)).filter(c => ["access_token", "refresh_token"].includes(c.name))).toEqual([]);
     const revoked = await first.request.post(`${api}/auth/refresh`, { headers: { Origin: origin, Cookie: `refresh_token=${toRevoke}` } });

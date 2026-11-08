@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Mail, Moon, Sun } from "lucide-react";
+import { ArrowLeft, BookOpen, Mail, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getBookById } from "../../api/books.js";
@@ -194,7 +194,7 @@ export function RecoveryPage({ reset = false }) {
   </div></section>;
 }
 
-export function AccountPage() {
+export function SettingsPage() {
   const auth = useAuth();
   const reader = useReader();
   const library = useUserBooks();
@@ -204,13 +204,13 @@ export function AccountPage() {
     setLoggingOut(true); setError("");
     try { await auth.logout(); } catch (requestError) { setError(errorText(requestError, "You couldn’t be signed out. Please try again.")); setLoggingOut(false); }
   }
-  return <section className="bv-container"><div className="bv-account"><PageHeading title={auth.isAuthenticated ? "Make yourself at home." : "A library to call your own."}>{auth.isAuthenticated ? "Your books, your subjects, your way of browsing." : "Save the books that interest you and keep the ones you own together. Join when you’re ready."}</PageHeading>
-    {auth.isLoading ? auth.sessionError ? null : <p role="status">Checking your account…</p> : auth.isAuthenticated ? <><div className="bv-account-row"><div><strong>My Books</strong><span>Your library and reading history</span></div><TextLink to="/my-books">View books <ArrowRight aria-hidden="true" /></TextLink></div>
-      <div className="bv-account-row"><div><strong>Favourite genres</strong><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></div>
-      {(library.readingExport || library.privacyControls || library.libraryExport) && <div className="bv-account-row"><div><strong>Your reading data</strong><span>Private download and removal controls</span></div><TextLink to="/my-data">Manage my data</TextLink></div>}</> : <div className="bv-form-actions"><ActionLink to="/register">Create account</ActionLink><TextLink to="/login">Sign in</TextLink></div>}
-    {auth.isAuthenticated && library.libraryImport && !library.readOnly && <div className="bv-account-row"><div><strong>Bring your library</strong><span>Import from Goodreads or StoryGraph</span></div><TextLink to="/my-books/import">Import books</TextLink></div>}
-    <div className="bv-account-row"><div><strong>Appearance</strong><span>{reader.theme === "dark" ? "Dark" : "Light"} theme</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></div>
-    {auth.isAuthenticated && <div className="bv-account-row"><div><strong>Account</strong><span>Come back to your books anytime.</span></div><Button variant="quiet" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></div>}
+  const dataLinks = library.readingExport || library.privacyControls || library.libraryExport, importLink = library.libraryImport && !library.readOnly;
+  return <section className="bv-container"><div className="bv-account"><PageHeading title="Settings" />
+    <section className="bv-account-row" aria-labelledby="bv-set-genres"><div><h2 id="bv-set-genres" className="bv-account-heading">Favourite genres</h2><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></section>
+    {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete them.</span></div>
+      <div className="bv-account-links">{dataLinks && <TextLink to="/my-data">Your reading data</TextLink>}{importLink && <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink>}</div></section>}
+    <section className="bv-account-row" aria-labelledby="bv-set-theme"><div><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2><span>{reader.theme === "dark" ? "Dark" : "Light"}</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></section>
+    <section className="bv-account-row" aria-labelledby="bv-set-out"><div><h2 id="bv-set-out" className="bv-account-heading">Sign out</h2></div><Button variant="secondary" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></section>
     {error && <p className="bv-field-error" role="alert">{error}</p>}
   </div></section>;
 }

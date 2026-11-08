@@ -532,8 +532,8 @@ test("M3 forget retry checks actual absence rather than trusting any DELETE 404"
 
 test("M3 Download my data rejects failures and truncated exports, then starts a complete private download in read-only mode", async ({ page, app }) => {
   app.dataControls = true; app.readOnly = true; app.exportFails = true;
-  await page.goto("/account");
-  await page.getByRole("link", { name: "Manage my data", exact: true }).click();
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Your reading data", exact: true }).click();
   const button = page.getByRole("button", { name: "Download complete copy (JSON)", exact: true });
   let count = 0;
   page.on("download", () => { count += 1; });
@@ -1344,8 +1344,8 @@ test.describe("live reading dates use the reader's local calendar day", () => {
 test("4c library CSV downloads from My Data with import switched off, and failures are explained", async ({ page, app }) => {
   // Only library_export is on: no import pilot, no reading export or privacy controls.
   app.libraryExport = true; app.libraryImport = false; app.dataControls = false; app.libraryCsvFails = true;
-  await page.goto("/account");
-  await page.getByRole("link", { name: "Manage my data", exact: true }).click();
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Your reading data", exact: true }).click();
   await expect(page).toHaveURL(/\/my-data$/);
   await expect(page.getByRole("heading", { name: "Library spreadsheet (CSV)", exact: true })).toBeVisible();
   await expect(page.getByText("Opens in Excel, Numbers or Google Sheets.", { exact: false })).toBeVisible();

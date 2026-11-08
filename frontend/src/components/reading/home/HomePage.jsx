@@ -7,7 +7,7 @@ import { getLibraryPage, getReadingHome } from "../../../api/reading.js";
 import { getStats } from "../../../api/profile.js";
 import { useRequest } from "../../ui-v2/data.js";
 import { useProfile } from "../../profile/profileState.js";
-import { YearInBooks } from "../../profile/YearShelf.jsx";
+import { YearCard } from "../../profile/YearShelf.jsx";
 import { BookCover, BookSkeletons, Button, EmptyState, TextLink } from "../../ui-v2/primitives.jsx";
 import FirstRunHome from "../FirstRunHome.jsx";
 import { SlowReadingNotice } from "../ReadingCards.jsx";
@@ -36,20 +36,9 @@ function ReadingCard({ read, onUpdate, readOnly, buttonRef }) {
   </article>;
 }
 
-function YearGlance({ stats, libraryImport }) {
+function YearGlance({ stats }) {
   if (!stats || !Array.isArray(stats.by_month)) return null;
-  const empty = !stats.books_finished;
-  return <section className="bv-year-glance" aria-labelledby="bv-glance-title">
-    <div className="bv-section-head"><h2 id="bv-glance-title">Your {stats.year} so far</h2>{!empty && <TextLink to="/reading-life">Your reading life</TextLink>}</div>
-    {empty ? <p>Finish a book this year and it’ll show up here.{libraryImport && <> <TextLink to="/my-books/import">Import your history</TextLink> to see it straight away.</>}</p> : <div className="bv-glance">
-      <dl className="bv-figures">
-        <div><dt>books finished</dt><dd>{stats.books_finished.toLocaleString("en-US")}</dd></div>
-        <div><dt>pages</dt><dd>{stats.pages_read.toLocaleString("en-US")}</dd></div>
-        {stats.median_days != null && <div><dt>typical book</dt><dd>{stats.median_days} {stats.median_days === 1 ? "day" : "days"}</dd></div>}
-      </dl>
-      <YearInBooks stats={stats} chips={false} bare />
-    </div>}
-  </section>;
+  return <section className="bv-year-glance"><YearCard stats={stats} /></section>;
 }
 
 export default function ReadingHomePage() {
@@ -99,7 +88,7 @@ export default function ReadingHomePage() {
       <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
       {!shelf.loading && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
-      <YearGlance stats={stats.data} libraryImport={library.libraryImport && !library.readOnly} />
+      <YearGlance stats={stats.data} />
     </>}
     {sheet && <ProgressSheet read={sheet} onClose={() => setSheet(null)} onSaved={saved} />}
   </section>;

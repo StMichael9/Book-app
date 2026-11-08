@@ -97,7 +97,7 @@ function LibraryCsvDownload() {
 export function ReadingDataPage() {
   const library = useUserBooks(), command = useReadingCommand("The download was interrupted or unavailable. Please try again.");
   const [downloaded, setDownloaded] = useState(false);
-  if (!library.readingExport && !library.privacyControls && !library.libraryExport) return <Navigate to="/account" replace />;
+  if (!library.readingExport && !library.privacyControls && !library.libraryExport) return <Navigate to="/settings" replace />;
   async function download(assertCurrent) {
     setDownloaded(false);
     const response = await getReadingExport();
@@ -111,36 +111,44 @@ export function ReadingDataPage() {
     assertCurrent();
     saveFile(file, "bookvane-reading-data.jsonl");
   }
-  return <section className="bv-container"><div className="bv-narrow"><TextLink to="/account">Back to your account</TextLink><PageHeading title="Your reading data">Your reading context is private, not a public review or social profile.</PageHeading>
+  return <section className="bv-container"><div className="bv-narrow"><TextLink to="/settings">Back to settings</TextLink><PageHeading title="Your reading data">Only you can see this.</PageHeading>
     {(library.libraryExport || library.readingExport) && <section className="bv-section"><h2>Download my data</h2>
-      <p className="bv-help">Downloads go straight to your browser. Store them somewhere private.</p>
       {library.libraryExport && <LibraryCsvDownload />}
       {library.readingExport && <section className="bv-data-download" aria-labelledby="bv-reading-json-title">
         <h3 id="bv-reading-json-title">Complete private copy (JSON)</h3>
-        <p>A complete private copy for backup: your saved books, including private ones, Want to read and Owned marks, save reasons, every reading, notes, reactions and discovery subjects. It does not include passwords, security tokens or other readers’ information.</p>
-        <p className="bv-help">A JSON Lines (.jsonl) file preserves text and unknown dates. It’s a personal backup, not a spreadsheet or an automatic restore. We stream it directly without keeping a server-side archive.</p>
+        <p>A full backup file. We don’t keep a copy.</p>
         <Button variant="secondary" disabled={command.pending} onClick={() => command.run(download, () => setDownloaded(true))}>{command.pending ? "Preparing download…" : "Download complete copy (JSON)"}</Button>
-        {downloaded && <p role="status">Download started. Your complete file was sent to your browser. Check Downloads; protect or delete your saved copy yourself.</p>}
+        {downloaded && <p role="status">Download started. Check your Downloads folder.</p>}
         {command.error && <p role="alert">The download couldn’t complete. {command.error} Your library hasn’t changed. Please try again.</p>}
       </section>}
     </section>}
-    <section className="bv-section"><h2>Remove reading data</h2><p>Open a book in My Books to delete one reading, or choose Forget this book to remove its entire private history. Turning off Owned or Want to read does not delete reading history.</p><TextLink to="/my-books">Open My Books</TextLink>
-      <p>Removal affects the live account data. Backups may retain earlier data until their configured retention expires. Data already downloaded to your device is not erased.</p>
-      <p>For full account deletion, contact the Bookvane operator through the channel where you joined or received support. We verify account ownership before deleting the account and its private records. There is no self-service account-deletion button in this version.</p>
+    <section className="bv-section"><h2>Delete my data</h2><p>To delete one reading, open the book in My Books. To remove a whole book and its history, choose Forget this book.</p><TextLink to="/my-books">Open My Books</TextLink>
+      <p>Deleted data can stay in our backups for a limited time. Files you’ve already downloaded stay on your device.</p>
+      <p>Email <a className="bv-text-link" href="mailto:support@bookvane.me">support@bookvane.me</a> to delete your account.</p>
     </section><TextLink to="/privacy">Read the privacy policy</TextLink></div></section>;
 }
 
 export function ReadingPrivacyPage() {
-  return <section className="bv-container"><div className="bv-narrow"><PageHeading title="Your privacy in Bookvane">Reading is personal. Your library and reading context are not public.</PageHeading>
-    <p>Bookvane stores your account email, a password hash, session and reset-token hashes, discovery preferences, saved books and any optional reading details you enter. Passwords and reset links are not included in reading exports.</p>
-    <p>Private missing-book entries, save reasons, progress, dates, notes and reactions are visible only to the signed-in owner through the application. They are not shared as public reviews or used with paid AI services.</p>
-    <p>The existing application uses Render for hosting, Neon PostgreSQL for storage and Resend for requested password-reset emails. Catalogue covers are supplied through Open Library and served through the wsrv.nl image cache; loading a cover contacts that cache, and Open Library if the cache is unavailable. Browser cookies keep you signed in, and browser storage remembers appearance and local discovery choices.</p>
-    <p>If something goes wrong, we receive an error report so we can fix it. We count visits anonymously, without cookies.</p>
-    <p>When a book has no description of its own, we may show one from Google Books, exactly as Google provides it and with a link back. We do not keep it.</p>
-    <p>Some book links go to Bookshop.org; if you buy, Bookvane may earn a small commission at no cost to you.</p>
-    <p>Authorized operators may access stored data for support, security and recovery. Do not put sensitive personal details in notes. No system can promise absolute security.</p>
-    <p>You can edit or clear optional context, delete an individual reading, forget a personal book and its history, or download your reading data from your account when those controls are available. Older or paused versions may offer read-only access.</p>
-    <p>Live-data removal does not erase copies you downloaded or immediately erase retained backups. Backup retention follows the configured storage service. For account deletion or privacy questions, contact the operator through your onboarding or support channel; account ownership must be verified first. This version has no self-service account-deletion button.</p>
-    <TextLink to="/account">Your account and data controls</TextLink>
+  return <section className="bv-container"><div className="bv-narrow"><PageHeading title="Your privacy">Only you can see your library.</PageHeading>
+    <section className="bv-section"><h2>What we keep</h2><ul className="bv-plain-list">
+      <li>Your email, and a password we can’t read.</li>
+      <li>The books you save, your reading dates, notes and reactions, and your favourite genres.</li>
+      <li>Only you can see your notes, reactions and private books. They are never shared or used with paid AI services.</li>
+      <li>Our team can look at stored data only to help you or keep Bookvane safe.</li>
+    </ul></section>
+    <section className="bv-section"><h2>Who we use</h2><ul className="bv-plain-list">
+      <li>Render hosts Bookvane, Neon stores the data, and Resend sends password-reset emails.</li>
+      <li>Covers come from Open Library through the wsrv.nl image cache, so loading a cover contacts them.</li>
+      <li>If a book has no description, we may show one from Google Books, with a link back. We don’t keep it.</li>
+      <li>Some book links go to Bookshop.org. If you buy, Bookvane may earn a small commission at no cost to you.</li>
+      <li>We get an error report when something breaks, and we count visits without cookies. Cookies only keep you signed in.</li>
+    </ul></section>
+    <section className="bv-section"><h2>Download or delete</h2><ul className="bv-plain-list">
+      <li>Download everything from <TextLink to="/my-data">Your reading data</TextLink>. It’s a full backup file, and we don’t keep a copy.</li>
+      <li>Delete one reading, or a whole book and its history, from My Books.</li>
+      <li>Deleted data can stay in our backups for a limited time.</li>
+      <li>Email <a className="bv-text-link" href="mailto:support@bookvane.me">support@bookvane.me</a> to delete your account.</li>
+    </ul></section>
+    <TextLink to="/settings">Settings</TextLink>
   </div></section>;
 }

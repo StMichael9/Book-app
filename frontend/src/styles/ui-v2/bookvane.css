@@ -482,3 +482,12 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-reading-library .bv-library-heading { display: block; }
   .bv-root .bv-reading-library .bv-library-heading > .bv-button { margin-top: 0; white-space: nowrap; }
 }
+
+/* Settings: four plain sections, and the short bullet lists on the data and privacy pages. */
+.bv-root .bv-account-row .bv-account-heading { display: block; margin: 0; font: inherit; font-size: var(--bv-fs-card); font-weight: 600; color: var(--bv-ink); }
+.bv-root .bv-account-links { display: grid; gap: 8px; justify-items: end; text-align: right; }
+.bv-root .bv-plain-list { margin: 8px 0 0; padding-left: 1.25rem; display: grid; gap: 8px; }
+.bv-root .bv-plain-list li { list-style: disc; display: list-item; }
+@media (max-width: 700px) {
+  .bv-root .bv-account-links { justify-items: start; text-align: left; }
+}
