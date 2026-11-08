@@ -1,4 +1,4 @@
-from sqlalchemy import case, func, select, exists, or_, union
+from sqlalchemy import case, func, literal, select, exists, or_, union
 from sqlalchemy.orm import Session
 from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, UserPreference, book_tags
 
@@ -16,6 +16,7 @@ class SearchService:
         exclude_owned: bool = False,
         shelf_status: UserBookStatus | None = None,
         sort: str | None = None,
+        fuzzy: bool = False,
     ):
         query = (
             select(Book)
@@ -24,13 +25,25 @@ class SearchService:
         )
         title_rank = None
         if book is not None:
-            # LIKE wildcards in the reader's text are literal; an alias is another way to find the same book.
-            pattern = "%" + book.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-            # Two uncorrelated trigram-indexable selects; an OR with a correlated EXISTS defeats ix_books_title_trgm.
-            title_ids = select(Book.id).where(Book.title.ilike(pattern, escape="\\"))
-            alias_ids = select(BookTitleAlias.book_id).where(BookTitleAlias.title.ilike(pattern, escape="\\"))
+            # Titles, aliases and the reader's words are all folded by the same database function (bookvane_search_key), so
+            # "1984", "Nineteen Eighty-Four" and "nineteen eighty four" meet. The key never contains % or _, so a LIKE built
+            # from it cannot be turned into a wildcard by the reader.
+            key = func.bookvane_search_key(book)
+            if fuzzy:
+                # Typos ("hary poter"): only tried when the exact, prefix and substring matches found nothing.
+                title_ids = select(Book.id).where(func.word_similarity(key, Book.title_key) >= 0.4)
+                alias_ids = select(BookTitleAlias.book_id).where(func.word_similarity(key, BookTitleAlias.title_key) >= 0.4)
+            else:
+                title_ids = select(Book.id).where(or_(Book.title_key == key, Book.title_key.like(key.concat("%")),
+                                                      Book.title_key.like(literal("%").concat(key).concat("%"))))
+                alias_ids = select(BookTitleAlias.book_id).where(or_(
+                    BookTitleAlias.title_key == key, BookTitleAlias.title_key.like(key.concat("%")),
+                    BookTitleAlias.title_key.like(literal("%").concat(key).concat("%"))))
             query = query.where(Book.id.in_(union(title_ids, alias_ids)))
-            title_rank = case((Book.title.ilike(pattern, escape="\\"), 0), else_=1)
+            exact_alias = select(BookTitleAlias.book_id).where(BookTitleAlias.title_key == key)
+            title_rank = case((or_(Book.title_key == key, Book.id.in_(exact_alias)), 0),
+                              (Book.title_key.like(key.concat("%")), 1),
+                              (Book.title_key.like(literal("%").concat(key).concat("%")), 2), else_=3)
             query = query.order_by(None).order_by(title_rank, Book.id)
         if author is not None:
             query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))
@@ -74,15 +87,8 @@ class SearchService:
                 *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
 
         if (book is not None or author is not None) and sort is None:
-            # A typed search puts the exact title first, then the most popular (then the id, so the order is stable).
-            exact = None
-            if book is not None:
-                wanted = " ".join(book.split()).casefold()
-                exact_alias = select(BookTitleAlias.book_id).where(
-                    func.lower(func.regexp_replace(func.btrim(BookTitleAlias.title), r"\s+", " ", "g")) == wanted)
-                exact = case((or_(func.lower(func.regexp_replace(func.btrim(Book.title), r"\s+", " ", "g")) == wanted,
-                                  Book.id.in_(exact_alias)), 0), else_=1)
-            query = query.order_by(None).order_by(*([exact, title_rank] if exact is not None else []),
+            # A typed search puts the closest title first (exact, prefix, substring, typo), then the most popular.
+            query = query.order_by(None).order_by(*([title_rank] if title_rank is not None else []),
                                                   Book.popularity.desc().nulls_last(), Book.id)
         if sort == "popular":
             # An explicit sort wins over the reader's subject order; a text match still ranks closest titles first.

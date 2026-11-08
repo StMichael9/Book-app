@@ -238,3 +238,55 @@ def test_a_typed_search_ranks_the_exact_title_first_then_popularity(client, me, 
     assert titles[:2] == ["Sapiens", "sapiens"] or titles[:2] == ["sapiens", "Sapiens"]
     assert titles[2:] == ["Sapiens Companion Guide", "Sapiens Reader"]
     assert titles.index("Sapiens Companion Guide") < titles.index("Sapiens Reader")
+
+
+# --- search normalisation (T45 addition: "1984" must find Nineteen Eighty-Four) -----------------------------------------
+
+@pytest.mark.parametrize("text,key", [
+    ("Nineteen Eighty-Four", "1984"), ("nineteen eighty four", "1984"), ("1984", "1984"), ("Catch-22", "catch 22"),
+    ("Catch twenty-two", "catch 22"), ("two thousand and one", "2001"), ("2001: A Space Odyssey", "2001 a space odyssey"),
+    ("The Hobbit", "hobbit"), ("A Christmas Carol", "christmas carol"), ("Pride & Prejudice", "pride and prejudice"),
+    ("Fahrenheit 451", "fahrenheit 451"), ("Fahrenheit four hundred fifty-one", "fahrenheit 451"),
+    ("Les Misérables", "les miserables"), ("One Hundred Years of Solitude", "100 years of solitude"),
+    ("Don't Stop", "dont stop"), ("Twenty One Pilots", "21 pilots"), ("Ça va?", "ca va"), ("  ", ""), ("The", "the")])
+def test_the_search_key_folds_titles_and_queries_the_same_way(db_session, text, key):
+    from sqlalchemy import func
+    assert db_session.scalar(select(func.bookvane_search_key(text))) == key
+
+
+@pytest.fixture()
+def titles(me, db_session, app_modules):
+    models = app_modules["models"]
+    made = {}
+    for name, title, author in (("orwell", "Nineteen Eighty-Four", "George Orwell"), ("catch", "Catch-22", "Joseph Heller"),
+                                ("fahr", "Fahrenheit 451", "Ray Bradbury"), ("odyssey", "2001: A Space Odyssey", "Arthur C. Clarke"),
+                                ("hobbit", "The Hobbit", "J. R. R. Tolkien"), ("pride", "Pride and Prejudice", "Jane Austen"),
+                                ("wib", "Wibblewick Chronicles", "Test Author")):
+        item = models.Book(title=title, source_id=f"/works/OL7{len(made) + 300:05d}W", popularity=100.0, cover_image_url="x",
+                           page_count=10, published_year=1949, description="d")
+        item.authors = [models.Author(name=author, source_id=f"/authors/OL7{len(made) + 300:05d}A")]
+        db_session.add(item)
+        db_session.flush()
+        made[name] = item
+    db_session.commit()
+    return made
+
+
+@pytest.mark.parametrize("query,name", [
+    ("1984", "orwell"), ("Nineteen Eighty Four", "orwell"), ("nineteen eighty-four", "orwell"), ("Catch 22", "catch"),
+    ("Catch-22", "catch"), ("Fahrenheit 451", "fahr"), ("2001 a space odyssey", "odyssey"), ("the hobbit", "hobbit"),
+    ("hobbit", "hobbit"), ("pride & prejudice", "pride"), ("wibblewik chronicles", "wib")])
+def test_each_named_search_finds_the_right_book_first(client, titles, query, name):
+    items = client.get("/books", params={"book": query}).json()["items"]
+    assert items and items[0]["id"] == titles[name].id
+
+
+def test_aliases_use_the_same_key_and_like_wildcards_stay_literal(client, titles, db_session, app_modules):
+    models = app_modules["models"]
+    db_session.add(models.BookTitleAlias(book_id=titles["pride"].id, title="Elizabeth Bennet's Story", source="openlibrary_edition"))
+    db_session.commit()
+    assert client.get("/books", params={"book": "elizabeth bennets story"}).json()["items"][0]["id"] == titles["pride"].id
+    assert client.get("/books", params={"book": "%"}).json()["total"] == 0                    # not "everything"
+    assert client.get("/books", params={"book": "wib_lewick"}).json()["total"] in (0, 1)       # "_" is not a one-letter wildcard
+    exact = [i["id"] for i in client.get("/books", params={"book": "Pride and Prejudice"}).json()["items"]]
+    assert exact[0] == titles["pride"].id

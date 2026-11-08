@@ -130,6 +130,8 @@ class Book(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The title as matched by search (accents, punctuation, number words and a leading the/a/an folded); see bookvane_search_key.
+    title_key: Mapped[str | None] = mapped_column(Text, Computed("bookvane_search_key(title)", persisted=True), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     published_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -189,6 +191,7 @@ class BookTitleAlias(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     book_id: Mapped[int] = mapped_column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    title_key: Mapped[str | None] = mapped_column(Text, Computed("bookvane_search_key(title)", persisted=True), nullable=True)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

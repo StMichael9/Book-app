@@ -68,6 +68,12 @@ def get_books(
         query.with_only_columns(Book.id, func.count().over().label("total"))
         .limit(params.size).offset((params.page - 1) * params.size)
     ).all()
+    if not rows and book and params.page == 1:
+        # Nothing matched the words themselves: try a typo-tolerant match once.
+        query = service.search_books(book=book, author=author, tags=tag, current_user=current_user,
+                                     exclude_owned=exclude_owned, shelf_status=shelf_status, sort=sort, fuzzy=True)
+        rows = db.execute(query.with_only_columns(Book.id, func.count().over().label("total"))
+                          .limit(params.size).offset(0)).all()
     if rows:
         total = rows[0].total
     elif params.page == 1:
