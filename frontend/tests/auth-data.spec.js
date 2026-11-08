@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 const book = { id: 1, title: "Browser-only book", authors: [], tags: [] };
 const tag = { id: 1, name: "fantasy", type: "genre" };
@@ -77,6 +78,7 @@ const test = base.extend({
       if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
       app.errors.push(`Unhandled API: ${path}`); return reply(500, {});
     });
+    await installGenres(page, app);
     await provide(app); expect(app.errors).toEqual([]);
   },
 });
@@ -229,7 +231,6 @@ test("explicit preference clearing and first note preservation survive the new U
   await page.goto("/preferences"); await expect(page.getByLabel("Fantasy", { exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences[0].source_text).toBe("Keep this note");
-  expect(app.requests.filter(r => r.path === "/autocomplete/tags/batch")).toHaveLength(1);
   expect(app.requests.filter(r => r.path === "/autocomplete/tags")).toHaveLength(0);
   await page.goto("/preferences"); await page.getByLabel("Fantasy", { exact: true }).uncheck();
   await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/);

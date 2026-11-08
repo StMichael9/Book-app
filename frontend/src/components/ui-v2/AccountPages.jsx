@@ -9,7 +9,9 @@ import { getBookById } from "../../api/books.js";
 import { getPreferences, savePreferences } from "../../api/preferences.js";
 import { requestPasswordReset, resetPassword } from "../../api/auth.js";
 import { useReader } from "./readerState.js";
-import { errorText, loadSubjectOptions, safeReturnTo, subjectLabel, useRequest, validBookId } from "./data.js";
+import { errorText, safeReturnTo, useRequest, validBookId } from "./data.js";
+import GenrePicker from "./GenrePicker.jsx";
+import { useGenres } from "./useGenres.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageFrame, PageHeading, TextLink } from "./primitives.jsx";
 import LibraryPage from "../reading/LibraryPage.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
@@ -126,24 +128,29 @@ export function PreferencesPage() {
   const request = useRequest(async () => {
     const preferences = await getPreferences();
     if (!Array.isArray(preferences) || preferences.some((item) => !Number.isInteger(item.tag_id) || !item.tag)) throw new Error("Unable to load preferences.");
-    const options = await loadSubjectOptions();
-    return { preferences, options: [...new Map([...options, ...preferences.map((item) => item.tag)].map((tag) => [tag.id, tag])).values()] };
+    return preferences;
   }, "preferences");
+  const genres = useGenres();
   return <section className="bv-container bv-preferences"><PageHeading title="Your discovery subjects">Choose what you enjoy. Books that match these subjects appear first when you browse. You can still explore everything.</PageHeading>
-    {request.loading ? <p className="bv-loading-message" role="status">Loading your saved choices…</p> : request.error ? <EmptyState error title="Your preferences couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved preferences haven’t changed. Try again to see your choices.</EmptyState> : <PreferencesEditor data={request.data} />}
+    {request.loading || genres.loading ? <p className="bv-loading-message" role="status">Loading your saved choices…</p> : request.error ? <EmptyState error title="Your preferences couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved preferences haven’t changed. Try again to see your choices.</EmptyState>
+      : genres.failed || !genres.genres?.length ? <EmptyState error title="Genres aren’t available right now." action={<Button onClick={genres.retry}>Try again</Button>}>Your saved choices haven’t changed.</EmptyState> : <PreferencesEditor preferences={request.data} genres={genres} />}
   </section>;
 }
 
-function PreferencesEditor({ data }) {
+function PreferencesEditor({ preferences, genres }) {
   const navigate = useNavigate();
   const reader = useReader();
-  const [selected, setSelected] = useState(() => data.preferences.map((item) => item.tag_id));
+  const [selected, setSelected] = useState(() => preferences.map(item => item.tag?.name).filter(key => genres.byKey[key]));
+  // Choices that aren't genres (an older mood or theme) are kept as they were; only genres are changed here.
+  const kept = preferences.filter(item => !genres.byKey[item.tag?.name]).map(item => item.tag_id);
   const command = useReadingCommand("Your preferences couldn’t be saved. Your choices are still here.");
   const saving = command.pending, error = command.error;
   function submit(event) {
     event.preventDefault();
     command.run(async assertCurrent => {
-      await savePreferences({ tagIds: selected, sourceText: data.preferences[0]?.source_text || "" });
+      const ids = selected.map(key => genres.idFor(key));
+      if (ids.some(id => id == null)) throw new Error("Your preferences couldn’t be saved. Your choices are still here.");
+      await savePreferences({ tagIds: [...kept, ...ids], sourceText: preferences[0]?.source_text || "" });
       reader.preferencesSaved();
       assertCurrent();
     }, () => {
@@ -151,10 +158,10 @@ function PreferencesEditor({ data }) {
     });
   }
   return <form onSubmit={submit} aria-busy={saving}>
-      <fieldset className="bv-preference-panel"><legend>Favourite genres</legend><p className="bv-muted">Choose as many or as few as you like. This is optional.</p><div className="bv-preference-grid">{data.options.map((tag) => <label className="bv-check-tile" key={tag.id}><input type="checkbox" checked={selected.includes(tag.id)} disabled={saving} onChange={(event) => setSelected((current) => event.target.checked ? [...current, tag.id] : current.filter((value) => value !== tag.id))} /><span>{subjectLabel(tag.name)}</span></label>)}</div>
-        {!data.options.length && <p>No subjects are available yet. You can keep exploring all books.</p>}
+      <fieldset className="bv-preference-panel"><legend>Favourite genres</legend><p className="bv-muted">Choose as many or as few as you like. This is optional.</p>
+        <GenrePicker multiple value={selected} onChange={setSelected} disabled={saving} label="Favourite genres" />
       </fieldset>{error && <p className="bv-field-error" role="alert">{error}</p>}
-      <div className="bv-form-actions"><Button type="submit" disabled={saving}>{saving ? "Saving preferences…" : "Save preferences"}</Button><TextLink to="/browse">Back to discovery</TextLink></div>
+      <div className="bv-form-actions"><Button type="submit" disabled={saving || !genres.idsReady}>{saving ? "Saving preferences…" : "Save preferences"}</Button><TextLink to="/browse">Back to discovery</TextLink></div>
     </form>;
 }
 

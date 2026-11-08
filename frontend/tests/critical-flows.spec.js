@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 import { shootMatrix, shotsEnabled } from "./support/shots.js";
 
 // Browser-only fixtures. Every API request is intercepted; no database or
@@ -6,7 +7,7 @@ import { shootMatrix, shotsEnabled } from "./support/shots.js";
 const books = [
   { id: 1, title: "Test-only Fantasy", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 1, name: "fantasy" }] },
   { id: 2, title: "Test-only Science Fiction", authors: [{ id: 2, name: "Another Author" }], tags: [{ id: 2, name: "science_fiction" }] },
-  { id: 3, title: "Test-only Mystery", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 3, name: "mystery" }] },
+  { id: 3, title: "Test-only Mystery", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 3, name: "mystery_crime" }] },
 ];
 
 const test = base.extend({
@@ -85,7 +86,7 @@ const test = base.extend({
         if (state.mutationFails) return reply(503, { detail: "Save unavailable" });
         if (state.holdPreferenceSave) await state.holdPreferenceSave;
         state.preferences = body.tag_ids.map((id) => ({
-          tag_id: id, tag: { id, name: id === 1 ? "fantasy" : "mystery", type: "genre" }, source_text: body.source_text,
+          tag_id: id, tag: { id, name: id === 1 ? "fantasy" : "mystery_crime", type: "genre" }, source_text: body.source_text,
         }));
         return reply(200, state.preferences);
       }
@@ -135,6 +136,7 @@ const test = base.extend({
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
+    await installGenres(page, state, { batch: false });
     await runFixture(state);
     expect(state.errors).toEqual([]);
   },
@@ -177,7 +179,7 @@ test("M6 late preference save cannot replace the page the reader navigated to", 
   let release;
   app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
   await page.goto("/preferences");
-  await page.getByLabel("Mystery", { exact: true }).check();
+  await page.getByLabel("Mystery & crime", { exact: true }).check();
   const completed = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/me/preferences") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Save preferences", exact: true }).click();
   await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
@@ -196,7 +198,7 @@ for (const changeAccount of [false, true]) test(`M6 departed preference save inv
   app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
   try {
     await page.goto("/preferences");
-    await page.getByLabel("Mystery", { exact: true }).check();
+    await page.getByLabel("Mystery & crime", { exact: true }).check();
     const completed = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "POST");
     await page.getByRole("button", { name: "Save preferences", exact: true }).click();
     await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
@@ -298,11 +300,11 @@ test("malformed preferences are not treated as an empty saved preference list", 
 
 test("failed preference save preserves edits and can be retried", async ({ page, app }) => {
   await page.goto("/preferences");
-  await page.getByLabel("Mystery", { exact: true }).check();
+  await page.getByLabel("Mystery & crime", { exact: true }).check();
   app.mutationFails = true;
   await page.getByRole("button", { name: "Save preferences" }).click();
   await expect(page.getByRole("alert")).toContainText("Your choices are still here");
-  await expect(page.getByLabel("Mystery", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("Mystery & crime", { exact: true })).toBeChecked();
   expect(app.preferences[0].source_text).toBe("Keep this note");
   app.mutationFails = false;
   await page.getByRole("button", { name: "Save preferences" }).click();

@@ -7,7 +7,8 @@ import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { useRequest } from "../ui-v2/data.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { BookCover, Button, GetACopy, TextLink } from "../ui-v2/primitives.jsx";
-import { genreName } from "./genreName.js";
+import GenrePicker from "../ui-v2/GenrePicker.jsx";
+import { useGenres } from "../ui-v2/useGenres.js";
 import PickCard from "./home/PickCard.jsx";
 import { localToday } from "./localToday.js";
 
@@ -72,9 +73,26 @@ function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
 const LENGTH_CAP = { short: 249, medium: 450 };
 const LENGTHS = [["", "Any"], ["short", "Short"], ["medium", "Medium"]];
 
-const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", max_pages: "", length: "", rotation: 0, exclude: [] });
+const defaultSettings = (source = "want") => ({ source, owned_only: false, interest_id: "", genre: "", max_pages: "", length: "", rotation: 0, exclude: [] });
 
 // `panel` is the "Something new" pick inside Home's "Can't decide?": cards only, filters tucked behind "Adjust".
+// The Adjust panel: one genre (or Any) and a length. The genre list is the app's one list; if it can't load, the genre
+// choice is simply not offered.
+function AdjustForm({ formRef, settings, pending, genres, onShow, onReset }) {
+  const [genre, setGenre] = useState(settings.genre || "");
+  const offered = Boolean(genres.genres?.length) && genres.idsReady;
+  return <form ref={formRef} className="bv-adjust-form" onSubmit={event => {
+    event.preventDefault(); const values = new FormData(event.currentTarget);
+    onShow({ genre: offered ? genre : "", interest_id: offered && genre ? String(genres.idFor(genre) ?? "") : "", length: String(values.get("length") || "") });
+  }}>
+    {offered && <fieldset className="bv-adjust-group" disabled={pending}><legend>Genre</legend>
+      <GenrePicker compact includeAny label="Genre" value={genre} onChange={setGenre} /></fieldset>}
+    <fieldset className="bv-adjust-group" disabled={pending}><legend>Length</legend>
+      <div className="bv-adjust-choices">{LENGTHS.map(([value, text]) => <label key={value || "any"} className="bv-choice"><input type="radio" name="length" value={value} defaultChecked={value === settings.length} /><span>{text}</span></label>)}</div></fieldset>
+    <div className="bv-adjust-actions"><Button type="submit" disabled={pending}>Show books</Button><Button variant="quiet" disabled={pending} onClick={onReset}>Reset</Button></div>
+  </form>;
+}
+
 export default function NextReadSection({ preview = false, home = false, panel = false, currentKey, finishId, enabled = true, hidden = false }) {
   const base = panel ? "catalogue" : "want";
   const auth = useAuth(), library = useUserBooks();
@@ -83,6 +101,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
   const [chosen, setChosen] = useState(null);
   const [sessionId] = useState(() => crypto.randomUUID());
   const filterForm = useRef(null);
+  const genres = useGenres();
   const [expanded, setExpanded] = useState(false);
   // A new finish returns to the quiet one-book preview, even if choices were open.
   const [finishSeen, setFinishSeen] = useState(finishId);
@@ -108,7 +127,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
     else if (returning.current) { returning.current = false; previewButton.current?.focus(); }
   }, [expanded, preview]);
   const request = useRequest(async () => {
-    const { length, ...query } = values;
+    const { length, genre: _genre, ...query } = values;
     const result = await getNextRead(LENGTH_CAP[length] ? { ...query, max_pages: LENGTH_CAP[length] } : query);
     if (!Array.isArray(result?.items) || result.items.length > 3 || !Array.isArray(result.interests) ||
         !Number.isInteger(result.eligible_count) || !Number.isInteger(result.remaining_count) ||
@@ -125,7 +144,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
   const [formKey, setFormKey] = useState(0);
   function reset(source = settings.source) {
     setFormKey(value => value + 1);
-    setSettings({ source, owned_only: false, interest_id: "", max_pages: "", length: "", rotation: 0, exclude: [] });
+    setSettings({ source, owned_only: false, interest_id: "", genre: "", max_pages: "", length: "", rotation: 0, exclude: [] });
   }
   function switchSource(source) {
     setSettings(current => ({ ...current, source, rotation: 0, exclude: [] }));
@@ -153,19 +172,8 @@ export default function NextReadSection({ preview = false, home = false, panel =
           <TextLink to="/browse">Browse for myself</TextLink></div>
       </>}
       {result && <details className="bv-adjust"><summary>Adjust</summary>
-        <form key={`${scope}:${formKey}`} ref={filterForm} className="bv-adjust-form" onSubmit={event => {
-          event.preventDefault(); const values = new FormData(event.currentTarget);
-          setSettings(current => ({ ...current, interest_id: String(values.get("interest") || ""), length: String(values.get("length") || ""), max_pages: "", rotation: 0, exclude: [] }));
-        }}>
-          <fieldset className="bv-adjust-group" disabled={command.pending}><legend>Genre</legend>
-            <div className="bv-adjust-choices">
-              <label className="bv-choice"><input type="radio" name="interest" value="" defaultChecked={!settings.interest_id} /><span>Any</span></label>
-              {result.interests.map(item => <label key={item.id} className="bv-choice"><input type="radio" name="interest" value={item.id} defaultChecked={String(item.id) === String(settings.interest_id)} /><span>{genreName(item.name)}</span></label>)}
-            </div></fieldset>
-          <fieldset className="bv-adjust-group" disabled={command.pending}><legend>Length</legend>
-            <div className="bv-adjust-choices">{LENGTHS.map(([value, text]) => <label key={value || "any"} className="bv-choice"><input type="radio" name="length" value={value} defaultChecked={value === settings.length} /><span>{text}</span></label>)}</div></fieldset>
-          <div className="bv-adjust-actions"><Button type="submit" disabled={command.pending}>Show books</Button><Button variant="quiet" disabled={command.pending} onClick={() => reset(base)}>Reset</Button></div>
-        </form></details>}
+        <AdjustForm key={`${scope}:${formKey}`} formRef={filterForm} settings={settings} pending={command.pending} genres={genres}
+          onShow={values => setSettings(current => ({ ...current, ...values, max_pages: "", rotation: 0, exclude: [] }))} onReset={() => reset(base)} /></details>}
     </div>;
   }
   if (preview && !expanded) {
@@ -190,7 +198,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
       setSettings(current => ({ ...current, owned_only: values.has("owned"), interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
     }}><fieldset disabled={command.pending}><legend>Your choice for now</legend>
       <label><input type="checkbox" name="owned" defaultChecked={settings.owned_only} /> Only books I own</label>
-      <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.map(item => <option key={item.id} value={item.id}>{genreName(item.name)}</option>)}</select>
+      <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.filter(item => genres.labelFor(item.name)).map(item => <option key={item.id} value={item.id}>{genres.labelFor(item.name)}</option>)}</select>
       {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">Page counts aren’t available for these books.</p>}
       <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
     </fieldset></form></details>}

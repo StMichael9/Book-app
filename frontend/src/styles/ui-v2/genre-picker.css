@@ -1,0 +1,12 @@
+/* The genre picker: pills that are real radios or checkboxes (the input is invisible and covers its pill). */
+.bv-root .bv-genre-picker { display: grid; gap: 16px; }
+.bv-root .bv-genre-group { display: grid; gap: 8px; }
+.bv-root .bv-genre-heading { margin: 0; font: 600 var(--bv-fs-helper)/1.3 var(--bv-body); color: var(--bv-muted); }
+.bv-root .bv-genre-pills, .bv-root .bv-genre-picker--compact { display: flex; flex-wrap: wrap; gap: 8px; }
+.bv-root .bv-genre-pill { position: relative; display: inline-flex; }
+.bv-root .bv-genre-pill input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.bv-root .bv-genre-pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--bv-control); border-radius: 999px; background: var(--bv-panel); color: var(--bv-ink); }
+.bv-root .bv-genre-pill input:checked + span { background: var(--bv-soft-green); border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
+.bv-root .bv-genre-pill input:focus-visible + span { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
+.bv-root .bv-genre-pill input:disabled + span { opacity: .6; }
+.bv-root .bv-genre-picker.bv-chip-row .bv-genre-pill span { white-space: nowrap; }

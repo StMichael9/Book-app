@@ -1,22 +1,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { apiRequest } from "../../api/client.js";
 import { getBookById } from "../../api/books.js";
 import { prefetchWhenIdle } from "../../api/prefetchQueue.js";
 import { prefetchRequest, readRequestCache, sharedRequest } from "../../api/requestCache.js";
-
-export const SUBJECTS = [
-  ["fantasy", "Fantasy"], ["mystery", "Mystery"], ["history", "History"],
-  ["romance", "Romance"], ["science_fiction", "Science fiction"],
-  ["classics", "Classics"], ["horror", "Horror"], ["thriller", "Thriller"],
-  ["adventure", "Adventure"], ["humor", "Humor"], ["biography", "Biography"],
-  ["poetry", "Poetry"], ["drama", "Drama"], ["young_adult", "Young adult"],
-  ["philosophy", "Philosophy"],
-];
-
-export function subjectLabel(name = "") {
-  return SUBJECTS.find(([slug]) => slug === name)?.[1] ||
-    name.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
-}
 
 export function authorLabel(book) {
   return book.authors?.map((author) => author.name).filter(Boolean).join(", ") ||
@@ -100,21 +85,6 @@ export function catalogueResponse(payload) {
   return { ...payload, total: Number(payload.total) };
 }
 
-let subjectOptionsPromise;
-export function loadSubjectOptions() {
-  if (!subjectOptionsPromise) {
-    const query = new URLSearchParams();
-    SUBJECTS.forEach(([slug]) => query.append("name", slug));
-    subjectOptionsPromise = apiRequest(`/autocomplete/tags/batch?${query}`).then((tags) => {
-      if (!Array.isArray(tags)) throw new Error("Unable to load subjects.");
-      return SUBJECTS.map(([slug]) => tags.find(tag => tag.name === slug)).filter(Boolean);
-    }).catch((error) => {
-      subjectOptionsPromise = null;
-      throw error;
-    });
-  }
-  return subjectOptionsPromise;
-}
 
 // Names the browser tab after the book once it is known; routes set a generic title first.
 export function useDocumentTitle(title) {

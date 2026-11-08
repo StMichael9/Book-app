@@ -1,18 +1,19 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "../../../../tests/support/genres.js";
 import { mkdirSync, readFileSync } from "node:fs";
 
 // Real-title reference fixtures only. All requests are intercepted; these tests
 // never contact a hosted API or create real accounts/library records.
 const titles = ["Pride and Prejudice", "Frankenstein", "The Time Machine", "The Great Gatsby", "The Hound of the Baskervilles"];
 const authors = ["Jane Austen", "Mary Shelley", "H. G. Wells", "F. Scott Fitzgerald", "Arthur Conan Doyle"];
-const subjects = ["fantasy", "mystery", "history", "romance", "science_fiction", "classics", "horror", "thriller", "adventure", "humor", "biography", "poetry", "drama", "young_adult", "philosophy"].map((name, i) => ({ id: i + 1, name, type: "genre" }));
+const subjects = ["fantasy", "mystery_crime", "history", "romance", "science_fiction", "classics", "horror", "thriller", "adventure", "humor", "biography", "poetry", "drama", "young_adult", "philosophy"].map((name, i) => ({ id: i + 1, name, type: "genre" }));
 const tag = (name) => subjects.find((item) => item.name === name);
-const tags = [["romance", "classics"], ["horror", "science_fiction", "classics"], ["science_fiction", "adventure", "classics"], ["classics"], ["mystery", "classics"]];
+const tags = [["romance", "classics"], ["horror", "science_fiction", "classics"], ["science_fiction", "adventure", "classics"], ["classics"], ["mystery_crime", "classics"]];
 const books = titles.map((title, i) => ({ id: i + 1, title, authors: [{ id: i + 1, name: authors[i] }], tags: tags[i].map(tag), published_year: [1813, 1818, 1895, 1925, 1902][i], description: "A reference book description for browser validation.", cover_image_url: `/test-cover/${i}.jpg` }));
 
 const test = base.extend({
   app: async ({ page }, runFixture) => {
-    const state = { authenticated: false, saved: [], preferences: [{ tag_id: 2, tag: tag("mystery"), source_text: "Preserve this note" }], requests: [], errors: [], catalogue: books, shelfFailures: 0, preferenceFailures: 0, mutationFails: false };
+    const state = { authenticated: false, saved: [], preferences: [{ tag_id: 2, tag: tag("mystery_crime"), source_text: "Preserve this note" }], requests: [], errors: [], catalogue: books, shelfFailures: 0, preferenceFailures: 0, mutationFails: false };
     page.on("pageerror", (error) => state.errors.push(error.message));
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
@@ -77,6 +78,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
+    await installGenres(page, {}, { batch: false });
     await runFixture(state); expect(state.errors).toEqual([]);
   },
 });
@@ -121,8 +123,8 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCSS("background-color", "rgb(38, 37, 35)");
-  await checkContrast(".bv-dialog p, .bv-dialog .bv-button, .bv-check-tile, .bv-dialog input:not([type=checkbox])");
-  await checkContrast(".bv-check-tile, .bv-dialog input:not([type=checkbox])", "borderTopColor", 3);
+  await checkContrast(".bv-dialog p, .bv-dialog .bv-button, .bv-genre-pill span, .bv-dialog input:not([type=checkbox])");
+  await checkContrast(".bv-genre-pill span, .bv-dialog input:not([type=checkbox])", "borderTopColor", 3);
   await page.keyboard.press("Escape");
   app.authenticated = false;
   await page.goto("/login"); await expect(page.getByLabel("Email address", { exact: true })).toBeVisible();
@@ -178,7 +180,7 @@ test("author search, AND filters, hidden owned books, history and pagination use
   await page.getByRole("button", { name: "Apply filters" }).click(); await expect(page.locator(".bv-book-card h3")).toHaveText(["Pride and Prejudice"]);
   const url = new URL(page.url()); expect(url.searchParams.get("author")).toBe("Jane"); expect(url.searchParams.getAll("tag")).toEqual(["romance", "classics"]);
   await page.getByRole("button", { name: "Clear search & filters" }).click(); await expect(page.locator(".bv-book-card")).toHaveCount(5); await page.goBack(); await expect(page.getByLabel("Search authors")).toHaveValue("Jane");
-  await page.goto("/browse?tag=mystery&tag=classics"); await expect(page.locator(".bv-book-card h3")).toHaveText(["The Hound of the Baskervilles"]);
+  await page.goto("/browse?tag=mystery_crime&tag=classics"); await expect(page.locator(".bv-book-card h3")).toHaveText(["The Hound of the Baskervilles"]);
   app.saved = [{ id: 5, book_id: 5, status: "owned", book: books[4] }]; await page.getByRole("button", { name: /Filters/ }).click(); await page.getByLabel("Hide books I own").check(); await page.getByRole("button", { name: "Apply filters" }).click(); await expect(page.getByRole("heading", { name: "No books found." })).toBeVisible();
   await page.getByRole("button", { name: /Filters/ }).click(); await expect(page.getByLabel("Hide books I own")).toBeChecked(); await page.keyboard.press("Escape");
   app.catalogue = Array.from({ length: 45 }, (_, i) => ({ ...books[i % 5], id: i + 1, title: `Book ${i + 1}` })); await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(20);
@@ -188,7 +190,7 @@ test("author search, AND filters, hidden owned books, history and pagination use
 test("preference-load failures cannot overwrite data; saved tag IDs preserve existing notes", async ({ page, app }) => {
   app.authenticated = true; app.preferenceFailures = 1; await page.goto("/preferences"); await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible(); await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
   expect(app.requests.filter((request) => request.path === "/me/preferences" && request.method === "POST")).toHaveLength(0);
-  await page.getByRole("button", { name: "Try again" }).click(); await expect(page.getByLabel("Mystery", { exact: true })).toBeChecked(); await page.getByLabel("Romance", { exact: true }).check();
+  await page.getByRole("button", { name: "Try again" }).click(); await expect(page.getByLabel("Mystery & crime", { exact: true })).toBeChecked(); await page.getByLabel("Romance", { exact: true }).check();
   app.mutationFails = true; await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page.getByRole("alert")).toContainText("choices are still here"); await expect(page.getByLabel("Romance", { exact: true })).toBeChecked();
   app.mutationFails = false; await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/); expect(app.preferences.map((item) => item.tag_id)).toContain(4); expect(app.preferences[0].source_text).toBe("Preserve this note");
 });

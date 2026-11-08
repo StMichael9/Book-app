@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test';
+import { installGenres } from "./support/genres.js";
 
 const external = { source_id: '/works/OL1W', title: 'The missing chapter', author: 'Fixture author', cover_image_url: null, snapshot: 'pinned' };
 const entry = { id: 44, book_id: null, book: null, private_title: external.title, private_author: external.author,
@@ -46,6 +47,7 @@ const test = base.extend({
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       state.errors.push(`Unhandled ${path}`); return route.fulfill({ status: 500, json: {} });
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

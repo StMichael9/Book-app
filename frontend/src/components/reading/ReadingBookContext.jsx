@@ -4,7 +4,8 @@ import { getBookDescription, getEntryDescription } from "../../api/descriptions.
 import DescriptionBody from "../ui-v2/DescriptionBody.jsx";
 import { useDescription } from "../ui-v2/useDescription.js";
 import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
-import { authorLabel, formatYear, subjectLabel, useRequest } from "../ui-v2/data.js";
+import { authorLabel, formatYear, useRequest } from "../ui-v2/data.js";
+import { useGenres } from "../ui-v2/useGenres.js";
 import "../../styles/ui-v2/reading-workspace.css";
 
 export function ReadingBookIdentity({ entry, flags, headingRef }) {
@@ -39,6 +40,8 @@ function Synopsis({ text }) {
 
 export function ReadingBookDetails({ bookId, description, entryId }) {
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
+  const { labelFor } = useGenres();
+  const genreLabels = (request.data?.tags || []).map(tag => labelFor(tag.name)).filter(Boolean).slice(0, 4);
   const answer = useDescription(() => bookId ? getBookDescription(bookId) : getEntryDescription(entryId), bookId ? `book:${bookId}` : `entry:${entryId}`, Boolean(bookId || entryId));
   // The server picks the source. Until it answers the page keeps what it has; a failed answer falls back to exactly that.
   const answered = answer.status === "ok", own = bookId ? request.data?.description : description;
@@ -52,7 +55,7 @@ export function ReadingBookDetails({ bookId, description, entryId }) {
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
       : <>
-        {request.data.tags?.length > 0 && <p className="bv-book-subjects">{request.data.tags.slice(0, 4).map(tag => subjectLabel(tag.name)).join(" · ")}</p>}
+        {genreLabels.length > 0 && <p className="bv-book-subjects">{genreLabels.join(" · ")}</p>}
         {(request.data.published_year != null || request.data.page_count > 0) && <p className="bv-help">
           {request.data.published_year != null && `Published ${formatYear(request.data.published_year)}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `About ${request.data.page_count} pages · your copy may differ`}
         </p>}

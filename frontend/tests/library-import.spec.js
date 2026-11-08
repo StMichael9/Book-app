@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { installGenres } from "./support/genres.js";
 import { shootMatrix, shotsEnabled } from "./support/shots.js";
 import { test as base, expect } from "@playwright/test";
 
@@ -83,6 +84,7 @@ const test = base.extend({
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: { detail: "Unhandled engineering fixture" } });
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },
