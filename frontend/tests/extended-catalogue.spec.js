@@ -24,6 +24,7 @@ const test = base.extend({
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === '/auth/refresh') return state.authenticated ? reply({}) : route.fulfill({ status: 401, json: {} });
       if (path === '/me/reading-capabilities') { if (state.holdCapabilities) await state.holdCapabilities; if (state.failCapabilities) return route.fulfill({ status: 503, json: {} }); return reply({ enabled: true, writable: state.writable !== false, contract_version: 1, features: { reading_actions: true, extended_catalogue: state.enabled, library_import: true, next_read: Boolean(state.nextRead) } }); }
+      if (path === '/books/more') return reply([]);
       if (path === '/me/books' || path === '/me/preferences' || path.startsWith('/autocomplete/')) return reply([]);
       if (path === '/books') { if (state.holdLocal) await state.holdLocal; return reply({ items: state.localItems, total: state.localItems.length, page: 1, size: 20 }); }
       if (path === '/me/library/lookup') return reply({ items: request.postDataJSON().book_ids.map(id => ({ book_id: id, entry_id: null, is_owned: false, is_wanted: false, version: null })) });
@@ -48,107 +49,6 @@ const test = base.extend({
     await provide(state);
     expect(state.errors).toEqual([]);
   },
-});
-
-test('automatic lookup preserves Neon and confirms before private selection', async ({ page, app }) => {
-  await page.goto('/browse?book=missing');
-  await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: external.title, exact: true })).toBeVisible();
-  expect(app.requests.filter(x => x.path === '/me/catalogue/select')).toHaveLength(0);
-  await page.getByRole('button', { name: 'Review this book' }).click();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  expect(app.requests.filter(x => x.path === '/me/catalogue/select')).toHaveLength(0);
-  await page.getByRole('button', { name: 'Review this book' }).click();
-  await page.getByRole('button', { name: 'Confirm and open' }).click();
-  await expect(page).toHaveURL(/my-books\/44$/);
-  await expect(page.getByRole('heading', { name: external.title, exact: true })).toBeVisible();
-  const commands = app.requests.filter(x => x.path === '/me/catalogue/select');
-  expect(commands).toHaveLength(1);
-  expect(commands[0].body).toMatchObject({ source_id: external.source_id, confirmed: true });
-  expect(commands[0].body).not.toHaveProperty('token');
-});
-
-test('outage keeps Neon results and manual fallback', async ({ page, app }) => {
-  app.unavailable = true;
-  await page.goto('/browse?book=missing');
-  await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
-  await expect(page.getByText('More books are temporarily unavailable.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add a book' })).toBeVisible();
-});
-
-test('off feature makes no catalogue requests', async ({ page, app }) => {
-  app.enabled = false;
-  await page.goto('/browse?book=missing');
-  await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
-  expect(app.requests.filter(x => x.path.startsWith('/me/catalogue/'))).toHaveLength(0);
-});
-
-test('subject filters never silently include unclassified external results', async ({ page, app }) => {
-  await page.goto('/browse?book=missing&tag=fantasy');
-  await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
-  expect(app.requests.filter(x => x.path.startsWith('/me/catalogue/'))).toHaveLength(0);
-});
-
-test('malformed results fail closed without crashing or hiding Neon', async ({ page, app }) => {
-  app.malformed = true;
-  await page.goto('/browse?book=missing');
-  await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
-  await expect(page.getByText('More books are temporarily unavailable.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Review this book' })).toHaveCount(0);
-});
-
-test('phone layout and keyboard confirmation stay accessible', async ({ page, app }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/browse?book=missing');
-  await page.getByRole('button', { name: 'Review this book' }).click();
-  await expect(page.getByRole('dialog', { name: 'Is this your book?' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Review this book' })).toBeFocused();
-  expect(app.requests.filter(x => x.path === '/me/catalogue/select')).toHaveLength(0);
-});
-
-
-test('local search completes first, then additional loading replaces premature no-match', async ({ page, app }) => {
-  let releaseLocal, releaseExtended;
-  app.localItems = [];
-  app.holdLocal = new Promise(resolve => { releaseLocal = resolve; });
-  app.holdExtended = new Promise(resolve => { releaseExtended = resolve; });
-  await page.goto('/browse?book=missing');
-  await expect(page.locator('.bv-results-heading').getByText('Loading books…')).toBeVisible();
-  expect(app.requests.filter(x => x.path === '/me/catalogue/search')).toHaveLength(0);
-  releaseLocal();
-  await expect(page.getByText('Checking more books…')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
-  releaseExtended();
-  await expect(page.getByRole('heading', { name: external.title, exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
-});
-
-test('both sources empty has one honest final empty state', async ({ page, app }) => {
-  app.localItems = []; app.items = [];
-  await page.goto('/browse?book=missing');
-  await expect(page.getByRole('heading', { name: 'No books found.' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add a book' })).toBeVisible();
-});
-
-test('failed A selection cannot leak its error into B confirmation', async ({ page, app }) => {
-  app.items = [external, { ...external, source_id: '/works/OL2W', title: 'Another missing book' }];
-  app.failSelect = true;
-  await page.goto('/browse?book=missing');
-  await page.getByRole('button', { name: 'Review this book' }).first().click();
-  await page.getByRole('button', { name: 'Confirm and open' }).click();
-  await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible();
-  const firstId = app.requests.find(x => x.path === '/me/catalogue/select').body.request_id;
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await page.getByRole('button', { name: 'Review this book' }).nth(1).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Another missing book' })).toBeVisible();
-  await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Confirm and open' }).click();
-  await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible();
-  const commands = app.requests.filter(x => x.path === '/me/catalogue/select');
-  expect(commands).toHaveLength(2);
-  expect(commands[1].body.request_id).not.toBe(firstId);
 });
 
 test('manual fallback keeps bibliographic input and distinguishes CSV import', async ({ page, app }) => {
@@ -186,17 +86,6 @@ test('prefill is document-only and cannot survive an account switch', async ({ p
 });
 
 
-test('selected private cover survives the integrated workspace, library and Next Read factories', async ({ page, app }) => {
-  app.cover = true; app.showLibrary = true; app.nextRead = true;
-  await page.goto('/browse?book=missing');
-  await page.getByRole('button', { name: 'Review this book' }).click();
-  await page.getByRole('button', { name: 'Confirm and open' }).click();
-  const cover = page.getByRole('img', { name: `Cover of ${external.title}`, exact: true });
-  await expect(cover).toHaveAttribute('src', '/fixture-cover.svg');
-  await page.goto('/my-books');
-  await expect(cover).toHaveAttribute('src', '/fixture-cover.svg');
-});
-
 test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app: _app }) => {
   await page.goto('/browse?book=An%20unsaved%20title');
   await page.getByRole('link', { name: 'Add a book' }).click();
@@ -206,32 +95,6 @@ test('document reload drops the optional manual prefill without persisting a pri
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('');
 });
 
-
-for (const enabled of [true, false]) test(`slow capabilities cannot show a premature final empty state; lookup=${enabled}`, async ({ page, app }) => {
-  let release;
-  app.enabled = enabled; app.localItems = [];
-  app.holdCapabilities = new Promise(resolve => { release = resolve; });
-  await page.goto('/browse?book=missing');
-  await expect(page.getByText('Finishing your search…')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
-  expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
-  release();
-  if (enabled) {
-    await expect(page.getByRole('heading', { name: external.title, exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
-  } else {
-    await expect(page.getByRole('heading', { name: 'No books found.' })).toBeVisible();
-    expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
-  }
-});
-
-test('failed capability check does not claim that an additional catalogue was searched', async ({ page, app }) => {
-  app.failCapabilities = true; app.localItems = [];
-  await page.goto('/browse?book=missing');
-  await expect(page.getByText('Additional books couldn’t be checked.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No books found.' })).toHaveCount(0);
-  expect(app.requests.filter(x=>x.path==='/me/catalogue/search')).toHaveLength(0);
-});
 
 test('with the extended catalogue off, an empty search offers a prefilled private book', async ({ page, app }) => {
   app.enabled = false; app.localItems = [];

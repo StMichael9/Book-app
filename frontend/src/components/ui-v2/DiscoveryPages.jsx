@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { trackEvent } from "./events.js";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
-import { getBooks, getBookById } from "../../api/books.js";
-import ExtendedCatalogue, { ManualBookLink } from "../reading/ExtendedCatalogue.jsx";
+import { getBooks, getBookById, getMoreBooks, resolveWork } from "../../api/books.js";
+import { ManualBookLink } from "../reading/ExtendedCatalogue.jsx";
+import WorkCard from "./WorkCard.jsx";
+import { mergeResults, normalTitle, rankAll } from "./searchMerge.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -15,7 +17,7 @@ import { SUBJECTS, authorLabel, bookSummary, catalogueResponse, prefetchBook, er
 import BookAbout from "./BookAbout.jsx";
 import { useBookSeo } from "./bookSeo.js";
 import PinToUpNext from "../reading/home/PinToUpNext.jsx";
-import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
+import { ActionLink, BookCard, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
@@ -38,7 +40,7 @@ export function WelcomePage() {
   // Personalized catalogue ordering and in-flight requests belong to one
   // session, not to every account that happens to be signed in in this SPA.
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
-  const live = useRequest(async () => catalogueResponse(await getBooks({ size: 30, cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
+  const live = useRequest(async () => catalogueResponse(await getBooks({ size: 30, sort: "popular", cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
   const books = useInstantBooks({ view: "landing", eligible: true, auth, live });
   const items = books.data?.items || [];
   const { hero: heroBooks, row: rowBooks } = landingSelection(items);
@@ -99,16 +101,19 @@ export function BrowsePage() {
   const library = useUserBooks();
   const reader = useReader();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const queryKey = params.toString();
   const book = params.get("book") || "";
   const author = params.get("author") || "";
+  // A shared link can carry ?q= : one phrase that is looked for in titles and authors.
+  const query = (params.get("q") || "").trim();
   const tags = [...new Set(params.getAll("tag").filter(Boolean))];
   const page = Math.max(1, parseInt(params.get("page"), 10) || 1);
   const exclude = auth.isAuthenticated && params.get("exclude_owned") === "true";
   const shelf = auth.isAuthenticated && ["want", "owned"].includes(params.get("shelf_status")) ? params.get("shelf_status") : "";
-  const [searchDraft, setSearchDraft] = useState({ book, author, mode: author && !book ? "author" : "book", value: author && !book ? author : book });
-  if (searchDraft.book !== book || searchDraft.author !== author) {
-    setSearchDraft({ book, author, mode: author && !book ? "author" : "book", value: author && !book ? author : book });
+  const [searchDraft, setSearchDraft] = useState({ book, author, query, mode: author && !book ? "author" : "book", value: author && !book ? author : book || query });
+  if (searchDraft.book !== book || searchDraft.author !== author || searchDraft.query !== query) {
+    setSearchDraft({ book, author, query, mode: author && !book ? "author" : "book", value: author && !book ? author : book || query });
   }
   const mode = searchDraft.mode;
   const draft = searchDraft.value;
@@ -117,21 +122,62 @@ export function BrowsePage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const shelfRevision = shelf || exclude ? library.revision : 0;
   const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}:${reader.preferencesVersion}:${shelfRevision}` : "public";
-  const live = useRequest(async () => catalogueResponse(await getBooks({ book, author, tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
+  const searching = Boolean(book || author || query);
+  const live = useRequest(async () => catalogueResponse(await getBooks({ book, author, q: query, ...(searching ? {} : { sort: "popular" }), tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
   // Only the plain first page (no search, filters or paging) may start from the snapshot or this browser's last copy.
   const request = useInstantBooks({ view: "browse", eligible: queryKey === "", auth, live });
   // Guests browsing without a search get the landing's first-impression order within each page.
   // Signed-in readers keep server order, which puts their preferred subjects first.
-  const items = !auth.isAuthenticated && !book && !author ? firstImpressionOrder(request.data?.items || []) : request.data?.items || [];
+  const items = !auth.isAuthenticated && !searching ? firstImpressionOrder(request.data?.items || []) : request.data?.items || [];
   const total = request.data?.total || 0;
   const size = Number(request.data?.size) || 20;
   const pages = Math.max(1, Math.ceil(total / size));
-  const unfilteredSearch = Boolean(book.trim() || author.trim()) && page === 1 && !tags.length && !exclude && !shelf;
-  const extendedEligible = library.extendedCatalogue && unfilteredSearch;
+  const unfilteredSearch = Boolean(book.trim() || author.trim() || query) && page === 1 && !tags.length && !exclude && !shelf;
+  // One list: our books first, then the ones found beyond the catalogue, in the same grid and with no label.
+  const merging = unfilteredSearch;
+  const more = useRequest(() => getMoreBooks({ book, author, q: query }), `more:${queryKey}`, merging && !auth.isLoading);
+  const morePending = merging && more.loading;
+  // Nothing moves after the first paint. With an exact title match among our own results the list shows at once and the rest
+  // is added below it. Without one, the list waits (behind "Searching…", for at most the 1.5 s the other answer is given) and
+  // is then ranked once.
+  const asked = book || query;
+  const exact = Boolean(asked) && items.some(card => normalTitle(card.title) === normalTitle(asked));
+  const ready = merging && !request.loading && !request.error;
+  const hold = ready && !exact && morePending;
+  const shown = !ready ? items : hold ? [] : exact ? mergeResults(items, more.data || [], asked) : rankAll(items, more.data || [], asked);
   const checkingSearch = auth.isAuthenticated && unfilteredSearch && library.loading;
   const incompleteSearch = auth.isAuthenticated && unfilteredSearch && Boolean(library.error);
   // Without the extended catalogue, a writable reader can still keep a missing book privately.
-  const canAddMissing = auth.isAuthenticated && library.readingActions && !library.readOnly && Boolean(book.trim() || author.trim());
+  const canAddMissing = auth.isAuthenticated && library.readingActions && !library.readOnly && Boolean(book.trim() || author.trim() || query);
+  // The grid keeps room for one more row while the rest of the results are on their way, so nothing below it moves.
+  const grid = useRef(null);
+  useLayoutEffect(() => {
+    const node = grid.current;
+    if (!node) return;
+    if (!morePending) { node.style.minHeight = ""; return; }
+    if (!node.style.minHeight) node.style.minHeight = `${Math.ceil(node.getBoundingClientRect().height + (node.firstElementChild?.getBoundingClientRect().height || 0) + 28)}px`;
+  });
+  const navigate = useNavigate();
+  const [opening, setOpening] = useState({ busy: new Set(), gone: new Set(), failed: {} });
+  async function openWork(card) {
+    if (opening.busy.has(card.work_key)) return;
+    setOpening(current => ({ ...current, busy: new Set(current.busy).add(card.work_key), failed: { ...current.failed, [card.work_key]: "" } }));
+    try {
+      const id = await resolveWork(card.work_key);
+      navigate(`/book/${id}`, { state: { browseFrom: location.pathname + location.search, book: bookSummary({ ...card, id }) } });
+    } catch (error) {
+      const unlistable = error.status === 422 && (error.detail?.code || error.detail) === "not_listable";
+      // Too many at once, a busy server, or a signed-out refusal: all the same quiet line. A search never sends anyone to sign in.
+      const later = [401, 429, 503].includes(error.status);
+      setOpening(current => {
+        const busy = new Set(current.busy); busy.delete(card.work_key);
+        const gone = new Set(current.gone); if (unlistable) gone.add(card.work_key);
+        return { busy, gone, failed: { ...current.failed, [card.work_key]: unlistable ? "" : later ? "Try again in a moment." : "Couldn’t open that book. Try again." } };
+      });
+      if (unlistable) reader.announce("That book isn’t available.");
+    }
+  }
+  const visible = shown.filter(card => !card.work_key || !opening.gone.has(card.work_key));
   function update(mutator, scroll = true) {
     const next = new URLSearchParams(params); next.delete("page"); next.delete("view"); mutator(next); setParams(next);
     if (scroll) document.getElementById("bv-main-title")?.scrollIntoView({ block: "start" });
@@ -163,19 +209,22 @@ export function BrowsePage() {
     <div className="bv-chip-row" aria-label="Browse subjects"><Button variant={!tags.length ? "saved" : "secondary"} aria-pressed={!tags.length} className="bv-chip" onClick={() => update((next) => next.delete("tag"))}>All subjects</Button>
       {["fantasy", "mystery", "romance", "science_fiction", "classics", "history"].map((slug) => <Button key={slug} variant={tags.length === 1 && tags[0] === slug ? "saved" : "secondary"} aria-pressed={tags.length === 1 && tags[0] === slug} className="bv-chip" onClick={() => update((next) => { next.delete("tag"); next.append("tag", slug); })}>{subjectLabel(slug)}</Button>)}
     </div>
-    {(book || author || tags.length || exclude || shelf) ? <div className="bv-applied-filters" aria-label="Applied filters">
-      {book && <span>Title: {book}</span>}{author && <span>Author: {author}</span>}{tags.map((slug) => <span key={slug}>{subjectLabel(slug)}</span>)}
+    {(book || author || query || tags.length || exclude || shelf) ? <div className="bv-applied-filters" aria-label="Applied filters">
+      {query && <span>Search: {query}</span>}{book && <span>Title: {book}</span>}{author && <span>Author: {author}</span>}{tags.map((slug) => <span key={slug}>{subjectLabel(slug)}</span>)}
       {tags.length > 1 && <span>Match all subjects</span>}{exclude && <span>Books you own hidden</span>}{shelf && <span>{shelf === "owned" ? "Owned" : "Want to read"} only</span>}
       <Button variant="quiet" onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button>
     </div> : null}
     {library.mode === "v3" && <p className="bv-sr-only">Want to read and Owned are separate. Changing one keeps the other.</p>}
-    <div className="bv-results-heading"><h2 id="bv-results-heading" tabIndex={-1}>{book || author ? "Search results" : tags.length ? tags.map(subjectLabel).join(" + ") : "Books to explore"}</h2><span>{request.loading ? "Loading books…" : request.error || extendedEligible || checkingSearch || incompleteSearch || !(book || author || tags.length) ? "" : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"}`}</span></div>
-    {request.loading ? <BookSkeletons count={10} /> : request.error ? <EmptyState title="The books couldn’t load." error action={<Button onClick={request.retry}>Try again</Button>}>{errorText(request.error, "Please try again. Your search and filters are still here.")}</EmptyState> : items.length ? <>
-      <BookGrid books={items} />{(!extendedEligible || pages > 1) && <div className="bv-pagination">{!extendedEligible && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()}{(book || author || tags.length) ? ` of ${total.toLocaleString()}` : ""}</span>}
+    <div className="bv-results-heading"><h2 id="bv-results-heading" tabIndex={-1}>{book || author || query ? "Search results" : tags.length ? tags.map(subjectLabel).join(" + ") : "Books to explore"}</h2><span>{request.loading ? "Loading books…" : request.error || merging || checkingSearch || incompleteSearch || !(book || author || query || tags.length) ? "" : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"}`}</span></div>
+    {request.loading ? <BookSkeletons count={10} /> : request.error ? <EmptyState title="The books couldn’t load." error action={<Button onClick={request.retry}>Try again</Button>}>{errorText(request.error, "Please try again. Your search and filters are still here.")}</EmptyState> : visible.length ? <>
+      <div ref={grid} className="bv-book-grid">{visible.map((card, index) => card.work_key
+        ? <WorkCard key={`work:${card.work_key}`} book={card} priority={index < 5} busy={opening.busy.has(card.work_key)} error={opening.failed[card.work_key]} onOpen={openWork} />
+        : <BookCard key={card.id} book={card} priority={index < 5} />)}</div>
+      {(!merging || pages > 1) && <div className="bv-pagination">{!merging && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()}{(book || author || tags.length) ? ` of ${total.toLocaleString()}` : ""}</span>}
         {pages > 1 && <nav aria-label="Results pages"><Button variant="secondary" disabled={page <= 1} onClick={() => movePage(page - 1)}><ArrowLeft aria-hidden="true" /><span>Previous</span></Button><span aria-current="page">Page {page} of {pages.toLocaleString()}</span><Button variant="secondary" disabled={page >= pages} onClick={() => movePage(page + 1)}><span>Next</span><ArrowRight aria-hidden="true" /></Button></nav>}
       </div>}
-    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : !extendedEligible ? <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}{!auth.isAuthenticated && Boolean(book.trim() || author.trim()) && <GuestNoResults search={params.toString()} />}</EmptyState> : null}
-    {extendedEligible && !request.loading && !request.error && <ExtendedCatalogue key={`${auth.sessionGeneration}:${book}:${author}`} title={book} author={author} hasLocalResults={items.length > 0} />}
+    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : morePending ? <p role="status" className="bv-help">Searching…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}{!auth.isAuthenticated && Boolean(book.trim() || author.trim()) && <GuestNoResults search={params.toString()} />}</EmptyState>}
+    {merging && visible.length > 0 && canAddMissing && <p className="bv-help">Still missing your book? <ManualBookLink title={book || query} author={author}>Add a book</ManualBookLink></p>}
     {filterOpen && <FilterDialog onClose={() => setFilterOpen(false)} onApply={applyFilters} initial={{ tags, exclude, shelf }} authenticated={auth.isAuthenticated} />}
   </section>;
 }

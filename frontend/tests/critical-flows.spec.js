@@ -103,6 +103,7 @@ const test = base.extend({
         state.saved.push(item);
         return reply(200, item);
       }
+      if (path === "/books/more") return reply(200, []);
       if (path === "/books") {
         if (state.searchFails) return reply(503, { detail: "Search temporarily unavailable" });
         let items = state.catalogue.filter((book) =>
