@@ -66,6 +66,7 @@ def _record_phase_size(session: Session, run: CatalogueImportRun, phase: str, ne
     total = float((neon or session).execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
     run.peak_database_mb = max(run.peak_database_mb or 0, total)
     report = dict(run.report or {})
+    report.setdefault("start_database_mb", round(total, 1))        # the catalogue database before this run adds books
     report["phase_sizes"] = dict(report.get("phase_sizes", {})) | {
         phase: {"database_mb": round(total, 1), "tables_mb": {name: round(float(mb), 1) for name, mb in sizes}}}
     run.report = report
@@ -92,6 +93,15 @@ def _release_staging(session: Session, run: CatalogueImportRun, *, keep_populari
                  catalogue_stage_authors, catalogue_stage_works, catalogue_stage_popularity
     """))
     run.checkpoint_line = 0
+
+
+def _kb_per_book(run: CatalogueImportRun, catalogue: Session) -> float | None:
+    """How much the catalogue database grew per book this run merged (the nightly report's size-per-book figure)."""
+    start = (run.report or {}).get("start_database_mb")
+    if not start or not run.merged_count:
+        return None
+    now = float(catalogue.execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+    return round((now - start) * 1024 / run.merged_count, 1)
 
 
 def _build_report(session: Session, run: CatalogueImportRun, neon: Session | None = None) -> dict:
@@ -149,6 +159,8 @@ def _build_report(session: Session, run: CatalogueImportRun, neon: Session | Non
         )).scalar_one()),
         "peak_database_mb": run.peak_database_mb,
         "peak_staging_mb": run.peak_staging_mb,
+        "start_database_mb": (run.report or {}).get("start_database_mb"),
+        "kb_per_merged_book": _kb_per_book(run, catalogue),
         "table_total_bytes": sizes,
         "index_bytes": indexes,
         "issues_by_code": dict(session.execute(select(
