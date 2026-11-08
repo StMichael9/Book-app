@@ -56,6 +56,8 @@
 .bv-root .bv-import-candidate:hover:not(:disabled) { border-color: var(--bv-green); }
 .bv-root .bv-import-candidate:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
 .bv-root .bv-import-candidate:disabled { opacity: .6; cursor: default; }
-.bv-root .bv-import-candidate .bv-cover { flex: 0 0 52px; width: 52px; }
+.bv-root .bv-import-candidate .bv-cover { flex: 0 0 76px; width: 76px; }
 .bv-root .bv-import-candidate > span { display: grid; gap: 2px; min-width: 0; }
 .bv-root .bv-import-candidate > span > span { color: var(--bv-muted); font-size: .9em; }
+.bv-root .bv-import-page .bv-button--quiet, .bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled), .bv-root .bv-import-page .bv-button--quiet:focus:not(:focus-visible) { background: transparent; box-shadow: none; }
+.bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled) { text-decoration: underline; }

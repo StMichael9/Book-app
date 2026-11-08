@@ -5,6 +5,8 @@ import { test as base, expect } from "@playwright/test";
 // Synthetic browser/API fixtures exercise local file parsing, NOT native-export
 // acceptance or live database behavior. Those have separate verification gates.
 const root = "/me/library-imports";
+// The server's own counts: every row is in exactly one, and they add up to the total.
+const summaryOf = (total, { matched = 0, private: own = 0, needs = 0, dup = 0, skipped = 0 } = {}) => ({ counts: { matched, private: own, needs_choice: needs, duplicates: dup, skipped, applied: 0, pending: 0, total }, dispositions: { review: needs, invalid: 0 } });
 const hash = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
@@ -55,7 +57,7 @@ const test = base.extend({
         state.run.phase = "analyzing"; state.run.manifest_hash = body.manifest_hash;
         return reply(state.run);
       }
-      if (path.endsWith("/advance") && state.analyzeSteps?.length) { Object.assign(state.run, state.analyzeSteps.shift()); return reply(state.run); }
+      if (path.endsWith("/advance") && state.analyzeSteps?.length) { Object.assign(state.run, state.analyzeSteps.shift()); if (state.run.phase === "preview_ready") state.run.summary = state.summary || {}; state.advanceCalls = (state.advanceCalls || 0) + 1; return reply(state.run); }
       if (path.endsWith("/advance")) {
         state.run.phase = state.run.phase === "analyzing" ? "grouping" : state.run.phase === "grouping" ? "preview_ready" : "completed";
         if (state.run.phase === "preview_ready") state.run.summary = state.summary || {};
@@ -68,7 +70,7 @@ const test = base.extend({
       if (path.endsWith("/rows") && url.searchParams.get("only_review") === "true" && state.customReview) return reply({ revision: state.run.revision, next_after: null, items: state.customReview });
       if (path.endsWith("/rows") && url.searchParams.get("only_review") === "true" && state.reviewRows) return reply({ revision: 1, next_after: null, items: [{ ordinal: 2,
         source: { title: "A hard one", author: "Someone", context: {}, events: [], warnings: [] }, candidates: [], plan: { kind: "private" }, disposition: "review" }] });
-      if (path.endsWith("/rows")) return reply({ revision: 1, next_after: null, items: state.run.phase === "completed" ? [] : [{ ordinal: 1,
+      if (path.endsWith("/rows")) return reply({ revision: 1, next_after: null, items: state.run.phase === "completed" ? (state.completedRows || []) : [{ ordinal: 1,
         source: { title: state.rows[0]?.[0], author: state.rows[0]?.[1], context: {}, events: [], warnings: [] }, candidates: [], plan: { kind: "private" }, disposition: "ready" }] });
       if (path.endsWith("/confirm")) { state.run.phase = "applying"; return reply(state.run); }
       if (path.endsWith("/cancel")) { state.run.phase = "cancelled"; return reply(state.run); }
@@ -195,7 +197,7 @@ test("cancelled partial import still shows committed book and reading totals", a
 const bannedWords = /unmatched|invalid|error|disposition|catalogue|book group|source rows|checkpoint|committed|staging|batch/i;
 const csv = (rows = 2) => ({ name: "export.csv", mimeType: "text/csv", buffer: Buffer.from(["title,author", ...Array.from({ length: rows }, (_, i) => `Book ${i + 1},Author ${i + 1}`)].join("\r\n") + "\r\n") });
 const openReady = async (page, app) => {
-  app.summary = { distinct_targets: 5, targets_by_kind: { catalogue: 2, private: 2, existing: 1 }, dispositions: { review: 1, invalid: 1 } };
+  app.summary = summaryOf(5, { matched: 1, private: 2, needs: 2 });
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
   await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
@@ -225,7 +227,8 @@ test("one click adds everything: the preview summary comes from the run and conf
   await openReady(page, app);
   const summary = page.locator(".bv-import-summary");
   await expect(summary).toContainText("5 books in your file");
-  await expect(summary).toContainText("3 found on Bookvane");
+  await expect(summary).toContainText("1 found on Bookvane");
+  await expect(summary).toContainText("2 added as your own books");
   await expect(summary).toContainText("2 need a quick pick");
   await expect(page.getByText("Fields not imported")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Confirm import" })).toHaveCount(0);
@@ -256,7 +259,7 @@ test("Review N books first opens the list with no option sentences, and Add my b
 });
 
 test("Review is hidden when nothing needs a pick, and the preview never shows the full row list", async ({ page, app }) => {
-  app.summary = { distinct_targets: 2, targets_by_kind: { private: 2 }, dispositions: { review: 0, invalid: 0 } };
+  app.summary = summaryOf(2, { matched: 0, private: 2, needs: 0 });
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
   await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
@@ -280,7 +283,7 @@ test("the done screen says how many were left for review after one click, and ho
   app.completedDispositions = { skipped: 3 };
   await openReady(page, app);
   await page.getByRole("button", { name: "Add my books", exact: true }).click();
-  await expect(page.getByText("3 left for you to review.")).toBeVisible();
+  await expect(page.getByText("3 books weren’t added. Import the file again to choose them.")).toBeVisible();
   app.reviewRows = true;
   await page.getByRole("button", { name: "Start another import" }).click();
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
@@ -288,11 +291,11 @@ test("the done screen says how many were left for review after one click, and ho
   await page.getByRole("button", { name: "Review 2 books first", exact: true }).click();
   await page.getByRole("button", { name: "Add my books", exact: true }).click();
   await expect(page.getByText("3 skipped.")).toBeVisible();
-  await expect(page.getByText("left for you to review")).toHaveCount(0);
+  await expect(page.getByText("weren’t added")).toHaveCount(0);
 });
 
 test("the preview and done screens use singular wording for one book", async ({ page, app }) => {
-  app.summary = { distinct_targets: 1, targets_by_kind: { catalogue: 1, private: 1, existing: 1 }, dispositions: { review: 1, invalid: 0 } };
+  app.summary = summaryOf(1, { matched: 0, private: 1, needs: 1 });
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles({ name: "one.csv", mimeType: "text/csv", buffer: Buffer.from("title,author\r\nOnly Book,Someone\r\n") });
   const summary = page.locator(".bv-import-summary");
@@ -304,7 +307,7 @@ test("the preview and done screens use singular wording for one book", async ({ 
 });
 
 const waitingRun = { id: "waiting-run", source: "goodreads", phase: "preview_ready", row_count: 20, revision: 2, manifest_hash: "m", expires_at: "2026-11-05T00:00:00Z",
-  summary: { distinct_targets: 20, targets_by_kind: { private: 20 }, dispositions: {} } };
+  summary: summaryOf(20, { matched: 0, private: 20, needs: 0 }) };
 
 test("an import waiting for review shows Continue and Start over instead of the file picker", async ({ page, app }) => {
   app.run = structuredClone(waitingRun);
@@ -359,7 +362,7 @@ test("a file that is not UTF-8 is read as windows-1252 without asking", async ({
   expect(app.requests.find(request => request.method === "POST" && request.path === root).body.encoding).toBe("windows-1252");
 });
 
-const removedSummary = { distinct_targets: 3, targets_by_kind: { private: 2 }, dispositions: { review: 1, invalid: 0 } };
+const removedSummary = summaryOf(3, { matched: 0, private: 2, needs: 1 });
 const openRemoved = async (page, app, candidates) => {
   app.summary = removedSummary; app.removedRows = [candidates];
   await page.goto("/my-books/import");
@@ -468,9 +471,9 @@ test("before the first answer there is a looking-up line and an indeterminate ba
   await expect(page.getByText(/Found 0 of|0 of 200/)).toHaveCount(0);
 });
 
-for (const [targets, kinds, review] of [[5, { catalogue: 2, private: 2, existing: 1 }, 2], [5, { catalogue: 5 }, 0], [3, { private: 3 }, 1], [1, { catalogue: 1, private: 1, existing: 1 }, 1]]) {
-  test(`the summary counts add up to the books in the file: ${targets} books, ${JSON.stringify(kinds)}, ${review} to pick`, async ({ page, app }) => {
-    app.summary = { distinct_targets: targets, targets_by_kind: kinds, dispositions: { review, invalid: 0 } };
+for (const [targets, parts] of [[5, { matched: 2, private: 1, needs: 2 }], [5, { matched: 5 }], [3, { private: 2, needs: 1 }], [1, { needs: 1 }], [6, { matched: 2, private: 1, needs: 1, dup: 2 }]]) {
+  test(`the summary counts add up to the books in the file: ${targets} books, ${JSON.stringify(parts)}`, async ({ page, app }) => {
+    app.summary = summaryOf(targets, parts);
     await page.goto("/my-books/import");
     await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
     const summary = page.locator(".bv-import-summary");
@@ -482,22 +485,24 @@ for (const [targets, kinds, review] of [[5, { catalogue: 2, private: 2, existing
 
 test("a clash names the values, and the choices are in plain words", async ({ page, app }) => {
   app.customReview = [{ ordinal: 2, source: { title: "Middlemarch", author: "George Eliot", context: {}, warnings: [], events: [{ state: "finished", started_on: "2025-11-01", ended_on: "2025-12-20" }] },
-    candidates: [], plan: { kind: "existing" }, disposition: "review", existing_events: [{ state: "finished", ended_on: "2026-01-03" }] }];
-  app.run = { id: "saved-clash", source: "goodreads", phase: "preview_ready", row_count: 3, revision: 2, manifest_hash: "m", summary: { distinct_targets: 3, targets_by_kind: { catalogue: 2, existing: 1 }, dispositions: { review: 1, invalid: 0 } }, expires_at: "2026-10-23T00:00:00Z" };
+    candidates: [], plan: { kind: "existing", differences: [{ field: "finished_on", file: "2025-12-20", existing: "2026-01-03", use: "existing" }] }, disposition: "review" }];
+  app.run = { id: "saved-clash", source: "goodreads", phase: "preview_ready", row_count: 3, revision: 2, manifest_hash: "m", summary: summaryOf(3, { matched: 2, private: 0, needs: 1 }), expires_at: "2026-10-23T00:00:00Z" };
   await page.goto("/my-books/import");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Review 1 book first", exact: true }).click();
   const row = page.locator(".bv-import-row");
   await expect(row.getByText("Your file says finished 20 Dec 2025; Bookvane has 3 Jan 2026.")).toBeVisible();
-  await expect(row.getByRole("button", { name: "Use my Goodreads dates", exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Add my Goodreads reads too", exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Keep what’s in Bookvane", exact: true })).toBeVisible();
   await expect(page.getByText("Some values need a look")).toHaveCount(0);
+  await expect(page.getByText(/From your file|Choose what to do|Your choice for this book/)).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Skip this book", exact: true })).toBeVisible();
 });
 
 test("two books tie: each is listed with cover, title, author and year, and one tap picks it", async ({ page, app }) => {
   app.customReview = [{ ordinal: 2, source: { title: "Dune", author: "Frank Herbert", context: {}, warnings: [], events: [] },
     candidates: [{ book_id: 11, title: "Dune", authors: ["Frank Herbert"], published_year: 1965 }, { book_id: 12, title: "Dune", authors: ["Frank Herbert"], published_year: 1984 }], plan: { kind: "private" }, disposition: "review" }];
-  app.run = { id: "saved-tie", source: "goodreads", phase: "preview_ready", row_count: 3, revision: 2, manifest_hash: "m", summary: { distinct_targets: 3, targets_by_kind: { catalogue: 2, private: 1 }, dispositions: { review: 1, invalid: 0 } }, expires_at: "2026-10-23T00:00:00Z" };
+  app.run = { id: "saved-tie", source: "goodreads", phase: "preview_ready", row_count: 3, revision: 2, manifest_hash: "m", summary: summaryOf(3, { matched: 1, private: 1, needs: 1 }), expires_at: "2026-10-23T00:00:00Z" };
   await page.goto("/my-books/import");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Review 1 book first", exact: true }).click();
@@ -513,17 +518,82 @@ test("two books tie: each is listed with cover, title, author and year, and one 
 });
 
 test("with no rows to pick there is one button; with one there is a Review 1 book first beside it", async ({ page, app }) => {
-  app.summary = { distinct_targets: 4, targets_by_kind: { catalogue: 4 }, dispositions: { review: 0, invalid: 0 } };
+  app.summary = summaryOf(4, { matched: 4, private: 0, needs: 0 });
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
   await expect(page.getByRole("button", { name: "Add my books", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /Review/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Cancel import", exact: true }).click();
   app.run = null; app.rows = []; app.batches = new Map();
-  app.summary = { distinct_targets: 4, targets_by_kind: { catalogue: 3, private: 1 }, dispositions: { review: 1, invalid: 0 } };
+  app.summary = summaryOf(4, { matched: 2, private: 1, needs: 1 });
   await page.getByRole("button", { name: "Start another import" }).click().catch(() => {});
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
   await expect(page.getByRole("button", { name: "Review 1 book first", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add my books", exact: true })).toBeVisible();
+});
+
+test("a tie asks only which book it is; the dates are asked about after the pick", async ({ page, app }) => {
+  const events = [{ state: "finished", ended_on: "2025-12-20" }];
+  const candidates = [{ book_id: 11, title: "Dune", authors: ["Frank Herbert"], published_year: 1965 }, { book_id: 12, title: "Dune", authors: ["Frank Herbert"], published_year: 1984 }];
+  app.customReview = [{ ordinal: 2, source: { title: "Dune", author: "Frank Herbert", context: {}, warnings: [], events }, candidates, plan: { kind: "existing", differences: [{ field: "finished_on", file: "2025-12-20", existing: "2026-01-03", use: "existing" }] }, disposition: "review" }];
+  app.run = { id: "saved-both", source: "goodreads", phase: "preview_ready", row_count: 3, revision: 2, manifest_hash: "m", summary: summaryOf(3, { matched: 2, private: 0, needs: 1 }), expires_at: "2026-12-23T00:00:00Z" };
+  await page.goto("/my-books/import");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Review 1 book first", exact: true }).click();
+  const row = page.locator(".bv-import-row");
+  await expect(row.getByText("Which Dune is yours?")).toBeVisible();
+  await expect(row.getByRole("button", { name: "None of these: add as my own book", exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: /reads too|Keep what/ })).toHaveCount(0);
+  await expect(row.getByText(/Your file has a read/)).toHaveCount(0);
+  app.customReview = [{ ...app.customReview[0], decision: { action: "match", book_id: 11 } }];
+  await page.getByRole("button", { name: "Hide the list" }).click();
+  await page.getByRole("button", { name: "Review 1 book first", exact: true }).click();
+  await expect(row.getByText("Your file says finished 20 Dec 2025; Bookvane has 3 Jan 2026.")).toBeVisible();
+  await expect(row.locator(".bv-import-candidate")).toHaveCount(0);
+});
+
+test("the done screen names the books that were not added, up to three, then how many more", async ({ page, app }) => {
+  app.completedDispositions = { skipped: 5 };
+  app.completedRows = ["Dune", "Emma", "Ulysses", "Beloved", "Middlemarch"].map((title, index) => ({ ordinal: index + 1, source: { title, author: "A", context: {}, events: [], warnings: [] }, candidates: [], plan: { kind: "private" }, disposition: "skipped" }));
+  await openReady(page, app);
+  await page.getByRole("button", { name: "Add my books", exact: true }).click();
+  await expect(page.getByText("5 books weren’t added: Dune, Emma, Ulysses and 2 more. Import the file again to choose them.")).toBeVisible();
+});
+
+test("an empty Bookvane date is filled from the file without asking; a different status is named", async ({ page, app }) => {
+  const source = { title: "Emma", author: "Jane Austen", context: {}, warnings: [], events: [{ state: "finished", ended_on: "2025-12-20" }] };
+  app.customReview = [{ ordinal: 2, source, candidates: [], plan: { kind: "existing", differences: [{ field: "finished_on", file: "2025-12-20", existing: null, use: "file" }] }, disposition: "review" },
+    { ordinal: 3, source: { ...source, title: "Ulysses" }, candidates: [], plan: { kind: "existing", differences: [{ field: "status", file: "dnf", existing: "finished", use: "existing" }] }, disposition: "review" }];
+  app.run = { id: "saved-diff", source: "storygraph", phase: "preview_ready", row_count: 4, revision: 2, manifest_hash: "m", summary: summaryOf(4, { matched: 2, needs: 2 }), expires_at: "2026-12-23T00:00:00Z" };
+  await page.goto("/my-books/import");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("button", { name: "Review 2 books first", exact: true }).click();
+  const rows = page.locator(".bv-import-row");
+  await expect(rows.nth(0).getByText(/Your file says/)).toHaveCount(0);
+  await expect(rows.nth(0).getByRole("button", { name: /reads too/ })).toHaveCount(0);
+  await expect(rows.nth(1).getByText("Your file says stopped; Bookvane has finished.")).toBeVisible();
+  await expect(rows.nth(1).getByRole("button", { name: "Add my StoryGraph reads too", exact: true })).toBeVisible();
+});
+
+test("one advance call can go straight to the summary", async ({ page, app }) => {
+  app.summary = summaryOf(4, { matched: 4 });
+  app.analyzeSteps = [{ phase: "preview_ready" }];
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-import-summary")).toContainText("4 found on Bookvane");
+  expect(app.advanceCalls).toBe(1);
+});
+
+test("a long file takes several advance calls, and the count follows each one", async ({ page, app }) => {
+  app.summary = summaryOf(2000, { matched: 1990, private: 10 });
+  const total = 2000, steps = [300, 700, 1100, 1500, 1900, 2000].map(cursor => ({ phase: "analyzing", row_count: total, analyze_cursor: cursor }));
+  app.analyzeSteps = [...steps, { phase: "preview_ready" }];
+  await page.goto("/my-books/import");
+  await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
+  for (const cursor of [300, 1100, 1900]) await expect(page.getByRole("status")).toContainText(`Found ${cursor} of 2000 books`, { timeout: 15000 });
+  await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible({ timeout: 15000 });
+  expect(app.advanceCalls).toBe(7);
+  await expect(page.locator(".bv-import-summary")).toContainText("2000 books in your file");
 });

@@ -12,19 +12,20 @@ import "../../../styles/ui-v2/library-import.css";
 const workHeadings = { uploading: "Reading your file", analyzing: "Finding your books", grouping: "Checking matches", applying: "Adding your books", failed: "Import needs attention" };
 const endHeadings = { cancelled: "Import stopped", expired: "This import expired" };
 const dispositionLabels = { ready: "Ready", approved: "Ready", skipped: "Skipped", applied: "Added", review: "Needs a quick pick", invalid: "Needs a quick pick" };
-const sourceNames = { goodreads: "Goodreads", storygraph: "StoryGraph" };
+const sourceNames = { goodreads: "Goodreads", storygraph: "StoryGraph" }; // anything else is "file’s"
 const WARNING_TEXT = { unparsed_started_on: "We couldn’t read the start date in your file.", unparsed_finished_on: "We couldn’t read the finish date in your file.", inverted_dates: "Your file has a finish date before the start date.", unmapped_status: "We didn’t recognise the reading status in your file.", invalid_rating: "We couldn’t read the rating in your file.", invalid_isbn: "We couldn’t read the ISBN in your file." };
 const shortDate = value => { const date = value ? new Date(`${value}T00:00:00`) : null; return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""; };
-// Names the value that clashes. Bookvane’s own value appears when the import sends it with the row.
+const statusWords = { reading: "reading", paused: "paused", finished: "finished", dnf: "stopped" };
+// Names what the file disagrees about, with both values. Only values the reader already has count: an empty one is filled from the file.
 function clashText(row) {
-  const mine = row.source?.events?.find(event => event.ended_on || event.started_on);
-  if (!mine) return "";
-  const theirs = row.existing_events?.find(event => event.ended_on || event.started_on);
-  const kind = mine.ended_on ? "finished" : "started", own = shortDate(mine.ended_on || mine.started_on);
-  if (!own) return "";
-  const other = theirs && shortDate(theirs.ended_on || theirs.started_on);
-  return `Your file says ${kind} ${own}${other ? `; Bookvane has ${other}.` : ". Bookvane has different dates."}`;
+  const found = (row.plan?.differences || []).find(item => item.existing != null && item.existing !== "");
+  if (!found) return "";
+  if (found.field === "status") return `Your file says ${statusWords[found.file] || found.file}; Bookvane has ${statusWords[found.existing] || found.existing}.`;
+  const mine = shortDate(found.file), theirs = shortDate(found.existing);
+  if (!mine || !theirs) return "";
+  return `Your file says ${found.field === "started_on" ? "started" : "finished"} ${mine}; Bookvane has ${theirs}.`;
 }
+
 const finished = phase => ["completed", "completed_with_issues"].includes(phase);
 const readable = value => value.replaceAll("_", " ");
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
@@ -54,39 +55,39 @@ function ImportRow({ row, revision, disabled, onDecision, sourceName }) {
   const warnings = (source?.warnings || []).map(code => WARNING_TEXT[code]).filter(Boolean);
   const clash = clashText(row);
   const proposed = row.candidates?.find(candidate => candidate.book_id === row.plan?.book_id && candidate.book_id != null);
+  const asking = ["review", "invalid"].includes(row.disposition) && row.plan?.kind !== "removed";
+  // One question at a time: which book it is comes first; dates are only asked about once the book is settled.
+  const tie = asking && (row.candidates?.length || 0) >= 2 && !row.decision;
+  const library = ["existing", "catalogue"].includes(row.plan?.kind);
+  const mixed = row.error_code === "mixed_terminal_states_require_context_decision";
+  const decide = data => onDecision(row.ordinal, { expected_revision: revision, ...data });
+  const title = source?.title || proposed?.title || (source?.isbns?.join(", ") || `Row ${row.ordinal}`);
   return <article className="bv-import-row">
-    <h3>{source?.title || proposed?.title || (source?.isbns?.join(", ") || `Row ${row.ordinal}`)}</h3>
-    <p className="bv-muted">{source?.author || "Author not supplied"} · {dispositionLabels[row.disposition] || "Needs a choice"}</p>
-    {row.plan?.kind === "existing" && <p className="bv-help">Already in My Books. Your existing flags, notes and readings take priority.</p>}
-    {proposed && <p className="bv-help">Matches {proposed.title} · {proposed.authors?.join(", ") || "Author not listed"}.</p>}
-    {row.plan?.kind === "private" && <p className="bv-help">Will be added as your own book.</p>}
-    {clash && <p className="bv-help">{clash}</p>}
-    {warnings.map(text => <p key={text} className="bv-help">{text}</p>)}
-    {source && <details><summary>From your file</summary><dl className="bv-import-context">
-      <dt>Owned / Want to read in your file</dt><dd>Owned: {source.is_owned == null ? "unknown" : source.is_owned ? "yes" : "no"} · Want to read: {source.is_wanted == null ? "unknown" : source.is_wanted ? "yes" : "no"}.</dd>
-      {source.status && <><dt>Reading status</dt><dd>{readable(source.status)}</dd></>}
-      {source.context?.rating != null && <><dt>Rating in your file</dt><dd>{source.context.rating} / 5</dd></>}
-      {source.context?.review && <><dt>Imported review (private)</dt><dd>{source.context.review}</dd></>}
-      {source.context?.private_note && <><dt>Imported note (private)</dt><dd>{source.context.private_note}</dd></>}
-      {source.context?.labels?.length > 0 && <><dt>Labels in your file (private)</dt><dd>{source.context.labels.join(", ")}</dd></>}
-      {source.events?.length > 0 && <><dt>Reading information in your file</dt><dd>{source.events.map(event => `${readable(event.state)}: ${event.started_on || "start unknown"} → ${event.ended_on || "end unknown"}`).join("; ")}</dd></>}
-    </dl></details>}
-    {["review", "ready", "approved", "invalid"].includes(row.disposition) && <details open={["review", "invalid"].includes(row.disposition)}><summary>{["review", "invalid"].includes(row.disposition) ? "Choose what to do" : "Change this proposal"}</summary><fieldset disabled={disabled} className="bv-field">
-      <legend>Your choice for this book</legend>
-      {row.candidates?.length > 0 && <><p className="bv-import-pick-label">Which one is it?</p><ul className="bv-import-candidates">{row.candidates.map(candidate => {
-        const kind = candidate.entry_id ? "entry" : "book", id = candidate.entry_id || candidate.book_id;
-        return <li key={`${kind}:${id}`}><button type="button" className="bv-import-candidate" disabled={disabled} onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "match", [kind === "entry" ? "entry_id" : "book_id"]: Number(id) })}>
-          <BookCover book={{ id: candidate.book_id ?? id, title: candidate.title, cover_image_url: candidate.cover_image_url, authors: (candidate.authors || []).map(name => ({ name })) }} />
-          <span><strong>{candidate.title}</strong><span>{candidate.authors?.join(", ") || "Author not listed"}</span>{candidate.published_year != null && <span>{candidate.published_year}</span>}</span></button></li>;
-      })}</ul></>}
-      {source && row.plan?.kind !== "removed" && <div className="bv-form-actions">
-        {source.title && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "private" })}>Add as my own book</Button>}
-        {["existing", "catalogue", "private"].includes(row.plan?.kind) && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: "preserve", accept_source_update: false })}>Keep what’s in Bookvane</Button>}
-        {["existing", "catalogue", "private"].includes(row.plan?.kind) && source?.events?.length > 0 && row.error_code !== "mixed_terminal_states_require_context_decision" && <Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: row.plan?.kind === "existing" ? "add" : "preserve", accept_source_update: true })}>Use my {sourceName} dates</Button>}
-        {["existing", "catalogue", "private"].includes(row.plan?.kind) && source.events?.length > 0 && row.error_code === "mixed_terminal_states_require_context_decision" && <>{row.error_code === "mixed_terminal_states_require_context_decision" && <p>Your file says this book was both finished and stopped.</p>}<Button variant="secondary" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "preserve", history_policy: "context_only", accept_source_update: false })}>Keep what’s in Bookvane</Button></>}
-      </div>}
-      <Button variant="quiet" onClick={() => onDecision(row.ordinal, { expected_revision: revision, action: "skip" })}>Skip this book</Button>
-    </fieldset></details>}
+    <h3>{title}</h3>
+    <p className="bv-muted">{source?.author || "Author not supplied"} · {dispositionLabels[row.disposition] || "Needs a quick pick"}</p>
+    {!asking && row.plan?.kind === "existing" && <p className="bv-help">Already in My Books. Your existing flags, notes and readings take priority.</p>}
+    {!asking && proposed && <p className="bv-help">Matches {proposed.title} · {proposed.authors?.join(", ") || "Author not listed"}.</p>}
+    {!asking && row.plan?.kind === "private" && <p className="bv-help">Will be added as your own book.</p>}
+    {!asking && warnings.map(text => <p key={text} className="bv-help">{text}</p>)}
+    {tie && <><p className="bv-import-pick-label">Which {title} is yours?</p><ul className="bv-import-candidates">{row.candidates.map(candidate => {
+      const kind = candidate.entry_id ? "entry" : "book", id = candidate.entry_id || candidate.book_id;
+      return <li key={`${kind}:${id}`}><button type="button" className="bv-import-candidate" disabled={disabled} onClick={() => decide({ action: "match", [kind === "entry" ? "entry_id" : "book_id"]: Number(id) })}>
+        <BookCover book={{ id: candidate.book_id ?? id, title: candidate.title, cover_image_url: candidate.cover_image_url, authors: (candidate.authors || []).map(name => ({ name })) }} />
+        <span><strong>{candidate.title}</strong><span>{candidate.authors?.join(", ") || "Author not listed"}</span>{candidate.published_year != null && <span>{candidate.published_year}</span>}</span></button></li>;
+    })}</ul>
+      {source?.title && <Button variant="quiet" disabled={disabled} onClick={() => decide({ action: "private" })}>None of these: add as my own book</Button>}</>}
+    {asking && !tie && <>
+      {mixed && <p className="bv-help">Your file says this book was both finished and stopped.</p>}
+      {!mixed && clash && <p className="bv-help">{clash}</p>}
+      {warnings.map(text => <p key={text} className="bv-help">{text}</p>)}
+      <div className="bv-form-actions">
+        {library && mixed && <Button variant="secondary" disabled={disabled} onClick={() => decide({ action: "preserve", history_policy: "context_only", accept_source_update: false })}>Keep what’s in Bookvane</Button>}
+        {library && !mixed && clash && <><Button variant="secondary" disabled={disabled} onClick={() => decide({ action: "preserve", history_policy: "add", accept_source_update: true })}>Add my {sourceName} reads too</Button>
+          <Button variant="secondary" disabled={disabled} onClick={() => decide({ action: "preserve", history_policy: "preserve", accept_source_update: false })}>Keep what’s in Bookvane</Button></>}
+        {library && !mixed && !clash && <Button variant="secondary" disabled={disabled} onClick={() => decide({ action: "preserve", history_policy: "preserve", accept_source_update: false })}>Keep what’s in Bookvane</Button>}
+        {!library && source?.title && <Button variant="secondary" disabled={disabled} onClick={() => decide({ action: "private" })}>Add as my own book</Button>}
+      </div></>}
+    {asking && <Button variant="quiet" disabled={disabled} onClick={() => decide({ action: "skip" })}>Skip this book</Button>}
   </article>;
 }
 
@@ -220,12 +221,15 @@ function ImportSession() {
   const needsQuestions = Boolean(inspection) && (Object.keys(inspection.ambiguous).length > 0 || inspection.missing_identity);
   // Picking a file starts the check at once; only column questions need an answer first.
   useEffect(() => { if (inspection && !run && !(Object.keys(inspection.ambiguous).length > 0 || inspection.missing_identity)) autoStart(); }, [inspection, run]);
-  const summary = run?.summary || {}, kinds = summary.targets_by_kind || {}, dispositions = summary.dispositions || {};
+  const summary = run?.summary || {}, dispositions = summary.dispositions || {};
   const needChoice = (dispositions.review || 0) + (dispositions.invalid || 0);
   const startVisible = !run || (run.phase === "uploading" && !command.pending);
   const working = run && !terminal && run.phase !== "preview_ready" && !startVisible;
   const total = run?.row_count || 0;
   const added = summary.applied?.added_entries || 0, skipped = dispositions.skipped || 0;
+  // Books the one-click finish passed over are skipped for good, so say which, and how to get them.
+  const skippedTitles = (page?.items || []).filter(row => row.disposition === "skipped").map(row => row.source?.title).filter(Boolean);
+  const notAdded = `${skipped} ${skipped === 1 ? "book wasn’t" : "books weren’t"} added${skippedTitles.length ? `: ${skippedTitles.slice(0, 3).join(", ")}${skipped > 3 ? ` and ${skipped - 3} more` : ""}` : ""}. Import the file again to choose ${skipped === 1 ? "it" : "them"}.`;
   const isOpen = item => !["completed", "completed_with_issues", "cancelled", "expired"].includes(item.phase);
   const saved = !run && (recent.find(isOpen) || recent[0]);
   const savedOpen = Boolean(saved) && isOpen(saved);
@@ -252,13 +256,8 @@ function ImportSession() {
   const removedRows = removedState.key === removedKey ? removedState.items : [];
   const cannotAddBack = removedRows.filter(row => row.bookId == null).length;
   const otherChoices = needChoice - removedRows.length;
-  // Every row is in exactly one bucket: still needs a pick, matched to a catalogue book or one already in the library, or added as the reader's own.
-  const counts = (() => {
-    const total = Math.max(0, summary.distinct_targets ?? run?.row_count ?? 0), pick = Math.min(Math.max(otherChoices, 0), total);
-    const removed = Math.min(removedRows.length, total - pick), left = total - pick - removed;
-    const found = Math.min((kinds.catalogue || 0) + (kinds.existing || 0), left);
-    return { total, pick, removed, found, own: left - found };
-  })();
+  // The server counts every row once, so the parts add up to the total. Rows the reader removed earlier sit in needs_choice and get their own line.
+  const counts = summary.counts || {}, removedLine = Math.min(removedRows.length, counts.needs_choice || 0), pickLine = (counts.needs_choice || 0) - removedLine;
   const addEverything = flags => command.run(async assertCurrent => {
     const activeSignal = signal();
     let current = run;
@@ -274,7 +273,7 @@ function ImportSession() {
     const confirmed = await imports.confirmImport(current.id, { expected_revision: current.revision, manifest_hash: current.manifest_hash, ...flags }, activeSignal);
     assertCurrent(); setRun(confirmed); return walk(confirmed, assertCurrent, activeSignal);
   }, setRun);
-  const rowList = page && <>{page.items.length === 0 ? <p>No books in this view.</p> : page.items.map(row => <ImportRow key={`${page.revision}:${row.ordinal}`} sourceName={sourceNames[run?.source] || "file"} row={row} revision={page.revision} disabled={command.pending || run?.phase !== "preview_ready"} onDecision={(ordinal, data) => command.run(async assertCurrent => {
+  const rowList = page && <>{page.items.length === 0 ? <p>No books in this view.</p> : page.items.map(row => <ImportRow key={`${page.revision}:${row.ordinal}`} sourceName={sourceNames[run?.source] || "file’s"} row={row} revision={page.revision} disabled={command.pending || run?.phase !== "preview_ready"} onDecision={(ordinal, data) => command.run(async assertCurrent => {
     const activeSignal = signal();
     const current = await imports.decideImport(run.id, ordinal, data, activeSignal);
     assertCurrent(); setRun(current); return walk(current, assertCurrent, activeSignal);
@@ -313,11 +312,13 @@ function ImportSession() {
     </section>}
     {run?.phase === "preview_ready" && <section className="bv-section bv-import-confirm" aria-busy={command.pending}><h2>Ready to add your books</h2>
       <ul className="bv-import-summary">
-        <li>{books(counts.total)} in your file</li>
-        {counts.found > 0 && <li>{counts.found} found on Bookvane</li>}
-        {counts.own > 0 && <li>{counts.own} added as your own {counts.own === 1 ? "book" : "books"}</li>}
-        {counts.pick > 0 && <li>{counts.pick} {counts.pick === 1 ? "needs" : "need"} a quick pick</li>}
-        {counts.removed > 0 && <li>{counts.removed} you removed earlier</li>}
+        <li>{books(counts.total ?? run.row_count)} in your file</li>
+        {counts.matched > 0 && <li>{counts.matched} found on Bookvane</li>}
+        {counts.private > 0 && <li>{counts.private} added as your own {counts.private === 1 ? "book" : "books"}</li>}
+        {pickLine > 0 && <li>{pickLine} {pickLine === 1 ? "needs" : "need"} a quick pick</li>}
+        {removedLine > 0 && <li>{removedLine} you removed earlier</li>}
+        {counts.duplicates > 0 && <li>{counts.duplicates} already in your library</li>}
+        {counts.skipped > 0 && <li>{counts.skipped} skipped</li>}
       </ul>
       {removedRows.length > 0 && <fieldset className="bv-import-removed" disabled={command.pending}><legend>{removedRows.length === 1 ? "1 book you removed earlier is in this file" : `${removedRows.length} books you removed earlier are in this file`}</legend>
         <label className="bv-import-check"><input type="radio" name="removed-choice" checked={!addBack} onChange={() => setAddBack(false)} />Skip them</label>
@@ -331,7 +332,7 @@ function ImportSession() {
     {terminal && <section className="bv-section bv-import-done"><h2>{finished(run.phase) ? `Brought home ${books(added)}.` : endHeadings[run.phase]}</h2>
       {finished(run.phase) && <EnrichmentLine key={run.id} runId={run.id} />}
       {!finished(run.phase) && added > 0 && <p>{books(added)} {added === 1 ? "was" : "were"} added before this stopped. Cancelling does not undo additions.</p>}
-      {skipped > 0 && <p>{oneClick ? <>{skipped} left for you to review. <Button variant="quiet" onClick={() => setRowsOpen(true)}>Show them</Button></> : `${skipped} skipped.`}</p>}
+      {skipped > 0 && <p>{oneClick ? notAdded : `${skipped} skipped.`}</p>}
       <div className="bv-form-actions">{finished(run.phase) && <ActionLink to="/home">Pick what to read next →</ActionLink>}<ActionLink to="/my-books" variant={finished(run.phase) ? "secondary" : "primary"}>Open My Books</ActionLink></div>
       <div className="bv-form-actions"><Button variant="quiet" disabled={command.pending} onClick={() => command.run(async assertCurrent => downloadCsv(await imports.exportImportReport(run.id, signal()), "bookvane-import-results.csv", assertCurrent), () => setNotice("Your results were downloaded."))}>Download your results (CSV)</Button>
         <Button variant="quiet" onClick={() => { setRun(null); setPage(null); setFile(null); setInspection(null); setOneClick(false); setReviewOpen(false); setRowsOpen(false); }}>Start another import</Button></div>
