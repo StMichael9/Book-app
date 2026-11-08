@@ -151,12 +151,15 @@ test("when both are empty the normal no-results line shows", async ({ page, app 
   await expect(page.getByText("No books found.")).toBeVisible();
 });
 
-test("?q= searches title and author in both lists and fills the search box", async ({ page, app }) => {
+test("?q= searches by title in both lists (sent as book=) and fills the search box", async ({ page, app }) => {
   await page.goto("/browse?q=herbert");
   await expect(page.locator("#bv-search-query")).toHaveValue("herbert");
   await expect(titles(page)).toHaveCount(4);
-  expect(app.requests.find(request => request.path === "/books").params.q).toBe("herbert");
-  expect(app.requests.find(request => request.path === "/books/more").params.q).toBe("herbert");
+  for (const path of ["/books", "/books/more"]) {
+    const request = app.requests.find(item => item.path === path);
+    expect(request.params.book).toBe("herbert");
+    expect(request.params.q).toBeUndefined();
+  }
 });
 
 test("with no search, Discover and the landing page ask for the popular order", async ({ page, app }) => {
@@ -183,6 +186,18 @@ for (const status of [401, 429, 503]) test(`a ${status} on opening a book is one
   await expect(card.getByText("Try again in a moment.")).toBeVisible();
   await expect(page).toHaveURL(/\/browse\?book=Dune$/);
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("a slow open says Opening… after 2 s, and not before", async ({ page, app }) => {
+  app.resolveDelay = 3500;
+  await page.goto("/browse?book=Dune");
+  const card = page.locator(".bv-work-card").filter({ hasText: "God Emperor of Dune" });
+  await card.getByRole("button", { name: "God Emperor of Dune", exact: true }).click();
+  await expect(card).toHaveAttribute("aria-busy", "true");
+  await page.waitForTimeout(1200);
+  await expect(card.getByText("Opening…")).toHaveCount(0);
+  await expect(card.getByText("Opening…")).toBeVisible({ timeout: 2000 });
+  await expect(page).toHaveURL(/\/book\/99$/);
 });
 
 test("a signed-out reader taps a merged card: the book is resolved and its page opens", async ({ page, app }) => {

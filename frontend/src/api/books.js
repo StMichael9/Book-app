@@ -18,8 +18,9 @@ export function getBooks(params = {}) {
         ? [requestParams.tag]
         : [];
 
-  if (requestParams.book) searchParams.set("book", requestParams.book);
-  if (requestParams.q) searchParams.set("q", requestParams.q);
+  // A shared ?q= link searches by title: the server only knows book= (T45 normalises it).
+  const bookQuery = requestParams.book || requestParams.q;
+  if (bookQuery) searchParams.set("book", bookQuery);
   if (requestParams.sort === "popular") searchParams.set("sort", "popular");
   if (requestParams.author) searchParams.set("author", requestParams.author);
   tagValues.forEach((tag) => searchParams.append("tag", tag));
@@ -108,9 +109,8 @@ export function getBookById(id) {
 export const MORE_BOOKS_TIMEOUT_MS = 1500;
 export async function getMoreBooks({ book = "", author = "", q = "" } = {}) {
   const params = new URLSearchParams();
-  if (book) params.set("book", book);
+  if (book || q) params.set("book", book || q);
   if (author) params.set("author", author);
-  if (q) params.set("q", q);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), MORE_BOOKS_TIMEOUT_MS);
   try {
