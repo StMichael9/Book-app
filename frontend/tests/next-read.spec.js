@@ -425,3 +425,12 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`sh
   await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
   await page.screenshot({ path: `../.bv-shots/home-polish/adjust-${width}-${theme}.png`, fullPage: true });
 });
+
+test("Next after this with the current book as the only Want to read says nothing else is on it", async ({ page, app }) => {
+  for (const item of app.entries.values()) item.is_wanted = false;
+  app.entries.get(1).is_wanted = true; app.attempts.delete(1);
+  await page.goto("/my-books/1");
+  const preview = page.getByRole("region", { name: "Next after this" });
+  await expect(preview.getByText("Nothing else on Want to read yet.")).toBeVisible();
+  await expect(preview.getByText("Nothing is on your Want to read list yet")).toHaveCount(0);
+});

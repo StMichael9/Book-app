@@ -208,7 +208,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "Shelf" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Import books", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Add a book", exact: true })).toHaveCount(0);
     const first = desk.getByRole("link", { name: "Reading fixture 101", exact: true });
     await expect(first).toBeVisible();
     expect((await first.boundingBox()).y).toBeLessThan(750);
@@ -218,7 +218,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await expect(page.getByRole("search", { name: "Search your library" })).toBeVisible();
     await expect(page.getByRole("group", { name: "Shelf", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Import books", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Add a book", exact: true })).toBeVisible();
     await expect(page.locator(".bv-current-book")).toHaveCount(0);
     await expect(page.locator(".bv-personal-book")).toHaveCount(3);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -649,10 +649,10 @@ test("read-only creation explains disabled controls and is not advertised upstre
   await expect(page.getByRole("status").filter({ hasText: "Changes are temporarily paused." })).toBeVisible();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "My Books", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Add a book", exact: true })).toHaveCount(0);
   await page.getByRole("navigation", { name: /Main navigation|Mobile navigation/ }).filter({ visible: true }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Changes are temporarily paused." })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Add one book manually", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Add a book", exact: true })).toHaveCount(0);
   expect(app.requests.some(request => ["PUT", "PATCH", "POST"].includes(request.method) && request.path !== "/auth/refresh")).toBe(false);
 });
 
@@ -725,7 +725,7 @@ test("M3 save reason is independent from reading memory and flags", async ({ pag
   app.attempt.note = "A separate reading memory";
   await page.goto("/my-books/101");
   await openDisclosure(page, "My note");
-  await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
+  await page.getByRole("button", { name: "Why did you save it?", exact: true }).click();
   const field = page.getByLabel("Save reason (optional)", { exact: true });
   await expect(field).toHaveAttribute("maxlength", "500");
   await field.fill("A friend's recommendation");
@@ -1175,7 +1175,7 @@ test("minimalist deleting one reading clears its drafts and retains the book's s
   await page.getByLabel("Note (optional)", { exact: true }).fill("Only this reading");
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await openDisclosure(page, "Why I saved this book");
-  await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
+  await page.getByRole("button", { name: "Why did you save it?", exact: true }).click();
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("Keep this separate book-level thought");
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await openDisclosure(page, "Reading history");

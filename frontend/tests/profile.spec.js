@@ -156,7 +156,7 @@ test("the profile is private by default and the You tab opens it, with a link to
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
-  await expect(page.getByText("reading since 2026")).toBeVisible();
+  await expect(page.getByText("Reading since 2026")).toBeVisible();
   await expect(page.getByText("Only you can see your profile")).toBeVisible();
   await expect(page.getByRole("button", { name: "Make public" })).toBeVisible();
   await expect(page.getByText("@")).toHaveCount(0);
@@ -189,7 +189,7 @@ test("Make public opens a confirm sheet that asks for a username, reports taken 
   await expect(sheet).toBeHidden();
   await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
   await expect(page.getByText("bookvane.me/u/stmichael")).toBeVisible();
-  await expect(page.getByText("@stmichael · reading since 2026")).toBeVisible();
+  await expect(page.getByText("@stmichael · Reading since 2026")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
   await expect(page.getByRole("status").filter({ hasText: "Your profile is now public." })).toBeAttached();
   await page.getByRole("button", { name: "Make private" }).click();
@@ -248,7 +248,7 @@ test("Edit profile is a sheet that sends only the changed fields and explains a 
   await expect(sheet).toBeHidden();
   await expect(page.getByRole("heading", { name: "Michael R", level: 1 })).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ display_name: "Michael R", handle: "michael-reads" });
-  await expect(page.getByText("@michael-reads · reading since 2026")).toBeVisible();
+  await expect(page.getByText("@michael-reads · Reading since 2026")).toBeVisible();
   await expect(open).toBeFocused();
 });
 
@@ -550,7 +550,7 @@ test("an empty year shows one line on the Overview with no zeros, and the Year t
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/profile");
   await expect(page.getByRole("heading", { name: "Your 2026 so far" })).toBeVisible();
-  await expect(page.getByText("It starts with your first finished book.")).toBeVisible();
+  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
   await expect(page.locator(".bv-figures")).toHaveCount(0);
   await expect(page.locator(".bv-profile-year")).not.toContainText(/(?<!\d)0(?!\d)/);
   await page.getByRole("tab", { name: "Year" }).click();
@@ -599,7 +599,7 @@ test("the public page has the same header and tabs, third-person figures, public
   expect(last).toContain("bv-profile-join");
   app.publicProfile.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/u/ada");
-  await expect(page.getByText("It starts with their first finished book.")).toBeVisible();
+  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
 });
 
 test("the selected tab is lifted above the track in dark and light, with readable text, and the three tabs are equal segments", async ({ page, app: _app }) => {
@@ -884,7 +884,7 @@ test("a public profile shows only the public fields, and a guest is invited to j
   app.guest = true;
   await page.goto("/u/ada");
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
-  await expect(page.getByText("@ada · reading since 2025")).toBeVisible();
+  await expect(page.getByText("@ada · Reading since 2025")).toBeVisible();
   await expect(page.getByText("Quiet reader.")).toBeVisible();
   await expect(page.locator(".bv-figures")).toContainText("finished2");
   await expect(page.locator(".bv-figures")).toContainText("pages400");

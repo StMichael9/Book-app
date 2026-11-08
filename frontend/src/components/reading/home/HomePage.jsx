@@ -41,7 +41,7 @@ function YearGlance({ stats, libraryImport }) {
   const empty = !stats.books_finished;
   return <section className="bv-year-glance" aria-labelledby="bv-glance-title">
     <div className="bv-section-head"><h2 id="bv-glance-title">Your {stats.year} so far</h2>{!empty && <TextLink to="/reading-life">Your reading life</TextLink>}</div>
-    {empty ? <p>When you finish a book, your year starts filling in here.{libraryImport && <> <TextLink to="/my-books/import">Import your history</TextLink> to see it straight away.</>}</p> : <div className="bv-glance">
+    {empty ? <p>Finish a book this year and it’ll show up here.{libraryImport && <> <TextLink to="/my-books/import">Import your history</TextLink> to see it straight away.</>}</p> : <div className="bv-glance">
       <dl className="bv-figures">
         <div><dt>books finished</dt><dd>{stats.books_finished.toLocaleString("en-US")}</dd></div>
         <div><dt>pages</dt><dd>{stats.pages_read.toLocaleString("en-US")}</dd></div>

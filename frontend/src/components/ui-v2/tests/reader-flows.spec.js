@@ -234,11 +234,11 @@ for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at
 test("discovery context survives book details and signing in to save", async ({ page, app }) => {
   await page.goto("/browse?author=Jane&tag=romance");
   await page.getByRole("link", { name: "View Pride and Prejudice", exact: true }).click();
-  await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?author=Jane&tag=romance");
+  await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?author=Jane&tag=romance");
   await page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click();
   await signIn(page); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
-  await page.getByRole("link", { name: "Back to discovery" }).click(); await expect(page).toHaveURL(/author=Jane&tag=romance/);
+  await page.getByRole("link", { name: "Back", exact: true }).click(); await expect(page).toHaveURL(/author=Jane&tag=romance/);
   expect(mutations(app)).toHaveLength(1);
 });
 
@@ -334,7 +334,7 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page).not.toHaveURL(/save=/);
   await expect(page.getByRole("button", { name: "Retry save" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?tag=romance");
+  await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?tag=romance");
   expect(app.saved[0].status).toBe("owned");
   expect(mutations(app)).toHaveLength(2);
 });

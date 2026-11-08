@@ -12,6 +12,7 @@ import NextReadSection from "./NextReadSection.jsx";
 import { localToday } from "./localToday.js";
 import ImportedSources from "./imports/ImportedSources.jsx";
 import { SlowReadingNotice } from "./ReadingCards.jsx";
+import { editionOptions } from "./editionLabels.js";
 import { ReadingBookDetails, ReadingBookIdentity, ReadingProgress } from "./ReadingBookContext.jsx";
 import ReadingEditor from "./ReadingEditors.jsx";
 import { draftKey, useReadingDrafts } from "./readingDraftState.js";
@@ -50,7 +51,7 @@ function ReadingHistory({ entryId, enabled, onCorrect, onMemory, onRemove, editi
         const context = `${stateLabel[attempt.state]}, ${attempt.started_on || "start date unknown"}${attempt.ended_on ? ` to ${attempt.ended_on}` : ""}`;
         const memoryLabel = library.readOnly ? "View reading memory" : "Note and reaction";
         return <li key={attempt.id}><strong>{stateLabel[attempt.state]}{attempt.id === activeAttempt?.id ? " · Current reading" : ""}</strong><span>{attempt.started_on || "Start date unknown"}{attempt.ended_on ? ` → ${attempt.ended_on}` : ""}</span><Button variant="quiet" disabled={library.readOnly || editing} aria-label={`Edit dates and progress: ${context}`} onClick={() => onCorrect(attempt)}>Edit dates and progress</Button>{library.privateContext && <Button variant="quiet" disabled={editing} aria-label={`${memoryLabel}: ${context}`} onClick={() => onMemory(attempt)}>{memoryLabel}</Button>}{library.privacyControls && <Button variant="quiet" disabled={library.readOnly || editing} aria-label={`Delete this reading: ${context}`} onClick={() => onRemove(attempt)}>Delete this reading</Button>}</li>;
-      })}</ul> : <p>No readings on this page.</p>}
+      })}</ul> : <p>You haven’t read this yet.</p>}
       <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => showHistory()}>First readings</Button>}{request.data.next_cursor && <Button variant="secondary" onClick={() => showHistory(request.data.next_cursor)}>Older readings</Button>}</div>
     </>}
   </section>;
@@ -279,9 +280,9 @@ export function ReadingWorkspacePage() {
         {attempt && editing?.kind !== "memory" && <>{attempt.note && <p className="bv-private-text">{attempt.note}</p>}{attempt.reaction && <p className="bv-help">{reactionLabel[attempt.reaction]}</p>}
           {!attempt.note && !attempt.reaction && <p className="bv-help">{library.readOnly ? "Your note would appear here. Changes are temporarily paused." : "A thought worth keeping? Your note is private and always optional."}</p>}
           <Button data-draft-trigger="memory" variant="secondary" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openMemory(attempt)}>{library.readOnly ? "View note" : drafts[draftKey(entryId, "memory", attempt.id)] ? "Continue draft" : attempt.note || attempt.reaction ? "Edit note" : "Add a note"}</Button></>}
-        {!attempt && <p className="bv-help">Start a reading to keep a note with it.</p>}
+        {!attempt && <p className="bv-help">Notes open once you start reading.</p>}
         <details className="bv-save-reason" open={reasonToggled ?? Boolean(entry.save_note)} onToggle={event => setReasonToggled(event.currentTarget.open)}><summary>Why I saved this book</summary>{entry.save_note && <p className="bv-private-text">{entry.save_note}</p>}
-          {editing?.kind === "save_note" ? editor : !library.readOnly && <Button data-draft-trigger="save_note" variant="quiet" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openDraft("save_note")}>{drafts[draftKey(entryId, "save_note")] ? "Continue save-reason draft" : entry.save_note ? "Edit save reason" : "Add save reason (optional)"}</Button>}
+          {editing?.kind === "save_note" ? editor : !library.readOnly && <Button data-draft-trigger="save_note" variant="quiet" disabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)} onClick={() => openDraft("save_note")}>{drafts[draftKey(entryId, "save_note")] ? "Continue save-reason draft" : entry.save_note ? "Edit save reason" : "Why did you save it?"}</Button>}
         </details>
       </>}</section>}
       {nextSection}
@@ -291,7 +292,7 @@ export function ReadingWorkspacePage() {
       {entry && workspace?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={workspace.imported_sources_count} /></div>}
       <details hidden={!loaded || library.readOnly} className="bv-workspace-manage" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary>Manage this book</summary>{loaded && !library.readOnly && <>
         {attempt && !terminal && <div className="bv-workspace-stop"><Button variant="secondary" disabled={blocked} onClick={() => changeState("dnf")}>Stop reading this book</Button><p className="bv-help">For a book you’ve put down for good. You can mark it as reading again later; your progress and note stay.</p></div>}
-        {(!attempt || terminal) && workspace.editions.length > 0 && <div className="bv-field"><label htmlFor="reading-edition">Which copy are you reading? (optional)</label><select id="reading-edition" value={editionId} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">The standard edition</option>{workspace.editions.map(edition => <option key={edition.id} value={edition.id}>{edition.physical_format || "Edition"}{edition.page_count ? ` · ${edition.page_count} pages` : ""} · {(edition.languages || []).join(", ") || "Language not listed"}</option>)}</select><p className="bv-help">Progress uses this copy’s page count, even if book details change later.</p></div>}
+        {(!attempt || terminal) && workspace.editions.length > 0 && <div className="bv-field"><label htmlFor="reading-edition">Which copy are you reading? (optional)</label><select id="reading-edition" value={editionId} onChange={event => { setEditionId(event.target.value); intent.current = null; }}><option value="">The standard edition</option>{editionOptions(workspace.editions).map(edition => <option key={edition.id} value={edition.id}>{edition.label}</option>)}</select><p className="bv-help">Progress uses this copy’s page count, even if book details change later.</p></div>}
         <div className="bv-form-actions bv-workspace-actions">
           {(!attempt || terminal) && <><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "finished")}>Log an earlier read I finished</Button><Button variant="quiet" disabled={blocked} onClick={() => create(entry, "dnf")}>Log an earlier read I stopped</Button></>}
         </div>
@@ -325,13 +326,13 @@ export function PrivateBookPage() {
       else { library.readingChanged(result.entry); go(`/my-books/${result.entry.id}`); }
     });
   }
-  return <section className="bv-container bv-private-entry"><PageHeading title="Add one book manually">This book stays private to your library.</PageHeading>
-    {library.libraryImport && !library.readOnly && <p className="bv-notice">Have a library file instead? <TextLink to="/my-books/import">Bring your library</TextLink> imports many books from CSV or TSV.</p>}
+  return <section className="bv-container bv-private-entry"><PageHeading title="Add a book">This book stays private to your library.</PageHeading>
+    {library.libraryImport && !library.readOnly && <p className="bv-notice">Importing lots of books? <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink>.</p>}
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <form className="bv-field bv-reading-form" onSubmit={event => { event.preventDefault(); submit(); }}><fieldset disabled={library.readOnly || command.pending}><legend>Book details</legend>
       <label htmlFor="private-title">Title</label><input id="private-title" required maxLength={500} value={title} onChange={event => { setTitle(event.target.value); setMatches(null); }} />
       <label htmlFor="private-author">Author (optional)</label><input id="private-author" maxLength={500} value={author} onChange={event => { setAuthor(event.target.value); setMatches(null); }} />
-      <Button type="submit">{command.pending ? "Checking…" : "Add private book"}</Button></fieldset></form>
+      <Button type="submit">{command.pending ? "Checking…" : "Add a book"}</Button></fieldset></form>
     {matches && <section className="bv-notice"><h2>A title like this is already in your library.</h2><p>Names are not identities. Open an existing entry, or create a separate one if this is a different book.</p><ul>{matches.map(entry => <li key={entry.id}><TextLink to={`/my-books/${entry.id}`}>{entry.private_title}{entry.private_author ? ` · ${entry.private_author}` : ""}</TextLink></li>)}</ul><Button disabled={library.readOnly || command.pending} onClick={() => submit(true)}>Create a separate private book</Button></section>}
     {command.error && <p role="alert">{command.error}</p>}{prefill?.returnTo?.startsWith("/browse?") && <p><TextLink to={prefill.returnTo}>Back to search</TextLink></p>}<TextLink to="/my-books">Back to My Books</TextLink>
   </section>;

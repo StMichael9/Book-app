@@ -66,7 +66,7 @@ export default function ExtendedCatalogue({ title = "", author = "", hasLocalRes
         </article>)}</div>
         {request.data.more_available && <p className="bv-help">Showing the closest matches. Refine the title or author to narrow your search.</p>}
       </section> : !hasLocalResults ? <EmptyState title="No books found.">Try a shorter title or search by author. You can also add this book privately.</EmptyState> : null}
-    {!library.readOnly && <p className="bv-help">Still missing your book? <ManualBookLink title={title} author={author}>Add a private book</ManualBookLink></p>}
+    {!library.readOnly && <p className="bv-help">Still missing your book? <ManualBookLink title={title} author={author}>Add a book</ManualBookLink></p>}
     {selected && <CatalogueConfirmation key={selected.requestId} {...selected} onClose={() => setSelected(null)} />}
   </>;
 }
