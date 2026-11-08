@@ -1,0 +1,556 @@
+title,author,group
+Pride and Prejudice,Jane Austen,classics
+Emma,Jane Austen,classics
+Sense and Sensibility,Jane Austen,classics
+Persuasion,Jane Austen,classics
+Northanger Abbey,Jane Austen,classics
+Jane Eyre,Charlotte Bronte,classics
+Wuthering Heights,Emily Bronte,classics
+The Tenant of Wildfell Hall,Anne Bronte,classics
+Great Expectations,Charles Dickens,classics
+Oliver Twist,Charles Dickens,classics
+A Tale of Two Cities,Charles Dickens,classics
+David Copperfield,Charles Dickens,classics
+Bleak House,Charles Dickens,classics
+Hard Times,Charles Dickens,classics
+A Christmas Carol,Charles Dickens,classics
+Middlemarch,George Eliot,classics
+The Mill on the Floss,George Eliot,classics
+Silas Marner,George Eliot,classics
+Tess of the d'Urbervilles,Thomas Hardy,classics
+Far from the Madding Crowd,Thomas Hardy,classics
+Jude the Obscure,Thomas Hardy,classics
+Dracula,Bram Stoker,classics
+Frankenstein,Mary Shelley,classics
+The Strange Case of Dr Jekyll and Mr Hyde,Robert Louis Stevenson,classics
+Treasure Island,Robert Louis Stevenson,classics
+Kidnapped,Robert Louis Stevenson,classics
+The Picture of Dorian Gray,Oscar Wilde,classics
+The Importance of Being Earnest,Oscar Wilde,classics
+Heart of Darkness,Joseph Conrad,classics
+Lord Jim,Joseph Conrad,classics
+Robinson Crusoe,Daniel Defoe,classics
+Gulliver's Travels,Jonathan Swift,classics
+Vanity Fair,William Makepeace Thackeray,classics
+The Count of Monte Cristo,Alexandre Dumas,classics
+The Three Musketeers,Alexandre Dumas,classics
+Les Miserables,Victor Hugo,classics
+The Hunchback of Notre-Dame,Victor Hugo,classics
+Madame Bovary,Gustave Flaubert,classics
+Around the World in Eighty Days,Jules Verne,classics
+Twenty Thousand Leagues Under the Seas,Jules Verne,classics
+Journey to the Center of the Earth,Jules Verne,classics
+The Time Machine,H. G. Wells,classics
+The War of the Worlds,H. G. Wells,classics
+The Invisible Man,H. G. Wells,classics
+The Island of Doctor Moreau,H. G. Wells,classics
+Crime and Punishment,Fyodor Dostoevsky,classics
+The Brothers Karamazov,Fyodor Dostoevsky,classics
+The Idiot,Fyodor Dostoevsky,classics
+Notes from Underground,Fyodor Dostoevsky,classics
+War and Peace,Leo Tolstoy,classics
+Anna Karenina,Leo Tolstoy,classics
+The Death of Ivan Ilyich,Leo Tolstoy,classics
+Dead Souls,Nikolai Gogol,classics
+Fathers and Sons,Ivan Turgenev,classics
+The Master and Margarita,Mikhail Bulgakov,classics
+Doctor Zhivago,Boris Pasternak,classics
+Moby-Dick,Herman Melville,classics
+Bartleby the Scrivener,Herman Melville,classics
+The Scarlet Letter,Nathaniel Hawthorne,classics
+The House of the Seven Gables,Nathaniel Hawthorne,classics
+Adventures of Huckleberry Finn,Mark Twain,classics
+The Adventures of Tom Sawyer,Mark Twain,classics
+The Prince and the Pauper,Mark Twain,classics
+Little Women,Louisa May Alcott,classics
+The Call of the Wild,Jack London,classics
+White Fang,Jack London,classics
+The Red Badge of Courage,Stephen Crane,classics
+The Age of Innocence,Edith Wharton,classics
+Ethan Frome,Edith Wharton,classics
+The House of Mirth,Edith Wharton,classics
+The Great Gatsby,F. Scott Fitzgerald,classics
+Tender Is the Night,F. Scott Fitzgerald,classics
+The Sun Also Rises,Ernest Hemingway,classics
+A Farewell to Arms,Ernest Hemingway,classics
+For Whom the Bell Tolls,Ernest Hemingway,classics
+The Old Man and the Sea,Ernest Hemingway,classics
+The Grapes of Wrath,John Steinbeck,classics
+Of Mice and Men,John Steinbeck,classics
+East of Eden,John Steinbeck,classics
+Cannery Row,John Steinbeck,classics
+The Sound and the Fury,William Faulkner,classics
+As I Lay Dying,William Faulkner,classics
+To Kill a Mockingbird,Harper Lee,classics
+The Catcher in the Rye,J. D. Salinger,classics
+Their Eyes Were Watching God,Zora Neale Hurston,classics
+Invisible Man,Ralph Ellison,classics
+Native Son,Richard Wright,classics
+Beloved,Toni Morrison,classics
+Song of Solomon,Toni Morrison,classics
+The Bluest Eye,Toni Morrison,classics
+1984,George Orwell,classics
+Animal Farm,George Orwell,classics
+Brave New World,Aldous Huxley,classics
+Fahrenheit 451,Ray Bradbury,classics
+Lord of the Flies,William Golding,classics
+Catch-22,Joseph Heller,classics
+Slaughterhouse-Five,Kurt Vonnegut,classics
+One Flew Over the Cuckoo's Nest,Ken Kesey,classics
+On the Road,Jack Kerouac,classics
+Lolita,Vladimir Nabokov,classics
+A Clockwork Orange,Anthony Burgess,classics
+The Trial,Franz Kafka,classics
+The Metamorphosis,Franz Kafka,classics
+The Stranger,Albert Camus,classics
+The Plague,Albert Camus,classics
+Nausea,Jean-Paul Sartre,classics
+Ulysses,James Joyce,classics
+Dubliners,James Joyce,classics
+A Portrait of the Artist as a Young Man,James Joyce,classics
+Mrs Dalloway,Virginia Woolf,classics
+To the Lighthouse,Virginia Woolf,classics
+Orlando,Virginia Woolf,classics
+A Room of One's Own,Virginia Woolf,classics
+Rebecca,Daphne du Maurier,classics
+Brideshead Revisited,Evelyn Waugh,classics
+Things Fall Apart,Chinua Achebe,classics
+One Hundred Years of Solitude,Gabriel Garcia Marquez,classics
+Love in the Time of Cholera,Gabriel Garcia Marquez,classics
+Don Quixote,Miguel de Cervantes,classics
+The Divine Comedy,Dante Alighieri,classics
+The Odyssey,Homer,classics
+The Iliad,Homer,classics
+The Aeneid,Virgil,classics
+Beowulf,Anonymous,classics
+Hamlet,William Shakespeare,classics
+Macbeth,William Shakespeare,classics
+Romeo and Juliet,William Shakespeare,classics
+Othello,William Shakespeare,classics
+King Lear,William Shakespeare,classics
+A Midsummer Night's Dream,William Shakespeare,classics
+The Tempest,William Shakespeare,classics
+Paradise Lost,John Milton,classics
+The Canterbury Tales,Geoffrey Chaucer,classics
+Candide,Voltaire,classics
+The Alchemist,Paulo Coelho,classics
+The Little Prince,Antoine de Saint-Exupery,classics
+The Wind in the Willows,Kenneth Grahame,classics
+Alice's Adventures in Wonderland,Lewis Carroll,classics
+Peter Pan,J. M. Barrie,classics
+The Secret Garden,Frances Hodgson Burnett,classics
+Anne of Green Gables,L. M. Montgomery,classics
+Black Beauty,Anna Sewell,classics
+Heidi,Johanna Spyri,classics
+The Wonderful Wizard of Oz,L. Frank Baum,classics
+The Hobbit,J. R. R. Tolkien,fantasy
+The Fellowship of the Ring,J. R. R. Tolkien,fantasy
+The Two Towers,J. R. R. Tolkien,fantasy
+The Return of the King,J. R. R. Tolkien,fantasy
+The Silmarillion,J. R. R. Tolkien,fantasy
+The Lion the Witch and the Wardrobe,C. S. Lewis,fantasy
+Prince Caspian,C. S. Lewis,fantasy
+Harry Potter and the Sorcerer's Stone,J. K. Rowling,fantasy
+Harry Potter and the Chamber of Secrets,J. K. Rowling,fantasy
+Harry Potter and the Prisoner of Azkaban,J. K. Rowling,fantasy
+Harry Potter and the Goblet of Fire,J. K. Rowling,fantasy
+Harry Potter and the Order of the Phoenix,J. K. Rowling,fantasy
+Harry Potter and the Half-Blood Prince,J. K. Rowling,fantasy
+Harry Potter and the Deathly Hallows,J. K. Rowling,fantasy
+A Game of Thrones,George R. R. Martin,fantasy
+A Clash of Kings,George R. R. Martin,fantasy
+A Storm of Swords,George R. R. Martin,fantasy
+A Feast for Crows,George R. R. Martin,fantasy
+A Dance with Dragons,George R. R. Martin,fantasy
+The Name of the Wind,Patrick Rothfuss,fantasy
+The Wise Man's Fear,Patrick Rothfuss,fantasy
+The Way of Kings,Brandon Sanderson,fantasy
+Words of Radiance,Brandon Sanderson,fantasy
+Mistborn,Brandon Sanderson,fantasy
+The Final Empire,Brandon Sanderson,fantasy
+Elantris,Brandon Sanderson,fantasy
+Warbreaker,Brandon Sanderson,fantasy
+The Eye of the World,Robert Jordan,fantasy
+The Great Hunt,Robert Jordan,fantasy
+A Wizard of Earthsea,Ursula K. Le Guin,fantasy
+The Blade Itself,Joe Abercrombie,fantasy
+Assassin's Apprentice,Robin Hobb,fantasy
+Gardens of the Moon,Steven Erikson,fantasy
+The Lies of Locke Lamora,Scott Lynch,fantasy
+Prince of Thorns,Mark Lawrence,fantasy
+The Priory of the Orange Tree,Samantha Shannon,fantasy
+The Fifth Season,N. K. Jemisin,fantasy
+The Poppy War,R. F. Kuang,fantasy
+Babel,R. F. Kuang,fantasy
+Piranesi,Susanna Clarke,fantasy
+Jonathan Strange and Mr Norrell,Susanna Clarke,fantasy
+The Night Circus,Erin Morgenstern,fantasy
+The Starless Sea,Erin Morgenstern,fantasy
+Good Omens,Terry Pratchett,fantasy
+The Colour of Magic,Terry Pratchett,fantasy
+Mort,Terry Pratchett,fantasy
+Guards! Guards!,Terry Pratchett,fantasy
+American Gods,Neil Gaiman,fantasy
+Neverwhere,Neil Gaiman,fantasy
+Stardust,Neil Gaiman,fantasy
+Coraline,Neil Gaiman,fantasy
+The Ocean at the End of the Lane,Neil Gaiman,fantasy
+Percy Jackson and the Lightning Thief,Rick Riordan,fantasy
+The Golden Compass,Philip Pullman,fantasy
+Eragon,Christopher Paolini,fantasy
+The Princess Bride,William Goldman,fantasy
+Howl's Moving Castle,Diana Wynne Jones,fantasy
+Circe,Madeline Miller,fantasy
+The Song of Achilles,Madeline Miller,fantasy
+A Court of Thorns and Roses,Sarah J. Maas,fantasy
+Throne of Glass,Sarah J. Maas,fantasy
+Fourth Wing,Rebecca Yarros,fantasy
+Iron Flame,Rebecca Yarros,fantasy
+Shadow and Bone,Leigh Bardugo,fantasy
+Six of Crows,Leigh Bardugo,fantasy
+The Cruel Prince,Holly Black,fantasy
+Children of Blood and Bone,Tomi Adeyemi,fantasy
+Dune,Frank Herbert,science fiction
+Dune Messiah,Frank Herbert,science fiction
+Foundation,Isaac Asimov,science fiction
+I Robot,Isaac Asimov,science fiction
+Ender's Game,Orson Scott Card,science fiction
+Neuromancer,William Gibson,science fiction
+Snow Crash,Neal Stephenson,science fiction
+Cryptonomicon,Neal Stephenson,science fiction
+The Left Hand of Darkness,Ursula K. Le Guin,science fiction
+The Dispossessed,Ursula K. Le Guin,science fiction
+Hyperion,Dan Simmons,science fiction
+Do Androids Dream of Electric Sheep,Philip K. Dick,science fiction
+The Man in the High Castle,Philip K. Dick,science fiction
+Ubik,Philip K. Dick,science fiction
+2001 A Space Odyssey,Arthur C. Clarke,science fiction
+Rendezvous with Rama,Arthur C. Clarke,science fiction
+Childhood's End,Arthur C. Clarke,science fiction
+Stranger in a Strange Land,Robert A. Heinlein,science fiction
+Starship Troopers,Robert A. Heinlein,science fiction
+The Moon Is a Harsh Mistress,Robert A. Heinlein,science fiction
+The Hitchhiker's Guide to the Galaxy,Douglas Adams,science fiction
+The Martian,Andy Weir,science fiction
+Project Hail Mary,Andy Weir,science fiction
+Artemis,Andy Weir,science fiction
+Ready Player One,Ernest Cline,science fiction
+The Three-Body Problem,Cixin Liu,science fiction
+The Dark Forest,Cixin Liu,science fiction
+Leviathan Wakes,James S. A. Corey,science fiction
+Red Rising,Pierce Brown,science fiction
+Children of Time,Adrian Tchaikovsky,science fiction
+Station Eleven,Emily St. John Mandel,science fiction
+Sea of Tranquility,Emily St. John Mandel,science fiction
+Klara and the Sun,Kazuo Ishiguro,science fiction
+Never Let Me Go,Kazuo Ishiguro,science fiction
+The Handmaid's Tale,Margaret Atwood,science fiction
+Oryx and Crake,Margaret Atwood,science fiction
+Annihilation,Jeff VanderMeer,science fiction
+Kindred,Octavia E. Butler,science fiction
+Parable of the Sower,Octavia E. Butler,science fiction
+Recursion,Blake Crouch,science fiction
+Dark Matter,Blake Crouch,science fiction
+Wool,Hugh Howey,science fiction
+The Hunger Games,Suzanne Collins,science fiction
+Catching Fire,Suzanne Collins,science fiction
+Mockingjay,Suzanne Collins,science fiction
+Divergent,Veronica Roth,science fiction
+The Maze Runner,James Dashner,science fiction
+Jurassic Park,Michael Crichton,science fiction
+Gone Girl,Gillian Flynn,thriller
+Sharp Objects,Gillian Flynn,thriller
+The Girl on the Train,Paula Hawkins,thriller
+The Girl with the Dragon Tattoo,Stieg Larsson,thriller
+The Da Vinci Code,Dan Brown,thriller
+Angels and Demons,Dan Brown,thriller
+Inferno,Dan Brown,thriller
+The Silence of the Lambs,Thomas Harris,thriller
+Red Dragon,Thomas Harris,thriller
+The Talented Mr Ripley,Patricia Highsmith,thriller
+The Silent Patient,Alex Michaelides,thriller
+The Maidens,Alex Michaelides,thriller
+Verity,Colleen Hoover,thriller
+The Housemaid,Freida McFadden,thriller
+The Woman in the Window,A. J. Finn,thriller
+Behind Closed Doors,B. A. Paris,thriller
+The Last Thing He Told Me,Laura Dave,thriller
+The Guest List,Lucy Foley,thriller
+The Hunting Party,Lucy Foley,thriller
+Big Little Lies,Liane Moriarty,thriller
+The Bourne Identity,Robert Ludlum,thriller
+The Hunt for Red October,Tom Clancy,thriller
+The Day of the Jackal,Frederick Forsyth,thriller
+Along Came a Spider,James Patterson,thriller
+The Firm,John Grisham,thriller
+The Pelican Brief,John Grisham,thriller
+A Time to Kill,John Grisham,thriller
+Killing Floor,Lee Child,thriller
+The Girl Who Played with Fire,Stieg Larsson,thriller
+And Then There Were None,Agatha Christie,mystery
+Murder on the Orient Express,Agatha Christie,mystery
+The Murder of Roger Ackroyd,Agatha Christie,mystery
+Death on the Nile,Agatha Christie,mystery
+The A.B.C. Murders,Agatha Christie,mystery
+The Mysterious Affair at Styles,Agatha Christie,mystery
+The Hound of the Baskervilles,Arthur Conan Doyle,mystery
+A Study in Scarlet,Arthur Conan Doyle,mystery
+The Adventures of Sherlock Holmes,Arthur Conan Doyle,mystery
+The Maltese Falcon,Dashiell Hammett,mystery
+The Big Sleep,Raymond Chandler,mystery
+The Moonstone,Wilkie Collins,mystery
+The Woman in White,Wilkie Collins,mystery
+The Name of the Rose,Umberto Eco,mystery
+In the Woods,Tana French,mystery
+The Thursday Murder Club,Richard Osman,mystery
+The Man Who Died Twice,Richard Osman,mystery
+Magpie Murders,Anthony Horowitz,mystery
+A Gentleman in Moscow,Amor Towles,historical fiction
+Lincoln in the Bardo,George Saunders,historical fiction
+Wolf Hall,Hilary Mantel,historical fiction
+Bring Up the Bodies,Hilary Mantel,historical fiction
+The Pillars of the Earth,Ken Follett,historical fiction
+World Without End,Ken Follett,historical fiction
+All the Light We Cannot See,Anthony Doerr,historical fiction
+The Nightingale,Kristin Hannah,historical fiction
+The Book Thief,Markus Zusak,historical fiction
+The Kite Runner,Khaled Hosseini,historical fiction
+A Thousand Splendid Suns,Khaled Hosseini,historical fiction
+The Help,Kathryn Stockett,historical fiction
+Gone with the Wind,Margaret Mitchell,historical fiction
+Outlander,Diana Gabaldon,historical fiction
+The Other Boleyn Girl,Philippa Gregory,historical fiction
+The Seven Husbands of Evelyn Hugo,Taylor Jenkins Reid,historical fiction
+Daisy Jones and the Six,Taylor Jenkins Reid,historical fiction
+Where the Crawdads Sing,Delia Owens,literary fiction
+The Midnight Library,Matt Haig,literary fiction
+Normal People,Sally Rooney,literary fiction
+Conversations with Friends,Sally Rooney,literary fiction
+Beautiful World Where Are You,Sally Rooney,literary fiction
+A Little Life,Hanya Yanagihara,literary fiction
+The Goldfinch,Donna Tartt,literary fiction
+The Secret History,Donna Tartt,literary fiction
+Life of Pi,Yann Martel,literary fiction
+The Remains of the Day,Kazuo Ishiguro,literary fiction
+Atonement,Ian McEwan,literary fiction
+Cloud Atlas,David Mitchell,literary fiction
+The Road,Cormac McCarthy,literary fiction
+No Country for Old Men,Cormac McCarthy,literary fiction
+Blood Meridian,Cormac McCarthy,literary fiction
+Americanah,Chimamanda Ngozi Adichie,literary fiction
+Half of a Yellow Sun,Chimamanda Ngozi Adichie,literary fiction
+Pachinko,Min Jin Lee,literary fiction
+Educated,Tara Westover,biography
+Becoming,Michelle Obama,biography
+Born a Crime,Trevor Noah,biography
+I Know Why the Caged Bird Sings,Maya Angelou,biography
+The Diary of a Young Girl,Anne Frank,biography
+Long Walk to Freedom,Nelson Mandela,biography
+Steve Jobs,Walter Isaacson,biography
+Elon Musk,Walter Isaacson,biography
+Leonardo da Vinci,Walter Isaacson,biography
+Open,Andre Agassi,biography
+Spare,Prince Harry,biography
+The Glass Castle,Jeannette Walls,biography
+Wild,Cheryl Strayed,biography
+Into the Wild,Jon Krakauer,biography
+Unbroken,Laura Hillenbrand,biography
+Seabiscuit,Laura Hillenbrand,biography
+Just Kids,Patti Smith,biography
+Greenlights,Matthew McConaughey,biography
+Sapiens,Yuval Noah Harari,history
+Homo Deus,Yuval Noah Harari,history
+21 Lessons for the 21st Century,Yuval Noah Harari,history
+Guns Germs and Steel,Jared Diamond,history
+Collapse,Jared Diamond,history
+A Brief History of Time,Stephen Hawking,science
+The Selfish Gene,Richard Dawkins,science
+Cosmos,Carl Sagan,science
+Pale Blue Dot,Carl Sagan,science
+The Gene,Siddhartha Mukherjee,science
+The Emperor of All Maladies,Siddhartha Mukherjee,science
+Astrophysics for People in a Hurry,Neil deGrasse Tyson,science
+The Immortal Life of Henrietta Lacks,Rebecca Skloot,science
+Silent Spring,Rachel Carson,science
+The Origin of Species,Charles Darwin,science
+Bad Blood,John Carreyrou,science
+A Short History of Nearly Everything,Bill Bryson,science
+The Righteous Mind,Jonathan Haidt,psychology
+Thinking Fast and Slow,Daniel Kahneman,psychology
+Man's Search for Meaning,Viktor Frankl,psychology
+The Body Keeps the Score,Bessel van der Kolk,psychology
+Quiet,Susan Cain,psychology
+Grit,Angela Duckworth,psychology
+Predictably Irrational,Dan Ariely,psychology
+Flow,Mihaly Csikszentmihalyi,psychology
+Atomic Habits,James Clear,self help
+The 7 Habits of Highly Effective People,Stephen R. Covey,self help
+How to Win Friends and Influence People,Dale Carnegie,self help
+The Subtle Art of Not Giving a F*ck,Mark Manson,self help
+The Power of Now,Eckhart Tolle,self help
+Daring Greatly,Brene Brown,self help
+The Gifts of Imperfection,Brene Brown,self help
+Deep Work,Cal Newport,self help
+Can't Hurt Me,David Goggins,self help
+The Four Agreements,Don Miguel Ruiz,self help
+Ikigai,Hector Garcia,self help
+The 5 AM Club,Robin Sharma,self help
+Rich Dad Poor Dad,Robert T. Kiyosaki,business
+The Lean Startup,Eric Ries,business
+Zero to One,Peter Thiel,business
+Good to Great,Jim Collins,business
+The Psychology of Money,Morgan Housel,business
+Think and Grow Rich,Napoleon Hill,business
+The Intelligent Investor,Benjamin Graham,business
+Principles,Ray Dalio,business
+Shoe Dog,Phil Knight,business
+Start with Why,Simon Sinek,business
+The Hard Thing About Hard Things,Ben Horowitz,business
+The Richest Man in Babylon,George S. Clason,business
+The Prince,Niccolo Machiavelli,philosophy
+The Art of War,Sun Tzu,philosophy
+Meditations,Marcus Aurelius,philosophy
+Letters from a Stoic,Seneca,philosophy
+The Republic,Plato,philosophy
+Nicomachean Ethics,Aristotle,philosophy
+Thus Spoke Zarathustra,Friedrich Nietzsche,philosophy
+Beyond Good and Evil,Friedrich Nietzsche,philosophy
+Being and Time,Martin Heidegger,philosophy
+The Myth of Sisyphus,Albert Camus,philosophy
+Sophie's World,Jostein Gaarder,philosophy
+Tao Te Ching,Laozi,philosophy
+The Bhagavad Gita,Anonymous,religion
+The Case for Christ,Lee Strobel,christian
+Mere Christianity,C. S. Lewis,christian
+The Screwtape Letters,C. S. Lewis,christian
+The Purpose Driven Life,Rick Warren,christian
+Boundaries,Henry Cloud,christian
+The Pilgrim's Progress,John Bunyan,christian
+Confessions,Augustine of Hippo,christian
+The Hiding Place,Corrie ten Boom,christian
+Jesus Calling,Sarah Young,christian
+The Wealth of Nations,Adam Smith,politics
+The Communist Manifesto,Karl Marx,politics
+Capital in the Twenty-First Century,Thomas Piketty,politics
+The Second Sex,Simone de Beauvoir,politics
+Between the World and Me,Ta-Nehisi Coates,politics
+The New Jim Crow,Michelle Alexander,politics
+Why Nations Fail,Daron Acemoglu,politics
+Evicted,Matthew Desmond,politics
+The Gulag Archipelago,Aleksandr Solzhenitsyn,politics
+Persepolis,Marjane Satrapi,graphic novels
+Maus,Art Spiegelman,graphic novels
+Watchmen,Alan Moore,graphic novels
+The Dark Knight Returns,Frank Miller,graphic novels
+V for Vendetta,Alan Moore,graphic novels
+Sandman,Neil Gaiman,graphic novels
+Saga,Brian K. Vaughan,graphic novels
+Fun Home,Alison Bechdel,graphic novels
+Heartstopper,Alice Oseman,graphic novels
+Bone,Jeff Smith,graphic novels
+Death Note,Tsugumi Ohba,graphic novels
+Naruto,Masashi Kishimoto,graphic novels
+One Piece,Eiichiro Oda,graphic novels
+Eat Pray Love,Elizabeth Gilbert,travel
+A Walk in the Woods,Bill Bryson,travel
+Into Thin Air,Jon Krakauer,travel
+Under the Tuscan Sun,Frances Mayes,travel
+In Patagonia,Bruce Chatwin,travel
+The Songlines,Bruce Chatwin,travel
+A Year in Provence,Peter Mayle,travel
+Salt Fat Acid Heat,Samin Nosrat,cooking
+Kitchen Confidential,Anthony Bourdain,cooking
+Mastering the Art of French Cooking,Julia Child,cooking
+The Joy of Cooking,Irma S. Rombauer,cooking
+Ottolenghi Simple,Yotam Ottolenghi,cooking
+Jerusalem,Yotam Ottolenghi,cooking
+The Food Lab,J. Kenji Lopez-Alt,cooking
+The Story of Art,E. H. Gombrich,art
+Ways of Seeing,John Berger,art
+Steal Like an Artist,Austin Kleon,art
+The War of Art,Steven Pressfield,art
+Born to Run,Bruce Springsteen,art
+Wonder,R. J. Palacio,young adult
+The Fault in Our Stars,John Green,young adult
+Looking for Alaska,John Green,young adult
+Paper Towns,John Green,young adult
+Turtles All the Way Down,John Green,young adult
+Twilight,Stephenie Meyer,young adult
+New Moon,Stephenie Meyer,young adult
+Eleanor and Park,Rainbow Rowell,young adult
+The Perks of Being a Wallflower,Stephen Chbosky,young adult
+Thirteen Reasons Why,Jay Asher,young adult
+The Hate U Give,Angie Thomas,young adult
+Speak,Laurie Halse Anderson,young adult
+The Giver,Lois Lowry,young adult
+Holes,Louis Sachar,young adult
+Hatchet,Gary Paulsen,young adult
+Charlotte's Web,E. B. White,childrens
+Matilda,Roald Dahl,childrens
+Charlie and the Chocolate Factory,Roald Dahl,childrens
+James and the Giant Peach,Roald Dahl,childrens
+The BFG,Roald Dahl,childrens
+The Very Hungry Caterpillar,Eric Carle,childrens
+Where the Wild Things Are,Maurice Sendak,childrens
+Green Eggs and Ham,Dr. Seuss,childrens
+The Cat in the Hat,Dr. Seuss,childrens
+Goodnight Moon,Margaret Wise Brown,childrens
+The Gruffalo,Julia Donaldson,childrens
+Diary of a Wimpy Kid,Jeff Kinney,childrens
+Bridge to Terabithia,Katherine Paterson,childrens
+A Wrinkle in Time,Madeleine L'Engle,childrens
+Winnie-the-Pooh,A. A. Milne,childrens
+The Phantom Tollbooth,Norton Juster,childrens
+Pet Sematary,Stephen King,horror
+The Shining,Stephen King,horror
+It,Stephen King,horror
+Carrie,Stephen King,horror
+Misery,Stephen King,horror
+The Stand,Stephen King,horror
+Salem's Lot,Stephen King,horror
+The Haunting of Hill House,Shirley Jackson,horror
+We Have Always Lived in the Castle,Shirley Jackson,horror
+Interview with the Vampire,Anne Rice,horror
+Rosemary's Baby,Ira Levin,horror
+The Exorcist,William Peter Blatty,horror
+Mexican Gothic,Silvia Moreno-Garcia,horror
+House of Leaves,Mark Z. Danielewski,horror
+Bird Box,Josh Malerman,horror
+The Last House on Needless Street,Catriona Ward,horror
+Me Before You,Jojo Moyes,romance
+Beach Read,Emily Henry,romance
+Book Lovers,Emily Henry,romance
+People We Meet on Vacation,Emily Henry,romance
+It Ends with Us,Colleen Hoover,romance
+Ugly Love,Colleen Hoover,romance
+The Notebook,Nicholas Sparks,romance
+The Hating Game,Sally Thorne,romance
+The Love Hypothesis,Ali Hazelwood,romance
+Red White and Royal Blue,Casey McQuiston,romance
+The Kiss Quotient,Helen Hoang,romance
+Fifty Shades of Grey,E. L. James,romance
+Bridget Jones's Diary,Helen Fielding,humor
+Three Men in a Boat,Jerome K. Jerome,humor
+Bossypants,Tina Fey,humor
+Yes Please,Amy Poehler,humor
+Me Talk Pretty One Day,David Sedaris,humor
+Leaves of Grass,Walt Whitman,poetry
+Milk and Honey,Rupi Kaur,poetry
+The Sun and Her Flowers,Rupi Kaur,poetry
+The Waste Land,T. S. Eliot,poetry
+Ariel,Sylvia Plath,poetry
+Howl,Allen Ginsberg,poetry
+Death of a Salesman,Arthur Miller,drama
+The Crucible,Arthur Miller,drama
+A Streetcar Named Desire,Tennessee Williams,drama
+Waiting for Godot,Samuel Beckett,drama
+A Doll's House,Henrik Ibsen,drama
+Pygmalion,George Bernard Shaw,drama
+Our Town,Thornton Wilder,drama
+Interpreter of Maladies,Jhumpa Lahiri,short stories
+The Namesake,Jhumpa Lahiri,short stories
+Cat Person,Kristen Roupenian,short stories
+The Things They Carried,Tim O'Brien,short stories
+Tenth of December,George Saunders,short stories
+Stories of Your Life and Others,Ted Chiang,short stories
+Exhalation,Ted Chiang,short stories

@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import joinedload, Session
@@ -8,7 +8,7 @@ from sqlalchemy.orm import joinedload, Session
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import catalogue_cache, combined_search, google_books, search
+from services import catalogue_cache, combined_search, event_counts, google_books, search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
 from pydantic import BaseModel, ConfigDict
@@ -37,6 +37,7 @@ def _with_details():
 def get_books(
     request: Request,
     response: Response,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
     book: str = None,
@@ -50,7 +51,17 @@ def get_books(
     cache_if_anonymous(response, current_user)
     # Anonymous pages are the same for everyone, so they are kept for a minute; signed-in pages are personalised.
     cache_key = ("list", tuple(sorted(request.query_params.multi_items()))) if current_user is None else None
+    counted = (book or author) and params.page == 1
+
+    def count_search(total: int) -> None:
+        # Aggregate counters only: whether a typed search ran and whether it found nothing, never what was typed.
+        if counted:
+            background.add_task(event_counts.record_server_event, "search_run")
+            if total == 0:
+                background.add_task(event_counts.record_server_event, "search_empty")
+
     if cache_key is not None and (hit := catalogue_cache.get(cache_key)) is not None:
+        count_search(hit.get("total", 1) if isinstance(hit, dict) else 1)
         return hit
     service = search.SearchService(db)
     query = service.search_books(
@@ -90,6 +101,7 @@ def get_books(
         result = Page.create(items=[BookSchema.model_validate(by_id[book_id]) for book_id in ids], total=total, params=params)
     if cache_key is not None:
         catalogue_cache.put(cache_key, jsonable_encoder(result), catalogue_cache.LIST_TTL)
+    count_search(total)
     return result
 
 
