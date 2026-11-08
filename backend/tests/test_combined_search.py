@@ -290,3 +290,48 @@ def test_aliases_use_the_same_key_and_like_wildcards_stay_literal(client, titles
     assert client.get("/books", params={"book": "wib_lewick"}).json()["total"] in (0, 1)       # "_" is not a one-letter wildcard
     exact = [i["id"] for i in client.get("/books", params={"book": "Pride and Prejudice"}).json()["items"]]
     assert exact[0] == titles["pride"].id
+
+
+# --- speed of a pick (the real run took 10.8 s) -----------------------------------------------------------------------------
+
+def test_a_pick_after_the_search_needs_one_open_library_request_and_is_fast(client, ol, me, monkeypatch):
+    import time as clock
+    real = ol.__call__
+
+    class Slow(FakeOL):
+        def __call__(self, path, params=None, timeout=None):
+            clock.sleep(0.3)                                  # 300 ms per Open Library request
+            return super().__call__(path, params, timeout)
+
+    slow = Slow()
+    slow.docs = [doc(1), doc(2, title="Iron Flame")]
+    slow.records = {"/works/OL700001W.json": {"title": "Fourth Wing", "description": "A dragon-rider academy."},
+                    "/works/OL700002W.json": {"title": "Iron Flame"}}
+    from services import catalogue_resolver
+    monkeypatch.setattr(catalogue_resolver, "ol_get", slow)
+    assert len(client.get("/books/more", params={"book": "wing"}).json()) == 2
+    slow.calls.clear()
+    began = clock.perf_counter()
+    r = client.post("/books/resolve", json={"work_key": "/works/OL700001W"})
+    warm = clock.perf_counter() - began
+    assert r.status_code == 200 and [c[0] for c in slow.calls] == ["/works/OL700001W.json"]      # no second search, no per-author calls
+    assert warm < 1.5
+    from services import combined_search
+    combined_search.clear()                                                                      # cold: the search result is fetched too
+    slow.calls.clear()
+    began = clock.perf_counter()
+    assert client.post("/books/resolve", json={"work_key": "/works/OL700002W"}).status_code == 200
+    assert clock.perf_counter() - began < 3 and len(slow.calls) == 2
+
+
+def test_a_failing_description_request_does_not_stop_the_book_being_stored(client, ol, me, monkeypatch):
+    from services import catalogue_resolver
+    from services.catalogue_resolver import OpenLibraryUnavailable
+
+    def flaky(path, params=None, timeout=None):
+        if path.endswith(".json") and not path.startswith("/search"):
+            raise OpenLibraryUnavailable("timeout")
+        return {"docs": [doc(1)]}
+
+    monkeypatch.setattr(catalogue_resolver, "ol_get", flaky)
+    assert client.post("/books/resolve", json={"work_key": "/works/OL700001W"}).status_code == 200

@@ -29,6 +29,7 @@ GUEST_RESOLVES_PER_DAY = 300
 FIELDS = ("key,title,author_name,author_key,cover_i,first_publish_year,number_of_pages_median,readinglog_count,"
           "ratings_count,subject,isbn,edition_key")
 
+_docs: "OrderedDict[str, dict]" = OrderedDict()      # the search result behind each card, so a pick needs one request
 _cache: "OrderedDict[tuple, tuple[float, list[dict]]]" = OrderedDict()
 _cache_lock = threading.Lock()
 _resolves: dict = {}
@@ -39,6 +40,7 @@ _guest_day = {"day": None, "count": 0}
 def clear() -> None:
     with _cache_lock:
         _cache.clear()
+        _docs.clear()
     with _resolves_lock:
         _resolves.clear()
         _guest_day.update(day=None, count=0)
@@ -98,6 +100,12 @@ def _live(book: str | None, author: str | None) -> list[dict]:
     docs = data.get("docs") if isinstance(data, dict) else None
     cards = [card for doc in docs or [] if isinstance(doc, dict) and (card := _passes_gate(doc))]
     with _cache_lock:
+        for doc in docs or []:
+            if isinstance(doc, dict) and clean.work_key(doc.get("key")):
+                _docs[doc["key"]] = doc
+                _docs.move_to_end(doc["key"])
+        while len(_docs) > 4 * CACHE_LIMIT:
+            _docs.popitem(last=False)
         _cache[key] = (now, cards)
         while len(_cache) > CACHE_LIMIT:
             _cache.popitem(last=False)
@@ -163,7 +171,9 @@ def resolve_key(db: Session, user_id, work_key: str, client_ip: str | None = Non
         if not _allow_guest_today():
             raise HTTPException(429, detail={"code": "resolve_ceiling"})
     try:
-        work = catalogue_resolver.work_by_key(db, key, timeout=SEARCH_TIMEOUT)
+        with _cache_lock:
+            doc = _docs.get(key)
+        work = catalogue_resolver.work_by_key(db, key, timeout=SEARCH_TIMEOUT, doc=doc)
     except OpenLibraryUnavailable:
         raise HTTPException(503, detail={"code": "try_again"}) from None
     if work is None:

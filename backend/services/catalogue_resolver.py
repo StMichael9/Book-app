@@ -245,24 +245,15 @@ def _by_search(db: Session, title: str, author: str) -> Resolution:
     return Resolution(work=work, ol_description=description, confidence="title_author")
 
 
-def work_by_key(db: Session, key: str, timeout: float | None = None) -> dict | None:
-    """One work by its Open Library key: its search result (cover, year, pages, activity counts) plus the work record
-    (description). None when Open Library does not know it."""
+def work_from_doc(doc: dict, record: dict | None) -> dict:
+    """The work a search result describes, with the work record's description when we have it."""
     from data.popularity import popularity_score
-    data = ol_get("/search.json", {"q": f"key:{key}", "limit": 1, "fields":
-                                   "key,title,author_name,author_key,first_publish_year,cover_i,number_of_pages_median,"
-                                   "isbn,subject,readinglog_count,ratings_count"}, timeout=timeout)
-    docs = [doc for doc in (data or {}).get("docs", []) if isinstance(doc, dict) and doc.get("key") == key]
-    if not docs:
-        return None
-    doc = docs[0]
-    record = ol_get(f"{key}.json", timeout=timeout) or {}
     isbns = [valid for value in (doc.get("isbn") or [])[:40] if (valid := clean.isbn13(value))][:5]
 
     def count(value):
         return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
-    return {"source_id": key, "title": clean._text(doc.get("title")),
+    return {"source_id": doc["key"], "title": clean._text(doc.get("title")),
             "authors": [name for name in doc.get("author_name") or [] if isinstance(name, str)],
             "author_keys": [k for k in doc.get("author_key") or [] if isinstance(k, str)],
             "description": _work_description(record), "cover_image_url": clean.cover_url(doc.get("cover_i")),
@@ -270,6 +261,27 @@ def work_by_key(db: Session, key: str, timeout: float | None = None) -> dict | N
             "page_count": clean.page_count(doc.get("number_of_pages_median")), "isbns": isbns, "edition_key": None,
             "subjects": [s for s in doc.get("subject") or [] if isinstance(s, str)][:100],
             "popularity": round(popularity_score(count(doc.get("readinglog_count")), count(doc.get("ratings_count"))), 4)}
+
+
+def search_doc(key: str, timeout: float | None = None) -> dict | None:
+    data = ol_get("/search.json", {"q": f"key:{key}", "limit": 1, "fields":
+                                   "key,title,author_name,author_key,first_publish_year,cover_i,number_of_pages_median,"
+                                   "isbn,subject,readinglog_count,ratings_count"}, timeout=timeout)
+    return next((doc for doc in (data or {}).get("docs", []) if isinstance(doc, dict) and doc.get("key") == key), None)
+
+
+def work_by_key(db: Session, key: str, timeout: float | None = None, doc: dict | None = None) -> dict | None:
+    """One work by its Open Library key. With the search result already in hand (the combined search keeps them) this is a
+    single request for the description; without it, one search first. None when Open Library does not know the work.
+    The description is optional: if its request fails the book is still stored and Google fills the text live."""
+    doc = doc or search_doc(key, timeout)
+    if doc is None:
+        return None
+    try:
+        record = ol_get(f"{key}.json", timeout=timeout)
+    except OpenLibraryUnavailable:
+        record = None
+    return work_from_doc(doc, record)
 
 
 def _google_tier(db: Session, title: str, author: str) -> Resolution:
