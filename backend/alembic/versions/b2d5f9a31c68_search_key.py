@@ -6,12 +6,12 @@ It is IMMUTABLE so it can fill generated, indexed columns on books and book_titl
 the stored titles and the reader's words are always normalised by the same code.
 
 Revision ID: b2d5f9a31c68
-Revises: d2b7c4e9f1a3
+Revises: e4a9c6d1b835
 """
 from alembic import op
 
 revision = 'b2d5f9a31c68'
-down_revision = 'd2b7c4e9f1a3'
+down_revision = 'e4a9c6d1b835'
 branch_labels = None
 depends_on = None
 
