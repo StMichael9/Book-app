@@ -232,7 +232,7 @@ export default function LibraryPage() {
             </div>
           </> : filtered || state.shelf !== "all"
             ? <div className="bv-library-empty"><p>No books match these filters</p>{filtered ? <Button variant="secondary" onClick={clearAll}>Clear all</Button> : <Button variant="secondary" onClick={() => apply({ ...state, shelf: "all" })}>Show all books</Button>}</div>
-            : <EmptyState icon={BookOpen} title="Give your books a home." action={<ActionLink to="/browse">Discover books</ActionLink>}>Mark a book Want to read or Owned to keep it here.</EmptyState>}
+            : <EmptyState icon={BookOpen} title="No books here yet." action={<ActionLink to="/browse">Discover books</ActionLink>}>Mark a book Want to read or Owned to keep it here.</EmptyState>}
       </div>
     </div>
     {library.readingActions && !library.readOnly && <p className="bv-library-tools"><TextLink to="/my-books/private">Add a book</TextLink></p>}

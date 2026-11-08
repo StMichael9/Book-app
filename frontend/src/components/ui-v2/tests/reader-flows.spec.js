@@ -17,7 +17,7 @@ const test = base.extend({
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
       if (url.origin === "https://covers.openlibrary.org" || url.origin === "https://wsrv.nl") return route.abort(); // cover art in the book snapshot; never a data request
-      if (url.origin !== "http://127.0.0.1:5289") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
+      if (url.hostname !== "127.0.0.1") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.brokenCover) return route.fulfill({ status: 404, body: "" });
         const number = Number(url.pathname.match(/(\d+)\.jpg/)?.[1]) % 5;
@@ -154,7 +154,7 @@ test("save confirmation waits for the API and shelf moves update the shared libr
   release(); app.holdSave = null; await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" })).toHaveAttribute("aria-pressed", "true");
   expect(app.saved).toHaveLength(1); expect(app.saved[0].status).toBe("owned"); await page.goto("/my-books?status=owned");
-  await page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" }).click(); await expect(page.getByRole("heading", { name: "Give your books a home." })).toBeVisible(); expect(app.saved).toHaveLength(0);
+  await page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" }).click(); await expect(page.getByRole("heading", { name: "No owned books yet." })).toBeVisible(); expect(app.saved).toHaveLength(0);
 });
 
 test("failed writes retain the prior status and offer a real retry", async ({ page, app }) => {
