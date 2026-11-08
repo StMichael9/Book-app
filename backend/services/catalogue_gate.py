@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from data import clean
+from data import clean, cleaner
 from data.staging import DERIVATIVE_PATTERN
 from database import settings
 from models import Author, Book, CatalogueImportIssue, Edition, EditionISBN, Tag, TagType, book_authors, book_tags
@@ -86,8 +86,8 @@ def vet(db: Session, work: dict):
     key = clean.work_key(work.get("source_id"))
     if not key:
         return Rejected("not_open_library")
-    title = clean._text(work.get("title"))
-    authors = unique_authors(work.get("authors") or [])
+    authors = cleaner.clean_authors(unique_authors(work.get("authors") or []), work.get("author_support"))
+    title = cleaner.clean_title(clean._text(work.get("title")), authors, work.get("edition_titles"))
     if duplicate := _existing(db, {**work, "source_id": key}, authors):
         return Duplicate(duplicate)
     if not title or _PLACEHOLDER.match(title) or re.fullmatch(r"[0-9Xx\- ]{9,17}", title):
@@ -96,7 +96,7 @@ def vet(db: Session, work: dict):
         return Rejected("no_author")
     if any(_PLACEHOLDER.match(name) for name in authors):
         return Rejected("bad_author")
-    if _DERIVATIVE.search(title):
+    if _DERIVATIVE.search(title) or cleaner.is_derivative(title):
         return Rejected("derivative")
     if not work.get("cover_image_url"):
         return Rejected("no_cover")
@@ -104,10 +104,14 @@ def vet(db: Session, work: dict):
         return Rejected("no_year")
     if not work.get("page_count"):
         return Rejected("no_pages")
+    description = cleaner.clean_description(work.get("description"))
+    score = cleaner.quality_score(title=title, authors=authors, description=description, cover=work.get("cover_image_url"),
+                                  pages=work.get("page_count"), year=work.get("published_year"), popularity=work.get("popularity"))
+    if score < cleaner.LISTING_THRESHOLD:
+        return Rejected("low_quality")
     if promoted_today(db) >= settings.catalogue_promote_daily_cap or not _capacity(db):
         return Deferred("daily_cap" if promoted_today(db) >= settings.catalogue_promote_daily_cap else "capacity")
-    return Accepted({**work, "source_id": key, "title": title, "authors": authors,
-                     "description": clean.description(work.get("description"))})
+    return Accepted({**work, "source_id": key, "title": title, "authors": authors, "description": description})
 
 
 def log_rejection(db: Session, work: dict, reason: str) -> None:

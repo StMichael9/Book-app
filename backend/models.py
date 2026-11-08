@@ -116,7 +116,8 @@ class EmailSignup(Base):
 # Blank means missing: trim spaces, tabs and line breaks (btrim alone strips only spaces).
 _BLANK_CHARS = "chr(32) || chr(9) || chr(13) || chr(10)"
 _LISTED_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' "
-               "AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
+               "AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL "
+               "AND (quality_score IS NULL OR quality_score >= 60)")
 _HAS_DESCRIPTION_SQL = f"description IS NOT NULL AND btrim(description, {_BLANK_CHARS}) <> ''"
 IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' AND description IS NOT NULL "
                    f"AND btrim(description, {_BLANK_CHARS}) <> '' AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
@@ -149,6 +150,8 @@ class Book(Base):
     has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=False)
     # Open Library reading-log and ratings activity (see data/popularity.py); NULL until the importer has a score.
     popularity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # 0-100 from data.cleaner.quality_score; below 60 the book is unlisted (never deleted). NULL = not scored yet.
+    quality_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     added_via: Mapped[str | None] = mapped_column(String(20))
     added_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
