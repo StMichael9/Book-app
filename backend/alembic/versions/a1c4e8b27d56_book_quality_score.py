@@ -3,13 +3,13 @@
 `is_listed` is a generated column, so its expression is replaced by dropping and re-adding it (and its covering index).
 
 Revision ID: a1c4e8b27d56
-Revises: d2b7c4e9f1a3
+Revises: b2d5f9a31c68
 """
 import sqlalchemy as sa
 from alembic import op
 
 revision = 'a1c4e8b27d56'
-down_revision = 'd2b7c4e9f1a3'
+down_revision = 'b2d5f9a31c68'
 branch_labels = None
 depends_on = None
 
