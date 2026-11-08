@@ -188,15 +188,15 @@ test("author search, AND filters, hidden owned books, history and pagination use
 });
 
 test("preference-load failures cannot overwrite data; saved tag IDs preserve existing notes", async ({ page, app }) => {
-  app.authenticated = true; app.preferenceFailures = 1; await page.goto("/preferences"); await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible(); await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
+  app.authenticated = true; app.preferenceFailures = 1; await page.goto("/preferences"); await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible(); await expect(page.getByRole("button", { name: "Save genres" })).toHaveCount(0);
   expect(app.requests.filter((request) => request.path === "/me/preferences" && request.method === "POST")).toHaveLength(0);
   await page.getByRole("button", { name: "Try again" }).click(); await expect(page.getByLabel("Mystery & crime", { exact: true })).toBeChecked(); await page.getByLabel("Romance", { exact: true }).check();
-  app.mutationFails = true; await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page.getByRole("alert")).toContainText("choices are still here"); await expect(page.getByLabel("Romance", { exact: true })).toBeChecked();
-  app.mutationFails = false; await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/); expect(app.preferences.map((item) => item.tag_id)).toContain(4); expect(app.preferences[0].source_text).toBe("Preserve this note");
+  app.mutationFails = true; await page.getByRole("button", { name: "Save genres" }).click(); await expect(page.getByRole("alert")).toContainText("choices are still here"); await expect(page.getByLabel("Romance", { exact: true })).toBeChecked();
+  app.mutationFails = false; await page.getByRole("button", { name: "Save genres" }).click(); await expect(page).toHaveURL(/\/browse$/); expect(app.preferences.map((item) => item.tag_id)).toContain(4); expect(app.preferences[0].source_text).toBe("Preserve this note");
 });
 
 test("malformed preferences are a load failure rather than writable empty choices", async ({ page, app }) => {
-  app.authenticated = true; app.malformedPreferences = true; await page.goto("/preferences"); await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0); await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
+  app.authenticated = true; app.malformedPreferences = true; await page.goto("/preferences"); await expect(page.getByRole("button", { name: "Save genres" })).toHaveCount(0); await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
 });
 
 test("recovery remains neutral, accepts a fragment token, and handles expired links", async ({ page, app }) => {
@@ -268,7 +268,7 @@ test("visual review exports the implemented desktop and mobile screens", async (
         await expect(page.getByText("Checking account…", { exact: true })).toHaveCount(0);
         if (name === "book") await expect(page.locator("#bv-book-title")).toBeVisible();
         if (name === "library") await expect(page.locator(".bv-book-card")).toHaveCount(1);
-        if (name === "preferences") await expect(page.getByRole("button", { name: "Save preferences" })).toBeVisible();
+        if (name === "preferences") await expect(page.getByRole("button", { name: "Save genres" })).toBeVisible();
         await page.evaluate(() => document.fonts.ready);
         await page.locator(".bv-cover img").evaluateAll((images) => Promise.all(images.map((img) => img.decode().catch(() => {}))));
         await page.screenshot({ path: new URL(`${width}-${theme}-${name}.png`, directory).pathname, fullPage: true });
@@ -491,7 +491,7 @@ test("a guest whose search finds nothing is told a free account can add any book
   await expect(panel).toContainText("Can’t find it here? With a free account you can add any book to your library yourself.");
   await expect(panel.getByRole("link", { name: "Create free account" })).toHaveAttribute("href", `/register?src=noresults&returnTo=${encodeURIComponent("/browse?book=Project+Hail+Mary")}`);
   await expect(panel.getByRole("link", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByText("Try a shorter title, search by author, or remove a subject filter.")).toBeVisible();
+  await expect(page.getByText("Try a shorter title, search by author, or remove a genre filter.")).toBeVisible();
   await expect(page.getByText(/look further/i)).toHaveCount(0);
   app.authenticated = true;
   await page.goto("/browse?book=Project+Hail+Mary"); await expect(page.getByRole("heading", { name: "No books found." })).toBeVisible();

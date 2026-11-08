@@ -36,11 +36,11 @@ const test = base.extend({
 const ALL_LABELS = GENRES.map(genre => genre.label);
 const SLUGS = /science_fiction|mystery_crime|historical_fiction|literary_fiction|young_adult|short_stories|graphic_novels|biography_memoir|science_nature|business_money|self_help|philosophy_religion|christian_faith|politics_society|food_cooking|art_music|some_unknown_slug/;
 
-test("Discover's chip row is the 28 genres plus All subjects, as one radio group, and a raw key never shows", async ({ page, app }) => {
+test("Discover's chip row is the 28 genres plus All genres, as one radio group, and a raw key never shows", async ({ page, app }) => {
   await page.goto("/browse");
-  const row = page.getByRole("radiogroup", { name: "Browse subjects" });
+  const row = page.getByRole("radiogroup", { name: "Browse genres" });
   await expect(row.getByRole("radio")).toHaveCount(29);
-  await expect(row.getByRole("radio", { name: "All subjects" })).toBeChecked();
+  await expect(row.getByRole("radio", { name: "All genres" })).toBeChecked();
   for (const label of ALL_LABELS) await expect(row.getByRole("radio", { name: label, exact: true })).toBeAttached();
   expect(await page.locator("body").innerText()).not.toMatch(SLUGS);
   expect(app.genreRequests).toBe(1);
@@ -48,7 +48,7 @@ test("Discover's chip row is the 28 genres plus All subjects, as one radio group
 
 test("the chip row works from the keyboard: arrows choose, and the choice is the tag in the address", async ({ page, app: _app }) => {
   await page.goto("/browse");
-  await page.getByRole("radio", { name: "All subjects" }).focus();
+  await page.getByRole("radio", { name: "All genres" }).focus();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("radio", { name: "Fantasy", exact: true })).toBeChecked();
   await expect(page).toHaveURL(/\/browse\?tag=fantasy$/);
@@ -56,7 +56,7 @@ test("the chip row works from the keyboard: arrows choose, and the choice is the
   await expect(page.getByRole("radio", { name: "Science fiction", exact: true })).toBeChecked();
   await expect(page).toHaveURL(/tag=science_fiction$/);
   await expect(page.getByRole("heading", { name: "Science fiction", level: 2 })).toBeVisible();
-  await page.getByRole("radio", { name: "All subjects" }).check({ force: true });
+  await page.getByRole("radio", { name: "All genres" }).check({ force: true });
   await expect(page).toHaveURL(/\/browse$/);
 });
 
@@ -105,7 +105,7 @@ test("Favourite genres uses the same grouped picker, and saving sends the genres
   await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
   await page.getByRole("checkbox", { name: "Travel", exact: true }).check({ force: true });
   await page.getByRole("checkbox", { name: "Fantasy", exact: true }).uncheck({ force: true });
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Save genres" }).click();
   await expect.poll(() => app.requests.find(request => request.path === "/me/preferences" && request.method === "POST")?.body?.tag_ids).toEqual([9001, genreId("travel")]);
 });
 
@@ -117,4 +117,71 @@ test("Favourite genres explains itself when the genre list is down, and offers a
   app.genresFail = false;
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
+});
+
+test("the chip row is one line at every width, scrolls sideways, and fades the edge that has more", async ({ page, app: _app }) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/browse");
+    const row = page.getByRole("radiogroup", { name: "Browse genres" });
+    await expect(row.getByRole("radio")).toHaveCount(29);
+    const box = await row.boundingBox(), pill = await row.locator(".bv-genre-pill").first().boundingBox();
+    expect(box.height).toBeLessThan(pill.height + 24);
+    const sizes = await row.evaluate(node => ({ scroll: node.scrollWidth, client: node.clientWidth }));
+    expect(sizes.scroll).toBeGreaterThan(sizes.client);
+    await expect(row).toHaveCSS("overflow-x", "auto");
+    expect(await row.evaluate(node => node.style.getPropertyValue("--bv-fade-end"))).toBe("32px");
+    expect(await row.evaluate(node => node.style.getPropertyValue("--bv-fade-start"))).toBe("0px");
+    await row.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+    await expect.poll(() => row.evaluate(node => node.style.getPropertyValue("--bv-fade-start"))).toBe("32px");
+    await expect.poll(() => row.evaluate(node => node.style.getPropertyValue("--bv-fade-end"))).toBe("0px");
+  }
+});
+
+test("a chosen genre far along the row is scrolled into view", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/browse?tag=food_cooking");
+  const pill = page.getByRole("radio", { name: "Food & cooking", exact: true });
+  await expect(pill).toBeChecked();
+  const inside = await page.getByRole("radiogroup", { name: "Browse genres" }).evaluate(row => { const checked = row.querySelector("input:checked").parentElement; return checked.offsetLeft >= row.scrollLeft - 1 && checked.offsetLeft + checked.offsetWidth <= row.scrollLeft + row.clientWidth + 1; });
+  expect(inside).toBe(true);
+});
+
+test("the genre words are the same everywhere: genre, never subject", async ({ page, app }) => {
+  await page.goto("/browse");
+  await expect(page.getByText("Search by title or author, or start with a genre you love.")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "All genres" })).toBeChecked();
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await expect(page.getByRole("dialog").getByText("Genres", { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("dialog")).not.toContainText(/subject/i);
+  await page.keyboard.press("Escape");
+  app.authenticated = true;
+  await page.goto("/preferences");
+  await expect(page.getByRole("heading", { name: "Favourite genres", level: 1 })).toBeVisible();
+  await expect(page.getByText("Books in these genres show first when you browse. Choose as many as you like.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Favourite genres" })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Save genres" })).toBeVisible();
+  expect(await page.locator("main").innerText()).not.toMatch(/subject|discovery|Save preferences/i);
+});
+
+test("Back on Favourite genres goes to the page before it, or to Settings on a direct link", async ({ page, app }) => {
+  app.authenticated = true;
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Choose genres" }).click();
+  await expect(page).toHaveURL(/\/preferences$/);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.goto("/preferences");
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+});
+
+test("when the genre list carries each genre's id, saving uses it and makes no tag lookup", async ({ page, app }) => {
+  app.authenticated = true; app.genresWithIds = true;
+  await page.goto("/preferences");
+  await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Travel", exact: true }).check({ force: true });
+  await page.getByRole("button", { name: "Save genres" }).click();
+  await expect.poll(() => app.requests.find(request => request.path === "/me/preferences" && request.method === "POST")?.body?.tag_ids).toEqual([9001, genreId("fantasy"), genreId("travel")]);
+  expect(app.requests.filter(request => request.path === "/autocomplete/tags/batch")).toHaveLength(0);
 });

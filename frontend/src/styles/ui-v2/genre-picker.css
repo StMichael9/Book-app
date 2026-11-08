@@ -10,3 +10,10 @@
 .bv-root .bv-genre-pill input:focus-visible + span { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
 .bv-root .bv-genre-pill input:disabled + span { opacity: .6; }
 .bv-root .bv-genre-picker.bv-chip-row .bv-genre-pill span { white-space: nowrap; }
+
+/* A one-line row that scrolls sideways at every width, faded at whichever end has more. */
+.bv-root .bv-genre-picker--scroll.bv-chip-row { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: 8px; padding: 4px; margin: 12px -4px; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--bv-fade-start, 0px), #000 calc(100% - var(--bv-fade-end, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--bv-fade-start, 0px), #000 calc(100% - var(--bv-fade-end, 0px)), transparent 100%); }
+.bv-root .bv-genre-picker--scroll.bv-chip-row::-webkit-scrollbar { display: none; }
+.bv-root .bv-genre-picker--scroll .bv-genre-pill { flex: 0 0 auto; }

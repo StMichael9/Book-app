@@ -4,7 +4,7 @@ import { apiRequest } from "./client.js";
 export async function getGenres() {
   const list = await apiRequest("/genres");
   if (!Array.isArray(list) || list.some(item => typeof item?.key !== "string" || typeof item.label !== "string")) throw new Error("Unable to load genres.");
-  return list.map(item => ({ key: item.key, label: item.label, group: item.group === "nonfiction" ? "nonfiction" : "fiction" }));
+  return list.map(item => ({ key: item.key, label: item.label, group: item.group === "nonfiction" ? "nonfiction" : "fiction", ...(Number.isInteger(item.id) ? { id: item.id } : {}) }));
 }
 
 // A genre's key is its tag's name; preferences and the Next Read subject still go by the tag's id.

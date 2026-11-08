@@ -50,9 +50,9 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     expect(blocked.status()).toBe(testInfo.config.metadata.readingTLS ? 409 : 404);
     if (testInfo.config.metadata.readingTLS) expect((await blocked.json()).detail).toContain("independent Own and Want");
     await a.goto(`${origin}/preferences`); await a.getByLabel("Fantasy", { exact: true }).check();
-    await a.getByRole("button", { name: "Save preferences" }).click(); await expect(a).toHaveURL(`${origin}/browse`);
+    await a.getByRole("button", { name: "Save genres" }).click(); await expect(a).toHaveURL(`${origin}/browse`);
     await b.goto(`${origin}/preferences`); await expect(b.getByLabel("Fantasy", { exact: true })).not.toBeChecked();
-    await b.getByLabel("Mystery", { exact: true }).check(); await b.getByRole("button", { name: "Save preferences" }).click();
+    await b.getByLabel("Mystery", { exact: true }).check(); await b.getByRole("button", { name: "Save genres" }).click();
     await expect(b).toHaveURL(`${origin}/browse`);
     await a.goto(`${origin}/preferences`); await expect(a.getByLabel("Fantasy", { exact: true })).toBeChecked();
     await expect(a.getByLabel("Mystery", { exact: true })).not.toBeChecked();
@@ -83,7 +83,7 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     const expired = await first.request.get(`${api}/__test__/expire-access`, { headers: { "X-Bookvane-Test": "local-browser-test-only" } });
     expect(expired.status()).toBe(200);
     // A protected UI write must rotate the refresh cookie and retry once.
-    await a.getByLabel("Fantasy", { exact: true }).uncheck(); await a.getByRole("button", { name: "Save preferences" }).click();
+    await a.getByLabel("Fantasy", { exact: true }).uncheck(); await a.getByRole("button", { name: "Save genres" }).click();
     await expect(a).toHaveURL(`${origin}/browse`);
     expect((await first.cookies(api)).find(c => c.name === "refresh_token").value).not.toBe(refreshBefore);
     const replay = await first.request.post(`${api}/auth/refresh`, { headers: { Origin: origin, Cookie: `refresh_token=${refreshBefore}` } });

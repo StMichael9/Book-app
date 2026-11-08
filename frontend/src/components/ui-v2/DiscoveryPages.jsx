@@ -67,7 +67,7 @@ export function WelcomePage() {
     </section>
     <section className="bv-container bv-section"><SectionHeading title="Open a new chapter" to="/browse">A few books to spark your curiosity.</SectionHeading>
       {books.loading ? <BookSkeletons /> : books.error ? <EmptyState error icon={BookOpen} title="The books are taking a moment." action={<Button onClick={books.retry}>Try again</Button>}>We couldn’t load the catalogue. You can try again or continue to discovery.</EmptyState> : rowBooks.length ? <BookGrid books={rowBooks} preview /> : <EmptyState title="More stories are on their way." action={<ActionLink to="/browse">Explore books</ActionLink>}>Try discovery to see what’s available.</EmptyState>}
-      <nav className="bv-landing-subjects" aria-label="Explore by subject">{subjects.map(subject => <TextLink key={subject} to={`/browse?tag=${subject}`}>{labelFor(subject)}</TextLink>)}</nav>
+      <nav className="bv-landing-subjects" aria-label="Explore by genre">{subjects.map(subject => <TextLink key={subject} to={`/browse?tag=${subject}`}>{labelFor(subject)}</TextLink>)}</nav>
     </section>
     <section className="bv-container bv-section bv-landing-story" aria-label="Your reading life"><SectionHeading title="Make room for your reading life." />
       <div className="bv-landing-benefits"><div><h3>Keep your books together.</h3><p>The books you own, the ones you want, and the stories you’ve already spent time with.</p></div><div><h3>Pick up where you left off.</h3><p>A place for your current books, with optional progress and private notes.</p></div><div><h3>Find your next beginning.</h3><p>Finish a book, then choose what calls to you next. There’s no required rating or journal.</p></div></div>
@@ -82,10 +82,10 @@ function FilterDialog({ onClose, onApply, initial, authenticated }) {
   const [exclude, setExclude] = useState(initial.exclude);
   const [shelf, setShelf] = useState(initial.shelf);
   return <NativeDialog open onClose={onClose} title="Filters" className="bv-filter-dialog">
-    {genres?.length > 0 && <p className="bv-muted" id="bv-filter-help">Choose subjects to narrow your search. Books must match every selected subject.</p>}
+    {genres?.length > 0 && <p className="bv-muted" id="bv-filter-help">Choose genres to narrow your search. Books must match every genre you choose.</p>}
     <form onSubmit={(event) => { event.preventDefault(); onApply({ tags, exclude, shelf }); }}>
-      {genres?.length > 0 && <fieldset aria-describedby="bv-filter-help"><legend>Subjects</legend>
-        <GenrePicker multiple value={tags} onChange={setTags} label="Subjects" />
+      {genres?.length > 0 && <fieldset aria-describedby="bv-filter-help"><legend>Genres</legend>
+        <GenrePicker multiple value={tags} onChange={setTags} label="Genres" />
       </fieldset>}
       {authenticated && <div className="bv-discovery-extras"><label className="bv-checkbox"><input type="checkbox" checked={exclude} onChange={(event) => setExclude(event.target.checked)} /><span>Hide books I own</span></label>
         <label htmlFor="bv-shelf-filter">Search within</label><select id="bv-shelf-filter" value={shelf} onChange={(event) => setShelf(event.target.value)}><option value="">All books</option><option value="want">My Want to read books</option><option value="owned">Books I own</option></select>
@@ -200,16 +200,16 @@ export function BrowsePage() {
     document.getElementById("bv-results-heading")?.scrollIntoView({ block: "start" });
   }
   return <section className="bv-container">
-    <div className="bv-page-heading"><h1 id="bv-main-title">Find your next chapter.</h1><p className="bv-muted">Search by title or author, or start with a subject you love.</p></div>
+    <div className="bv-page-heading"><h1 id="bv-main-title">Find your next chapter.</h1><p className="bv-muted">Search by title or author, or start with a genre you love.</p></div>
     <div className="bv-search-zone"><form className="bv-search-form" onSubmit={applySearch} role="search">
       <label className="bv-sr-only" htmlFor="bv-search-mode">Search by</label><select id="bv-search-mode" value={mode} onChange={(event) => setMode(event.target.value)}><option value="book">Title</option><option value="author">Author</option></select>
       <label className="bv-sr-only" htmlFor="bv-search-query">{mode === "author" ? "Search authors" : "Search book titles"}</label><input id="bv-search-query" type="search" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={mode === "author" ? "Find an author" : "Find a book"} />
       <Button type="submit" aria-label="Search"><Search aria-hidden="true" /><span>Search</span></Button>
     </form><Button variant="secondary" className="bv-filter-trigger" onClick={() => setFilterOpen(true)} aria-haspopup="dialog" aria-label={`Filters${tags.length + Number(exclude) + Number(Boolean(shelf)) ? `, ${tags.length + Number(exclude) + Number(Boolean(shelf))} active` : ""}`}><SlidersHorizontal aria-hidden="true" /><span>Filters</span></Button></div>
-    <GenrePicker compact includeAny anyLabel="All subjects" label="Browse subjects" className="bv-chip-row" value={tags.length === 1 ? tags[0] : ""} onChange={key => update(next => { next.delete("tag"); if (key) next.append("tag", key); })} />
+    <GenrePicker compact scrollRow includeAny anyLabel="All genres" label="Browse genres" className="bv-chip-row" value={tags.length === 1 ? tags[0] : ""} onChange={key => update(next => { next.delete("tag"); if (key) next.append("tag", key); })} />
     {(book || author || query || tags.length || exclude || shelf) ? <div className="bv-applied-filters" aria-label="Applied filters">
       {query && <span>Search: {query}</span>}{book && <span>Title: {book}</span>}{author && <span>Author: {author}</span>}{tags.map((slug) => labelFor(slug) && <span key={slug}>{labelFor(slug)}</span>)}
-      {tags.length > 1 && <span>Match all subjects</span>}{exclude && <span>Books you own hidden</span>}{shelf && <span>{shelf === "owned" ? "Owned" : "Want to read"} only</span>}
+      {tags.length > 1 && <span>Match all genres</span>}{exclude && <span>Books you own hidden</span>}{shelf && <span>{shelf === "owned" ? "Owned" : "Want to read"} only</span>}
       <Button variant="quiet" onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button>
     </div> : null}
     {library.mode === "v3" && <p className="bv-sr-only">Want to read and Owned are separate. Changing one keeps the other.</p>}
@@ -221,7 +221,7 @@ export function BrowsePage() {
       {(!merging || pages > 1) && <div className="bv-pagination">{!merging && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()}{(book || author || tags.length) ? ` of ${total.toLocaleString()}` : ""}</span>}
         {pages > 1 && <nav aria-label="Results pages"><Button variant="secondary" disabled={page <= 1} onClick={() => movePage(page - 1)}><ArrowLeft aria-hidden="true" /><span>Previous</span></Button><span aria-current="page">Page {page} of {pages.toLocaleString()}</span><Button variant="secondary" disabled={page >= pages} onClick={() => movePage(page + 1)}><span>Next</span><ArrowRight aria-hidden="true" /></Button></nav>}
       </div>}
-    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : morePending ? <p role="status" className="bv-help">Searching…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a subject filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}{!auth.isAuthenticated && Boolean(book.trim() || author.trim()) && <GuestNoResults search={params.toString()} />}</EmptyState>}
+    </> : page > 1 && total > 0 ? <EmptyState title="You’ve reached the end of these results." action={<Button onClick={() => movePage(1)}>Back to the first page</Button>}>Your filters may have changed. Start again at page one.</EmptyState> : checkingSearch ? <p role="status" className="bv-help">Finishing your search…</p> : morePending ? <p role="status" className="bv-help">Searching…</p> : incompleteSearch ? <p role="status" className="bv-help">Additional books couldn’t be checked. Retry loading your library above or adjust your search.</p> : <EmptyState title="No books found." action={<><Button onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button><Button variant="secondary" onClick={() => setFilterOpen(true)}>Adjust filters</Button></>}>Try a shorter title, search by author, or remove a genre filter.{canAddMissing && <p>Not in the catalogue? <ManualBookLink title={book} author={author}>Add it to your library yourself</ManualBookLink></p>}{!auth.isAuthenticated && Boolean(book.trim() || author.trim()) && <GuestNoResults search={params.toString()} />}</EmptyState>}
     {merging && visible.length > 0 && canAddMissing && <p className="bv-help">Still missing your book? <ManualBookLink title={book || query} author={author}>Add a book</ManualBookLink></p>}
     {filterOpen && <FilterDialog onClose={() => setFilterOpen(false)} onApply={applyFilters} initial={{ tags, exclude, shelf }} authenticated={auth.isAuthenticated} />}
   </section>;

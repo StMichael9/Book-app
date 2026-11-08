@@ -229,11 +229,11 @@ test("logout waits for a cookie-writing automatic refresh", async ({ page, app }
 
 test("explicit preference clearing and first note preservation survive the new UI", async ({ page, app }) => {
   await page.goto("/preferences"); await expect(page.getByLabel("Fantasy", { exact: true })).toBeChecked();
-  await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/);
+  await page.getByRole("button", { name: "Save genres" }).click(); await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences[0].source_text).toBe("Keep this note");
   expect(app.requests.filter(r => r.path === "/autocomplete/tags")).toHaveLength(0);
   await page.goto("/preferences"); await page.getByLabel("Fantasy", { exact: true }).uncheck();
-  await page.getByRole("button", { name: "Save preferences" }).click(); await expect(page).toHaveURL(/\/browse$/);
+  await page.getByRole("button", { name: "Save genres" }).click(); await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences).toEqual([]);
 });
 

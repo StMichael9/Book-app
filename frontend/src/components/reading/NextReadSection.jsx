@@ -18,7 +18,7 @@ function reasonText(reason) {
     case "catalogue": return "";
     case "owned": return "You marked this as owned.";
     case "interest": return `Matches your choice: ${reason.value}.`;
-    case "preferences": return "Matches your saved discovery subjects.";
+    case "preferences": return "Matches your favourite genres.";
     case "pages": return `About ${reason.value} pages. Your copy may differ.`;
     default: return "";
   }
@@ -198,9 +198,9 @@ export default function NextReadSection({ preview = false, home = false, panel =
       setSettings(current => ({ ...current, owned_only: values.has("owned"), interest_id: String(values.get("interest") || ""), max_pages: String(values.get("pages") || ""), rotation: 0, exclude: [] }));
     }}><fieldset disabled={command.pending}><legend>Your choice for now</legend>
       <label><input type="checkbox" name="owned" defaultChecked={settings.owned_only} /> Only books I own</label>
-      <label htmlFor={`next-interest-${sessionId}`}>Subject (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any supported subject</option>{result.interests.filter(item => genres.labelFor(item.name)).map(item => <option key={item.id} value={item.id}>{genres.labelFor(item.name)}</option>)}</select>
+      <label htmlFor={`next-interest-${sessionId}`}>Genre (optional)</label><select id={`next-interest-${sessionId}`} name="interest" defaultValue={settings.interest_id}><option value="">Any genre</option>{result.interests.filter(item => genres.labelFor(item.name)).map(item => <option key={item.id} value={item.id}>{genres.labelFor(item.name)}</option>)}</select>
       {result.known_page_count > 0 || settings.max_pages ? <><label htmlFor={`next-pages-${sessionId}`}>At most this many pages (optional)</label><input id={`next-pages-${sessionId}`} name="pages" type="number" min="1" max="100000" step="1" placeholder="For example, 300" defaultValue={settings.max_pages} /></> : <p className="bv-help">Page counts aren’t available for these books.</p>}
-      <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or subject; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
+      <p className="bv-help">A page limit only includes books with a known length. Some private books have no length or genre; clear filters to see them.</p><Button type="submit">Update choices</Button><Button variant="quiet" onClick={() => reset()}>Clear filters and start over</Button>
     </fieldset></form></details>}
     {command.error && <p role="alert">{command.error} Your other readings haven’t changed. <Button variant="quiet" disabled={command.pending} onClick={request.retry}>Reload choices</Button></p>}
     {request.loading ? <p role="status">Finding a few choices…</p> : request.error ? <div role="alert"><p>Choices couldn’t load. Your library and any saved finish are unchanged.</p><Button onClick={request.retry}>Try choices again</Button><Button variant="quiet" onClick={() => reset()}>Clear choice filters</Button></div> : <>
