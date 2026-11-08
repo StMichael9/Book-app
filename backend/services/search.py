@@ -1,4 +1,4 @@
-from sqlalchemy import case, select, exists, or_, union
+from sqlalchemy import case, func, select, exists, or_, union
 from sqlalchemy.orm import Session
 from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, UserPreference, book_tags
 
@@ -73,6 +73,17 @@ class SearchService:
             query = query.order_by(None).order_by(
                 *([title_rank] if title_rank is not None else []), preference_match.desc(), Book.id)
 
+        if (book is not None or author is not None) and sort is None:
+            # A typed search puts the exact title first, then the most popular (then the id, so the order is stable).
+            exact = None
+            if book is not None:
+                wanted = " ".join(book.split()).casefold()
+                exact_alias = select(BookTitleAlias.book_id).where(
+                    func.lower(func.regexp_replace(func.btrim(BookTitleAlias.title), r"\s+", " ", "g")) == wanted)
+                exact = case((or_(func.lower(func.regexp_replace(func.btrim(Book.title), r"\s+", " ", "g")) == wanted,
+                                  Book.id.in_(exact_alias)), 0), else_=1)
+            query = query.order_by(None).order_by(*([exact, title_rank] if exact is not None else []),
+                                                  Book.popularity.desc().nulls_last(), Book.id)
         if sort == "popular":
             # An explicit sort wins over the reader's subject order; a text match still ranks closest titles first.
             query = query.order_by(None).order_by(*([title_rank] if title_rank is not None else []),

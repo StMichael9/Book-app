@@ -120,7 +120,7 @@ def promote(db: Session, work: dict) -> int:
     isbns = [isbn for isbn in work.get("isbns") or [] if isbn]
     fields = {"title": work["title"], "description": work.get("description"), "published_year": work["published_year"],
               "cover_image_url": work["cover_image_url"], "page_count": work["page_count"],
-              "isbn13": isbns[0] if isbns else None}
+              "isbn13": isbns[0] if isbns else None, "popularity": work.get("popularity")}
     book = Book(source_id=work["source_id"], added_via=ADDED_VIA, added_at=datetime.now(timezone.utc),
                 source_managed_fields=sum(bit for name, bit in _FIELD_BITS.items() if fields.get(name)), **fields)
     db.add(book)

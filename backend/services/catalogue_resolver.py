@@ -47,11 +47,11 @@ class _TokenBucket:
 bucket = _TokenBucket(MAX_PER_SECOND)
 
 
-def ol_get(path: str, params: dict | None = None) -> dict | None:
+def ol_get(path: str, params: dict | None = None, timeout: float | None = None) -> dict | None:
     """One polite Open Library GET: a Bookvane User-Agent, at most 3 requests a second across the process."""
     bucket.take()
     try:
-        response = requests.get(OPEN_LIBRARY + path, params=params, timeout=TIMEOUT,
+        response = requests.get(OPEN_LIBRARY + path, params=params, timeout=timeout or TIMEOUT,
                                 headers={"User-Agent": settings.catalogue_user_agent})
     except requests.RequestException as exc:
         raise OpenLibraryUnavailable(type(exc).__name__) from None
@@ -243,6 +243,33 @@ def _by_search(db: Session, title: str, author: str) -> Resolution:
             "subjects": [s for s in best.get("subject") or [] if isinstance(s, str)][:100]}
     _fill_from_docs(work, docs, first=best["key"])
     return Resolution(work=work, ol_description=description, confidence="title_author")
+
+
+def work_by_key(db: Session, key: str, timeout: float | None = None) -> dict | None:
+    """One work by its Open Library key: its search result (cover, year, pages, activity counts) plus the work record
+    (description). None when Open Library does not know it."""
+    from data.popularity import popularity_score
+    data = ol_get("/search.json", {"q": f"key:{key}", "limit": 1, "fields":
+                                   "key,title,author_name,author_key,first_publish_year,cover_i,number_of_pages_median,"
+                                   "isbn,subject,readinglog_count,ratings_count"}, timeout=timeout)
+    docs = [doc for doc in (data or {}).get("docs", []) if isinstance(doc, dict) and doc.get("key") == key]
+    if not docs:
+        return None
+    doc = docs[0]
+    record = ol_get(f"{key}.json", timeout=timeout) or {}
+    isbns = [valid for value in (doc.get("isbn") or [])[:40] if (valid := clean.isbn13(value))][:5]
+
+    def count(value):
+        return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+    return {"source_id": key, "title": clean._text(doc.get("title")),
+            "authors": [name for name in doc.get("author_name") or [] if isinstance(name, str)],
+            "author_keys": [k for k in doc.get("author_key") or [] if isinstance(k, str)],
+            "description": _work_description(record), "cover_image_url": clean.cover_url(doc.get("cover_i")),
+            "published_year": clean.year(doc.get("first_publish_year")),
+            "page_count": clean.page_count(doc.get("number_of_pages_median")), "isbns": isbns, "edition_key": None,
+            "subjects": [s for s in doc.get("subject") or [] if isinstance(s, str)][:100],
+            "popularity": round(popularity_score(count(doc.get("readinglog_count")), count(doc.get("ratings_count"))), 4)}
 
 
 def _google_tier(db: Session, title: str, author: str) -> Resolution:

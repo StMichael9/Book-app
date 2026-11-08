@@ -8,9 +8,10 @@ from sqlalchemy.orm import joinedload, Session
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import catalogue_cache, google_books, search
+from services import catalogue_cache, combined_search, google_books, search
 from rate_limit import limiter
-from auth.dependencies import get_current_user_optional
+from auth.dependencies import get_current_user, get_current_user_optional
+from pydantic import BaseModel, ConfigDict
 
 from fastapi_pagination import Page, Params
 
@@ -84,6 +85,27 @@ def get_books(
     if cache_key is not None:
         catalogue_cache.put(cache_key, jsonable_encoder(result), catalogue_cache.LIST_TTL)
     return result
+
+
+@router.get("/books/more")
+@limiter.limit("30/minute")
+def books_more(request: Request, response: Response, db: Session = Depends(get_db), book: str | None = None,
+               author: str | None = None):
+    """Books beyond our own catalogue that match the same search, shaped like book cards (never an error)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return combined_search.more(db, book, author)
+
+
+class ResolveBook(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    work_key: str
+
+
+@router.post("/books/resolve")
+@limiter.limit("30/minute")
+def books_resolve(request: Request, data: ResolveBook, current_user: User = Depends(get_current_user),
+                  db: Session = Depends(get_db)):
+    return {"id": combined_search.resolve_key(db, current_user.id, data.work_key)}
 
 
 @router.get("/books/{book_id}/description")
