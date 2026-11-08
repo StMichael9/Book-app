@@ -10,7 +10,7 @@ const test = base.extend({
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url());
       if (url.origin === "https://covers.openlibrary.org") return route.abort(); // cover art in the book snapshot; never a data request
-      if (url.origin !== "http://127.0.0.1:5189") {
+      if (url.hostname !== "127.0.0.1") {
         app.errors.push(`Unexpected external request: ${url.origin}`); return route.abort();
       }
       if (!url.pathname.startsWith("/test-api/")) return route.continue();
@@ -212,7 +212,7 @@ test("logout waits for a cookie-writing automatic refresh", async ({ page, app }
   app.cookies = true; app.expireNext = true;
   let release; app.holdRefresh = new Promise(resolve => { release = resolve; });
   // A preferences read returns 401 and starts the real API client's refresh.
-  await page.getByRole("link", { name: /Choose subjects/ }).click();
+  await page.getByRole("link", { name: /Choose genres/ }).click();
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).waitFor();
   await page.getByRole("link", { name: "Your profile", exact: true }).click();
