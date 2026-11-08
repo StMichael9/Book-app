@@ -67,10 +67,14 @@ def test_a_readers_shelf_name_counts_as_a_genre_for_that_reader():
 
 # --- the database --------------------------------------------------------------------------------------------------------
 
-def test_the_endpoint_serves_the_same_list(client):
+def test_the_endpoint_serves_the_same_list_with_each_genres_tag_id(client, db_session, app_modules):
+    models = app_modules["models"]
     r = client.get("/genres")
     assert r.status_code == 200 and "max-age" in r.headers["cache-control"]
-    assert r.json() == [{"key": k, "label": label, "group": g} for k, label, g in taxonomy.GENRES]
+    items = r.json()
+    assert [(i["key"], i["label"], i["group"]) for i in items] == [(k, label, g) for k, label, g in taxonomy.GENRES]
+    rows = dict(db_session.execute(select(models.Tag.id, models.Tag.name).where(models.Tag.type == models.TagType.genre)).all())
+    assert all(rows[i["id"]] == i["key"] for i in items) and len({i["id"] for i in items}) == 28      # ids are the tags rows
 
 
 def test_all_28_genre_tags_exist_and_are_shown(db_session, app_modules):
