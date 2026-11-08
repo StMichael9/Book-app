@@ -72,7 +72,7 @@ export function ReadingProgress({ attempt, children, statusRef, readOnly }) {
   return <section className="bv-workspace-progress" aria-label="My reading">
     <div className="bv-workspace-progress-heading"><h2>My reading</h2><h3 ref={statusRef} tabIndex={-1} className="bv-reading-state-pill">{label}</h3></div>
     {readOnly && <p role="status" className="bv-notice">Your reading is available to read. Changes are temporarily paused.</p>}
-    <div className="bv-workspace-progress-value"><p>{terminal && value != null ? `Last recorded: ${text}` : text}</p>{validProgress && attempt.progress_unit !== "percent" && <strong>{Math.round(value / maximum * 100)}%</strong>}</div>
+    {attempt && <div className="bv-workspace-progress-value"><p>{terminal && value != null ? `Last recorded: ${text}` : text}</p>{validProgress && attempt.progress_unit !== "percent" && <strong>{Math.round(value / maximum * 100)}%</strong>}</div>}
     {validProgress && <progress value={value} max={maximum} aria-label="Reading progress" aria-valuetext={text} />}
     {children}
     {attempt && <p className="bv-workspace-dates">{attempt.started_on ? `Started ${attempt.started_on}` : "Start date unknown"}{attempt.ended_on ? ` · Ended ${attempt.ended_on}` : ""}</p>}

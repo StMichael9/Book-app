@@ -229,7 +229,7 @@ test("with nothing finished the year is one calm line, never zeros", async ({ pa
   app.stats = { year: 2026, books_finished: 0, pages_read: 0, median_days: null, biggest_month: null, by_month: new Array(12).fill(0), top_genres: [] };
   await page.goto("/home");
   const glance = page.getByRole("region", { name: "Your 2026 so far" });
-  await expect(glance.getByText("When you finish a book, your year starts filling in here.")).toBeVisible();
+  await expect(glance.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
   await expect(glance.getByRole("link", { name: "Import your history" })).toBeVisible();
   await expect(glance.locator("dl")).toHaveCount(0);
 });
@@ -398,4 +398,28 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`sh
   await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
   await settle();
   await page.screenshot({ path: `../.bv-shots/home-polish/discover-head-${width}-${theme}.png`, clip: { x: 0, y: 0, width, height: 700 } });
+});
+
+test("Back on a book page returns to the page before it, and a direct link falls back to Discover", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  await page.getByRole("link", { name: "Piranesi", exact: true }).click();
+  await page.getByRole("link", { name: "Full book details" }).click();
+  await expect(page).toHaveURL(/\/book\/\d+/);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/\d+$/);
+  await page.getByRole("link", { name: /Home/ }).first().click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto("/book/1");
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/browse$/);
+});
+
+test("Back on a book page returns to Discover, and the shelf note is said once, out of sight", async ({ page, app: _app }) => {
+  await page.goto("/browse");
+  await expect(page.locator("article.bv-book-card").first()).toBeVisible();
+  await expect(page.getByText("Want to read and Owned are separate. Changing one keeps the other.")).toHaveCount(1);
+  await page.getByRole("link", { name: /^View / }).first().click();
+  await expect(page.getByText("Open an existing reading, or start your first")).toHaveCount(0);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/browse$/);
 });

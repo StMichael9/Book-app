@@ -54,7 +54,7 @@ function ListCover({ book }) {
 function Identity({ person, handle, size, children }) {
   return <header className="bv-profile-head"><Avatar person={person} size={size} />
     <div className="bv-profile-id">{person.display_name ? <h1>{person.display_name}</h1> : handle ? <h1>@{handle}</h1> : <h1 className="bv-sr-only">Your profile</h1>}
-      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}reading since {person.reading_since}</p>
+      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}Reading since {person.reading_since}</p>
       {person.bio && <p className="bv-profile-bio">{person.bio}</p>}</div>{children}</header>;
 }
 

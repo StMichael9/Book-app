@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { trackEvent } from "./events.js";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
 import { getBooks, getBookById } from "../../api/books.js";
 import ExtendedCatalogue, { ManualBookLink } from "../reading/ExtendedCatalogue.jsx";
@@ -168,6 +168,7 @@ export function BrowsePage() {
       {tags.length > 1 && <span>Match all subjects</span>}{exclude && <span>Books you own hidden</span>}{shelf && <span>{shelf === "owned" ? "Owned" : "Want to read"} only</span>}
       <Button variant="quiet" onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button>
     </div> : null}
+    {library.mode === "v3" && <p className="bv-sr-only">Want to read and Owned are separate. Changing one keeps the other.</p>}
     <div className="bv-results-heading"><h2 id="bv-results-heading" tabIndex={-1}>{book || author ? "Search results" : tags.length ? tags.map(subjectLabel).join(" + ") : "Books to explore"}</h2><span>{request.loading ? "Loading books…" : request.error || extendedEligible || checkingSearch || incompleteSearch || !(book || author || tags.length) ? "" : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"}`}</span></div>
     {request.loading ? <BookSkeletons count={10} /> : request.error ? <EmptyState title="The books couldn’t load." error action={<Button onClick={request.retry}>Try again</Button>}>{errorText(request.error, "Please try again. Your search and filters are still here.")}</EmptyState> : items.length ? <>
       <BookGrid books={items} />{(!extendedEligible || pages > 1) && <div className="bv-pagination">{!extendedEligible && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()}{(book || author || tags.length) ? ` of ${total.toLocaleString()}` : ""}</span>}
@@ -179,11 +180,15 @@ export function BrowsePage() {
   </section>;
 }
 
+// Books the reader signed in from: their history holds the book twice around the sign-in, so Back uses the link instead.
+const signedInFrom = new Set();
+
 export function BookPage() {
   const { bookId } = useParams();
   const library = useUserBooks();
   const reader = useReader();
   const location = useLocation();
+  const navigate = useNavigate();
   const candidate = safeReturnTo(new URLSearchParams(location.search).get("from") || location.state?.browseFrom, "/browse");
   const browseFrom = candidate.split("?")[0] === "/browse" ? candidate : "/browse";
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`);
@@ -223,9 +228,14 @@ export function BookPage() {
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
   const copyUrl = bookshopAffiliateUrl(book);
   const sharedVisit = new URLSearchParams(location.search).get("src") === "share" && Boolean(book);
+  if (continuingSave) signedInFrom.add(String(bookId));
   useEffect(() => { if (sharedVisit) trackEvent("share_visit", { src: "share" }); }, [sharedVisit, bookId]);
   return <section className="bv-container">
-    <div className="bv-breadcrumb"><TextLink to={browseFrom}><ArrowLeft aria-hidden="true" />Back to discovery</TextLink></div>
+    <div className="bv-breadcrumb"><TextLink to={browseFrom} onClick={event => {
+      // Back means the page the reader came from. A direct link has no in-app history, so it goes to Discover.
+      if (signedInFrom.delete(String(bookId)) || location.key === "default" || event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      event.preventDefault(); navigate(-1);
+    }}><ArrowLeft aria-hidden="true" />Back</TextLink></div>
     {!book && request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /><section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section></div></div> : (request.error && !request.data) || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title" ref={trackArticle}>
       <div className="bv-detail-art"><BookCover book={book} priority size="large" /></div>
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
@@ -240,7 +250,7 @@ export function BookPage() {
         {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">
           {book.published_year != null && <div><dt>Published</dt><dd>{formatYear(book.published_year)}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
         </dl>}
-        {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink><p className="bv-help">Open an existing reading, or start your first. Starting keeps Owned and clears Want to read. A new reread is always your choice.</p></div>}
+        {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink></div>}
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
         {request.data ? <BookAbout key={book.id} book={book} />
           : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}

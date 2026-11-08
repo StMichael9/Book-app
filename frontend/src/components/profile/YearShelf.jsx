@@ -9,7 +9,7 @@ const plural = (count, one, many) => count === 1 ? one : many;
 export function YearFigures({ stats, own = true }) {
   if (!Array.isArray(stats?.by_month)) return null;
   if (!stats.books_finished) return <section className="bv-profile-year" aria-labelledby="bv-figures-heading"><h2 id="bv-figures-heading">{own ? `Your ${stats.year} so far` : `${stats.year} so far`}</h2>
-    <p>{own ? "It starts with your first finished book." : "It starts with their first finished book."}</p></section>;
+    <p>{own ? "Finish a book this year and it’ll show up here." : "Finish a book this year and it’ll show up here."}</p></section>;
   const figures = [[stats.books_finished.toLocaleString("en-US"), own ? plural(stats.books_finished, "book finished", "books finished") : "finished"],
     [stats.pages_read.toLocaleString("en-US"), plural(stats.pages_read, "page", "pages")]];
   if (stats.biggest_month) figures.push([MONTHS[stats.biggest_month - 1].slice(0, 3), "biggest month"]);

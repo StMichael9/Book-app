@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 // Browser fixtures only: every API request is intercepted. Port 5190 serves a build with an affiliate ID, 5189 one without.
-const WITH_ID = "http://127.0.0.1:5190", WITHOUT_ID = "http://127.0.0.1:5189", ISBN = "9780306406157";
+const WITH_ID = process.env.PW_AFFILIATE_URL || "http://127.0.0.1:5190", WITHOUT_ID = process.env.PW_BASE_URL || "http://127.0.0.1:5189", ISBN = "9780306406157";
 const book = (id, isbn13 = ISBN) => ({ id, title: `Copy fixture ${id}`, authors: [{ id: 1, name: "Fixture Author" }], tags: [], isbn13,
   description: "A fixture.", published_year: 2001, page_count: 200, cover_image_url: null, english_title: null });
 const entry = (id, flags) => ({ id, book_id: id, book: book(id), is_owned: false, is_wanted: false, version: 1, reading_state: null,

@@ -73,7 +73,7 @@ test('outage keeps Neon results and manual fallback', async ({ page, app }) => {
   await page.goto('/browse?book=missing');
   await expect(page.getByRole('heading', { name: 'Existing Neon choice' })).toBeVisible();
   await expect(page.getByText('More books are temporarily unavailable.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add a private book' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add a book' })).toBeVisible();
 });
 
 test('off feature makes no catalogue requests', async ({ page, app }) => {
@@ -129,7 +129,7 @@ test('both sources empty has one honest final empty state', async ({ page, app }
   app.localItems = []; app.items = [];
   await page.goto('/browse?book=missing');
   await expect(page.getByRole('heading', { name: 'No books found.' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Add a private book' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Add a book' })).toBeVisible();
 });
 
 test('failed A selection cannot leak its error into B confirmation', async ({ page, app }) => {
@@ -153,13 +153,13 @@ test('failed A selection cannot leak its error into B confirmation', async ({ pa
 
 test('manual fallback keeps bibliographic input and distinguishes CSV import', async ({ page, app }) => {
   await page.goto('/browse?book=My%20missing%20title&author=Someone');
-  await page.getByRole('link', { name: 'Add a private book' }).click();
-  await expect(page.getByRole('heading', { name: 'Add one book manually' })).toBeVisible();
+  await page.getByRole('link', { name: 'Add a book' }).click();
+  await expect(page.getByRole('heading', { name: 'Add a book' })).toBeVisible();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My missing title');
   await expect(page.getByLabel('Author (optional)')).toHaveValue('Someone');
   await expect(page.getByRole('link', { name: 'Back to search' })).toHaveAttribute('href', '/browse?book=My%20missing%20title&author=Someone');
   expect(await page.evaluate(() => JSON.stringify(history.state))).not.toContain('My missing title');
-  await page.getByRole('link', { name: 'Bring your library', exact: true }).click();
+  await page.getByRole('link', { name: 'Import from Goodreads or StoryGraph', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Import from Goodreads or StoryGraph' })).toBeVisible();
   await expect(page.locator('#import-file')).toHaveAttribute('accept', '.csv,.tsv,text/csv,text/tab-separated-values');
   await page.locator('#import-file').setInputFiles({ name: 'library.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('not an accepted CSV') });
@@ -169,7 +169,7 @@ test('manual fallback keeps bibliographic input and distinguishes CSV import', a
 
 test('prefill is document-only and cannot survive an account switch', async ({ page, app }) => {
   await page.goto('/browse?book=Private%20query&author=Reader');
-  await page.getByRole('link', { name: 'Add a private book' }).click();
+  await page.getByRole('link', { name: 'Add a book' }).click();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('Private query');
   const oldState = await page.evaluate(() => history.state);
   app.authenticated = false;
@@ -199,7 +199,7 @@ test('selected private cover survives the integrated workspace, library and Next
 
 test('document reload drops the optional manual prefill without persisting a private draft', async ({ page, app: _app }) => {
   await page.goto('/browse?book=An%20unsaved%20title');
-  await page.getByRole('link', { name: 'Add a private book' }).click();
+  await page.getByRole('link', { name: 'Add a book' }).click();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('An unsaved title');
   expect(await page.evaluate(() => JSON.stringify([localStorage,sessionStorage]))).not.toContain('An unsaved title');
   await page.reload();
@@ -238,7 +238,7 @@ test('with the extended catalogue off, an empty search offers a prefilled privat
   await page.goto('/browse?book=My%20missing%20title');
   await expect(page.getByRole('heading', { name: 'No books found.', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Add it to your library yourself', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Add one book manually' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Add a book' })).toBeVisible();
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue('My missing title');
   await expect(page.getByRole('link', { name: 'Back to search' })).toHaveAttribute('href', '/browse?book=My%20missing%20title');
   expect(app.requests.filter(x => x.path === '/me/catalogue/search')).toHaveLength(0);

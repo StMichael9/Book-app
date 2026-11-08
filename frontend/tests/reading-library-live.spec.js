@@ -154,7 +154,7 @@ test("M2 private missing book and historical dates stay private and optional", a
   await submitReadingRegistration(page);
   await page.getByLabel("Title", { exact: true }).fill("読書の家");
   await page.getByLabel("Author (optional)", { exact: true }).fill("Private test author");
-  await page.getByRole("button", { name: "Add private book", exact: true }).click();
+  await page.getByRole("button", { name: "Add a book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "読書の家", exact: true })).toBeVisible();
   await openReadingSection(page, "Manage this book");
   await page.getByRole("button", { name: "Log an earlier read I finished", exact: true }).click();
@@ -180,7 +180,7 @@ test("M2 private missing book and historical dates stay private and optional", a
   await expect(page.getByLabel("Started on (optional)", { exact: true })).toHaveCount(0);
   await page.goto("/my-books/private");
   await page.getByLabel("Title", { exact: true }).fill("読書の家");
-  await page.getByRole("button", { name: "Add private book", exact: true }).click();
+  await page.getByRole("button", { name: "Add a book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "A title like this is already in your library.", exact: true })).toBeVisible();
   expect((await (await page.request.get(`${api}/me/library`)).json()).total).toBe(2);
   const other = await browser.newContext();
@@ -223,7 +223,7 @@ test("M3 real private context persists, stays separate across rereads and is own
   await registerReadingAccount(page, "m3-context@example.com", "/my-books/start/1");
   await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
   await openReadingSection(page, "My note");
-  await page.getByRole("button", { name: "Add save reason (optional)", exact: true }).click();
+  await page.getByRole("button", { name: "Why did you save it?", exact: true }).click();
   await page.getByLabel("Save reason (optional)", { exact: true }).fill("A trusted recommendation");
   await page.getByRole("button", { name: "Save reason", exact: true }).click();
   await expect(page.getByText("A trusted recommendation", { exact: true })).toBeVisible();
@@ -331,7 +331,7 @@ test("M4 real finish keeps success through suggestion failure, starts private Wa
   const api = "http://127.0.0.1:8005";
   await registerReadingAccount(page, "m4-reader@example.com", "/my-books/private");
   await page.getByLabel("Title", { exact: true }).fill("M4 first private reading");
-  await page.getByRole("button", { name: "Add private book", exact: true }).click();
+  await page.getByRole("button", { name: "Add a book", exact: true }).click();
   await expect(page.getByRole("heading", { name: "M4 first private reading", exact: true })).toBeVisible();
   const firstEntry = (await (await page.request.get(`${api}/me/library`)).json()).items[0];
   const queued = await page.request.post(`${api}/me/library/private`, { data: {
