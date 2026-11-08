@@ -10,7 +10,7 @@ from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
 from services import catalogue_cache, combined_search, google_books, search
 from rate_limit import limiter
-from auth.dependencies import get_current_user, get_current_user_optional
+from auth.dependencies import get_current_user_optional
 from pydantic import BaseModel, ConfigDict
 
 from fastapi_pagination import Page, Params
@@ -103,9 +103,11 @@ class ResolveBook(BaseModel):
 
 @router.post("/books/resolve")
 @limiter.limit("30/minute")
-def books_resolve(request: Request, data: ResolveBook, current_user: User = Depends(get_current_user),
+def books_resolve(request: Request, data: ResolveBook, current_user: User | None = Depends(get_current_user_optional),
                   db: Session = Depends(get_db)):
-    return {"id": combined_search.resolve_key(db, current_user.id, data.work_key)}
+    """Open to signed-out readers too (a sign-in wall on a search result would break "one search")."""
+    ip = request.client.host if request.client else None
+    return {"id": combined_search.resolve_key(db, current_user.id if current_user else None, data.work_key, ip)}
 
 
 @router.get("/books/{book_id}/description")

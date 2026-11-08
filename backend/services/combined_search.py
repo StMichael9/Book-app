@@ -24,6 +24,8 @@ SEARCH_TIMEOUT = 1.5
 CACHE_SECONDS = 24 * 3600
 CACHE_LIMIT = 500
 RESOLVES_PER_HOUR = 20
+GUEST_RESOLVES_PER_HOUR = 10
+GUEST_RESOLVES_PER_DAY = 300
 FIELDS = ("key,title,author_name,author_key,cover_i,first_publish_year,number_of_pages_median,readinglog_count,"
           "ratings_count,subject,isbn,edition_key")
 
@@ -31,6 +33,7 @@ _cache: "OrderedDict[tuple, tuple[float, list[dict]]]" = OrderedDict()
 _cache_lock = threading.Lock()
 _resolves: dict = {}
 _resolves_lock = threading.Lock()
+_guest_day = {"day": None, "count": 0}
 
 
 def clear() -> None:
@@ -38,6 +41,7 @@ def clear() -> None:
         _cache.clear()
     with _resolves_lock:
         _resolves.clear()
+        _guest_day.update(day=None, count=0)
 
 
 def _norm(value: str | None) -> str:
@@ -120,26 +124,44 @@ def more(db: Session, book: str | None, author: str | None) -> list[dict]:
     return result
 
 
-def _allow_resolve(user_id) -> bool:
+def _allow_resolve(who, per_hour: int) -> bool:
     now = time.monotonic()
     with _resolves_lock:
-        recent = [t for t in _resolves.get(user_id, []) if now - t < 3600]
-        allowed = len(recent) < RESOLVES_PER_HOUR
+        recent = [t for t in _resolves.get(who, []) if now - t < 3600]
+        allowed = len(recent) < per_hour
         if allowed:
             recent.append(now)
-        _resolves[user_id] = recent
+        _resolves[who] = recent
         return allowed
 
 
-def resolve_key(db: Session, user_id, work_key: str) -> int:
+def _allow_guest_today() -> bool:
+    """One ceiling across every signed-out reader, per UTC day."""
+    today = time.strftime("%Y-%m-%d", time.gmtime())
+    with _resolves_lock:
+        if _guest_day["day"] != today:
+            _guest_day.update(day=today, count=0)
+        if _guest_day["count"] >= GUEST_RESOLVES_PER_DAY:
+            return False
+        _guest_day["count"] += 1
+        return True
+
+
+def resolve_key(db: Session, user_id, work_key: str, client_ip: str | None = None) -> int:
     """The book id for one Open Library work, storing it first if it passes the gate."""
     key = clean.work_key(work_key)
     if not key:
         raise HTTPException(422, detail={"code": "not_listable"})
     if book_id := catalogue_resolver.book_for_work_key(db, key):
         return book_id
-    if not _allow_resolve(user_id):
-        raise HTTPException(429, detail={"code": "too_many_resolves"})
+    if user_id is not None:
+        if not _allow_resolve(("user", user_id), RESOLVES_PER_HOUR):
+            raise HTTPException(429, detail={"code": "too_many_resolves"})
+    else:
+        if not _allow_resolve(("ip", client_ip or "unknown"), GUEST_RESOLVES_PER_HOUR):
+            raise HTTPException(429, detail={"code": "too_many_resolves"})
+        if not _allow_guest_today():
+            raise HTTPException(429, detail={"code": "resolve_ceiling"})
     try:
         work = catalogue_resolver.work_by_key(db, key, timeout=SEARCH_TIMEOUT)
     except OpenLibraryUnavailable:

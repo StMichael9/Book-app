@@ -51,10 +51,13 @@ def me(app_modules, db_session, client):
     user = models.User(email=f"cs-{uuid.uuid4().hex[:8]}@example.test", hashed_password="x")
     db_session.add(user)
     db_session.commit()
+    from auth.dependencies import get_current_user_optional
     app_modules["main"].app.dependency_overrides[get_current_user] = lambda: user
+    app_modules["main"].app.dependency_overrides[get_current_user_optional] = lambda: user
     limiter.reset()
     yield user
     app_modules["main"].app.dependency_overrides.pop(get_current_user, None)
+    app_modules["main"].app.dependency_overrides.pop(get_current_user_optional, None)
     db_session.rollback()
     db_session.execute(delete(models.Book).where(models.Book.source_id.like("/works/OL7%W")))
     db_session.execute(delete(models.Author).where(models.Author.source_id.like("/authors/OL7%A")))
@@ -169,15 +172,54 @@ def test_resolve_bad_key_unknown_work_and_open_library_down(client, ol, me):
     assert client.post("/books/resolve", json={"work_key": "/works/OL700001W", "extra": 1}).status_code == 422
 
 
-def test_resolve_needs_a_signed_in_reader_and_is_limited_to_twenty_an_hour(client, ol, me, app_modules):
+def test_a_signed_in_reader_may_resolve_twenty_an_hour(client, ol, me):
     ol.docs = []
     for n in range(20):
         assert client.post("/books/resolve", json={"work_key": f"/works/OL7{n + 100:05d}W"}).status_code == 422
     r = client.post("/books/resolve", json={"work_key": "/works/OL700999W"})
     assert r.status_code == 429 and r.json()["detail"]["code"] == "too_many_resolves"
-    from auth.dependencies import get_current_user
-    app_modules["main"].app.dependency_overrides.pop(get_current_user, None)
-    assert client.post("/books/resolve", json={"work_key": "/works/OL700001W"}).status_code == 401
+
+
+@pytest.fixture()
+def guest(client, ol, app_modules, db_session):
+    from auth.dependencies import get_current_user, get_current_user_optional
+    from services import combined_search
+    models = app_modules["models"]
+    app = app_modules["main"].app
+    app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
+    combined_search.clear()
+    yield combined_search
+    combined_search.clear()
+    db_session.rollback()
+    db_session.execute(delete(models.Book).where(models.Book.source_id.like("/works/OL7%W")))
+    db_session.execute(delete(models.Author).where(models.Author.source_id.like("/authors/OL7%A")))
+    db_session.commit()
+
+
+def test_a_guest_can_resolve_and_is_never_asked_to_sign_in(client, ol, guest, db_session, app_modules):
+    ol.docs = [doc(1)]
+    ol.records["/works/OL700001W.json"] = {"title": "Fourth Wing"}
+    r = client.post("/books/resolve", json={"work_key": "/works/OL700001W"})
+    assert r.status_code == 200 and db_session.get(app_modules["models"].Book, r.json()["id"]).source_id == "/works/OL700001W"
+
+
+def test_guests_get_ten_an_hour_per_address(client, ol, guest):
+    ol.docs = []
+    for n in range(10):
+        assert client.post("/books/resolve", json={"work_key": f"/works/OL7{n + 100:05d}W"}).status_code == 422
+    r = client.post("/books/resolve", json={"work_key": "/works/OL700999W"})
+    assert r.status_code == 429 and r.json()["detail"]["code"] == "too_many_resolves"
+
+
+def test_one_ceiling_covers_every_guest_for_the_day(client, ol, guest, monkeypatch):
+    ol.docs = []
+    monkeypatch.setattr(guest, "GUEST_RESOLVES_PER_HOUR", 1000)
+    monkeypatch.setattr(guest, "GUEST_RESOLVES_PER_DAY", 3)
+    for n in range(3):
+        assert client.post("/books/resolve", json={"work_key": f"/works/OL7{n + 100:05d}W"}).status_code == 422
+    r = client.post("/books/resolve", json={"work_key": "/works/OL700999W"})
+    assert r.status_code == 429 and r.json()["detail"]["code"] == "resolve_ceiling"
 
 
 # --- ranking of our own results -----------------------------------------------------------------------------------------
