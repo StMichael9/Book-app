@@ -30,8 +30,10 @@ def _stage_mb(session: Session) -> float:
     return sum(sizes) / 1048576.0
 
 
-def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConfig) -> None:
-    total = float(session.execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConfig, neon: Session | None = None) -> None:
+    """The guard measures the catalogue database (`neon`); staging size is measured on `session`, which holds the stage
+    tables. With one database they are the same session."""
+    total = float((neon or session).execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
     run.peak_database_mb = max(run.peak_database_mb or 0, total)
     run.peak_staging_mb = max(run.peak_staging_mb or 0, _stage_mb(session))
     if total >= config.max_database_mb:
@@ -48,13 +50,20 @@ PHASE_SIZE_TABLES = (
 )
 
 
-def _record_phase_size(session: Session, run: CatalogueImportRun, phase: str) -> None:
+def _record_phase_size(session: Session, run: CatalogueImportRun, phase: str, neon: Session | None = None) -> None:
     """Remember the database size and the biggest tables once a phase has finished."""
-    sizes = session.execute(text("""
+    query = text("""
         SELECT name, coalesce(pg_total_relation_size(to_regclass(name)), 0) / 1048576.0
         FROM unnest(CAST(:names AS text[])) AS tables(name)
-    """), {"names": list(PHASE_SIZE_TABLES)}).all()
-    total = float(session.execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+    """)
+    if neon is None:
+        sizes = session.execute(query, {"names": list(PHASE_SIZE_TABLES)}).all()
+    else:
+        sizes = neon.execute(query, {"names": [n for n in PHASE_SIZE_TABLES if not n.startswith("catalogue_stage")
+                                                and n != "catalogue_source_aliases"]}).all()
+        sizes += session.execute(query, {"names": [n for n in PHASE_SIZE_TABLES if n.startswith("catalogue_stage")
+                                                    or n == "catalogue_source_aliases"]}).all()
+    total = float((neon or session).execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
     run.peak_database_mb = max(run.peak_database_mb or 0, total)
     report = dict(run.report or {})
     report["phase_sizes"] = dict(report.get("phase_sizes", {})) | {
@@ -85,21 +94,22 @@ def _release_staging(session: Session, run: CatalogueImportRun, *, keep_populari
     run.checkpoint_line = 0
 
 
-def _build_report(session: Session, run: CatalogueImportRun) -> dict:
-    book_total = session.scalar(select(func.count()).select_from(Book)) or 0
+def _build_report(session: Session, run: CatalogueImportRun, neon: Session | None = None) -> dict:
+    catalogue = neon if neon is not None else session
+    book_total = catalogue.scalar(select(func.count()).select_from(Book)) or 0
     selected = dict(session.execute(select(
         CatalogueStageWork.allocation_category, func.count()
     ).where(CatalogueStageWork.run_id == run.id,
             CatalogueStageWork.selected.is_(True)).group_by(
                 CatalogueStageWork.allocation_category
     )).all())
-    sizes = dict(session.execute(text("""
+    sizes = dict(catalogue.execute(text("""
         SELECT relname, pg_total_relation_size(oid)
         FROM pg_class
         WHERE relname IN ('books', 'authors', 'tags', 'book_authors', 'book_tags',
                           'editions', 'edition_isbns') AND relkind = 'r'
     """)).all())
-    indexes = dict(session.execute(text("""
+    indexes = dict(catalogue.execute(text("""
         SELECT indexrelname, pg_relation_size(indexrelid)
         FROM pg_stat_user_indexes
         WHERE relname IN ('books', 'authors', 'tags', 'book_authors', 'book_tags',
@@ -119,22 +129,22 @@ def _build_report(session: Session, run: CatalogueImportRun) -> dict:
         "target_books": run.target_books,
         "baseline_books": run.baseline_count,
         "total_books": book_total,
-        "source_identified_books": session.scalar(select(func.count()).select_from(Book).where(
+        "source_identified_books": catalogue.scalar(select(func.count()).select_from(Book).where(
             Book.source_id.is_not(None)
         )) or 0,
         "allocation_by_category": {key: value for key, value in selected.items() if key},
-        "books_with_cover": session.scalar(select(func.count()).select_from(Book).where(
+        "books_with_cover": catalogue.scalar(select(func.count()).select_from(Book).where(
             Book.cover_image_url.is_not(None)
         )) or 0,
-        "books_with_description": session.scalar(select(func.count()).select_from(Book).where(
+        "books_with_description": catalogue.scalar(select(func.count()).select_from(Book).where(
             Book.description.is_not(None)
         )) or 0,
-        "books_with_isbn13": session.scalar(select(func.count()).select_from(Book).where(
+        "books_with_isbn13": catalogue.scalar(select(func.count()).select_from(Book).where(
             Book.isbn13.is_not(None)
         )) or 0,
-        "author_count": session.scalar(select(func.count()).select_from(Author)) or 0,
-        "edition_count": session.scalar(select(func.count()).select_from(Edition)) or 0,
-        "database_mb": float(session.execute(text(
+        "author_count": catalogue.scalar(select(func.count()).select_from(Author)) or 0,
+        "edition_count": catalogue.scalar(select(func.count()).select_from(Edition)) or 0,
+        "database_mb": float(catalogue.execute(text(
             "SELECT pg_database_size(current_database()) / 1048576.0"
         )).scalar_one()),
         "peak_database_mb": run.peak_database_mb,

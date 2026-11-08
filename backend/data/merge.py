@@ -75,23 +75,26 @@ def _load_title_aliases(session: Session, works: list[CatalogueStageWork], book_
         session.execute(insert(BookTitleAlias).values(rows[start:start + 500]).on_conflict_do_nothing())
 
 
-def _merge_batch(session: Session, config: ImportConfig) -> int:
-    run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
-    _check_storage(session, run, config)
+def _merge_batch(stage: Session, config: ImportConfig, neon: Session | None = None) -> int:
+    """One batch. `stage` holds the run and the staged works (the runner's database); `neon` receives the books.
+    With one database they are the same session."""
+    session = neon if neon is not None else stage          # the catalogue: books, authors, tags, editions
+    run = stage.get(CatalogueImportRun, config.run_id, with_for_update=True)
+    _check_storage(stage, run, config, neon)
     query = select(CatalogueStageWork).where(
         CatalogueStageWork.run_id == run.id,
         or_(CatalogueStageWork.selected, CatalogueStageWork.forced),
     )
     if run.merge_cursor:
         query = query.where(CatalogueStageWork.source_id > run.merge_cursor)
-    works = session.execute(query.order_by(CatalogueStageWork.source_id).limit(config.batch_size)).scalars().all()
+    works = stage.execute(query.order_by(CatalogueStageWork.source_id).limit(config.batch_size)).scalars().all()
     if not works:
         run.phase = "cleanup"
         return 0
     source_ids = {work.source_id for work in works}
-    scores = dict(session.execute(select(CatalogueStagePopularity.source_id, CatalogueStagePopularity.score).where(
+    scores = dict(stage.execute(select(CatalogueStagePopularity.source_id, CatalogueStagePopularity.score).where(
         CatalogueStagePopularity.run_id == run.id, CatalogueStagePopularity.source_id.in_(source_ids))).all())
-    author_rows = session.execute(select(
+    author_rows = stage.execute(select(
         CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.author_key,
         CatalogueStageAuthor.name,
     ).order_by(CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.position).outerjoin(CatalogueStageAuthor, and_(
@@ -112,7 +115,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
                 seen.add(tidy)
                 filtered.append((key, name))
         authors_by_work[source_id] = filtered
-    staged_editions = session.execute(select(CatalogueStageEdition).where(
+    staged_editions = stage.execute(select(CatalogueStageEdition).where(
         CatalogueStageEdition.run_id == run.id,
         CatalogueStageEdition.source_id.in_(source_ids),
     )).scalars().all()
@@ -125,7 +128,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             "publishers": edition.publishers, "physical_format": edition.physical_format,
             "cover_image_url": edition.cover_image_url,
         })
-    aliases = list(_existing_book_aliases(session, source_ids).items())
+    aliases = list(_existing_book_aliases(stage, source_ids, neon).items())
     old_by_new: dict[str, list[str]] = defaultdict(list)
     for old, new in aliases:
         old_by_new[new].append(old)
@@ -145,7 +148,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         if work.legacy_book_id and work.legacy_book_id in books_by_id:
             candidates[work.legacy_book_id] = books_by_id[work.legacy_book_id]
         if len(candidates) > 1:
-            _issue(session, run.id, "redirect_book_conflict", work.source_id,
+            _issue(stage, run.id, "redirect_book_conflict", work.source_id,
                    "Two existing Book IDs resolve to the same Open Library work; no merge was guessed")
             continue
         book = next(iter(candidates.values())) if candidates else None
@@ -155,10 +158,10 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         title = cleaner.clean_title(work.title, names, edition_titles) or work.title
         description = cleaner.clean_description(work.description)
         if book is None and cleaner.is_derivative(title):
-            _issue(session, run.id, "derivative", work.source_id, "Derivative title (omnibus, collection, set); new Book skipped")
+            _issue(stage, run.id, "derivative", work.source_id, "Derivative title (omnibus, collection, set); new Book skipped")
             continue
         if book is None and not authors_by_work[work.source_id]:
-            _issue(session, run.id, "missing_author", work.source_id, "No resolved author; new Book skipped")
+            _issue(stage, run.id, "missing_author", work.source_id, "No resolved author; new Book skipped")
             continue
         if book is None:
             book = Book(title=title, source_id=work.source_id,
@@ -174,7 +177,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             ("published_year", work.published_year, FIELD_YEAR),
             ("cover_image_url", work.cover_image_url, FIELD_COVER),
         ):
-            _set_work_value(session, run, book, field_name, value, bit, work.source_id,
+            _set_work_value(stage, run, book, field_name, value, bit, work.source_id,
                             fill_only=fill_only and field_name != "title")
         if (score := scores.get(work.source_id)) is not None and book.popularity is None:
             book.popularity = score  # fill-only: an existing score is never overwritten
@@ -208,7 +211,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             session.add(tag)
             tags_by_key[key] = tag
         elif tags_by_key[key].type != TagType(tag_type):
-            _issue(session, run.id, "tag_type_conflict", None,
+            _issue(stage, run.id, "tag_type_conflict", None,
                    f"Existing tag {name} has type {tags_by_key[key].type}; import wanted {tag_type}")
     session.flush()
 
@@ -272,24 +275,24 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
         preferred_isbn = next((item["isbn13"] for item in preferred["isbns"]
                                if not item["derived_from_isbn10"]), None)
         preferred_isbn = preferred_isbn or next((item["isbn13"] for item in preferred["isbns"]), None)
-        _set_work_value(session, run, book, "isbn13", preferred_isbn, FIELD_ISBN, source_id, fill_only=fill_only)
+        _set_work_value(stage, run, book, "isbn13", preferred_isbn, FIELD_ISBN, source_id, fill_only=fill_only)
         median_filled = False
         if popular:
             # One book-level page count for the whole work: the median of every staged edition, so a book is
             # complete even when its preferred edition has no page count.
             had_pages = book.page_count is not None
-            _set_work_value(session, run, book, "page_count", median_pages(editions_by_work[source_id]),
+            _set_work_value(stage, run, book, "page_count", median_pages(editions_by_work[source_id]),
                             FIELD_PAGES, source_id, fill_only=True)
             median_filled = not had_pages and book.page_count is not None
         else:
-            _set_work_value(session, run, book, "page_count", preferred["page_count"], FIELD_PAGES, source_id)
+            _set_work_value(stage, run, book, "page_count", preferred["page_count"], FIELD_PAGES, source_id)
         if _blank(book.cover_image_url):
-            _set_work_value(session, run, book, "cover_image_url",
+            _set_work_value(stage, run, book, "cover_image_url",
                             preferred["cover_image_url"], FIELD_COVER, source_id, fill_only=fill_only)
         if book.isbn13 == preferred_isbn and (book.page_count == preferred["page_count"] or median_filled):
             book.preferred_edition_id = persisted[preferred["edition_key"]].id
         else:
-            _issue(session, run.id, "preferred_edition_conflict", source_id,
+            _issue(stage, run.id, "preferred_edition_conflict", source_id,
                    "Legacy ISBN/page values were preserved; preferred edition link remains pending")
     _load_title_aliases(session, works, book_for_work)
     genres = Counter(link["book_id"] for link in tag_links)
@@ -300,6 +303,6 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
             genres=genres.get(book.id, 0))
     run.merged_count += len(book_for_work)
     run.merge_cursor = works[-1].source_id
-    _check_storage(session, run, config)
+    _check_storage(stage, run, config, neon)
     log.info("merge cursor=%s books=%d", run.merge_cursor, run.merged_count)
     return len(works)

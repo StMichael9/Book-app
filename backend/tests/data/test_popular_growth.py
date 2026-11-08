@@ -389,7 +389,7 @@ def test_workflow_selects_environment_and_carries_it_through_continuations():
     assert "- catalogue-rehearsal" in text and "- catalogue-production" in text
     assert re.search(r"environment: \$\{\{[^}]*target_env[^}]*\}\}", text)
     assert "--target-books 150000" in text  # production default when no target is given
-    assert "--max-database-mb 700" in text
+    assert "--max-database-mb 800" in text
     assert re.search(r"client_payload:\{[^}]*target_env:\$target_env", text)
     assert "environment: catalogue-production" not in text
 
