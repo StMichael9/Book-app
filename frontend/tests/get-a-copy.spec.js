@@ -83,7 +83,7 @@ test("Want to read cards keep their link; Own, Reading, Finished and Discover ha
 test("the privacy page discloses the Bookshop commission", async ({ page }) => {
   await mock(page);
   await page.goto(`${WITHOUT_ID}/privacy`);
-  await expect(page.getByText("Some book links go to Bookshop.org; if you buy, Bookvane may earn a small commission at no cost to you.")).toBeVisible();
+  await expect(page.getByText("Some book links go to Bookshop.org. If you buy, Bookvane may earn a small commission at no cost to you.")).toBeVisible();
 });
 
 test("next-read cards offer a quiet sponsored Get a copy link with the disclosure", async ({ page }) => {

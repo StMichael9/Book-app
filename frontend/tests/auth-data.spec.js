@@ -208,7 +208,7 @@ test("expired access refreshes once; permanent expiry removes private UI", async
 });
 
 test("logout waits for a cookie-writing automatic refresh", async ({ page, app }) => {
-  await page.goto("/account"); await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeEnabled();
+  await page.goto("/settings"); await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeEnabled();
   app.cookies = true; app.expireNext = true;
   let release; app.holdRefresh = new Promise(resolve => { release = resolve; });
   // A preferences read returns 401 and starts the real API client's refresh.
@@ -216,7 +216,7 @@ test("logout waits for a cookie-writing automatic refresh", async ({ page, app }
   await expect.poll(() => app.requests.filter(r => r.path === "/auth/refresh").length).toBe(2);
   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "My Books", exact: true }).waitFor();
   await page.getByRole("link", { name: "Your profile", exact: true }).click();
-  await page.getByRole("link", { name: "Account settings", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await page.waitForTimeout(100);
   try { expect(app.requests.filter(r => r.path === "/auth/logout")).toHaveLength(0); }

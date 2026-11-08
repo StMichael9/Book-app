@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-export const PROFILE_TABS = [["overview", "Overview"], ["lists", "Lists"], ["year", "Year"]];
+export const PROFILE_TABS = [["overview", "Overview"], ["lists", "Lists"]];
 
-// The tab lives in ?tab=lists|year (Overview is the default), so Back works and a tab can be linked.
+// The tab lives in ?tab=lists (Overview is the default), so Back works and a tab can be linked.
 export function useProfileTab() {
   const [params, setParams] = useSearchParams();
   const raw = params.get("tab");
