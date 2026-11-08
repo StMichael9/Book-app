@@ -138,6 +138,7 @@ def test_a_different_existing_date_is_a_named_difference_that_keeps_the_existing
     row = items[0]
     assert row["disposition"] == "ready"
     assert row["plan"]["differences"] == [{"field": "finished_on", "file": "2025-12-20", "existing": "2025-01-09", "use": "existing"}]
+    assert row["plan"]["existing_events"] == [{"started_on": "2025-01-01", "ended_on": "2025-01-09"}]
     from test_library_import_workflow import apply
     apply(user, workflow, run)
     db.expire_all()
@@ -224,3 +225,14 @@ def test_analysis_takes_few_round_trips(importing, app_modules, count):
     for statement in statements:
         kinds[statement[:40]] = kinds.get(statement[:40], 0) + 1
     assert len(statements) <= 40 + count // 3       # never one statement per row
+
+
+def test_candidates_carry_cover_and_year(importing):
+    db = importing[1].db
+    first = book(db, "The Silmarillion", "J.R.R. Tolkien")
+    first.cover_image_url, first.published_year = "https://covers.example/s.jpg", 1977
+    book(db, "The Silmarillion", "J.R.R. Tolkien")
+    db.commit()
+    row = run_rows(importing, [["The Silmarillion", "J.R.R. Tolkien", "", "", "want", "", ""]])[4][0]
+    mine = next(c for c in row["candidates"] if c["book_id"] == first.id)
+    assert (mine["cover_image_url"], mine["published_year"]) == ("https://covers.example/s.jpg", 1977)

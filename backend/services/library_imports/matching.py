@@ -87,8 +87,9 @@ def evidence(db, user_id, source, scope, payloads):
             private_candidates[candidate.title_key].append({"entry_id": candidate.book_id, "title": candidate.title,
                 "authors": [candidate.author] if candidate.author else [], "version": candidate.version})
     ids.update(entry.book_id for entry in entries if entry.book_id is not None)
-    books = {row.id: {"book_id": row.id, "title": row.title, "authors": []} for row in db.execute(
-        select(Book.id, Book.title).where(Book.id.in_(ids)))}
+    books = {row.id: {"book_id": row.id, "title": row.title, "authors": [], "cover_image_url": row.cover_image_url,
+                      "published_year": row.published_year} for row in db.execute(
+        select(Book.id, Book.title, Book.cover_image_url, Book.published_year).where(Book.id.in_(ids)))}
     if ids:
         for book_id, name in db.execute(select(book_authors.c.book_id, Author.name).join(Author, Author.id == book_authors.c.author_id)
                 .where(book_authors.c.book_id.in_(ids))):
@@ -221,10 +222,13 @@ def proposed_match(payload, found):
             "entry_id": entry.id if entry else None, "expected_version": entry.version if entry else None,
             "confidence": confidence, "edition_id": edition[0] if edition else None,
             "edition_source_id": edition[2] if edition else None,
-            "evidence": digest({"book": found["books"][selected], "isbns": sorted(identifiers), "edition": edition}),
+            "evidence": digest({"book": {key: found["books"][selected][key] for key in ("book_id", "title", "authors")}, "isbns": sorted(identifiers), "edition": edition}),
             "needs_approval": confidence == "title_author"}
     if entry:
         plan["differences"] = differences(payload, found["attempts"].get(entry.id, []))
-        if not plan["differences"]:
+        if plan["differences"]:
+            plan["existing_events"] = [{"started_on": item["started_on"], "ended_on": item["ended_on"]}
+                                       for item in found["attempts"].get(entry.id, [])]
+        else:
             del plan["differences"]
     return {"target_key": f"book:{selected}", "candidates": previews, "plan": plan}
