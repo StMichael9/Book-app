@@ -10,7 +10,8 @@ import unicodedata
 import requests  # Retained for callers that patch the shared requests client.
 
 from data.sources import DumpRow, stream_dump
-from data.taxonomy import (SUBJECT_ALIASES, CATEGORY_TYPES, MOOD_THEME_ALIASES, SUBJECT_MAP, MOOD_THEME_MAP, _subject_key, subject_map)
+from data.taxonomy import (SUBJECT_ALIASES, CATEGORY_TYPES, MOOD_THEME_ALIASES, SUBJECT_MAP, MOOD_THEME_MAP, _subject_key, subject_map,
+                           genres_for_subjects)
 
 
 # Existing fifteen labels stay intact. Edit this map to expand the catalogue.
@@ -97,20 +98,14 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
     title = _text(data.get("title"))
     if not key or not title:
         return None
-    mapping = mapped_subjects if mapped_subjects is not None else SUBJECT_MAP
     subjects = data.get("subjects")
     if not isinstance(subjects, list):
         subjects = []
-    categories = sorted({mapping[_subject_key(item)] for item in subjects
-                   if isinstance(item, str) and _subject_key(item) in mapping})
+    # One genre list for every entry point (data.taxonomy): one exact alias or two partial hits per genre.
+    categories = genres_for_subjects(subjects, mapped_subjects)
     if not categories:
         return None
-    subject_keys = {_subject_key(item) for item in subjects if isinstance(item, str)}
     tags = {(name, CATEGORY_TYPES[name]) for name in categories}
-    if "historical fiction" in subject_keys:
-        if "history" not in subject_keys:
-            tags.discard(("history", "topic"))
-        tags.add(("historical_fiction", "genre"))
     tags.update(MOOD_THEME_MAP[subject_key] for item in subjects if isinstance(item, str)
                 if (subject_key := _subject_key(item)) in MOOD_THEME_MAP)
     authors = data.get("authors")

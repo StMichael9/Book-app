@@ -481,6 +481,8 @@ def main() -> None:
     parser.add_argument("--time-budget-seconds", type=int,
                         help="Soft checkpoint deadline for automatic job continuation")
     parser.add_argument("--one-phase", action="store_true")
+    parser.add_argument("--remap-genres", action="store_true",
+                        help="Only link the single genre list to books we already hold (fill-only); honours --dry-run")
     parser.add_argument("--backfill-popularity", action="store_true",
                         help="Only fill books.popularity for existing books (matched by source_id, fill-only); no import")
     parser.add_argument("--restart-paused", action="store_true")
@@ -493,6 +495,15 @@ def main() -> None:
         parser.error("CATALOGUE_DATABASE_URL must be set")
     config = _config_for_command(args, database_url, os.getenv("CATALOGUE_USER_AGENT", ""))
     config.validate()
+    if args.remap_genres:
+        from data.remap_genres import remap, works_from_dump
+        engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            log.info("Genre remap (%s): %s", "dry run" if args.dry_run else "applied",
+                     remap(sessionmaker(bind=engine), works_from_dump(config), dry_run=args.dry_run))
+        finally:
+            engine.dispose()
+        return
     if args.backfill_popularity:
         if not config.popular:
             parser.error("--backfill-popularity needs the popularity dumps (a normal snapshot run, not test URLs)")

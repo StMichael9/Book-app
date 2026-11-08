@@ -201,10 +201,7 @@ def _merge_batch(session: Session, config: ImportConfig) -> int:
     tags_by_key = {tag.name.casefold(): tag for tag in session.execute(select(Tag).where(
         func.lower(Tag.name).in_({item[0] for item in tag_specs})
     )).scalars()}
-    original = set(clean.SUBJECT_ALIASES) - {
-        "science", "technology", "business", "art", "music", "cooking", "travel",
-        "health", "nature", "sports", "psychology", "religion", "politics", "education",
-    }
+    original = set(clean.SUBJECT_ALIASES)          # the 28 genres are all shown in the picker; moods and themes are not
     for key, name, tag_type in sorted(tag_specs):
         if key not in tags_by_key:
             tag = Tag(name=name, type=TagType(tag_type), visible_in_v2=name in original)
