@@ -82,7 +82,8 @@ BEGIN
     END IF;
     i := j;
   END LOOP;
-  IF coalesce(array_length(out_t, 1), 0) > 1 AND out_t[1] IN ('the', 'a', 'an') THEN
+  IF coalesce(array_length(out_t, 1), 0) > 1 AND out_t[1] IN ('the', 'a', 'an')
+     AND length(array_to_string(out_t[2:array_length(out_t, 1)], ' ')) >= 3 THEN
     out_t := out_t[2:array_length(out_t, 1)];
   END IF;
   RETURN array_to_string(out_t, ' ');

@@ -48,7 +48,7 @@ def test_the_summary_is_counts_only_and_alerts_on_each_crossed_limit():
 
 @pytest.fixture()
 def admin(app_modules, db_session, client, monkeypatch):
-    from auth.dependencies import get_current_user
+    from auth.dependencies import get_current_user, get_current_user_optional
     models = app_modules["models"]
     settings = app_modules["database"].settings
     user = models.User(email=f"admin-{uuid.uuid4().hex[:6]}@example.test", hashed_password="x")
@@ -64,11 +64,18 @@ def admin(app_modules, db_session, client, monkeypatch):
 
     a = A()
     a.user, a.other, a.client, a.models, a.db = user, other, client, models, db_session
-    a.as_admin = lambda: app.dependency_overrides.__setitem__(get_current_user, lambda: user)
-    a.as_other = lambda: app.dependency_overrides.__setitem__(get_current_user, lambda: other)
-    a.signed_out = lambda: app.dependency_overrides.pop(get_current_user, None)
+    def sign_in(who):
+        app.dependency_overrides[get_current_user] = lambda: who
+        app.dependency_overrides[get_current_user_optional] = lambda: who
+
+    def sign_out():
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides[get_current_user_optional] = lambda: None
+
+    a.as_admin, a.as_other, a.signed_out = (lambda: sign_in(user)), (lambda: sign_in(other)), sign_out
     yield a
     app.dependency_overrides.pop(get_current_user, None)
+    app.dependency_overrides.pop(get_current_user_optional, None)
     db_session.rollback()
     db_session.execute(delete(models.CatalogueLookup))
     db_session.execute(delete(models.EventCount).where(models.EventCount.name.in_(["search_run", "search_empty"])))
@@ -141,8 +148,9 @@ def test_metrics_carry_a_catalogue_block_with_coverage_searches_and_size(admin):
         assert block["books"]["total"] >= 1 and block["database_mb"] > 0 and "coverage_min" in block["limits"]
         assert any("coverage" in a.lower() for a in block["alerts"])                                     # one book of 500 titles
         admin.signed_out()
-        assert admin.client.get("/admin/metrics", headers={"X-Admin-Key": "weekly-job-key"}).status_code == 200
-        assert admin.client.get("/admin/metrics").status_code in (401, 403)
+        assert admin.client.get("/admin/catalogue/metrics", headers={"X-Admin-Key": "weekly-job-key"}).json()["coverage"]["benchmark"] > 450
+        assert admin.client.get("/admin/catalogue/metrics").status_code in (401, 403)
+        assert admin.client.get("/admin/metrics").status_code == 401
     finally:
         db.rollback()
         db.execute(delete(models.Book).where(models.Book.source_id == "/works/OL9T49W"))
@@ -180,8 +188,9 @@ def test_top_up_adds_only_new_gate_passing_books_and_stops_at_the_limit(topup, d
     models = app_modules["models"]
     db_session.add(models.Book(title="Held", source_id="/works/OL700002W", cover_image_url="x", page_count=1, published_year=2000))
     db_session.commit()
-    topup.docs = [doc(n) for n in range(1, 8)]
-    docs = [doc(1), doc(2), doc(3, pages=None), doc(4, title="Box Set Omnibus"), doc(5), doc(6), doc(7)]
+    docs = [doc(1, title="Alpha One"), doc(2, title="Held"), doc(3, title="Gamma Three", pages=None), doc(4, title="Box Set Omnibus"),
+            doc(5, title="Epsilon Five"), doc(6, title="Zeta Six"), doc(7, title="Eta Seven")]
+    topup.docs = docs
     report = top_up.top_up(db_session, limit=2, batches=[docs])
     assert report["added"] == 2 and report["already_held"] == 1 and report["not_listable"] == 2
     held = set(db_session.scalars(select(models.Book.source_id).where(models.Book.source_id.like("/works/OL7%W"))))
@@ -191,9 +200,9 @@ def test_top_up_adds_only_new_gate_passing_books_and_stops_at_the_limit(topup, d
 def test_a_dry_run_reports_without_writing(topup, db_session, app_modules):
     from data import top_up
     models = app_modules["models"]
-    topup.docs = [doc(1), doc(2)]
+    topup.docs = [doc(1, title="Alpha One"), doc(2, title="Beta Two")]
     before = db_session.scalar(select(func.count()).select_from(models.Book))
-    report = top_up.top_up(db_session, limit=10, dry_run=True, batches=[[doc(1), doc(2)]])
+    report = top_up.top_up(db_session, limit=10, dry_run=True, batches=[topup.docs])
     assert report["added"] == 2 and db_session.scalar(select(func.count()).select_from(models.Book)) == before
 
 

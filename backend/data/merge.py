@@ -155,7 +155,10 @@ def _merge_batch(stage: Session, config: ImportConfig, neon: Session | None = No
         names = [name for _, name in authors_by_work[work.source_id]]
         edition_titles = [item["title"] for item in (work.title_aliases or []) if item.get("english")
                           for _ in range(min(item.get("count", 1), 20))]
-        title = cleaner.clean_title(work.title, names, edition_titles) or work.title
+        title = cleaner.clean_title(work.title, names) or work.title
+        if edition_titles and (title != " ".join(work.title.split()) or cleaner.is_derivative(title)):
+            # The work's own title is messy: the title most editions agree on is a better one.
+            title = cleaner.clean_title(work.title, names, edition_titles) or title
         description = cleaner.clean_description(work.description)
         if book is None and cleaner.is_derivative(title):
             _issue(stage, run.id, "derivative", work.source_id, "Derivative title (omnibus, collection, set); new Book skipped")

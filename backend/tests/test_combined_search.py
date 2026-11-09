@@ -20,7 +20,8 @@ class FakeOL:
         if path == "/search.json":
             wanted = (params or {}).get("q", "")
             if wanted.startswith("key:"):
-                return {"docs": [d for d in self.docs if d["key"] == wanted[4:]]}
+                wanted_keys = set(__import__("re").findall(r"/works/OL\d+W", wanted))
+                return {"docs": [d for d in self.docs if d["key"] in wanted_keys]}
             return {"docs": self.docs}
         return self.records.get(path)
 

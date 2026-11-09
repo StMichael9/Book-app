@@ -51,6 +51,8 @@ def stage_phase(url, run_id="sample"):
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
+            if connection.execute(text("SELECT to_regclass('catalogue_import_runs')")).scalar() is None:
+                return None
             return connection.execute(text("SELECT phase FROM catalogue_import_runs WHERE id = :i"), {"i": run_id}).scalar()
     finally:
         engine.dispose()

@@ -79,7 +79,7 @@ def test_descriptions_must_be_english_and_lose_edition_and_seller_sentences():
     assert cleaner.clean_description(english + " -- Source: some publisher page") == english
     assert cleaner.clean_description(english + "\n\n----\n[Source][1]") == english
     assert cleaner.clean_description(SPANISH) is None
-    assert cleaner.clean_description("Short.") is None and cleaner.clean_description(None) is None
+    assert cleaner.clean_description("Hm") is None and cleaner.clean_description(None) is None
     assert cleaner.clean_description("This edition is a reprint. Translated by someone. Free download of the ebook.") is None
 
 

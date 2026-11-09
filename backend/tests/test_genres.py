@@ -67,7 +67,16 @@ def test_a_readers_shelf_name_counts_as_a_genre_for_that_reader():
 
 # --- the database --------------------------------------------------------------------------------------------------------
 
-def test_the_endpoint_serves_the_same_list_with_each_genres_tag_id(client, db_session, app_modules):
+@pytest.fixture()
+def genre_tags(db_session):
+    """The migration creates the 28 genre tags; other test files wipe the tags table, so make sure they are there."""
+    for key in taxonomy.GENRE_KEYS:
+        db_session.execute(text("INSERT INTO tags (name, type, visible_in_v2) VALUES (:n, 'genre', true) "
+                                "ON CONFLICT (name, type) DO UPDATE SET visible_in_v2 = true"), {"n": key})
+    db_session.commit()
+
+
+def test_the_endpoint_serves_the_same_list_with_each_genres_tag_id(client, db_session, app_modules, genre_tags):
     models = app_modules["models"]
     r = client.get("/genres")
     assert r.status_code == 200 and "max-age" in r.headers["cache-control"]
@@ -77,7 +86,7 @@ def test_the_endpoint_serves_the_same_list_with_each_genres_tag_id(client, db_se
     assert all(rows[i["id"]] == i["key"] for i in items) and len({i["id"] for i in items}) == 28      # ids are the tags rows
 
 
-def test_all_28_genre_tags_exist_and_are_shown(db_session, app_modules):
+def test_all_28_genre_tags_exist_and_are_shown(db_session, app_modules, genre_tags):
     models = app_modules["models"]
     rows = db_session.execute(select(models.Tag.name, models.Tag.visible_in_v2).where(models.Tag.type == models.TagType.genre)).all()
     shown = {name for name, visible in rows if visible}
@@ -110,7 +119,7 @@ def _tag(conn, name, kind="topic"):
                              "ON CONFLICT (name, type) DO UPDATE SET visible_in_v2 = true RETURNING id"), {"n": name, "t": kind}).scalar()
 
 
-def test_the_migration_merges_old_tags_and_keeps_books_and_readers_picks(rollback_connection):
+def test_the_migration_merges_old_tags_and_keeps_books_and_readers_picks(rollback_connection, genre_tags):
     conn, context = rollback_connection
     book = conn.execute(text("SELECT id FROM books ORDER BY id LIMIT 1")).scalar()
     art, music = _tag(conn, "art"), _tag(conn, "music")
@@ -128,7 +137,7 @@ def test_the_migration_merges_old_tags_and_keeps_books_and_readers_picks(rollbac
     assert conn.execute(text("SELECT visible_in_v2 FROM tags WHERE id = :t"), {"t": new}).scalar() is True
 
 
-def test_the_migration_renames_in_place_when_the_new_genre_does_not_exist_yet(rollback_connection):
+def test_the_migration_renames_in_place_when_the_new_genre_does_not_exist_yet(rollback_connection, genre_tags):
     conn, context = rollback_connection
     conn.execute(text("DELETE FROM tags WHERE name = 'biography_memoir' AND type = 'genre'"))
     old = _tag(conn, "biography", "genre")
@@ -162,7 +171,7 @@ def test_a_downgrade_restores_the_old_names(rollback_connection):
 
 # --- personal genres from imported shelves ---------------------------------------------------------------------------------
 
-def test_an_imported_shelf_named_like_a_genre_filters_for_that_reader_only(db_session, app_modules, client, monkeypatch):
+def test_an_imported_shelf_named_like_a_genre_filters_for_that_reader_only(db_session, app_modules, client, monkeypatch, genre_tags):
     from auth.dependencies import get_current_user
     from rate_limit import limiter
     models = app_modules["models"]

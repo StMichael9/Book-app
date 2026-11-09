@@ -86,16 +86,20 @@ def vet(db: Session, work: dict):
     key = clean.work_key(work.get("source_id"))
     if not key:
         return Rejected("not_open_library")
-    authors = cleaner.clean_authors(unique_authors(work.get("authors") or []), work.get("author_support"))
+    listed = unique_authors(work.get("authors") or [])
+    named = [name for name in listed if not _PLACEHOLDER.match(name)]
+    authors = cleaner.clean_authors(named, work.get("author_support"))
     title = cleaner.clean_title(clean._text(work.get("title")), authors, work.get("edition_titles"))
     if duplicate := _existing(db, {**work, "source_id": key}, authors):
         return Duplicate(duplicate)
     if not title or _PLACEHOLDER.match(title) or re.fullmatch(r"[0-9Xx\- ]{9,17}", title):
         return Rejected("bad_title")
+    if not listed:
+        return Rejected("no_author")
+    if len(named) != len(listed):
+        return Rejected("bad_author")
     if not authors:
         return Rejected("no_author")
-    if any(_PLACEHOLDER.match(name) for name in authors):
-        return Rejected("bad_author")
     if _DERIVATIVE.search(title) or cleaner.is_derivative(title):
         return Rejected("derivative")
     if not work.get("cover_image_url"):

@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy import case, func, literal, select, exists, or_, union
 from sqlalchemy.orm import Session
 from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, UserPreference, book_tags
@@ -28,22 +30,29 @@ class SearchService:
             # Titles, aliases and the reader's words are all folded by the same database function (bookvane_search_key), so
             # "1984", "Nineteen Eighty-Four" and "nineteen eighty four" meet. The key never contains % or _, so a LIKE built
             # from it cannot be turned into a wildcard by the reader.
-            key = func.bookvane_search_key(book)
-            if fuzzy:
-                # Typos ("hary poter"): only tried when the exact, prefix and substring matches found nothing.
-                title_ids = select(Book.id).where(func.word_similarity(key, Book.title_key) >= 0.4)
-                alias_ids = select(BookTitleAlias.book_id).where(func.word_similarity(key, BookTitleAlias.title_key) >= 0.4)
+            if not re.search(r"[^\W_]", book):
+                # Nothing to fold ("%", "_"): match the characters themselves, with LIKE wildcards kept literal.
+                pattern = "%" + book.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                title_ids = select(Book.id).where(Book.title.ilike(pattern, escape="\\"))
+                alias_ids = select(BookTitleAlias.book_id).where(BookTitleAlias.title.ilike(pattern, escape="\\"))
+                query = query.where(Book.id.in_(union(title_ids, alias_ids)))
+                title_rank = case((Book.title.ilike(pattern, escape="\\"), 0), else_=3)
             else:
-                title_ids = select(Book.id).where(or_(Book.title_key == key, Book.title_key.like(key.concat("%")),
-                                                      Book.title_key.like(literal("%").concat(key).concat("%"))))
-                alias_ids = select(BookTitleAlias.book_id).where(or_(
-                    BookTitleAlias.title_key == key, BookTitleAlias.title_key.like(key.concat("%")),
-                    BookTitleAlias.title_key.like(literal("%").concat(key).concat("%"))))
-            query = query.where(Book.id.in_(union(title_ids, alias_ids)))
-            exact_alias = select(BookTitleAlias.book_id).where(BookTitleAlias.title_key == key)
-            title_rank = case((or_(Book.title_key == key, Book.id.in_(exact_alias)), 0),
-                              (Book.title_key.like(key.concat("%")), 1),
-                              (Book.title_key.like(literal("%").concat(key).concat("%")), 2), else_=3)
+                key = func.bookvane_search_key(book)
+                if fuzzy:
+                    # Typos ("hary poter"): only tried when the exact, prefix and substring matches found nothing.
+                    title_ids = select(Book.id).where(func.word_similarity(key, Book.title_key) >= 0.4)
+                    alias_ids = select(BookTitleAlias.book_id).where(func.word_similarity(key, BookTitleAlias.title_key) >= 0.4)
+                else:
+                    title_ids = select(Book.id).where(or_(Book.title_key == key, Book.title_key.like(key.concat("%")),
+                                                          Book.title_key.like(literal("%").concat(key).concat("%"))))
+                    alias_ids = select(BookTitleAlias.book_id).where(or_(
+                        BookTitleAlias.title_key == key, BookTitleAlias.title_key.like(key.concat("%")),
+                        BookTitleAlias.title_key.like(literal("%").concat(key).concat("%"))))
+                query = query.where(Book.id.in_(union(title_ids, alias_ids)))
+                # A match on the book's own title ranks before one that only an alias gives.
+                title_rank = case((Book.title_key == key, 0), (Book.title_key.like(key.concat("%")), 1),
+                                  (Book.title_key.like(literal("%").concat(key).concat("%")), 2), else_=3)
             query = query.order_by(None).order_by(title_rank, Book.id)
         if author is not None:
             query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))

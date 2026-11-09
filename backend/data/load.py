@@ -93,7 +93,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
     run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
     if run.phase != phase:
         raise RuntimeError("Import phase changed while processing")
-    _check_storage(session, run, config, neon)
+    _check(session, run, config, neon)
     records = [row.record for row in batch if row.record is not None]
     popular = {"popular": active_store(config.run_id) or True} if config.popular else {}
     malformed = [row for row in batch if row.error]
@@ -106,7 +106,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         keep = {"keep": _DELETE_KEEP[config.run_id]} if phase == "deletes" and config.popular else {}
         _write_aliases(session, run, records, phase, **keep)
     elif phase == "works":
-        _write_works(session, run, records, neon=neon, **popular)
+        _write_works(session, run, records, **_with(neon), **popular)
         boundary = config.batch_size * 100
         if batch[0].line_number // boundary != batch[-1].line_number // boundary:
             _prune_candidates(session, run, config)
@@ -116,10 +116,22 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         _write_editions(session, run, records, **popular)
     elif phase == "hydrate":
         _write_hydrate(session, run, records)
-    _check_storage(session, run, config, neon)
+    _check(session, run, config, neon)
     run.checkpoint_line = batch[-1].line_number
     log.info("%s line=%d selected=%d db_peak=%.1f MiB", phase, run.checkpoint_line,
              run.selected_count, run.peak_database_mb)
+
+
+def _with(neon):
+    """Keyword argument for the catalogue session, only when the catalogue is a separate database."""
+    return {} if neon is None else {"neon": neon}
+
+
+def _check(session, run, config, neon):
+    if neon is None:
+        _check_storage(session, run, config)
+    else:
+        _check_storage(session, run, config, neon)
 
 
 @contextmanager
@@ -164,7 +176,7 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                 if len(batch) >= config.batch_size or batch_bytes >= 8_000_000:
                     check_progress(force=True)
                     with _both(factory, neon_factory) as (session, neon):
-                        _write_dump_batch(session, config, phase, batch, neon)
+                        _write_dump_batch(session, config, phase, batch, **_with(neon))
                     batch.clear()
                     batch_bytes = 0
                     if deadline is not None and time.monotonic() >= deadline:
@@ -172,7 +184,7 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
             if batch:
                 check_progress(force=True)
                 with _both(factory, neon_factory) as (session, neon):
-                    _write_dump_batch(session, config, phase, batch, neon)
+                    _write_dump_batch(session, config, phase, batch, **_with(neon))
             with _both(factory, neon_factory) as (session, neon):
                 run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
                 if phase == "works":
@@ -220,7 +232,7 @@ def _pause_capacity(factory: sessionmaker, config: ImportConfig, message: str, n
 def _cleanup(factory: sessionmaker, config: ImportConfig, neon_factory: sessionmaker | None = None) -> None:
     with _both(factory, neon_factory) as (session, neon):
         run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
-        _check_storage(session, run, config, neon)
+        _check(session, run, config, neon)
         _compact_aliases(session, run, include_shortlist=False, neon=neon)
         run.report = _build_report(session, run, neon)
         _release_staging(session, run)
@@ -319,7 +331,7 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                             return _continuation_status(factory, config, initial)
                     elif phase == "select":
                         with _both(factory, neon_factory) as (session, neon):
-                            _select_works(session, config, neon)
+                            _select_works(session, config, **_with(neon))
                             if config.popular:
                                 # Selection is done: the ordering inputs are no longer needed. The (small) popularity
                                 # scores of the chosen works stay: merge copies them onto books.popularity.
@@ -339,7 +351,7 @@ def _run_import(config: ImportConfig, *, one_phase: bool = False,
                             if deadline is not None and time.monotonic() >= deadline:
                                 return _continuation_status(factory, config, initial)
                             with _both(factory, neon_factory) as (session, neon):
-                                processed = _merge_batch(session, config, neon)
+                                processed = _merge_batch(session, config, **_with(neon))
                             if not processed:
                                 break
                     elif phase == "cleanup":

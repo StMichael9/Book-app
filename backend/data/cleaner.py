@@ -28,9 +28,10 @@ DERIVATIVE = re.compile(
     r"novels\s+in\s+one|\d+\s+(books?|novels)\s+(in|set|collection|box)|trilogy(\s+(set|collection|boxed))?|bundle|"
     r"volumes?\s+\d|summary\s+of|study\s+guide|sparknotes|cliffsnotes|workbook\s+for)\b", re.IGNORECASE)
 _EDITION_WORDS = re.compile(
-    r"\s*[-:,–—]?\s*\(?\b(annotated|illustrated|unabridged|abridged|deluxe|special|collector'?s|anniversary|centenary|"
-    r"large\s+print|enhanced|complete\s+and\s+unabridged|omnibus|new|revised|updated|classic|original|authorized)"
-    r"(\s+edition)?\)?\s*$", re.IGNORECASE)
+    r"\s*[-:,–—]?\s*(?:\(\s*(?:annotated|illustrated|unabridged|abridged|deluxe|special|large\s+print|enhanced)\s*\)|"
+    r"\b(?:annotated|illustrated|unabridged|abridged|deluxe|special|collector'?s|anniversary|centenary|large\s+print|enhanced|"
+    r"complete\s+and\s+unabridged|new|revised|updated|classic|original|authorized)\s+edition)\s*$", re.IGNORECASE)
+_OMNIBUS_TAIL = re.compile(r"\s+omnibus(\s+edition)?\s*$", re.IGNORECASE)
 _TRAILING_PAREN = re.compile(r"\s*[\(\[][^)\]]*(edition|classics|library|series|book\s+\d+|#\d+|vol)[^)\]]*[\)\]]\s*$", re.IGNORECASE)
 _POSSESSIVE = re.compile(r"^(?P<name>[^'’]{3,60})['’]s\s+(?P<rest>.+)$")
 
@@ -179,7 +180,9 @@ def clean_title(title: str | None, authors: list[str] | None = None, edition_tit
     while previous != value:
         previous = value
         value = _TRAILING_PAREN.sub("", value).strip()
-        if stripped_author or not DERIVATIVE.search(value):
+        if stripped_author:
+            value = _OMNIBUS_TAIL.sub("", value).strip()          # "<Author>'s <Work> omnibus": one work in a large edition
+        if not DERIVATIVE.search(value):
             value = _EDITION_WORDS.sub("", value).strip()
         value = value.rstrip(" ,;:-–—")
     return value or None
@@ -208,8 +211,8 @@ def clean_description(text: str | None) -> str | None:
     value = re.sub(r"<[^>]+>", " ", value)
     kept = [s for s in _SENTENCE.split(" ".join(value.split())) if s.strip() and not SELLER.search(s)]
     result = " ".join(kept).strip()
-    if len(result) < 25 or not is_english(result):
-        return None
+    if len(result) < 5 or (len(result.split()) >= 8 and not is_english(result)):
+        return None       # too short to judge the language: kept (unless it was seller text, removed above)
     return result
 
 

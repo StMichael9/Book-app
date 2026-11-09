@@ -115,8 +115,8 @@ def main() -> None:
         response.raise_for_status()
         part = response.json()
         queued = {"queued": (queued["queued"] if queued else 0) + part["queued"]}
-    metrics = session.get(f"{api}/admin/metrics", params={"days": 7}, headers=headers, timeout=60)
-    block = metrics.json().get("catalogue") if metrics.status_code == 200 else None
+    metrics = session.get(f"{api}/admin/catalogue/metrics", params={"days": 7}, headers=headers, timeout=60)
+    block = metrics.json() if metrics.status_code == 200 else None
     text, alerts = summary(result, queued, block)
     print(text)
     path = os.environ.get("GITHUB_STEP_SUMMARY")
