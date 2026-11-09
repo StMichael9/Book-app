@@ -187,7 +187,7 @@ test("the reading page opens 'Why I saved this book' when there is a note, and k
   await page.goto("/my-books/102");
   await expect(page.locator(".bv-save-reason")).not.toHaveAttribute("open", "");
   await page.locator(".bv-save-reason summary").click();
-  await expect(page.getByRole("button", { name: "Add save reason (optional)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Why did you save it?" })).toBeVisible();
 });
 
 test("a private book without a description shows no description line, and one with a description shows it", async ({ page, app }) => {

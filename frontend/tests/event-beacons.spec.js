@@ -29,7 +29,7 @@ const test = base.extend({
 const names = app => app.events.map(event => event.body.name);
 
 test("registering sends register_started once, with the source and nothing else", async ({ page, app }) => {
-  await page.context().addCookies([{ name: "probe", value: "1", url: page.url() === "about:blank" ? "http://127.0.0.1:5189" : page.url() }]);
+  await page.context().addCookies([{ name: "probe", value: "1", url: page.url() === "about:blank" ? (process.env.PW_BASE_URL || "http://127.0.0.1:5189") : page.url() }]);
   await page.goto("/register?src=landing");
   await page.getByLabel("Email address", { exact: true }).fill("reader@example.com");
   await page.getByLabel("Password", { exact: true }).fill("valid-password");

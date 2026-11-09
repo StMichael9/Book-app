@@ -5,7 +5,7 @@ import { ArrowRight, BookOpen, Bookmark, House, Moon, Search, Sun, User } from "
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
-import { AccountPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
+import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
@@ -52,7 +52,7 @@ function Header() {
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
   const library = location.pathname.startsWith("/my-books");
   const home = location.pathname === "/home";
-  const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/account";
+  const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
   const mobileNav = useRef(null);
@@ -183,7 +183,7 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a private book", "/preferences": "Discovery subjects", "/login": "Sign in", "/register": "Create account", "/account": "Your account", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
     if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
@@ -240,7 +240,7 @@ function Shell() {
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
-        <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/discover" element={<Navigate replace to="/browse" />} /><Route path="/account" element={<AccountPage />} />
+        <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/discover" element={<Navigate replace to="/browse" />} /><Route path="/account" element={<Navigate replace to="/settings" />} /><Route path="/settings" element={<RequireAccount><SettingsPage /></RequireAccount>} />
         <Route path="/profile" element={<RequireAccount><ProfileHubPage /></RequireAccount>} /><Route path="/profile/lists/:id" element={<RequireAccount><ProfileListPage key={location.pathname} /></RequireAccount>} />
         <Route path="/u/:handle" element={<PublicProfilePage key={location.pathname} notFound={notFound} />} /><Route path="/u/:handle/lists/:id" element={<PublicListPage key={location.pathname} notFound={notFound} />} />
         <Route path="*" element={notFound} />

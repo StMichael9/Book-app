@@ -1,7 +1,8 @@
+import { useProfile } from "../profile/profileState.js";
 import { useEffect, useRef, useState } from "react";
 import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Mail, Moon, Sun } from "lucide-react";
+import { ArrowLeft, BookOpen, Mail, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getBookById } from "../../api/books.js";
@@ -73,8 +74,8 @@ export function AuthPage({ register = false }) {
   }
   const switchPath = `${register ? "/login" : "/register"}${params.size ? `?${params}` : ""}`;
   return <section className="bv-container"><div className="bv-auth-layout">
-    <aside className="bv-auth-story"><h2>A little shelf.<br />A lot of possibility.</h2><p className="bv-muted">The books you own. The ones you’re curious about. A library you can come back to.</p>
-      {pendingBook.data ? <div className="bv-auth-story-cover"><BookCover book={pendingBook.data} priority /></div> : <div className="bv-auth-story-shelves"><BookOpen aria-hidden="true" /><p><strong>Owned</strong>The ones you know.</p><p><strong>Want to read</strong>The next possibilities.</p></div>}
+    <aside className="bv-auth-story"><h2>Keep track of the books you own and the ones you want to read.</h2>
+      {pendingBook.data ? <div className="bv-auth-story-cover"><BookCover book={pendingBook.data} priority /></div> : <div className="bv-auth-story-shelves"><BookOpen aria-hidden="true" /></div>}
     </aside>
     <div className="bv-auth-card"><PageHeading title={register ? "Start your library." : "Welcome back."}>{register ? "Save discoveries and make room for your reading." : "Your books are right where you left them."}</PageHeading>
       {intent && <div className="bv-pending-book">{pendingBook.data && <BookCover book={pendingBook.data} priority />}<p><strong>{pendingBook.data?.title || "Your chosen book"}</strong>{register ? `Saves to ${intent.status === "owned" ? "Owned" : "Want to read"} as soon as your account is ready.` : `Ready to save as ${intent.status === "owned" ? "Owned" : "Want to read"} after you sign in.`}</p></div>}
@@ -105,7 +106,7 @@ function LegacyMyBooksPage() {
   const rows = Object.values(library.booksById);
   const loading = !reader.libraryReady || library.loading;
   const items = rows.filter((item) => item.status === status).map((item) => item.book).filter(Boolean);
-  return <section className="bv-container"><div className="bv-library-heading"><PageHeading title="My Books">Your collection. Your next possibilities.</PageHeading><ActionLink to="/browse" variant="secondary"><SearchIcon />Find more</ActionLink></div>
+  return <section className="bv-container"><div className="bv-library-heading"><PageHeading title="My Books">Books you want to read and books you own.</PageHeading><ActionLink to="/browse" variant="secondary"><SearchIcon />Find more</ActionLink></div>
     <div className="bv-tabs" role="tablist" aria-label="Your shelves" onKeyDown={(event) => {
       if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault(); const next = event.key === "Home" ? "want" : event.key === "End" ? "owned" : status === "want" ? "owned" : "want";
@@ -113,8 +114,8 @@ function LegacyMyBooksPage() {
     }}>{["want", "owned"].map((value) => <button key={value} type="button" role="tab" id={`bv-tab-${value}`} data-shelf={value}
       aria-selected={status === value} aria-controls="bv-shelf-panel" tabIndex={status === value ? 0 : -1}
       onClick={() => setParams({ status: value })}>{value === "want" ? "Want to read" : "Owned"}<span>{loading || library.error ? "…" : rows.filter((row) => row.status === value).length}</span></button>)}</div>
-    <div id="bv-shelf-panel" role="tabpanel" aria-labelledby={`bv-tab-${status}`}><p className="bv-library-caption bv-muted">{status === "want" ? "The books that caught your eye. Pick up where your curiosity left off." : "The books you call your own. Familiar favourites, all together."}</p>
-      {loading ? <BookSkeletons /> : library.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={library.retryLoad}>Try again</Button>}>Your books may still be saved. Try again before making changes.</EmptyState> : items.length ? <BookGrid books={items} bookshop={status === "want"} /> : <EmptyState icon={BookOpen} title={status === "want" ? "Your next discovery belongs here." : "Give your books a home."} action={<ActionLink to="/browse">Discover books</ActionLink>}>{status === "want" ? "Find a book that interests you, then choose Want to keep it here." : "Find a book you already have and choose Own to start your collection."}</EmptyState>}
+    <div id="bv-shelf-panel" role="tabpanel" aria-labelledby={`bv-tab-${status}`}><p className="bv-library-caption bv-muted">{status === "want" ? "Books you want to read." : "Books you own."}</p>
+      {loading ? <BookSkeletons /> : library.error ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={library.retryLoad}>Try again</Button>}>Your books may still be saved. Try again before making changes.</EmptyState> : items.length ? <BookGrid books={items} bookshop={status === "want"} /> : <EmptyState icon={BookOpen} title={status === "want" ? "Nothing on Want to read yet." : "No owned books yet."} action={<ActionLink to="/browse">Discover books</ActionLink>}>{status === "want" ? "Find a book and choose Want to read to keep it here." : "Find a book you have and choose I own it to add it here."}</EmptyState>}
     </div>
   </section>;
 }
@@ -150,7 +151,7 @@ function PreferencesEditor({ data }) {
     });
   }
   return <form onSubmit={submit} aria-busy={saving}>
-      <fieldset className="bv-preference-panel"><legend>What catches your eye?</legend><p className="bv-muted">Choose as many or as few as you like. This is optional.</p><div className="bv-preference-grid">{data.options.map((tag) => <label className="bv-check-tile" key={tag.id}><input type="checkbox" checked={selected.includes(tag.id)} disabled={saving} onChange={(event) => setSelected((current) => event.target.checked ? [...current, tag.id] : current.filter((value) => value !== tag.id))} /><span>{subjectLabel(tag.name)}</span></label>)}</div>
+      <fieldset className="bv-preference-panel"><legend>Favourite genres</legend><p className="bv-muted">Choose as many or as few as you like. This is optional.</p><div className="bv-preference-grid">{data.options.map((tag) => <label className="bv-check-tile" key={tag.id}><input type="checkbox" checked={selected.includes(tag.id)} disabled={saving} onChange={(event) => setSelected((current) => event.target.checked ? [...current, tag.id] : current.filter((value) => value !== tag.id))} /><span>{subjectLabel(tag.name)}</span></label>)}</div>
         {!data.options.length && <p>No subjects are available yet. You can keep exploring all books.</p>}
       </fieldset>{error && <p className="bv-field-error" role="alert">{error}</p>}
       <div className="bv-form-actions"><Button type="submit" disabled={saving}>{saving ? "Saving preferences…" : "Save preferences"}</Button><TextLink to="/browse">Back to discovery</TextLink></div>
@@ -194,7 +195,7 @@ export function RecoveryPage({ reset = false }) {
   </div></section>;
 }
 
-export function AccountPage() {
+export function SettingsPage() {
   const auth = useAuth();
   const reader = useReader();
   const library = useUserBooks();
@@ -204,13 +205,15 @@ export function AccountPage() {
     setLoggingOut(true); setError("");
     try { await auth.logout(); } catch (requestError) { setError(errorText(requestError, "You couldn’t be signed out. Please try again.")); setLoggingOut(false); }
   }
-  return <section className="bv-container"><div className="bv-account"><PageHeading title={auth.isAuthenticated ? "Make yourself at home." : "A library to call your own."}>{auth.isAuthenticated ? "Your books, your subjects, your way of browsing." : "Save the books that interest you and keep the ones you own together. Join when you’re ready."}</PageHeading>
-    {auth.isLoading ? auth.sessionError ? null : <p role="status">Checking your account…</p> : auth.isAuthenticated ? <><div className="bv-account-row"><div><strong>My Books</strong><span>Your library and reading history</span></div><TextLink to="/my-books">View books <ArrowRight aria-hidden="true" /></TextLink></div>
-      <div className="bv-account-row"><div><strong>Discovery subjects</strong><span>What catches your eye</span></div><TextLink to="/preferences">Choose subjects</TextLink></div>
-      {(library.readingExport || library.privacyControls || library.libraryExport) && <div className="bv-account-row"><div><strong>Your reading data</strong><span>Private download and removal controls</span></div><TextLink to="/my-data">Manage my data</TextLink></div>}</> : <div className="bv-form-actions"><ActionLink to="/register">Create account</ActionLink><TextLink to="/login">Sign in</TextLink></div>}
-    {auth.isAuthenticated && library.libraryImport && !library.readOnly && <div className="bv-account-row"><div><strong>Bring your library</strong><span>CSV / TSV import · preview books and supported history first</span></div><TextLink to="/my-books/import">Import books</TextLink></div>}
-    <div className="bv-account-row"><div><strong>Appearance</strong><span>{reader.theme === "dark" ? "Dark" : "Light"} theme</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></div>
-    {auth.isAuthenticated && <div className="bv-account-row"><div><strong>Account</strong><span>Come back to your books anytime.</span></div><Button variant="quiet" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></div>}
+  const { profile } = useProfile() || {};
+  const signedInAs = profile?.display_name ? `Signed in as ${profile.display_name}` : profile?.handle ? `Signed in as @${profile.handle}` : "You’re signed in";
+  const dataLinks = library.readingExport || library.privacyControls || library.libraryExport, importLink = library.libraryImport && !library.readOnly;
+  return <section className="bv-container"><div className="bv-account"><PageHeading title="Settings" />
+    <section className="bv-account-row" aria-labelledby="bv-set-genres"><div><h2 id="bv-set-genres" className="bv-account-heading">Favourite genres</h2><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></section>
+    {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete your account.</span></div>
+      <div className="bv-account-links">{dataLinks && <TextLink to="/my-data">Your reading data</TextLink>}{importLink && <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink>}</div></section>}
+    <section className="bv-account-row" aria-labelledby="bv-set-theme"><div><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2><span>{reader.theme === "dark" ? "Dark" : "Light"}</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></section>
+    <section className="bv-account-row" aria-labelledby="bv-set-out"><div><h2 id="bv-set-out" className="bv-account-heading">{signedInAs}</h2></div><Button variant="secondary" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></section>
     {error && <p className="bv-field-error" role="alert">{error}</p>}
   </div></section>;
 }

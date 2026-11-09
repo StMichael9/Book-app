@@ -122,6 +122,8 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const controls = useRef(null);
   const known = !unknown;
   const helperId = useId();
+  // A card repeats the same sentence for every book, so on cards it is left out; the page says it once, out of sight.
+  const noteHidden = compact && library.mode === "v3" && !(busy || down || library.readOnly || lookupError || blocked);
   async function saveToShelf(value) {
     const wasWanted = value === "want" && known && (library.mode === "v3" ? Boolean(entry?.is_wanted) : status === "want");
     const success = await reader.saveBook(book, value);
@@ -155,7 +157,7 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
         const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
-          data-shelf={value} disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={helperId}
+          data-shelf={value} disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={noteHidden ? undefined : helperId}
           aria-label={action.toLowerCase().includes(visible.toLowerCase()) ? action : `${visible}: ${action}`}
           onClick={() => saveToShelf(value)}>
           <Icon aria-hidden="true" />{visible}
@@ -163,11 +165,11 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
       })}
     </div>
     {why && <WhyPrompt bookId={book.id} entry={why} onClose={closeWhy} />}
-    <span id={helperId} className={compact ? "bv-sr-only" : "bv-help"}>
+    {!noteHidden && <span id={helperId} className={compact || library.mode === "v3" ? "bv-sr-only" : "bv-help"}>
       {busy ? "Updating your shelf…" : down ? "Saving is paused for now" : library.readOnly ? "Your library is available to read. Changes are temporarily paused." : lookupError ? lookupError : blocked ? "Checking your saved books before making changes." : library.mode === "v3" ?
         "Want to read and Owned are separate. Changing one keeps the other." : status ?
         "Choose the other shelf to move this book. Select it again to remove it." : "Want it, or already own it? Choose a shelf for this book."}
-    </span>
+    </span>}
     {!compact && auth.isAuthenticated && <AddToList book={book} />}
     {lookupError && <Button variant="quiet" onClick={() => library.loadVisibleBooks([book.id], true).catch(() => {})}>Try saved status again</Button>}
     {!hideError && reader.saveErrors[book.id] && <p className="bv-field-error" role="alert">{reader.saveErrors[book.id]}</p>}

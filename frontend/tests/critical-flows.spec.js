@@ -168,7 +168,7 @@ test("M6 recovery preserves safe save/discovery intent but not token parameters"
   await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want to read", exact: true })).toBeEnabled();
-  await expect(page.getByRole("link", { name: "Back to discovery", exact: true })).toHaveAttribute("href", "/browse?tag=fantasy");
+  await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?tag=fantasy");
   expect(app.requests.filter(request => request.path === "/books/1/status" && request.method === "POST")).toHaveLength(1);
 });
 
@@ -242,7 +242,7 @@ for (const status of [404, 503]) for (const keyboard of [false, true]) for (cons
     if (keyboard) { await retry.focus(); await page.keyboard.press("Enter"); }
     else await retry.click();
     await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
-    const back = page.getByRole("link", { name: "Back to discovery", exact: true });
+    const back = page.getByRole("link", { name: "Back", exact: true });
     if (moveFocus) await back.focus();
     release();
     const finalHeading = page.getByRole("heading", { name: retryFailure ? status === 404 ? "This book couldn’t be found." : "This book couldn’t load." : "Test-only Fantasy", exact: true });
@@ -259,10 +259,10 @@ for (const moveFocus of [false, true]) test(`M6 delayed book focus preserves key
   await page.getByRole("link", { name: "Test-only Fantasy", exact: true }).first().focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
-  if (moveFocus) await page.getByRole("link", { name: "Back to discovery", exact: true }).focus();
+  if (moveFocus) await page.getByRole("link", { name: "Back", exact: true }).focus();
   release();
   await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeVisible();
-  if (moveFocus) await expect(page.getByRole("link", { name: "Back to discovery", exact: true })).toBeFocused();
+  if (moveFocus) await expect(page.getByRole("link", { name: "Back", exact: true })).toBeFocused();
   else await expect(page.getByRole("heading", { name: "Test-only Fantasy", exact: true })).toBeFocused();
 });
 
@@ -442,7 +442,7 @@ test("registration, onboarding, logout and protected routes remain connected", a
   await page.getByRole("link", { name: "Back to discovery", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
   await page.getByRole("link", { name: "Your profile", exact: true }).click();
-  await page.getByRole("link", { name: "Account settings", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goto("/my-books");

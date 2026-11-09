@@ -8,6 +8,31 @@ import PickCard from "./PickCard.jsx";
 import NextReadSection from "../NextReadSection.jsx";
 import { PICKS_PER_TRY, cardFromEntry, startable, startReading } from "./homeLogic.js";
 
+// On a shelf this small the whole shelf is already in hand, so a pill whose books are the same as an earlier pill's is dropped.
+// The books for each pill are worked out from that one library response (no extra requests). "More <subject>" can't be told
+// from the shelf alone, so it is always kept.
+const SMALL_SHELF = 30;
+const SHORT_PAGES = 250;
+function foldSameBooks(pills, shelf) {
+  const items = shelf?.items, all = shelf?.counts?.all;
+  if (!Array.isArray(items) || !Number.isFinite(all) || all > SMALL_SHELF || items.length < all) return pills;
+  const open = items.filter(entry => startable(entry) && (entry.is_owned || entry.is_wanted));
+  const idsFor = {
+    short: open.filter(entry => entry.book?.page_count > 0 && entry.book.page_count < SHORT_PAGES),
+    owned: open.filter(entry => entry.is_owned),
+    waiting: open,
+  };
+  const seen = new Set();
+  return pills.filter(pill => {
+    const books = idsFor[pill.key];
+    if (!books) return true;
+    const key = books.map(entry => entry.id).sort((x, y) => x - y).join(",");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
 
 // What each pill asks of /me/library. Books come from Want to read and from what you own, so most pills ask twice and merge.
@@ -49,10 +74,11 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   // Memoised so the active pill keeps its identity between renders: the fetch effect depends on it, and a fresh object
   // every render would refetch (and discard) after each result, looping on /me/library.
   const hasNext = Boolean(library.nextRead);
-  const pills = useMemo(() => [...pillsFor(shelf), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext]), usable = pills.filter(pill => pill.enabled);
+  const pills = useMemo(() => [...pillsFor(shelf), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext]), enabled = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
+  const usable = foldSameBooks(enabled, shelf);
   const pill = pills.find(item => item.key === active);
   useEffect(() => {
     if (!pill || pill.next) return undefined;

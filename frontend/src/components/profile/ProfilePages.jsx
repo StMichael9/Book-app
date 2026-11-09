@@ -14,7 +14,7 @@ import { useProfile } from "./profileState.js";
 import { MONTHS } from "./shelfData.js";
 import { TabBar, TabPanel } from "./ProfileTabs.jsx";
 import { useProfileTab } from "./profileTab.js";
-import { YearFigures, YearInBooks } from "./YearShelf.jsx";
+import { YearCard } from "./YearShelf.jsx";
 
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const wait = ms => new Promise(done => setTimeout(done, ms));
@@ -54,7 +54,7 @@ function ListCover({ book }) {
 function Identity({ person, handle, size, children }) {
   return <header className="bv-profile-head"><Avatar person={person} size={size} />
     <div className="bv-profile-id">{person.display_name ? <h1>{person.display_name}</h1> : handle ? <h1>@{handle}</h1> : <h1 className="bv-sr-only">Your profile</h1>}
-      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}reading since {person.reading_since}</p>
+      <p className="bv-muted">{person.display_name && handle ? `@${handle} · ` : ""}Reading since {person.reading_since}</p>
       {person.bio && <p className="bv-profile-bio">{person.bio}</p>}</div>{children}</header>;
 }
 
@@ -128,16 +128,8 @@ function Visibility({ profile, announce }) {
 }
 
 function AccountSection() {
-  const auth = useAuth();
-  const [leaving, setLeaving] = useState(false), [error, setError] = useState("");
-  async function logout() {
-    setLeaving(true); setError("");
-    try { await auth.logout(); } catch { setError("You couldn’t be signed out. Please try again."); setLeaving(false); }
-  }
-  return <section className="bv-profile-account" aria-label="Account">
-    <Link className="bv-account-link" to="/account">Account settings<ChevronRight aria-hidden="true" /></Link>
-    <Button variant="quiet" className="bv-signout" disabled={leaving} onClick={logout}>{leaving ? "Signing out…" : "Sign out"}</Button>
-    {error && <p className="bv-field-error" role="alert">{error}</p>}</section>;
+  return <section className="bv-profile-account" aria-label="Settings">
+    <Link className="bv-account-link" to="/settings">Settings<ChevronRight aria-hidden="true" /></Link></section>;
 }
 
 export function ProfileHubPage() {
@@ -160,13 +152,12 @@ export function ProfileHubPage() {
     </div>
     <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <>
-        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <><YearFigures stats={stats.data} />{Array.isArray(stats.data?.by_month) && <p className="bv-profile-life-link"><TextLink to="/reading-life">Your reading life</TextLink></p>}</>}
+        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearCard stats={stats.data} />}
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
       {tab === "lists" && <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
         {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
           ? <ul className="bv-list-cards">{lists.data.map(item => <ListCard key={item.id} item={item} to={listLink(item)} own />)}</ul>
           : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>}
-      {tab === "year" && (stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearInBooks stats={stats.data} />)}
     </TabPanel>
     <AccountSection />
   </div></section>;
@@ -335,12 +326,11 @@ export function PublicProfilePage({ handle: given, notFound }) {
       <TabBar value={tab} onChange={setTab} />
     </div>
     <TabPanel key={tab} value={tab} settle={switched}>
-      {tab === "overview" && <><YearFigures stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
+      {tab === "overview" && <><YearCard stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
       {tab === "lists" && (page.lists.length > 0
         ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
           <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
         : <p className="bv-muted">No public lists yet.</p>)}
-      {tab === "year" && <YearInBooks stats={page.stats} own={false} chips={false} />}
     </TabPanel>
     <GuestLine />
   </div></section>;

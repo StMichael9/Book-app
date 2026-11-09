@@ -131,6 +131,7 @@ class LibraryEntry(BaseModel):
     reading_state: str | None
     created_at: datetime
     updated_at: datetime
+    finished_on: str | None = None     # newest dated finish (ISO date); only filled by the My Books list
 
 
 class LibraryPage(BaseModel):

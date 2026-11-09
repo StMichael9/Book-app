@@ -209,3 +209,15 @@
   .bv-root .bv-visibility span { grid-column: 2; }
   .bv-root .bv-visibility-action { grid-column: 1 / -1; justify-self: center; }
 }
+
+/* The compact year card: the count and a small month shelf. On the reader's own pages the whole card is one link. */
+.bv-root .bv-year-card { display: block; margin: 0 0 24px; padding: 16px 20px; border: 1px solid var(--bv-line); border-radius: 12px; background: var(--bv-panel); color: inherit; text-decoration: none; }
+.bv-root a.bv-year-card--link:hover { border-color: var(--bv-green); }
+.bv-root a.bv-year-card--link:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
+.bv-root .bv-year-card .bv-year-card-line { margin: 0 0 4px; font-weight: 600; }
+.bv-root .bv-year-card .bv-profile-year { margin: 0; }
+.bv-root .bv-year-card .bv-shelf { height: 56px; margin-top: calc(var(--bv-fs-helper) + 4px); }
+.bv-root .bv-profile:not(.bv-profile-list) .bv-year-card .bv-shelf { height: 56px; }
+.bv-root .bv-year-card .bv-year-card-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.bv-root .bv-year-chevron { color: var(--bv-muted); font-size: 1.5rem; line-height: 1; }
+.bv-root a.bv-year-card--link:hover .bv-year-chevron { color: var(--bv-green); }

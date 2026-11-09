@@ -42,7 +42,7 @@ const test = base.extend({
       if (path === "/auth/register" || path === "/auth/login") return reply(200, {});
       if (path === "/auth/logout") { state.guest = true; return reply(200, {}); }
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true } });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, reading_export: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => ({ book_id: id, entry_id: null, version: null, is_owned: false, is_wanted: false, reading_state: null })) });
       if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null });
@@ -156,13 +156,13 @@ test("the profile is private by default and the You tab opens it, with a link to
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" }).click();
   await expect(page).toHaveURL(/\/profile$/);
   await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
-  await expect(page.getByText("reading since 2026")).toBeVisible();
+  await expect(page.getByText("Reading since 2026")).toBeVisible();
   await expect(page.getByText("Only you can see your profile")).toBeVisible();
   await expect(page.getByRole("button", { name: "Make public" })).toBeVisible();
   await expect(page.getByText("@")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Account settings" })).toHaveAttribute("href", "/account");
-  await page.getByRole("link", { name: "Account settings" }).scrollIntoViewIfNeeded();
-  const link = await page.getByRole("link", { name: "Account settings" }).boundingBox(), nav = await page.getByRole("navigation", { name: "Mobile navigation" }).boundingBox();
+  await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  await page.getByRole("link", { name: "Settings" }).scrollIntoViewIfNeeded();
+  const link = await page.getByRole("link", { name: "Settings" }).boundingBox(), nav = await page.getByRole("navigation", { name: "Mobile navigation" }).boundingBox();
   expect(link.y + link.height).toBeLessThanOrEqual(nav.y);
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
 });
@@ -189,7 +189,7 @@ test("Make public opens a confirm sheet that asks for a username, reports taken 
   await expect(sheet).toBeHidden();
   await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
   await expect(page.getByText("bookvane.me/u/stmichael")).toBeVisible();
-  await expect(page.getByText("@stmichael · reading since 2026")).toBeVisible();
+  await expect(page.getByText("@stmichael · Reading since 2026")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
   await expect(page.getByRole("status").filter({ hasText: "Your profile is now public." })).toBeAttached();
   await page.getByRole("button", { name: "Make private" }).click();
@@ -248,7 +248,7 @@ test("Edit profile is a sheet that sends only the changed fields and explains a 
   await expect(sheet).toBeHidden();
   await expect(page.getByRole("heading", { name: "Michael R", level: 1 })).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ display_name: "Michael R", handle: "michael-reads" });
-  await expect(page.getByText("@michael-reads · reading since 2026")).toBeVisible();
+  await expect(page.getByText("@michael-reads · Reading since 2026")).toBeVisible();
   await expect(open).toBeFocused();
 });
 
@@ -309,7 +309,7 @@ test("with no avatar chosen the avatar shows the reader's initials on green", as
 test("the You tab is active on /profile, a list and /account, and never on a public page", async ({ page, app }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   const tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
-  for (const path of ["/profile", "/profile/lists/7", "/account"]) {
+  for (const path of ["/profile", "/profile/lists/7", "/settings"]) {
     await page.goto(path);
     await expect(tab).toHaveAttribute("aria-current", "page");
   }
@@ -319,31 +319,27 @@ test("the You tab is active on /profile, a list and /account, and never on a pub
   expect(app.errors).toEqual([]);
 });
 
-test("the year sentence reads right for plural, one book, no biggest month and an empty year", async ({ page, app }) => {
-  await page.goto("/profile?tab=year");
-  await expect(page.getByRole("heading", { name: "Your 2026", exact: true })).toBeVisible();
-  await expect(page.getByText("You’ve finished 18 books and 5,940 pages this year. July was your biggest month.")).toBeVisible();
-  await expect(page.getByText("Mostly Mystery (7) · Classics (5)")).toBeVisible();
-  await expect(page.locator(".bv-year-genres li, .bv-year-chips")).toHaveCount(0);
+test("the year card reads right for plural, one book and an empty year, and is one link to the reading life", async ({ page, app }) => {
+  await page.goto("/profile");
+  const card = page.getByRole("link", { name: /^Your 2026:/ });
+  await expect(card).toHaveAttribute("href", "/reading-life");
+  await expect(card).toHaveAccessibleName("Your 2026: 18 books finished. Open your reading life");
+  await expect(card).toContainText("18 books finished in 2026");
+  await expect(card.locator(".bv-year-chevron")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.getByRole("link", { name: "Your reading life", exact: true })).toHaveCount(0);
   await expect(page.locator(".bv-shelf")).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator(".bv-shelf-months .is-top")).toHaveText("J");
-  await expect(page.locator(".bv-shelf-months .is-top")).toHaveCount(1);
   await expect(page.getByText("July: 6")).toBeAttached();
   app.stats = stats({ books_finished: 1, pages_read: 320, by_month: month(1), biggest_month: 1, top_genres: [] });
   await page.reload();
-  await expect(page.getByText("You’ve finished 1 book and 320 pages this year. January was your biggest month.")).toBeVisible();
-  app.stats = stats({ books_finished: 1, pages_read: 320, by_month: month(), biggest_month: null, top_genres: [] });
-  await page.reload();
-  await expect(page.getByText("You’ve finished 1 book and 320 pages this year.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("1 book finished in 2026");
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.reload();
-  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
-  await expect(page.locator(".bv-shelf")).toHaveCount(1);
+  const empty = page.getByRole("link", { name: /^Your 2026:/ });
+  await expect(empty).toContainText("Finish a book this year and it’ll show up here.");
+  await expect(empty).toHaveAttribute("href", "/reading-life");
   await expect(page.locator(".bv-shelf-spine")).toHaveCount(0);
-  await expect(page.locator(".bv-shelf-months")).toBeVisible();
-  expect((await page.locator(".bv-shelf").boundingBox()).height).toBeLessThan(12);
-  const empty = await page.locator(".bv-profile-year").boundingBox();
-  expect(empty.height).toBeLessThan(150);
+  expect((await empty.boundingBox()).height).toBeLessThan(180);
 });
 
 test("the year shelf draws a spine per finished book up to what fits, shows +N for the rest, is stable between visits and never overflows", async ({ page, app }) => {
@@ -499,7 +495,7 @@ test("the tabs are a real tablist: arrows, Home and End move between them, only 
   await page.goto("/profile");
   const list = page.getByRole("tablist", { name: "Profile sections" });
   const tabs = list.getByRole("tab");
-  await expect(tabs).toHaveText(["Overview", "Lists", "Year"]);
+  await expect(tabs).toHaveText(["Overview", "Lists"]);
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await expect(tabs.nth(1)).toHaveAttribute("tabindex", "-1");
   await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "bv-tab-overview");
@@ -507,14 +503,11 @@ test("the tabs are a real tablist: arrows, Home and End move between them, only 
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Lists" })).toBeFocused();
   await expect(page).toHaveURL(/\/profile\?tab=lists$/);
-  await page.keyboard.press("End");
-  await expect(page.getByRole("tab", { name: "Year" })).toHaveAttribute("aria-selected", "true");
-  await expect(page).toHaveURL(/\?tab=year$/);
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: "Overview" })).toBeFocused();
   await expect(page).toHaveURL(/\/profile$/);
-  await page.keyboard.press("ArrowLeft");
-  await expect(page.getByRole("tab", { name: "Year" })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("tab", { name: "Lists" })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Home");
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   // Clicking pushes history, so Back returns to the earlier tab; a linked tab opens directly; an unknown value is the Overview.
@@ -523,18 +516,15 @@ test("the tabs are a real tablist: arrows, Home and End move between them, only 
   await page.goBack();
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await page.goto("/profile?tab=year");
-  await expect(page.getByRole("tab", { name: "Year" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
   await page.goto("/profile?tab=nonsense");
   await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
 });
 
 test("the Overview shows three big figures and up to three list rows, with See all lists only when there are more", async ({ page, app }) => {
   await page.goto("/profile");
-  const figures = page.locator(".bv-figures");
-  await expect(page.getByRole("heading", { name: "Your 2026 so far" })).toBeVisible();
-  await expect(figures).toContainText("books finished18");
-  await expect(figures).toContainText("pages5,940");
-  await expect(figures).toContainText("biggest monthJul");
+  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("18 books finished in 2026");
+  await expect(page.locator(".bv-figures")).toHaveCount(0);
   await expect(page.locator(".bv-list-row")).toHaveCount(1);
   await expect(page.locator(".bv-list-row").first()).toContainText("3 books");
   await expect(page.getByRole("button", { name: "See all lists" })).toHaveCount(0);
@@ -546,17 +536,13 @@ test("the Overview shows three big figures and up to three list rows, with See a
   await expect(page.locator(".bv-list-card")).toHaveCount(4);
 });
 
-test("an empty year shows one line on the Overview with no zeros, and the Year tab shows a short baseline instead of a tall shelf", async ({ page, app }) => {
+test("an empty year shows one line on the Overview with no zeros", async ({ page, app }) => {
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/profile");
-  await expect(page.getByRole("heading", { name: "Your 2026 so far" })).toBeVisible();
-  await expect(page.getByText("It starts with your first finished book.")).toBeVisible();
-  await expect(page.locator(".bv-figures")).toHaveCount(0);
-  await expect(page.locator(".bv-profile-year")).not.toContainText(/(?<!\d)0(?!\d)/);
-  await page.getByRole("tab", { name: "Year" }).click();
   await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
-  expect((await page.locator(".bv-shelf").boundingBox()).height).toBeLessThan(12);
-  expect((await page.locator(".bv-profile-year").boundingBox()).height).toBeLessThan(150);
+  await expect(page.locator(".bv-figures")).toHaveCount(0);
+  await expect(page.locator(".bv-year-card-line")).not.toContainText(/(?<!\d)0(?!\d)/);
+  expect((await page.locator(".bv-year-card").boundingBox()).height).toBeLessThan(180);
 });
 
 test("the tabs never wrap at 320px or at 200% text, and the header is centred", async ({ page, app: _app }) => {
@@ -574,9 +560,9 @@ test("the tabs never wrap at 320px or at 200% text, and the header is centred", 
 });
 
 test("the Account rows stay at the bottom on every tab", async ({ page, app: _app }) => {
-  for (const path of ["/profile", "/profile?tab=lists", "/profile?tab=year"]) {
+  for (const path of ["/profile", "/profile?tab=lists"]) {
     await page.goto(path);
-    await expect(page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Settings" }).getByRole("link", { name: "Settings" })).toBeVisible();
     const order = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.map(node => node.className));
     expect(order.at(-1)).toContain("bv-profile-account");
   }
@@ -585,21 +571,20 @@ test("the Account rows stay at the bottom on every tab", async ({ page, app: _ap
 test("the public page has the same header and tabs, third-person figures, public lists only and the guest line last", async ({ page, app }) => {
   app.guest = true;
   await page.goto("/u/ada");
-  await expect(page.getByRole("tab")).toHaveText(["Overview", "Lists", "Year"]);
-  await expect(page.getByRole("heading", { name: "2026 so far" })).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveText(["Overview", "Lists"]);
+  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.locator(".bv-year-card")).not.toHaveAttribute("href", /.*/);
   await expect(page.locator(".bv-visibility")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit profile" })).toHaveCount(0);
   await expect(page.locator(".bv-list-row")).toHaveCount(1);
   await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page).toHaveURL(/\/u\/ada\?tab=lists$/);
   await expect(page.locator(".bv-list-card")).toHaveCount(1);
-  await page.getByRole("tab", { name: "Year" }).click();
-  await expect(page.getByText("Finished 2 books and 400 pages this year. January was their biggest month.")).toBeVisible();
   const last = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.at(-1).className);
   expect(last).toContain("bv-profile-join");
   app.publicProfile.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/u/ada");
-  await expect(page.getByText("It starts with their first finished book.")).toBeVisible();
+  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
 });
 
 test("the selected tab is lifted above the track in dark and light, with readable text, and the three tabs are equal segments", async ({ page, app: _app }) => {
@@ -638,7 +623,7 @@ test("the Overview has one rule above the account rows, list names use the card 
 });
 
 test("a tab switch settles the incoming panel in 160ms, never on the first paint, and not under reduced motion", async ({ page, app: _app }) => {
-  for (const path of ["/profile", "/profile?tab=year"]) {
+  for (const path of ["/profile", "/profile?tab=lists"]) {
     await page.goto(path);
     await expect(page.getByRole("tabpanel")).toBeVisible();
     await expect(page.getByRole("tabpanel")).toHaveCSS("animation-name", "none");
@@ -647,7 +632,7 @@ test("a tab switch settles the incoming panel in 160ms, never on the first paint
   await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0.16s");
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.getByRole("tab", { name: "Year" }).click();
+  await page.getByRole("tab", { name: "Overview" }).click();
   await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0s");
 });
 
@@ -689,18 +674,13 @@ test("the privacy pill is centred: a two-row pill on phones with Make public on 
   expect(Math.abs((wideButton.y + wideButton.height / 2) - (wideText.y + wideText.height / 2))).toBeLessThan(12);
 });
 
-test("Sign out is the second ruled row under Account settings, and tertiary links sit on the 20px gutter", async ({ page, app: _app }) => {
+test("the Settings link sits on the 20px gutter, and tertiary links do too", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("/profile");
   await expect(page.getByRole("heading", { name: "St Michael", level: 1 })).toBeVisible();
-  const link = page.getByRole("link", { name: "Account settings" }), out = page.getByRole("button", { name: "Sign out" });
-  await expect(out).toBeVisible();
-  const [linkBox, outBox] = [await link.boundingBox(), await out.boundingBox()];
-  expect(outBox.y).toBeGreaterThan(linkBox.y + linkBox.height - 2);
-  expect(outBox.height).toBeGreaterThanOrEqual(44);
-  expect(Math.round(outBox.x)).toBe(20); expect(Math.round(linkBox.x)).toBe(20);
-  await expect(out).toHaveCSS("border-bottom-width", "1px");
-  await expect(out.locator("svg")).toHaveCount(0);
+  const link = page.getByRole("link", { name: "Settings" });
+  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+  expect(Math.round((await link.boundingBox()).x)).toBe(20);
   const edit = await page.getByRole("button", { name: "Edit profile" }).boundingBox();
   expect(Math.abs(edit.x + edit.width / 2 - 187.5)).toBeLessThan(2);
   await page.goto("/profile/lists/7");
@@ -710,19 +690,19 @@ test("Sign out is the second ruled row under Account settings, and tertiary link
 
 test("on a wide screen the header, tabs and panels share one 720px column with the same left edge, the shelf is 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/profile?tab=year");
+  await page.goto("/profile");
   expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(720);
   const edge = async locator => Math.round((await locator.first().boundingBox()).x);
   const tabsEdge = await edge(page.getByRole("tablist"));
-  expect(await edge(page.getByRole("heading", { name: "Your 2026" }))).toBe(tabsEdge);
-  expect(await edge(page.getByRole("link", { name: "Account settings" }))).toBe(tabsEdge);
-  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "140px");
+  expect(await edge(page.getByRole("link", { name: /^Your 2026:/ }))).toBe(tabsEdge);
+  expect(await edge(page.getByRole("link", { name: "Settings" }))).toBe(tabsEdge);
+  await expect(page.locator(".bv-year-card .bv-shelf")).toHaveCSS("height", "56px");
   await expect(page.locator(".bv-shelf-spine").first()).toHaveCSS("width", /^(1[0-2]|9)(\.\d+)?px$/);
   await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page.locator(".bv-list-card .bv-art").first()).toHaveCSS("height", "120px");
   await page.setViewportSize({ width: 375, height: 800 });
-  await page.getByRole("tab", { name: "Year" }).click();
-  await expect(page.locator(".bv-shelf")).toHaveCSS("height", "96px");
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await expect(page.locator(".bv-year-card .bv-shelf")).toHaveCSS("height", "56px");
 });
 
 test("the 50-list limit is explained", async ({ page, app }) => {
@@ -884,12 +864,10 @@ test("a public profile shows only the public fields, and a guest is invited to j
   app.guest = true;
   await page.goto("/u/ada");
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
-  await expect(page.getByText("@ada · reading since 2025")).toBeVisible();
+  await expect(page.getByText("@ada · Reading since 2025")).toBeVisible();
   await expect(page.getByText("Quiet reader.")).toBeVisible();
-  await expect(page.locator(".bv-figures")).toContainText("finished2");
-  await expect(page.locator(".bv-figures")).toContainText("pages400");
-  await expect(page.locator(".bv-figures")).toContainText("biggest monthJan");
-  await expect(page.getByText("Books finished")).toHaveCount(0);
+  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.getByText("Books finished", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Shared list/ })).toHaveAttribute("href", "/u/ada/lists/3");
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "96px");
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
@@ -933,13 +911,15 @@ test("the header shows the avatar as the profile entry, with the accessible name
   await expect(page.getByRole("link", { name: "Your account" })).toHaveCount(0);
 });
 
-test("the hub ends with Account settings and Sign out, and Sign out signs the reader out", async ({ page, app }) => {
+test("the hub ends with Settings, and Sign out lives there", async ({ page, app }) => {
   await page.goto("/profile");
-  const account = page.getByRole("region", { name: "Account" });
-  await expect(account.getByRole("link", { name: "Account settings" })).toHaveAttribute("href", "/account");
+  const account = page.getByRole("region", { name: "Settings" });
+  await expect(account.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
   const order = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.map(node => node.className || node.tagName));
   expect(order.at(-1)).toContain("bv-profile-account");
-  await account.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+  await account.getByRole("link", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect.poll(() => sent(app, "POST", "/auth/logout").length).toBe(1);
   await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible();
 });
@@ -984,4 +964,37 @@ test("profile tab screenshots", async ({ page, app }) => {
       app.guest = false;
     }
   }
+});
+
+test("Settings has the four sections, Sign out only there, and /account goes to it", async ({ page, app }) => {
+  await page.goto("/account");
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+  for (const name of ["Favourite genres", "Your data", "Theme"]) await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Signed in as /, level: 2 })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
+  await expect(page.getByText("Download your books and notes, or delete your account.")).toBeVisible();
+  await expect(page.locator(".bv-year-chevron")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Choose genres" })).toHaveAttribute("href", "/preferences");
+  await expect(page.getByRole("link", { name: "Your reading data" })).toHaveAttribute("href", "/my-data");
+  await expect(page.getByText(/Make yourself at home|View books|A library to call your own|catches your eye/)).toHaveCount(0);
+  await page.getByRole("button", { name: "Switch theme" }).click();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect.poll(() => sent(app, "POST", "/auth/logout").length).toBe(1);
+});
+
+test("Sign out is not on the profile page any more", async ({ page, app: _app }) => {
+  await page.goto("/profile");
+  await expect(page.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+});
+
+test("the privacy and data pages are short bullets, with the plain backup lines and one support address", async ({ page, app: _app }) => {
+  await page.goto("/privacy");
+  await expect(page.getByRole("heading", { name: "What we keep" })).toBeVisible();
+  await expect(page.getByText("Deleted data can stay in our backups for a limited time.")).toBeVisible();
+  await expect(page.getByText("Only you can see your library.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "support@bookvane.me" })).toHaveAttribute("href", "mailto:support@bookvane.me");
+  await expect(page.getByText(/\d+ days/)).toHaveCount(0);
+  expect((await page.locator("main").innerText()).match(/operator|onboarding channel/i)).toBeNull();
 });

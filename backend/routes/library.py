@@ -46,7 +46,7 @@ def capabilities(request: Request, current_user: User = Depends(get_current_user
 
 def facet_filters(facet: LibraryFacet = "all",
                   label: str = Query(default="", max_length=120), owned: bool = False,
-                    sort: Literal["added", "title", "author", "finished", "updated"] = "added",
+                    sort: Literal["added", "added_oldest", "title", "author", "finished", "updated"] = "added",
                     subject: list[int] = Query(default=[], max_length=50),
                     author: list[str] = Query(default=[], max_length=50),
                     year_finished: list[int] = Query(default=[], max_length=50),

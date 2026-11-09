@@ -47,3 +47,17 @@
 
 .bv-root .bv-import-removed { border: 1px solid var(--bv-line); border-radius: 8px; padding: 12px 16px; margin: 16px 0; }
 .bv-root .bv-import-removed legend { font-weight: 600; padding-inline: 4px; }
+
+/* Two books tie: each is one tap, with cover, title, author and year. */
+.bv-root .bv-import-pick-label { font-weight: 600; margin: 12px 0 8px; }
+.bv-root .bv-import-candidates { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 8px; }
+.bv-root .bv-import-candidates li { display: block; list-style: none; margin: 0; }
+.bv-root .bv-import-candidate { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; font: inherit; color: inherit; background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; cursor: pointer; }
+.bv-root .bv-import-candidate:hover:not(:disabled) { border-color: var(--bv-green); }
+.bv-root .bv-import-candidate:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
+.bv-root .bv-import-candidate:disabled { opacity: .6; cursor: default; }
+.bv-root .bv-import-candidate .bv-cover { flex: 0 0 76px; width: 76px; }
+.bv-root .bv-import-candidate > span { display: grid; gap: 2px; min-width: 0; }
+.bv-root .bv-import-candidate > span > span { color: var(--bv-muted); font-size: .9em; }
+.bv-root .bv-import-page .bv-button--quiet, .bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled), .bv-root .bv-import-page .bv-button--quiet:focus:not(:focus-visible) { background: transparent; box-shadow: none; }
+.bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled) { text-decoration: underline; }

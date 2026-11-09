@@ -17,7 +17,7 @@ const test = base.extend({
     await page.route("**/*", async (route) => {
       const request = route.request(); const url = new URL(request.url());
       if (url.origin === "https://covers.openlibrary.org" || url.origin === "https://wsrv.nl") return route.abort(); // cover art in the book snapshot; never a data request
-      if (url.origin !== "http://127.0.0.1:5289") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
+      if (url.hostname !== "127.0.0.1") { state.errors.push(`Unexpected external request: ${url.origin}`); return route.abort(); }
       if (url.pathname.startsWith("/test-cover/")) {
         if (state.brokenCover) return route.fulfill({ status: 404, body: "" });
         const number = Number(url.pathname.match(/(\d+)\.jpg/)?.[1]) % 5;
@@ -131,7 +131,7 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
   app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
   await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
-  await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click();
+  await page.goto("/settings"); await page.getByRole("button", { name: "Switch theme" }).click();
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
   await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(32, 46, 40)");
 });
@@ -154,7 +154,7 @@ test("save confirmation waits for the API and shelf moves update the shared libr
   release(); app.holdSave = null; await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click(); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" })).toHaveAttribute("aria-pressed", "true");
   expect(app.saved).toHaveLength(1); expect(app.saved[0].status).toBe("owned"); await page.goto("/my-books?status=owned");
-  await page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" }).click(); await expect(page.getByRole("heading", { name: "Give your books a home." })).toBeVisible(); expect(app.saved).toHaveLength(0);
+  await page.getByRole("button", { name: "Remove Pride and Prejudice from Owned" }).click(); await expect(page.getByRole("heading", { name: "No owned books yet." })).toBeVisible(); expect(app.saved).toHaveLength(0);
 });
 
 test("failed writes retain the prior status and offer a real retry", async ({ page, app }) => {
@@ -220,13 +220,13 @@ test("external return URLs are ignored and invalid login preserves the form", as
 for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at ${width}px`, async ({ page, app }) => {
   await page.setViewportSize({ width, height: 844 }); app.authenticated = true; app.saved = [{ id: 1, book_id: 1, status: "want", book: books[0] }];
   app.catalogue = [{ ...books[0], title: "A deliberately very long book title that must wrap without hiding the reader’s shelf controls" }, ...books.slice(1)];
-  for (const path of ["/", "/browse", "/book/1", "/my-books", "/preferences", "/account"]) {
+  for (const path of ["/", "/browse", "/book/1", "/my-books", "/preferences", "/settings"]) {
     await page.goto(path); await expect(page.locator("h1")).toBeVisible(); await page.locator(".bv-book-card").first().waitFor({ timeout: 1000 }).catch(() => {});
     const overflow = await page.evaluate(() => [...document.querySelectorAll(".bv-root *")].filter((element) => element.getBoundingClientRect().right > innerWidth + 1).map((element) => ({ element: element.className, right: element.getBoundingClientRect().right })).slice(0, 8));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path}: ${JSON.stringify(overflow)}`).toBe(true);
     await expect(page.locator("body")).not.toContainText(/Shelfbound/i);
   }
-  await page.goto("/account"); await page.getByRole("button", { name: "Switch theme" }).click(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark"); await page.reload(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
+  await page.goto("/settings"); await page.getByRole("button", { name: "Switch theme" }).click(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark"); await page.reload(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
   await page.emulateMedia({ reducedMotion: "reduce" }); await page.goto("/browse"); await page.getByRole("button", { name: "Filters", exact: true }).click(); expect(await page.getByRole("dialog").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
 });
 
@@ -234,11 +234,11 @@ for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at
 test("discovery context survives book details and signing in to save", async ({ page, app }) => {
   await page.goto("/browse?author=Jane&tag=romance");
   await page.getByRole("link", { name: "View Pride and Prejudice", exact: true }).click();
-  await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?author=Jane&tag=romance");
+  await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?author=Jane&tag=romance");
   await page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" }).click();
   await page.getByRole("dialog").getByRole("link", { name: "Sign in", exact: true }).click();
   await signIn(page); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
-  await page.getByRole("link", { name: "Back to discovery" }).click(); await expect(page).toHaveURL(/author=Jane&tag=romance/);
+  await page.getByRole("link", { name: "Back", exact: true }).click(); await expect(page).toHaveURL(/author=Jane&tag=romance/);
   expect(mutations(app)).toHaveLength(1);
 });
 
@@ -277,7 +277,7 @@ test("visual review exports the implemented desktop and mobile screens", async (
 
 test("dark theme keeps primary headings and book titles legible alongside legacy styles", async ({ page, app }) => {
   app.authenticated = true; await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
-  for (const path of ["/browse", "/book/1", "/my-books", "/preferences", "/account"]) {
+  for (const path of ["/browse", "/book/1", "/my-books", "/preferences", "/settings"]) {
     await page.goto(path); await expect(page.locator("h1")).toBeVisible();
     if (path === "/browse") await expect(page.locator(".bv-book-card")).toHaveCount(5);
     if (path === "/book/1") await expect(page.locator("#bv-book-title")).toBeVisible();
@@ -334,7 +334,7 @@ test("choosing a different shelf after continuation failure replaces the pending
   await expect(page).not.toHaveURL(/save=/);
   await expect(page.getByRole("button", { name: "Retry save" })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Back to discovery" })).toHaveAttribute("href", "/browse?tag=romance");
+  await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?tag=romance");
   expect(app.saved[0].status).toBe("owned");
   expect(mutations(app)).toHaveLength(2);
 });

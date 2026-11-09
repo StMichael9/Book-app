@@ -216,22 +216,25 @@ test("a pill with nothing behind it is hidden, and the panel hides when every pi
   await expect(page.getByRole("heading", { name: "Can’t decide?" })).toHaveCount(0);
 });
 
-test("the year at a glance shows figures and the shelf, and links to the reading life", async ({ page, app: _app }) => {
+test("the year is one compact card: the count and the month shelf, all one link to the reading life", async ({ page, app: _app }) => {
   await page.goto("/home");
-  const glance = page.getByRole("region", { name: "Your 2026 so far" });
-  await expect(glance.getByText("23", { exact: true })).toBeVisible();
-  await expect(glance.getByText("7,840", { exact: true })).toBeVisible();
-  await expect(glance.getByText("11 days", { exact: true })).toBeVisible();
-  await expect(glance.getByRole("link", { name: "Your reading life" })).toHaveAttribute("href", "/reading-life");
+  const card = page.getByRole("link", { name: /^Your 2026:/ });
+  await expect(card).toHaveAttribute("href", "/reading-life");
+  await expect(card).toHaveAccessibleName("Your 2026: 23 books finished. Open your reading life");
+  await expect(card).toContainText("23 books finished in 2026");
+  await expect(card.locator(".bv-shelf")).toHaveCount(1);
+  await expect(page.getByRole("link", { name: "Your reading life", exact: true })).toHaveCount(0);
+  await expect(page.locator(".bv-figures")).toHaveCount(0);
+  await expect(card).not.toContainText("7,840");
 });
 
-test("with nothing finished the year is one calm line, never zeros", async ({ page, app }) => {
+test("with nothing finished the card is the one empty-year sentence, never zeros, and still links", async ({ page, app }) => {
   app.stats = { year: 2026, books_finished: 0, pages_read: 0, median_days: null, biggest_month: null, by_month: new Array(12).fill(0), top_genres: [] };
   await page.goto("/home");
-  const glance = page.getByRole("region", { name: "Your 2026 so far" });
-  await expect(glance.getByText("When you finish a book, your year starts filling in here.")).toBeVisible();
-  await expect(glance.getByRole("link", { name: "Import your history" })).toBeVisible();
-  await expect(glance.locator("dl")).toHaveCount(0);
+  const card = page.getByRole("link", { name: /^Your 2026:/ });
+  await expect(card).toContainText("Finish a book this year and it’ll show up here.");
+  await expect(card).toHaveAttribute("href", "/reading-life");
+  await expect(card.locator(".bv-year-card-line")).not.toContainText(/(?<!\d)0(?!\d)/);
 });
 
 test("on a phone Home shows the first book and a Show link for the rest", async ({ page, app: _app }) => {
@@ -398,4 +401,52 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`sh
   await expect(page.getByRole("heading", { name: "Books to explore" })).toBeVisible();
   await settle();
   await page.screenshot({ path: `../.bv-shots/home-polish/discover-head-${width}-${theme}.png`, clip: { x: 0, y: 0, width, height: 700 } });
+});
+
+test("Back on a book page returns to the page before it, and a direct link falls back to Discover", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  await page.getByRole("link", { name: "Piranesi", exact: true }).click();
+  await page.getByRole("link", { name: "Full book details" }).click();
+  await expect(page).toHaveURL(/\/book\/\d+/);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/\d+$/);
+  await page.getByRole("link", { name: /Home/ }).first().click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto("/book/1");
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/browse$/);
+});
+
+test("Back on a book page returns to Discover, and the shelf note is said once, out of sight", async ({ page, app: _app }) => {
+  await page.goto("/browse");
+  await expect(page.locator("article.bv-book-card").first()).toBeVisible();
+  await expect(page.getByText("Want to read and Owned are separate. Changing one keeps the other.")).toHaveCount(1);
+  await page.getByRole("link", { name: /^View / }).first().click();
+  await expect(page.getByText("Open an existing reading, or start your first")).toHaveCount(0);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/browse$/);
+});
+
+test("on a small shelf a pill whose books are the same as an earlier pill's is dropped, and Home still asks the library once", async ({ page, app }) => {
+  app.entries = app.entries.map(item => ({ ...item, is_owned: true, is_wanted: false, book: { ...item.book, page_count: 400 } }));
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await expect(pills.getByRole("button", { name: "Something I own" })).toBeVisible();
+  await expect(pills.getByRole("button", { name: "Waiting longest" })).toHaveCount(0);
+  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+});
+
+test("a shelf whose books are all short folds Something I own and Waiting longest into Something short", async ({ page, app }) => {
+  app.entries = app.entries.map(item => ({ ...item, is_owned: true, is_wanted: false, book: { ...item.book, page_count: 180 } }));
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await expect(pills.getByRole("button", { name: "Something short" })).toBeVisible();
+  await expect(pills.getByRole("button", { name: "Something I own" })).toHaveCount(0);
+  await expect(pills.getByRole("button", { name: "Waiting longest" })).toHaveCount(0);
+});
+
+test("a shelf with differing results keeps every pill", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  for (const name of ["Something short", "Something I own", "Waiting longest"]) await expect(pills.getByRole("button", { name })).toBeVisible();
 });

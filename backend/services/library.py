@@ -139,7 +139,12 @@ class LibraryService:
             by_id = {entry.id: (entry, state) for entry, state in self.db.execute(
                 select(UserBook, _reading_state()).where(UserBook.user_id == user_id, UserBook.id.in_([row.id for row in chosen]))
                 .options(*_summary_options())).unique().all()}
-        items = [entry_dto(*by_id[row.id]) for row in chosen if row.id in by_id]
+        items = []
+        for row in chosen:
+            if row.id in by_id:
+                item = entry_dto(*by_id[row.id])
+                item.finished_on = row.finished_on       # already computed by the view's single statement
+                items.append(item)
         next_cursor = view.encode(f.sort, chosen[-1], scope) if len(ordered) > limit and chosen else None
         return LibraryPage(items=items, counts=counts, total=counts[f.facet], next_cursor=next_cursor,
                            facets=view.facets(rows, f, tag_names), index=view.index(visible, f.sort))
