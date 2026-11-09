@@ -42,17 +42,22 @@ function StatusLine({ labels }) {
   return <p className="bv-personal-book-state"><strong>{lead}</strong>{rest.length > 0 && <span>{` · ${rest.join(" · ")}`}</span>}</p>;
 }
 
+// "3 Jan 2026" from the entry's finished_on (a calendar day); nothing when there is none.
+const finishedDate = value => { const date = typeof value === "string" ? new Date(`${value}T00:00:00`) : null; return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""; };
+
 // One line of the list view: a small cover, the title (the link), the author and the shelf state. Like the card, one link per row.
 export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   navigationState = readingActions ? { ...navigationState, entry } : navigationState;
   const labels = [readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean);
+  const finished = finishedDate(entry.finished_on);
   return <li className="bv-library-row bv-personal-book">
     <span className="bv-row-thumb" aria-hidden="true"><BookCover book={book} size="small" /></span>
     <div className="bv-row-title"><h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3></div>
     <p className="bv-row-author">{authorLabel(book)}</p>
     <p className="bv-row-shelf">{labels.join(" · ")}</p>
+    {finished ? <p className="bv-row-finished">Finished {finished}</p> : <span className="bv-row-finished" aria-hidden="true" />}
   </li>;
 }
 
