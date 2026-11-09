@@ -86,6 +86,8 @@ const test = base.extend({
         const subjects = url.searchParams.getAll("subject").map(Number);
         if (subjects.length) entries = entries.filter(entry => entry.book?.tags?.some(tag => subjects.includes(tag.id)));
         if (sort === "title") entries.sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
+        // The server's own order for "Date finished": newest finished_on first, entries without a date last.
+        if (sort === "finished") entries = state.finishedOrder ? state.finishedOrder.map(id => state.entries.get(id)) : entries.sort((a, b) => (b.finished_on || "").localeCompare(a.finished_on || "") || b.id - a.id);
         const counts = { all: entries.length, owned: entries.filter(entry => entry.is_owned).length, want: entries.filter(entry => entry.is_wanted).length, ...Object.fromEntries(["reading", "paused", "finished", "dnf"].map(state => [state, entries.filter(entry => entry.reading_state === state).length])) };
         if (facet === "owned") entries = entries.filter(entry => entry.is_owned);
         if (facet === "want") entries = entries.filter(entry => entry.is_wanted);
@@ -741,3 +743,44 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
     }
   });
 }
+
+const finishedEntries = () => new Map([[1, { ...row(1), reading_state: "finished", finished_on: "2026-01-03" }], [2, { ...row(2), reading_state: "finished", finished_on: null }], [3, { ...row(3), reading_state: "finished", finished_on: "2025-12-20" }]]);
+
+test("the list view shows the finished date in the row on a desktop, and nothing when there is none", async ({ page, app }) => {
+  app.readingActions = true; app.entries = finishedEntries();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/my-books");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  const rows = page.locator(".bv-library-row");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.filter({ hasText: "Library fixture 01" }).locator(".bv-row-finished")).toHaveText("Finished 3 Jan 2026");
+  await expect(rows.filter({ hasText: "Library fixture 03" }).locator(".bv-row-finished")).toHaveText("Finished 20 Dec 2025");
+  await expect(rows.filter({ hasText: "Library fixture 02" }).locator("p.bv-row-finished")).toHaveCount(0);
+  // the columns stay aligned: the date sits in the same column for every dated row
+  const xs = await rows.locator("p.bv-row-finished").evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().x)));
+  expect(new Set(xs).size).toBe(1);
+});
+
+test("Date finished is the server's order, newest first with undated last, and is not sorted again in the browser", async ({ page, app }) => {
+  app.readingActions = true; app.entries = finishedEntries();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/my-books?sort=finished");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row h3")).toHaveText(["Library fixture 01", "Library fixture 03", "Library fixture 02"]);
+  expect(app.requests.filter(request => request.path === "/me/library").at(-1).query.get("sort")).toBe("finished");
+  // whatever order the server answers in is the order shown
+  app.finishedOrder = [2, 3, 1];
+  await page.reload();
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row h3")).toHaveText(["Library fixture 02", "Library fixture 03", "Library fixture 01"]);
+});
+
+test("on a phone the list rows stay as they were, with no date", async ({ page, app }) => {
+  app.readingActions = true; app.entries = finishedEntries();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/my-books");
+  await page.getByRole("group", { name: "View" }).getByRole("button", { name: "List" }).click();
+  await expect(page.locator(".bv-library-row")).toHaveCount(3);
+  await expect(page.locator(".bv-library-row").first().locator(".bv-row-finished")).toBeHidden();
+  await expect(page.locator(".bv-row-finished:visible")).toHaveCount(0);
+});
