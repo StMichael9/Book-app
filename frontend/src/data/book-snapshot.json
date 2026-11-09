@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-27T04:48:28.940Z",
+  "generatedAt": "2026-11-09T13:54:06.169Z",
   "source": "https://api.bookvane.me/books?size=30",
-  "total": 44075,
+  "total": 47248,
   "items": [
     {
       "id": 1769,
@@ -287,6 +287,21 @@
       "english_title": null
     },
     {
+      "id": 1791,
+      "title": "Alcatraz",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1251,
+          "name": "Frederick Faust"
+        }
+      ],
+      "cover_image_url": "/covers/snapshot/1791.webp",
+      "published_year": 1922,
+      "page_count": 158,
+      "english_title": null
+    },
+    {
       "id": 1792,
       "title": "Alice's Adventures in Wonderland",
       "subtitle": null,
@@ -427,6 +442,25 @@
       "english_title": null
     },
     {
+      "id": 1805,
+      "title": "Arcadian adventures with the idle rich",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1261,
+          "name": "Stephen Leacock"
+        },
+        {
+          "id": 46136,
+          "name": "Stephen Leacock"
+        }
+      ],
+      "cover_image_url": "/covers/snapshot/1805.webp",
+      "published_year": 1914,
+      "page_count": 157,
+      "english_title": null
+    },
+    {
       "id": 1806,
       "title": "Are You There God? It's Me, Margaret",
       "subtitle": null,
@@ -469,40 +503,6 @@
       "cover_image_url": "/covers/snapshot/1809.webp",
       "published_year": 1871,
       "page_count": 272,
-      "english_title": null
-    },
-    {
-      "id": 1810,
-      "title": "At the Earth's Core",
-      "subtitle": null,
-      "authors": [
-        {
-          "id": 1240,
-          "name": "Edgar Rice Burroughs"
-        },
-        {
-          "id": 8840,
-          "name": "Edgar Rice Burroughs"
-        }
-      ],
-      "cover_image_url": "/covers/snapshot/1810.webp",
-      "published_year": 1914,
-      "page_count": 128,
-      "english_title": null
-    },
-    {
-      "id": 1811,
-      "title": "Barchester Towers",
-      "subtitle": null,
-      "authors": [
-        {
-          "id": 1266,
-          "name": "Anthony Trollope"
-        }
-      ],
-      "cover_image_url": "/covers/snapshot/1811.webp",
-      "published_year": 1815,
-      "page_count": 432,
       "english_title": null
     }
   ]
