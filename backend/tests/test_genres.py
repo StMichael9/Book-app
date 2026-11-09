@@ -70,6 +70,7 @@ def test_a_readers_shelf_name_counts_as_a_genre_for_that_reader():
 @pytest.fixture()
 def genre_tags(db_session):
     """The migration creates the 28 genre tags; other test files wipe the tags table, so make sure they are there."""
+    db_session.execute(text("DELETE FROM tags WHERE lower(name) = ANY(:keys) AND type::text <> 'genre'"), {"keys": list(taxonomy.GENRE_KEYS)})
     for key in taxonomy.GENRE_KEYS:
         db_session.execute(text("INSERT INTO tags (name, type, visible_in_v2) VALUES (:n, 'genre', true) "
                                 "ON CONFLICT (name, type) DO UPDATE SET visible_in_v2 = true"), {"n": key})
