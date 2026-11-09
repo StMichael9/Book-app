@@ -114,14 +114,14 @@
 .bv-root .bv-letter { margin: 18px 0 0; padding: 0 0 4px; border-bottom: 1px solid var(--bv-line); color: var(--bv-muted); font: 700 var(--bv-fs-helper)/1.4 var(--bv-body); letter-spacing: .08em; text-transform: uppercase; }
 .bv-root .bv-letter:focus-visible { outline: 2px solid var(--bv-green); outline-offset: 2px; }
 .bv-root .bv-library-list ul { list-style: none; margin: 0; padding: 0; }
-.bv-root .bv-library-row { display: grid; grid-template-columns: 44px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bv-line); }
+.bv-root .bv-library-row { display: grid; grid-template-columns: 44px minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr); gap: 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-row-thumb { display: block; width: 44px; }
 .bv-root .bv-row-thumb .bv-cover { border-radius: 2px 4px 4px 2px; }
 .bv-root .bv-row-thumb .bv-cover-fallback { font-size: 0; }
 .bv-root .bv-row-title h3 { margin: 0; font: 600 var(--bv-fs-card)/1.25 var(--bv-display); }
 .bv-root .bv-row-title a { color: var(--bv-ink); text-decoration: none; }
 .bv-root .bv-row-title a:hover { text-decoration: underline; }
-.bv-root .bv-row-author, .bv-root .bv-row-shelf { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-row-author, .bv-root .bv-row-shelf, .bv-root .bv-row-finished { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 @media (max-width: 900px) {
   .bv-root .bv-view-toggle { flex: 0 0 auto; }
   .bv-root .bv-view-toggle button { min-width: 44px; min-height: 44px; padding: 0 12px; justify-content: center; }
@@ -131,7 +131,7 @@
   .bv-root .bv-az button { flex: none; min-width: 36px; min-height: 44px; }
   .bv-root .bv-library-row { grid-template-columns: 44px minmax(0, 1fr); gap: 4px 14px; }
   .bv-root .bv-row-title { grid-column: 2; }
-  .bv-root .bv-row-author { display: none; }
+  .bv-root .bv-row-author, .bv-root .bv-row-finished { display: none; }
   .bv-root .bv-row-thumb { grid-row: 1 / span 2; }
   .bv-root .bv-row-shelf { grid-column: 2; }
 }
