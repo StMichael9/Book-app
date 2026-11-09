@@ -94,8 +94,7 @@ def test_local_isbn_match_and_no_library_writes_before_confirmation(importing, s
     workflow.db.commit()
     _, run = start(user, workflow)
     seal(user, workflow, run, [[book.title, "J.K. Rowling", book.isbn13, "want"]])
-    assert workflow.advance_analysis(user.id, run["id"])["phase"] == "grouping"
-    assert workflow.advance_analysis(user.id, run["id"])["phase"] == "preview_ready"
+    assert workflow.advance_analysis(user.id, run["id"])["phase"] == "preview_ready"      # a small file is analysed and grouped in one call
     row = workflow.preview(user.id, run["id"])["items"][0]
     assert row["plan"]["book_id"] == book.id
     assert row["plan"]["confidence"] == "identifier"
@@ -111,7 +110,6 @@ def test_conflicting_identifiers_or_title_go_to_review(importing, seeded_books):
     _, run = start(user, workflow)
     seal(user, workflow, run, [["A completely different book", "Another author", book.isbn13, "finished"]])
     workflow.advance_analysis(user.id, run["id"])
-    workflow.advance_analysis(user.id, run["id"])
     row = workflow.preview(user.id, run["id"])["items"][0]
     assert row["disposition"] == "review"
     assert "title_disagreement" in row["plan"]["reasons"]
@@ -122,7 +120,6 @@ def test_missing_book_private_fallback_and_cancel_purges_source_text(importing):
     user, workflow = importing
     _, run = start(user, workflow, ["title", "review"])
     seal(user, workflow, run, [["Missing work", "Private source text"]])
-    workflow.advance_analysis(user.id, run["id"])
     workflow.advance_analysis(user.id, run["id"])
     assert workflow.preview(user.id, run["id"])["items"][0]["plan"]["kind"] == "private"
     result = workflow.cancel(user.id, run["id"])
@@ -654,8 +651,10 @@ def test_changed_stable_event_context_consent_preserves_read_and_erasure_on_repl
             assert record.context == {}
 
 
-def test_review_rechecks_vacated_joined_and_transitive_groups_across_restart(importing, app_modules):
+def test_review_rechecks_vacated_joined_and_transitive_groups_across_restart(importing, app_modules, monkeypatch):
     from models import Book, LibraryImportRow, UserBook
+    from services.library_imports import workflow as workflow_module
+    monkeypatch.setattr(workflow_module, "ANALYSIS_CHUNKS_PER_CALL", 1)      # this test checks one 100-row checkpoint at a time
     from services.library_imports.workflow import ImportWorkflow
     user, workflow = importing
     owner = user.id
