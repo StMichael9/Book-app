@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import String, Text, Integer, BigInteger, Boolean, Float, Table, Column, ForeignKey, UniqueConstraint, CheckConstraint, Computed, UUID, Date, DateTime, Index, func, select, text
+from sqlalchemy import String, Text, Integer, SmallInteger, BigInteger, Boolean, Float, Table, Column, ForeignKey, UniqueConstraint, CheckConstraint, Computed, UUID, Date, DateTime, Index, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 from sqlalchemy.dialects.postgresql import JSONB
 from database import Base
@@ -208,6 +208,9 @@ class UserBook(Base):
         Index('uq_private_catalogue_work', 'user_id', text("(private_catalogue ->> 'work_id')"), unique=True,
               postgresql_where=text('private_catalogue IS NOT NULL')),
         CheckConstraint("version >= 1", name="ck_user_book_version"),
+        CheckConstraint("up_next_position IS NULL OR up_next_position BETWEEN 1 AND 5", name="ck_user_book_up_next"),
+        Index('uq_user_book_up_next', 'user_id', 'up_next_position', unique=True,
+              postgresql_where=text('up_next_position IS NOT NULL')),
         CheckConstraint("save_note IS NULL OR char_length(save_note) <= 500", name="ck_user_book_note"),
         CheckConstraint("book_id IS NOT NULL OR "
                         "(book_id IS NULL AND private_title IS NOT NULL AND char_length(btrim(private_title)) BETWEEN 1 AND 500)",
@@ -231,6 +234,8 @@ class UserBook(Base):
     private_author: Mapped[str | None] = mapped_column(Text)
     private_description: Mapped[str | None] = mapped_column(Text)
     private_catalogue: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    # The reader's "Up next" pins: 1..5, in order; NULL when not pinned.
+    up_next_position: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     create_request_id: Mapped[uuid.UUID | None] = mapped_column(UUID)
     creation_fingerprint: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
