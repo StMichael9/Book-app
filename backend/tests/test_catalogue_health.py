@@ -254,5 +254,6 @@ def test_failed_lookups_are_requeued(db_session, app_modules):
 def test_the_workflows_are_scheduled_and_only_run_when_switched_on():
     health = (ROOT / ".github" / "workflows" / "catalogue-health.yml").read_text(encoding="utf-8")
     topup = (ROOT / ".github" / "workflows" / "catalogue-topup.yml").read_text(encoding="utf-8")
+    assert "vars.CATALOGUE_HEALTH == 'on'" in health
     assert "cron:" in health and "ADMIN_API_KEY" in health and "data.catalogue_health" in health and "persist-credentials: false" in health
     assert "cron:" in topup and "vars.CATALOGUE_TOPUP == 'on'" in topup and "--refresh-popularity --retry-failed" in topup

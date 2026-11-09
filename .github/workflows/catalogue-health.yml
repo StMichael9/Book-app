@@ -3,6 +3,8 @@ name: Catalogue health (weekly)
 # Searches our own public API for the benchmark titles, queues anything missing for the lookup worker, and writes a counts-only
 # summary (this repository is public: no reader data, no titles of readers). Emails support@bookvane.me only when a limit is
 # crossed: coverage below 90%, empty searches above 15%, import match below 70%, database above 700 MB.
+# The scheduled run is off until the repository variable CATALOGUE_HEALTH is 'on' (set it after ADMIN_API_KEY and the
+# catalogue-health environment exist).
 on:
   schedule:
     - cron: "30 11 * * 1"
@@ -26,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: catalogue-health
+    if: ${{ github.event_name != 'schedule' || vars.CATALOGUE_HEALTH == 'on' }}
     defaults:
       run:
         working-directory: backend
