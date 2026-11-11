@@ -41,19 +41,14 @@ export function getBooks(params = {}) {
   if (cacheScope === "public") {
     const cached = publicResponseCache.get(path);
     if (cached && cached.expiresAt > now) {
-      console.log("CACHE HIT", requestKey);
       return Promise.resolve(cached.value);
     }
     if (cached) publicResponseCache.delete(path);
   }
 
   const existingRequest = inFlightRequests.get(requestKey);
-  if (existingRequest) {
-    console.log("IN FLIGHT HIT", requestKey);
-    return existingRequest;
-  }
+  if (existingRequest) return existingRequest;
 
-  console.log("NETWORK REQUEST", requestKey);
   const request = apiRequest(path)
     .then((payload) => {
       if (cacheScope === "public") {

@@ -106,6 +106,19 @@ def test_like_wildcards_in_a_book_query_are_literal(client, make_book):
     assert client.get("/books", params={"book": "_"}).json()["total"] == 1
 
 
+def test_like_wildcards_in_an_author_query_are_literal(client, make_book, db_session, app_modules):
+    models = app_modules["models"]
+    for title, name in (("Underscore", "A_B Writer"), ("Plain", "AxB Writer"), ("Percent", "100% Writer"), ("Slash", "Back\\slash Writer")):
+        make_book(title).authors.append(models.Author(name=name))
+    db_session.commit()
+    assert titles(client.get("/books", params={"author": "A_B"})) == ["Underscore"]
+    assert titles(client.get("/books", params={"author": "100%"})) == ["Percent"]
+    assert titles(client.get("/books", params={"author": "k\\s"})) == ["Slash"]
+    assert client.get("/books", params={"author": "%"}).json()["total"] == 1
+    assert client.get("/books", params={"author": "_"}).json()["total"] == 1
+    assert client.get("/books", params={"author": "writer"}).json()["total"] == 4
+
+
 def test_english_title_is_the_first_english_alias_that_differs(client, make_book):
     book = make_book("Ὀδύσσεια", ("Odyssée", "fra"), ("The Odyssey", "eng"), ("Odyssey", "eng"))
     detail = client.get(f"/books/{book.id}").json()

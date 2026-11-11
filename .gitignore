@@ -18,3 +18,7 @@ data/json_data/
 .impeccable/critique/
 **/skills/impeccable/scripts/bin/
 **/skills/impeccable/scripts/config.json
+
+# Repomix and source dumps
+repomix-output*
+frontend_src.txt

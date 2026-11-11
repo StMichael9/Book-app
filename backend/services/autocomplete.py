@@ -8,9 +8,10 @@ class AutocompleteService:
         self.db = db
 
     def suggest_authors(self, q: str, limit: int = 10):
+        pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = (
             select(Author)
-            .where(Author.name.ilike(f"%{q}%"))
+            .where(Author.name.ilike(pattern, escape="\\"))
             .distinct(Author.name)
             .order_by(Author.name, Author.id)
             .limit(limit)
@@ -18,9 +19,10 @@ class AutocompleteService:
         return self.db.execute(query).scalars().all()
 
     def suggest_tags(self, q: str, limit: int = 10):
+        pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = (
             select(Tag)
-            .where(Tag.name.ilike(f"%{q}%"), Tag.visible_in_v2.is_(True))
+            .where(Tag.name.ilike(pattern, escape="\\"), Tag.visible_in_v2.is_(True))
             .order_by(Tag.name)
             .limit(limit)
         )
