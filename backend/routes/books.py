@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response, Query
 from sqlalchemy import exists, select, func
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import joinedload, Session
@@ -8,9 +8,10 @@ from sqlalchemy.orm import joinedload, Session
 from database import get_db
 from models import Book, User, UserBook, UserBookStatus
 from schemas import BookSchema
-from services import catalogue_cache, google_books, search
+from services import catalogue_cache, combined_search, event_counts, google_books, search
 from rate_limit import limiter
 from auth.dependencies import get_current_user_optional
+from pydantic import BaseModel, ConfigDict
 
 from fastapi_pagination import Page, Params
 
@@ -36,6 +37,7 @@ def _with_details():
 def get_books(
     request: Request,
     response: Response,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User | None = Depends(get_current_user_optional),
     book: str = None,
@@ -49,7 +51,17 @@ def get_books(
     cache_if_anonymous(response, current_user)
     # Anonymous pages are the same for everyone, so they are kept for a minute; signed-in pages are personalised.
     cache_key = ("list", tuple(sorted(request.query_params.multi_items()))) if current_user is None else None
+    counted = (book or author) and params.page == 1
+
+    def count_search(total: int) -> None:
+        # Aggregate counters only: whether a typed search ran and whether it found nothing, never what was typed.
+        if counted:
+            background.add_task(event_counts.record_server_event, "search_run")
+            if total == 0:
+                background.add_task(event_counts.record_server_event, "search_empty")
+
     if cache_key is not None and (hit := catalogue_cache.get(cache_key)) is not None:
+        count_search(hit.get("total", 1) if isinstance(hit, dict) else 1)
         return hit
     service = search.SearchService(db)
     query = service.search_books(
@@ -67,6 +79,12 @@ def get_books(
         query.with_only_columns(Book.id, func.count().over().label("total"))
         .limit(params.size).offset((params.page - 1) * params.size)
     ).all()
+    if not rows and book and params.page == 1:
+        # Nothing matched the words themselves: try a typo-tolerant match once.
+        query = service.search_books(book=book, author=author, tags=tag, current_user=current_user,
+                                     exclude_owned=exclude_owned, shelf_status=shelf_status, sort=sort, fuzzy=True)
+        rows = db.execute(query.with_only_columns(Book.id, func.count().over().label("total"))
+                          .limit(params.size).offset(0)).all()
     if rows:
         total = rows[0].total
     elif params.page == 1:
@@ -83,7 +101,31 @@ def get_books(
         result = Page.create(items=[BookSchema.model_validate(by_id[book_id]) for book_id in ids], total=total, params=params)
     if cache_key is not None:
         catalogue_cache.put(cache_key, jsonable_encoder(result), catalogue_cache.LIST_TTL)
+    count_search(total)
     return result
+
+
+@router.get("/books/more")
+@limiter.limit("30/minute")
+def books_more(request: Request, response: Response, db: Session = Depends(get_db), book: str | None = None,
+               author: str | None = None):
+    """Books beyond our own catalogue that match the same search, shaped like book cards (never an error)."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return combined_search.more(db, book, author)
+
+
+class ResolveBook(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    work_key: str
+
+
+@router.post("/books/resolve")
+@limiter.limit("30/minute")
+def books_resolve(request: Request, data: ResolveBook, current_user: User | None = Depends(get_current_user_optional),
+                  db: Session = Depends(get_db)):
+    """Open to signed-out readers too (a sign-in wall on a search result would break "one search")."""
+    ip = request.client.host if request.client else None
+    return {"id": combined_search.resolve_key(db, current_user.id if current_user else None, data.work_key, ip)}
 
 
 @router.get("/books/{book_id}/description")

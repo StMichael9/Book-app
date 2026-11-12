@@ -32,8 +32,8 @@ def test_work_normalization_and_curated_tags():
         "published_year": 1998,
         "cover_image_url": "https://covers.openlibrary.org/b/id/123-L.jpg",
         "author_keys": ["/authors/OL1A", "/authors/OL2A"],
-        "tags": [{"name": "fantasy", "type": "genre"}, {"name": "science", "type": "topic"}],
-        "categories": ["fantasy", "science"],
+        "tags": [{"name": "fantasy", "type": "genre"}, {"name": "science_nature", "type": "genre"}],
+        "categories": ["fantasy", "science_nature"],
         "quality": 3,
     }
     assert clean.normalize_work({"key": "/works/OL7W", "title": "Unmapped", "subjects": []}) is None

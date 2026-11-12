@@ -327,7 +327,7 @@ def test_duplicate_work_across_batches_keeps_one_book_and_combines_tags(import_e
     with factory() as session:
         assert session.execute(select(func.count()).select_from(models.Book)).scalar_one() == 2
         book = session.execute(select(models.Book).where(models.Book.source_id == "/works/OL1W")).scalar_one()
-        assert {tag.name for tag in book.tags} == {"fantasy", "science", "mystery"}
+        assert {tag.name for tag in book.tags} == {"fantasy", "science_nature", "mystery_crime"}
 
 
 def test_full_500_work_batch_uses_bulk_writes(import_env, monkeypatch):
@@ -673,7 +673,7 @@ def test_source_managed_tag_links_reconcile_without_removing_legacy_links(import
         book = session.execute(select(models.Book).where(
             models.Book.source_id == "/works/OL1W"
         )).scalar_one()
-        assert {tag.name for tag in book.tags} == {"mystery", "legacy custom"}
+        assert {tag.name for tag in book.tags} == {"mystery_crime", "legacy custom"}
 
 
 def test_new_classifications_hidden_from_existing_book_schema(import_env, monkeypatch):
@@ -688,8 +688,8 @@ def test_new_classifications_hidden_from_existing_book_schema(import_env, monkey
     importer.run_import(config(target_books=1))
     with factory() as session:
         book = session.execute(select(models.Book)).scalar_one()
-        assert {tag.name for tag in book.tags} == {"fantasy", "science", "Friendship"}
-        assert {tag.name for tag in BookSchema.model_validate(book).tags} == {"fantasy"}
+        assert {tag.name for tag in book.tags} == {"fantasy", "science_nature", "Friendship"}
+        assert {tag.name for tag in BookSchema.model_validate(book).tags} == {"fantasy", "science_nature"}      # all 28 genres are shown; moods and themes are not
 
 
 @pytest.mark.parametrize("reverse", [False, True])

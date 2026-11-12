@@ -1,0 +1,95 @@
+name: Catalogue maintenance
+
+# One-off and recurring data tasks that run against the catalogue database from a GitHub runner. Each task is read-only or
+# fill-only unless it says otherwise; the production environment requires its usual approval before the job starts.
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply"
+        required: true
+        default: remap_genres
+        type: choice
+        options:
+          - backfill_popularity
+          - remap_genres
+          - clean_dry_run
+          - clean_apply
+      target_env:
+        description: GitHub environment, which selects the database secret (a safety copy or production)
+        required: true
+        default: catalogue-rehearsal
+        type: choice
+        options:
+          - catalogue-rehearsal
+          - catalogue-production
+      snapshot:
+        description: "Open Library snapshot for the dump-based tasks: auto or YYYY-MM-DD"
+        required: false
+        default: auto
+        type: string
+      dry_run:
+        description: For remap_genres - report what would be linked without writing
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bookvane-catalogue-maintenance
+  cancel-in-progress: false
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    environment: ${{ inputs.target_env }}
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      CATALOGUE_DATABASE_URL: ${{ secrets.CATALOGUE_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.CATALOGUE_DATABASE_URL }}
+      SECRET_KEY: importer-only-key-not-used-to-sign-app-tokens
+      IS_DEV: "false"
+      CATALOGUE_USER_AGENT: ${{ vars.CATALOGUE_USER_AGENT }}
+      TASK: ${{ inputs.task }}
+      SNAPSHOT: ${{ inputs.snapshot }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r requirements.txt
+      - name: Run the task
+        run: |
+          case "$TASK" in
+            backfill_popularity)
+              python -m data.load --mode production --snapshot "$SNAPSHOT" --backfill-popularity ;;
+            remap_genres)
+              args=(--mode production --snapshot "$SNAPSHOT" --remap-genres)
+              [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
+              python -m data.load "${args[@]}" ;;
+            clean_dry_run)
+              python -m data.clean_catalogue --dry-run --samples 50 --report "$RUNNER_TEMP/clean-report.md"
+              cat "$RUNNER_TEMP/clean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            clean_apply)
+              python -m data.clean_catalogue --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/clean-report.md"
+              head -40 "$RUNNER_TEMP/clean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "unknown task"; exit 1 ;;
+          esac
+      - name: Keep the cleaning report
+        if: ${{ always() && startsWith(inputs.task, 'clean_') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-clean-report
+          path: ${{ runner.temp }}/clean-report.md
+          if-no-files-found: ignore
+          retention-days: 14

@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     google_books_enabled: bool = Field(default=False, alias="GOOGLE_BOOKS_ENABLED")
     external_catalogue_enabled: bool = Field(default=False, alias="EXTERNAL_CATALOGUE_ENABLED")
     external_catalogue_token: SecretStr | None = Field(default=None, alias="EXTERNAL_CATALOGUE_TOKEN")
+    # A service key for the weekly catalogue-health job (admin endpoints only). Unset means that route of access is closed.
+    admin_api_key: SecretStr | None = Field(default=None, alias="ADMIN_API_KEY")
     library_import_max_database_mb: int = Field(default=800, ge=100, le=800, alias="LIBRARY_IMPORT_MAX_DATABASE_MB")
     sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
     sentry_environment: str | None = Field(default=None, alias="SENTRY_ENVIRONMENT")

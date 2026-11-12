@@ -116,7 +116,8 @@ class EmailSignup(Base):
 # Blank means missing: trim spaces, tabs and line breaks (btrim alone strips only spaces).
 _BLANK_CHARS = "chr(32) || chr(9) || chr(13) || chr(10)"
 _LISTED_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' "
-               "AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
+               "AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL "
+               "AND (quality_score IS NULL OR quality_score >= 60)")
 _HAS_DESCRIPTION_SQL = f"description IS NOT NULL AND btrim(description, {_BLANK_CHARS}) <> ''"
 IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BLANK_CHARS}) <> '' AND description IS NOT NULL "
                    f"AND btrim(description, {_BLANK_CHARS}) <> '' AND page_count IS NOT NULL AND page_count > 0 AND published_year IS NOT NULL")
@@ -124,12 +125,15 @@ IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BL
 
 class Book(Base):
     __tablename__ = 'books'
-    __table_args__ = (Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
+    __table_args__ = (CheckConstraint('quality_score IS NULL OR quality_score BETWEEN 0 AND 100', name='ck_books_quality_score'),
+                      Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
                       Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     subtitle: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The title as matched by search (accents, punctuation, number words and a leading the/a/an folded); see bookvane_search_key.
+    title_key: Mapped[str | None] = mapped_column(Text, Computed("bookvane_search_key(title)", persisted=True), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     published_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cover_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -147,6 +151,8 @@ class Book(Base):
     has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=False)
     # Open Library reading-log and ratings activity (see data/popularity.py); NULL until the importer has a score.
     popularity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # 0-100 from data.cleaner.quality_score; below 60 the book is unlisted (never deleted). NULL = not scored yet.
+    quality_score: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     added_via: Mapped[str | None] = mapped_column(String(20))
     added_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -189,6 +195,7 @@ class BookTitleAlias(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     book_id: Mapped[int] = mapped_column(Integer, ForeignKey('books.id', ondelete='CASCADE'), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    title_key: Mapped[str | None] = mapped_column(Text, Computed("bookvane_search_key(title)", persisted=True), nullable=True)
     language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

@@ -51,12 +51,14 @@ def relevant_edges(edges: dict[str, str], seeds: set[str]) -> dict[str, str]:
 
 
 def seed_keys(factory: sessionmaker, store: PopularityStore) -> set[str]:
+    """`factory` is the catalogue database's (the books we hold)."""
     with factory() as session:
         books = set(session.execute(select(Book.source_id).where(Book.source_id.is_not(None))).scalars())
     return books | store.keys()
 
 
-def run_redirects(factory: sessionmaker, config: ImportConfig, store: PopularityStore, heartbeat=None) -> None:
+def run_redirects(factory: sessionmaker, config: ImportConfig, store: PopularityStore, heartbeat=None,
+                  catalogue_factory: sessionmaker | None = None) -> None:
     """Stream the whole redirect dump into memory, then write only the seed-related rows and move to deletes."""
     expected = (config.source_manifest.get("files") or {}).get("redirects")
     options = {"start_line": 0, "user_agent": config.user_agent,
@@ -89,7 +91,7 @@ def run_redirects(factory: sessionmaker, config: ImportConfig, store: Popularity
             delay = min(30, 2 ** attempt)
             log.warning("redirects stream failed (%s); streaming again in %ds", type(exc).__name__, delay)
             time.sleep(delay)
-    keep = relevant_edges(edges, seed_keys(factory, store))
+    keep = relevant_edges(edges, seed_keys(catalogue_factory or factory, store))
     log.info("redirects: %d read, %d tied to a seed and written", len(edges), len(keep))
     rows = [{"old_source_id": old, "canonical_source_id": canonical, "source_type": "redirect"}
             for old, canonical in keep.items()]
@@ -118,10 +120,10 @@ def run_redirects(factory: sessionmaker, config: ImportConfig, store: Popularity
         run.phase, run.checkpoint_line = "deletes", 0
 
 
-def relevant_delete_keys(factory: sessionmaker, store: PopularityStore) -> set[str]:
+def relevant_delete_keys(factory: sessionmaker, store: PopularityStore, catalogue_factory: sessionmaker | None = None) -> set[str]:
     """A deletion matters when it is a seed or where a kept redirect chain ends."""
     with factory() as session:
         ends = set(session.execute(text(
             "SELECT DISTINCT canonical_source_id FROM catalogue_source_aliases WHERE source_type = 'redirect'"
         )).scalars())
-    return ends | seed_keys(factory, store)
+    return ends | seed_keys(catalogue_factory or factory, store)

@@ -16,7 +16,7 @@ from models import EventCount, User
 
 CLIENT_NAMES = frozenset({"register_started", "save_prompt_shown", "guest_search_empty",
                           "get_copy_click", "share_click", "share_visit"})
-SERVER_NAMES = frozenset({"register_completed"})
+SERVER_NAMES = frozenset({"register_completed", "search_run", "search_empty"})
 SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "profile"})
 PLACEMENTS = frozenset({"book_page", "want_card"})
 MAX_EVENTS_PER_MINUTE = 600
@@ -76,6 +76,18 @@ def record_event(db: Session, name: str, src: str = "", placement: str = "") -> 
         index_elements=["day", "name", "src", "placement"],
         set_={"count": EventCount.count + 1}))
     db.commit()
+
+
+def record_server_event(name: str) -> None:
+    """Count one server-side event from a background task, on its own short session. Never raises."""
+    from database import SessionLocal
+    if name not in SERVER_NAMES:
+        return
+    try:
+        with SessionLocal() as session:
+            record_event(session, name)
+    except Exception:  # noqa: BLE001 - a counter must never affect a reader
+        pass
 
 
 def metrics(db: Session, days: int) -> dict:
