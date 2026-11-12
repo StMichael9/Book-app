@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getLibraryPage } from "../../../api/reading.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
+import { useGenres } from "../../ui-v2/useGenres.js";
 import { Button } from "../../ui-v2/primitives.jsx";
 import PickCard from "./PickCard.jsx";
 import NextReadSection from "../NextReadSection.jsx";
@@ -36,10 +37,10 @@ function foldSameBooks(pills, shelf) {
 const lower = text => text.charAt(0).toLowerCase() + text.slice(1);
 
 // What each pill asks of /me/library. Books come from Want to read and from what you own, so most pills ask twice and merge.
-function pillsFor(shelf) {
+function pillsFor(shelf, genreLabel) {
   const counts = shelf?.counts || {}, facets = shelf?.facets || {};
   const shortCount = (facets.length || []).find(item => item.value === "short")?.count || 0;
-  const top = (facets.subject || [])[0];
+  const topFacet = (facets.subject || [])[0], topLabel = topFacet ? genreLabel(topFacet.label) : null, top = topLabel ? { ...topFacet, label: topLabel } : null;
   return [
     { key: "short", text: "Something short", enabled: shortCount > 0, filters: { length: "short" }, from: ["want", "owned"], about: "short books you own or want · under 250 pages" },
     { key: "owned", text: "Something I own", enabled: (counts.owned || 0) > 0, filters: {}, from: ["owned"], about: "books you own and haven’t started" },
@@ -70,11 +71,14 @@ async function fetchPicks(pill, oldest) {
 
 export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const library = useUserBooks();
+  const { genres } = useGenres();
+  // A facet names its subject; it is shown only if that subject is one of the genres, under the genre's own label.
+  const genreLabel = useCallback(name => { const norm = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); return (genres || []).find(item => item.label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim() === norm || item.key.replace(/_/g, " ") === norm)?.label ?? null; }, [genres]);
   // "Something new" is Next Read's engine (catalogue picks, filters, rotation); it lives in the same panel as the shelf pills.
   // Memoised so the active pill keeps its identity between renders: the fetch effect depends on it, and a fresh object
   // every render would refetch (and discard) after each result, looping on /me/library.
   const hasNext = Boolean(library.nextRead);
-  const pills = useMemo(() => [...pillsFor(shelf), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext]), enabled = pills.filter(pill => pill.enabled);
+  const pills = useMemo(() => [...pillsFor(shelf, genreLabel), ...(hasNext ? [{ key: "next", text: "Something new", enabled: true, next: true }] : [])], [shelf, hasNext, genreLabel]), enabled = pills.filter(pill => pill.enabled);
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);

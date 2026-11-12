@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only: every API request is intercepted, including the /events beacons.
 const book = { id: 1, title: "Beacon fixture", authors: [{ id: 1, name: "Fixture Author" }], tags: [], description: "A fixture.", published_year: 2001, page_count: 200, cover_image_url: null, english_title: null };
@@ -22,6 +23,7 @@ const test = base.extend({
       if (path.startsWith("/autocomplete")) return reply(200, []);
       return reply(200, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

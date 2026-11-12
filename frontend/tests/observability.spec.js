@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser-only fixtures: every API request is intercepted. The build under test has no monitoring keys, so nothing
 // of the monitoring or visit counting may run, and a page that breaks must still be recoverable.
@@ -24,6 +25,7 @@ const test = base.extend({
       if (path === "/books") return reply(200, { items: [], total: 0, page: 1, size: 20 });
       return reply(404, { detail: "Not found" });
     });
+    await installGenres(page, state);
     await provide(state);
   }, { auto: true }],
 });

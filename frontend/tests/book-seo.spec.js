@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only. A book's page describes the book in the document head (title, description, link-preview tags and
 // Book JSON-LD) using only the stored Open Library text, and puts the defaults back when the reader leaves.
@@ -30,6 +31,7 @@ const test = base.extend({
       if (description) return reply(200, Number(description[1]) === 2 ? { text: GOOGLE_TEXT, source: "google", link: "https://books.google.com/x" } : { text: OL_TEXT, source: "openlibrary", link: null });
       return reply(404, { detail: "Not found" });
     });
+    await installGenres(page, state);
     await provide(state);
   },
 });

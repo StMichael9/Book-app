@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 import { mkdirSync } from "node:fs";
 
 // Browser fixtures only: every API request is intercepted, including the profile endpoints (the T24 contract).
@@ -85,6 +86,7 @@ const test = base.extend({
       }
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

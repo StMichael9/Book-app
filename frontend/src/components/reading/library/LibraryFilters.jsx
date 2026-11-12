@@ -3,8 +3,8 @@ import { searchLibraryFacet } from "../../../api/reading.js";
 import { libraryApiParams } from "./libraryQuery.js";
 
 const TOP = 5;
-const GROUP_TITLES = { subject: "Subject", author: "Author", length: "Length", source: "Imported from", year: "Year finished" };
-const ALL_LABELS = { subject: "All subjects", author: "All authors", source: "All imports", year: "All years" };
+const GROUP_TITLES = { subject: "Genre", author: "Author", length: "Length", source: "Imported from", year: "Year finished" };
+const ALL_LABELS = { subject: "All genres", author: "All authors", source: "All imports", year: "All years" };
 const FACET_KEY = { subject: "subject", author: "author", length: "length", source: "source_label", year: "year_finished" };
 
 function Option({ checked, disabled, label, count, onChange }) {

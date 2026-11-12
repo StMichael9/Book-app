@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only. Home: greeting, Reading now with the progress sheet, Up next (T41 pins are mocked from the
 // contract), Can't decide? and the year at a glance.
@@ -66,6 +67,7 @@ const test = base.extend({
       if (/\/description$/.test(path)) return reply(404, { detail: "Not found" });
       return reply(404, { detail: "Not found" });
     });
+    await installGenres(page, state);
     await provide(state);
   },
 });

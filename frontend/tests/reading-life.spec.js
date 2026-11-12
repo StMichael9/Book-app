@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only. Your reading life: /me/stats?year= (T42 fields years_with_reading, rereads and imported_years are mocked).
 const stamp = "2026-01-01T00:00:00Z";
@@ -40,6 +41,7 @@ const test = base.extend({
       if (attempt && method === "PUT") return reply(200, { entry: { id: 301, version: 2, reading_state: "reading", book: { id: 1, title: "Middlemarch", authors: [] } }, attempt: { id: attempt[1], state: "reading", started_on: body.started_on } });
       return reply(404, { detail: "Not found" });
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

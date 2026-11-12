@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
+import { installGenres } from "./support/genres.js";
 import { fileURLToPath } from "node:url";
 import { test as base, expect } from "@playwright/test";
 
@@ -49,6 +50,7 @@ const test = base.extend({
       }
       return reply(404, { detail: "Not found" });
     });
+    await installGenres(page, state);
     await provide(state);
   },
 });

@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser-only fixtures with realistic 300-600 ms API delays. No hosted service is contacted.
 const stamp = "2026-10-01T00:00:00Z";
@@ -74,6 +75,7 @@ const test = base.extend({
         if (covered) window.__jacket = (window.__jacket || 0) + 1;
       }, 50);
     });
+    await installGenres(page, state);
     await provide(state);
   }, { auto: true }],
 });

@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 const stamp = "2026-10-01T00:00:00Z";
 const book = id => ({ id, title: `M4 fixture ${id}`, authors: [], cover_image_url: null, page_count: 80 });
@@ -97,6 +98,7 @@ const test = base.extend({
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       state.errors.push(`Unhandled ${method} ${path}`); return reply(500, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },
@@ -210,7 +212,7 @@ test("Adjust is genre names and a length choice, with one Show books and one Res
   const choices = await openNew(page);
   await adjust(page);
   const form = page.locator(".bv-adjust-form");
-  await expect(form.getByRole("radio")).toHaveCount(1 + 2 + 3);
+  await expect(form.getByRole("radio")).toHaveCount(1 + 28 + 3);
   await expect(form.getByRole("radio", { name: "Long" })).toHaveCount(0);
   await expect(form.getByText("Historical fiction", { exact: true })).toBeVisible();
   await expect(form.getByText("Fantasy", { exact: true })).toBeVisible();
@@ -218,13 +220,13 @@ test("Adjust is genre names and a length choice, with one Show books and one Res
   await expect(page.getByText("Include my Want to read")).toHaveCount(0);
   await expect(page.getByText("At most this many pages")).toHaveCount(0);
   await expect(form.getByRole("button")).toHaveText(["Show books", "Reset"]);
-  await form.getByRole("radio", { name: "Fantasy" }).check({ force: true });
-  await form.getByRole("radio", { name: "Short" }).check({ force: true });
+  await form.getByRole("radio", { name: "Fantasy", exact: true }).check({ force: true });
+  await form.getByRole("radio", { name: "Short", exact: true }).check({ force: true });
   await form.getByRole("button", { name: "Show books", exact: true }).click();
-  await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").at(-1).params).toMatchObject({ interest_id: "1", max_pages: "249", source: "catalogue" });
+  await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").at(-1).params).toMatchObject({ interest_id: "500", max_pages: "249", source: "catalogue" });
   await adjust(page);
-  await expect(form.getByRole("radio", { name: "Fantasy" })).toBeChecked();
-  await expect(form.getByRole("radio", { name: "Short" })).toBeChecked();
+  await expect(form.getByRole("radio", { name: "Fantasy", exact: true })).toBeChecked();
+  await expect(form.getByRole("radio", { name: "Short", exact: true })).toBeChecked();
   await form.getByRole("button", { name: "Reset", exact: true }).click();
   await expect.poll(() => app.requests.filter(item => item.path === "/me/next-read").at(-1).params.interest_id).toBeUndefined();
   await adjust(page);
@@ -333,7 +335,7 @@ test("M4 different choices preserve filters and bounded session exclusions witho
   app.catalogueCount = 7;
   const choices = await openNew(page);
   await adjust(page);
-  await page.locator(".bv-adjust-form").getByRole("radio", { name: "Short" }).check({ force: true });
+  await page.locator(".bv-adjust-form").getByRole("radio", { name: "Short", exact: true }).check({ force: true });
   await page.locator(".bv-adjust-form").getByRole("button", { name: "Show books", exact: true }).click();
   await expect(choices.getByRole("article")).toHaveCount(3);
   const first = app.requests.filter(item => item.path === "/me/next-read").at(-1);
@@ -433,4 +435,14 @@ test("Next after this with the current book as the only Want to read says nothin
   const preview = page.getByRole("region", { name: "Next after this" });
   await expect(preview.getByText("Nothing else on Want to read yet.")).toBeVisible();
   await expect(preview.getByText("Nothing is on your Want to read list yet")).toHaveCount(0);
+});
+
+test("Adjust drops the genre choice, and nothing in its place, when the genre list can't load", async ({ page, app }) => {
+  app.genresFail = true;
+  await openNew(page);
+  await adjust(page);
+  const form = page.locator(".bv-adjust-form");
+  await expect(form.getByText("Genre", { exact: true })).toHaveCount(0);
+  await expect(form.getByRole("radio")).toHaveCount(3);
+  await expect(form.getByRole("button")).toHaveText(["Show books", "Reset"]);
 });
