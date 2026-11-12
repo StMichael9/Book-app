@@ -55,7 +55,8 @@ class SearchService:
                                   (Book.title_key.like(literal("%").concat(key).concat("%")), 2), else_=3)
             query = query.order_by(None).order_by(title_rank, Book.id)
         if author is not None:
-            query = query.where(Book.authors.any(Author.name.ilike(f"%{author}%")))
+            author_pattern = "%" + author.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            query = query.where(Book.authors.any(Author.name.ilike(author_pattern, escape="\\")))
         if tags:
             for tag in set(tags):
                 if tag == "history":
