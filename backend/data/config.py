@@ -52,6 +52,9 @@ class ImportConfig:
     # max_project_mb. None (a production run) leaves only the single-database guard.
     production_size_mb: int | None = None
     max_project_mb: int = 750
+    # A separate, runner-local database for the importer's scratch tables (the run, staged works, redirects). None keeps
+    # them in database_url, as before. The catalogue database then receives only the final merged books.
+    stage_database_url: str | None = None
 
     @property
     def popular(self) -> bool:
@@ -142,7 +145,7 @@ def percentage_quotas(total: int, weights: dict[str, float]) -> dict[str, int]:
     return result
 
 
-def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImportRun:
+def get_or_create_run(session: Session, config: ImportConfig, neon: Session | None = None) -> CatalogueImportRun:
     """Pin immutable run inputs and retain the existing checkpoint on resume."""
     run = session.get(CatalogueImportRun, config.run_id)
     if run is None:
@@ -151,7 +154,7 @@ def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImport
         ).limit(1)).scalar_one_or_none()
         if unfinished:
             raise RuntimeError(f"Resume or resolve unfinished catalogue run {unfinished}")
-        baseline = session.scalar(select(func.count()).select_from(Book)) or 0
+        baseline = (neon or session).scalar(select(func.count()).select_from(Book)) or 0
         if baseline > config.target_books:
             raise ValueError(f"Existing {baseline} books exceed target_books={config.target_books}")
         run = CatalogueImportRun(
@@ -182,7 +185,7 @@ def get_or_create_run(session: Session, config: ImportConfig) -> CatalogueImport
     if run.phase == "paused_capacity":
         if not config.restart_paused:
             raise RuntimeError("Capacity pause requires reviewed --restart-paused replay")
-        baseline = session.scalar(select(func.count()).select_from(Book)) or 0
+        baseline = (neon or session).scalar(select(func.count()).select_from(Book)) or 0
         if baseline > config.target_books:
             raise ValueError(f"Existing {baseline} books exceed target_books={config.target_books}")
         previous = dict(run.report or {})

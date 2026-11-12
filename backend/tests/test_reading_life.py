@@ -98,7 +98,7 @@ def test_every_year_figure_on_a_known_library(life):
     assert s["top_subjects"] == [{"name": "fantasy", "count": 3}, {"name": "horror", "count": 3}]
     assert s["length_mix"] == {"short": 2, "medium": 2, "long": 1, "unknown": 1}
     assert (s["authors_new"], s["authors_returning"]) == (3, 1)  # Ann Author finished in 2025 too; Bo, Cy, Di are new
-    assert s["all_time"] == {"books": 8, "pages": 2150}
+    assert (s["all_time"]["books"], s["all_time"]["pages"]) == (8, 2150)
 
 
 def test_the_previous_year_has_the_same_figures(life):
@@ -108,7 +108,7 @@ def test_the_previous_year_has_the_same_figures(life):
     assert p["top_subjects"] == [{"name": "fantasy", "count": 1}]
     assert p["length_mix"] == {"short": 0, "medium": 1, "long": 0, "unknown": 0}
     assert (p["authors_new"], p["authors_returning"]) == (1, 0)
-    assert set(p) == set(life.stats(2026)) - {"previous", "all_time", "shelf", "year", "books_finished", "pages_read", "by_month",
+    assert set(p) == set(life.stats(2026)) - {"previous", "all_time", "shelf", "year", "years_with_reading", "imported_years", "books_finished", "pages_read", "by_month",
                                                "top_genres", "biggest_month"}
 
 
@@ -163,7 +163,7 @@ def test_an_empty_library_is_zeros_and_nulls_without_errors(world):
         assert figures["months"] == [{"books": 0, "pages": 0}] * 12
         assert figures["length_mix"] == {"short": 0, "medium": 0, "long": 0, "unknown": 0}
         assert (figures["authors_new"], figures["authors_returning"]) == (0, 0)
-    assert s["all_time"] == {"books": 0, "pages": 0}
+    assert s["all_time"] == {"books": 0, "pages": 0, "top_subjects": []}
     assert s["shelf"] == {"owned_unfinished": 0, "want": 0, "oldest_waiting": None}
 
 
@@ -228,3 +228,52 @@ def test_a_2000_entry_library_is_fast_with_a_fixed_number_of_statements(world, a
     print(f"T37 2,000 entries: p95 {p95:.3f}s, {len(selects)} SELECTs")
     # 300 ms is for an idle machine (BOOKVANE_STRICT_TIMING=yes); by default the cap is loose so a busy machine cannot fail it.
     assert p95 < (0.3 if os.getenv("BOOKVANE_STRICT_TIMING") == "yes" else 1.5), f"p95 {p95:.3f}s"
+
+
+def reads(life, entry, *dates, origin="native"):
+    for ended in dates:
+        life.db.add(life.models.ReadingAttempt(id=uuid.uuid4(), user_book_id=entry.id, state="finished", ended_on=ended,
+                                               origin=origin, creation_fingerprint=uuid.uuid4().hex))
+    life.db.commit()
+
+
+def test_a_first_read_is_not_a_reread_and_a_reread_counts_in_the_later_year(life):
+    # the fixture: b2 finished 2026-03-10 and again 2026-12-31 (one reread, in 2026); b3 finished 2026-03-20 and 2027-01-01
+    assert life.stats(2026)["rereads"] == 1
+    assert life.stats(2027)["rereads"] == 1 and life.stats(2025)["rereads"] == 0
+    assert life.stats(2026)["previous"]["rereads"] == 0
+
+
+def test_a_second_finish_in_the_same_year_counts_as_one_reread(life):
+    reads(life, life.e["b6"], date(2024, 2, 1), date(2024, 8, 1))
+    assert life.stats(2024)["rereads"] == 1 and life.stats(2024)["books"] == 2
+
+
+def test_an_undated_earlier_finish_still_counts_as_earlier(life):
+    reads(life, life.e["b7"], None, date(2023, 4, 4))
+    assert life.stats(2023)["rereads"] == 1 and life.stats(2023)["books"] == 1
+
+
+def test_years_with_reading_and_imported_years(life):
+    s = life.stats(2026)
+    assert s["years_with_reading"] == [2025, 2026, 2027] and s["imported_years"] == [2026]
+    assert life.stats(2020)["years_with_reading"] == s["years_with_reading"]       # the same for any ?year=
+    reads(life, life.e["b6"], date(2023, 5, 5), origin="import")
+    reads(life, life.e["b7"], None)                                                  # undated: adds no year
+    s = life.stats(2026)
+    assert s["years_with_reading"] == [2023, 2025, 2026, 2027] and s["imported_years"] == [2023, 2026]
+
+
+def test_all_time_top_subjects_cover_every_finish(life):
+    top = life.stats(2026)["all_time"]["top_subjects"]
+    assert {item["name"] for item in top} >= {"fantasy", "horror"} and all(set(item) == {"name", "count"} for item in top)
+
+
+def test_another_readers_reads_never_count_here(life):
+    other = life.world.make_user()
+    entry = life.models.UserBook(user_id=other.id, book_id=life.books["b6"].id, is_owned=True)
+    life.db.add(entry)
+    life.db.commit()
+    reads(life, entry, date(1999, 1, 1), date(1999, 2, 2), origin="import")
+    s = life.stats(2026)
+    assert 1999 not in s["years_with_reading"] and s["imported_years"] == [2026]

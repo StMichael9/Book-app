@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import statistics
 from collections import Counter, defaultdict
-from datetime import timezone
+from datetime import date, timezone
 
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
@@ -29,13 +29,14 @@ def author_key(name: str) -> str:
 
 
 class Attempt:
-    __slots__ = ("state", "started", "ended", "pages", "book_id", "authors")
+    __slots__ = ("state", "started", "ended", "pages", "book_id", "authors", "entry", "id", "origin")
 
 
 def _load(db: Session, user_id) -> list[Attempt]:
     rows = db.execute(
         select(ReadingAttempt.state, ReadingAttempt.started_on, ReadingAttempt.ended_on, ReadingAttempt.total_pages,
-               Book.page_count, UserBook.book_id, UserBook.private_author)
+               Book.page_count, UserBook.book_id, UserBook.private_author, ReadingAttempt.user_book_id, ReadingAttempt.id,
+               ReadingAttempt.origin)
         .select_from(ReadingAttempt).join(UserBook, UserBook.id == ReadingAttempt.user_book_id)
         .outerjoin(Book, Book.id == UserBook.book_id)
         .where(UserBook.user_id == user_id, ReadingAttempt.state.in_(["finished", "dnf"]))).all()
@@ -52,6 +53,7 @@ def _load(db: Session, user_id) -> list[Attempt]:
         item.state, item.started, item.ended = row.state, row.started_on, row.ended_on
         item.pages = row.total_pages or row.page_count or None
         item.book_id = row.book_id
+        item.entry, item.id, item.origin = row.user_book_id, str(row.id), row.origin
         item.authors = names.get(row.book_id) or ([row.private_author] if row.private_author else [])
         attempts.append(item)
     return attempts
@@ -67,6 +69,25 @@ def _subjects(db: Session, attempts: list[Attempt]) -> dict[int, list[str]]:
     return tags
 
 
+def rereads_of(attempts: list[Attempt]) -> set[str]:
+    """Ids of the finished attempts that come after an earlier finished attempt on the same entry (by finish date, then
+    attempt id; an undated finish counts as the earliest)."""
+    by_entry: dict[int, list[Attempt]] = defaultdict(list)
+    for a in attempts:
+        if a.state == "finished":
+            by_entry[a.entry].append(a)
+    later: set[str] = set()
+    for group in by_entry.values():
+        group.sort(key=lambda a: (a.ended or date.min, a.id))
+        later.update(a.id for a in group[1:])
+    return later
+
+
+def top_subjects(attempts: list[Attempt], tags: dict[int, list[str]]) -> list[dict]:
+    subjects = Counter(name for a in attempts for name in set(tags.get(a.book_id, ())))
+    return [{"name": name, "count": count} for name, count in sorted(subjects.items(), key=lambda item: (-item[1], item[0]))[:5]]
+
+
 def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> dict:
     """The per-year figures. A reread is another finish; unknown pages are left out of the page totals and counted."""
     done = [a for a in attempts if a.state == "finished" and a.ended and a.ended.year == year]
@@ -78,7 +99,7 @@ def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> d
         months[a.ended.month - 1]["pages"] += a.pages or 0
     days = [(a.ended - a.started).days for a in done if a.started and a.ended >= a.started]
     median = statistics.median(days) if days else None
-    subjects = Counter(name for a in done for name in set(tags.get(a.book_id, ())))
+    later = rereads_of(attempts)
     mix = Counter(length_band(a.pages) for a in done)
     earlier = {author_key(name) for a in attempts if a.state == "finished" and a.ended and a.ended.year < year
                for name in a.authors}
@@ -88,8 +109,7 @@ def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> d
         "avg_length": round(sum(known) / len(known)) if known else None,
         "median_days": int(median) if median is not None and median == int(median) else median,
         "stopped": stopped, "months": months,
-        "top_subjects": [{"name": name, "count": count} for name, count in
-                         sorted(subjects.items(), key=lambda item: (-item[1], item[0]))[:5]],
+        "top_subjects": top_subjects(done, tags), "rereads": sum(1 for a in done if a.id in later),
         "length_mix": {band: mix.get(band, 0) for band in (*LENGTHS, "unknown")},
         "authors_new": len(this_year - earlier), "authors_returning": len(this_year & earlier),
     }
@@ -120,4 +140,7 @@ def reading_life(db: Session, user_id, year: int) -> dict:
     every = [a for a in attempts if a.state == "finished"]
     pages = [a.pages for a in every if a.pages]
     return {**figures(attempts, tags, year), "previous": figures(attempts, tags, year - 1),
-            "all_time": {"books": len(every), "pages": sum(pages)}, "shelf": shelf(db, user_id)}
+            "all_time": {"books": len(every), "pages": sum(pages), "top_subjects": top_subjects(every, tags)},
+            "years_with_reading": sorted({a.ended.year for a in every if a.ended}),
+            "imported_years": sorted({a.ended.year for a in every if a.ended and a.origin == "import"}),
+            "shelf": shelf(db, user_id)}

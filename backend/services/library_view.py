@@ -25,6 +25,7 @@ from database import settings
 from models import (
     Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, Tag, TagType, UserBook, book_authors, book_tags,
 )
+from data.taxonomy import GENRE_KEYS, genre_for_label
 from services.catalogue_resolver import surname
 
 SORTS = ("added", "added_oldest", "title", "author", "finished", "updated")
@@ -152,7 +153,10 @@ class LibraryView:
             c11=func.jsonb_agg(ImportedLibraryRecord.context["labels"]))).select_from(ImportedLibraryRecord).where(
             ImportedLibraryRecord.user_id == user_id, ImportedLibraryRecord.user_book_id.is_not(None)).group_by(
             ImportedLibraryRecord.user_book_id)
-        result = self.db.execute(union_all(entries, authors, subjects, attempts, imports)).all()
+        # The 28 genre tags ride in the same statement: a reader's own shelf names ("sci-fi", "fantasy") count as that genre
+        # for that reader only, in memory, and are never written to the catalogue.
+        genre_tags = select(*branch("g", Tag.id, c8=Tag.name)).where(Tag.type == TagType.genre, Tag.name.in_(GENRE_KEYS))
+        result = self.db.execute(union_all(entries, authors, subjects, attempts, imports, genre_tags)).all()
 
         entry_data = []
         authors_of: dict[int, list[str]] = {}
@@ -160,6 +164,7 @@ class LibraryView:
         tag_names: dict[int, str] = {}
         facts: dict = {}
         imported: dict = {}
+        genre_ids: dict[str, int] = {}
         for letter, key, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13 in result:
             if letter == "e":
                 entry_data.append((key, c1, c2, c3, c4, c5, c6, c7, c8, c12, c13))
@@ -168,6 +173,8 @@ class LibraryView:
             elif letter == "t":
                 tags_of.setdefault(key, set()).add(c1)
                 tag_names[c1] = c8
+            elif letter == "g":
+                genre_ids[c8] = key
             elif letter == "s":
                 facts[key] = (c8, c9, c10, c6, c12)
             else:
@@ -197,6 +204,11 @@ class LibraryView:
             row.labels = {label for labels in label_lists or () if isinstance(labels, list)
                           for label in labels if isinstance(label, str)}
             row.imported_on = imported_at.date() if imported_at else None
+            for label in row.labels:
+                personal = genre_ids.get(genre_for_label(label) or "")
+                if personal is not None and personal not in row.subjects:
+                    row.subjects = set(row.subjects) | {personal}
+                    tag_names.setdefault(personal, genre_for_label(label))
             rows.append(row)
         return rows, tag_names
 

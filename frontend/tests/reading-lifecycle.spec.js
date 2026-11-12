@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 import { shootMatrix, shotsEnabled } from "./support/shots.js";
 
 // M2 UI regressions use in-memory API fixtures only, never a real database.
@@ -156,6 +157,7 @@ const test = base.extend({
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

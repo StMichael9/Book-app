@@ -13,7 +13,7 @@ export default function ImportedSources({ entryId, count }) {
   return <section className="bv-section"><details onToggle={event => {
     if (event.currentTarget.open && page === null && !command.pending) command.run(() => importedSources(entryId), setPage);
   }}><summary>From your import ({count}) · private</summary>
-    <p className="bv-help">Imported ratings, reviews and labels are kept separately. They never replace your Bookvane notes, reactions or discovery subjects.</p>
+    <p className="bv-help">Imported ratings, reviews and labels are kept separately. They never replace your Bookvane notes, reactions or favourite genres.</p>
     {command.pending && <p role="status">Loading imported details…</p>}
     {page?.items.map(record => <article key={record.id} className="bv-import-row"><h3>Imported from {names[record.source] || "your library"}</h3>
       {record.context.rating != null && <p>Imported rating: {record.context.rating} / 5</p>}

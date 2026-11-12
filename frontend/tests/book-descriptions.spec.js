@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only, built on the T27 contract: list entries carry `snippet` and `save_note`, and the library-entry PATCH
 // accepts `save_note` and (for private entries) `private_description`, both guarded by `expected_version`.
@@ -60,6 +61,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

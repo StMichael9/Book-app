@@ -1,4 +1,5 @@
 import { test as base, expect } from '@playwright/test';
+import { installGenres } from "./support/genres.js";
 
 // Synthetic accounts and attempt history only. These tests never call a real
 // account, database, metadata provider or mail service.
@@ -63,6 +64,7 @@ const test = base.extend({
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: {} });
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

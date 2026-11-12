@@ -1,0 +1,54 @@
+name: Catalogue health (weekly)
+
+# Searches our own public API for the benchmark titles, queues anything missing for the lookup worker, and writes a counts-only
+# summary (this repository is public: no reader data, no titles of readers). Emails support@bookvane.me only when a limit is
+# crossed: coverage below 90%, empty searches above 15%, import match below 70%, database above 700 MB.
+# The scheduled run is off until the repository variable CATALOGUE_HEALTH is 'on' (set it after ADMIN_API_KEY and the
+# catalogue-health environment exist).
+on:
+  schedule:
+    - cron: "30 11 * * 1"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Check only the first N benchmark titles (blank = all)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bookvane-catalogue-health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: catalogue-health
+    if: ${{ github.event_name != 'schedule' || vars.CATALOGUE_HEALTH == 'on' }}
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      BOOKVANE_API: ${{ vars.BOOKVANE_API }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+      LIMIT: ${{ inputs.limit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install requests
+      - name: Check the benchmark, queue the missing titles, report
+        run: |
+          args=()
+          if [[ -n "$LIMIT" ]]; then
+            [[ "$LIMIT" =~ ^[0-9]{1,4}$ ]] || exit 1
+            args+=(--limit "$LIMIT")
+          fi
+          python -m data.catalogue_health "${args[@]}"

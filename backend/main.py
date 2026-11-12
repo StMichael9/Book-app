@@ -26,6 +26,7 @@ from routes import events
 from routes import profile
 from routes import seo
 from routes import up_next
+from routes import genres
 
 from auth.auth import router as auth_router
 
@@ -154,6 +155,7 @@ app.include_router(events.router)
 app.include_router(profile.router)
 app.include_router(seo.router)
 app.include_router(up_next.router)
+app.include_router(genres.router)
 app.include_router(library_imports.sources_router)
 
 # Enable fastapi-pagination for the entire FastAPI application.

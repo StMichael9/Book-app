@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 const books = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
@@ -41,6 +42,7 @@ const test = base.extend({
       state.errors.push(`Unhandled test API request: ${path}`);
       return route.fulfill({ status: 500, json: {} });
     });
+    await installGenres(page, state);
     await use(state);
     expect(state.errors).toEqual([]);
   }, { auto: true }],

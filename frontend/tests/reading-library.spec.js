@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser fixtures only. No hosted API, real accounts or production catalogue.
 const books = Array.from({ length: 30 }, (_, index) => ({ id: index + 1,
@@ -106,6 +107,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
+    await installGenres(page, state);
     await provide(state);
     expect(state.errors).toEqual([]);
   },

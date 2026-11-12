@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 
 // Browser-only fixtures with realistic 300-600 ms API delays. No hosted service is contacted.
 const stamp = "2026-10-01T00:00:00Z";
@@ -48,6 +49,7 @@ const test = base.extend({
         is_owned: id === 9001, is_wanted: false, version: id === 9001 ? 2 : null, reading_state: id === 9001 ? "reading" : null })) });
       if (path === "/me/library/501/reading") { await wait("workspace"); return reply(200, { entry, current_attempt: attempt, editions: [] }); }
       if (path === "/me/library/501/attempts") return reply(200, { items: [attempt], next_cursor: null });
+      if (path === "/books/more") return reply(200, []);
       if (path === "/books") {
         await wait("books");
         const size = Number(url.searchParams.get("size") || 20), page = Number(url.searchParams.get("page") || 1);
@@ -73,6 +75,7 @@ const test = base.extend({
         if (covered) window.__jacket = (window.__jacket || 0) + 1;
       }, 50);
     });
+    await installGenres(page, state);
     await provide(state);
   }, { auto: true }],
 });

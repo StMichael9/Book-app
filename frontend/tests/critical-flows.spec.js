@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { installGenres } from "./support/genres.js";
 import { shootMatrix, shotsEnabled } from "./support/shots.js";
 
 // Browser-only fixtures. Every API request is intercepted; no database or
@@ -6,7 +7,7 @@ import { shootMatrix, shotsEnabled } from "./support/shots.js";
 const books = [
   { id: 1, title: "Test-only Fantasy", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 1, name: "fantasy" }] },
   { id: 2, title: "Test-only Science Fiction", authors: [{ id: 2, name: "Another Author" }], tags: [{ id: 2, name: "science_fiction" }] },
-  { id: 3, title: "Test-only Mystery", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 3, name: "mystery" }] },
+  { id: 3, title: "Test-only Mystery", authors: [{ id: 1, name: "Test Author" }], tags: [{ id: 3, name: "mystery_crime" }] },
 ];
 
 const test = base.extend({
@@ -85,7 +86,7 @@ const test = base.extend({
         if (state.mutationFails) return reply(503, { detail: "Save unavailable" });
         if (state.holdPreferenceSave) await state.holdPreferenceSave;
         state.preferences = body.tag_ids.map((id) => ({
-          tag_id: id, tag: { id, name: id === 1 ? "fantasy" : "mystery", type: "genre" }, source_text: body.source_text,
+          tag_id: id, tag: { id, name: id === 1 ? "fantasy" : "mystery_crime", type: "genre" }, source_text: body.source_text,
         }));
         return reply(200, state.preferences);
       }
@@ -103,6 +104,7 @@ const test = base.extend({
         state.saved.push(item);
         return reply(200, item);
       }
+      if (path === "/books/more") return reply(200, []);
       if (path === "/books") {
         if (state.searchFails) return reply(503, { detail: "Search temporarily unavailable" });
         let items = state.catalogue.filter((book) =>
@@ -134,6 +136,7 @@ const test = base.extend({
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
+    await installGenres(page, state, { batch: false });
     await runFixture(state);
     expect(state.errors).toEqual([]);
   },
@@ -176,9 +179,9 @@ test("M6 late preference save cannot replace the page the reader navigated to", 
   let release;
   app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
   await page.goto("/preferences");
-  await page.getByLabel("Mystery", { exact: true }).check();
+  await page.getByLabel("Mystery & crime", { exact: true }).check();
   const completed = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/me/preferences") && response.request().method() === "POST");
-  await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+  await page.getByRole("button", { name: "Save genres", exact: true }).click();
   await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
   await page.getByRole("link", { name: "My Books", exact: true }).first().click();
   await expect(page).toHaveURL(/\/my-books$/);
@@ -195,9 +198,9 @@ for (const changeAccount of [false, true]) test(`M6 departed preference save inv
   app.holdPreferenceSave = new Promise(resolve => { release = resolve; });
   try {
     await page.goto("/preferences");
-    await page.getByLabel("Mystery", { exact: true }).check();
+    await page.getByLabel("Mystery & crime", { exact: true }).check();
     const completed = page.waitForResponse(response => response.url().endsWith("/me/preferences") && response.request().method() === "POST");
-    await page.getByRole("button", { name: "Save preferences", exact: true }).click();
+    await page.getByRole("button", { name: "Save genres", exact: true }).click();
     await expect.poll(() => app.requests.some(request => request.path === "/me/preferences" && request.method === "POST")).toBe(true);
     if (changeAccount) {
       app.authenticated = false;
@@ -221,7 +224,7 @@ for (const changeAccount of [false, true]) test(`M6 departed preference save inv
       await expect.poll(() => app.requests.filter(request => request.path === "/books").length).toBeGreaterThan(before);
       await expect(page.locator(".bv-book-card h3").first()).toHaveText("Test-only Mystery");
     }
-    await expect(page.getByText("Your discovery subjects are saved.", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Your favourite genres are saved.", { exact: true })).toHaveCount(0);
   } finally { release(); }
 });
 
@@ -278,12 +281,12 @@ test("failed preference load cannot overwrite saved preferences; retry restores 
   app.preferencesFailures = 1;
   await page.goto("/preferences");
   await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save genres" })).toHaveCount(0);
   expect(app.requests.filter((request) => request.path === "/me/preferences" && request.method === "POST")).toHaveLength(0);
   expect(app.preferences[0].source_text).toBe("Keep this note");
   await page.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByLabel("Fantasy", { exact: true })).toBeChecked();
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Save genres" }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences[0].tag_id).toBe(1);
 });
@@ -292,19 +295,19 @@ test("malformed preferences are not treated as an empty saved preference list", 
   app.malformedPreferences = true;
   await page.goto("/preferences");
   await expect(page.getByRole("heading", { name: "Your preferences couldn’t load." })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Save preferences" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save genres" })).toHaveCount(0);
 });
 
 test("failed preference save preserves edits and can be retried", async ({ page, app }) => {
   await page.goto("/preferences");
-  await page.getByLabel("Mystery", { exact: true }).check();
+  await page.getByLabel("Mystery & crime", { exact: true }).check();
   app.mutationFails = true;
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Save genres" }).click();
   await expect(page.getByRole("alert")).toContainText("Your choices are still here");
-  await expect(page.getByLabel("Mystery", { exact: true })).toBeChecked();
+  await expect(page.getByLabel("Mystery & crime", { exact: true })).toBeChecked();
   expect(app.preferences[0].source_text).toBe("Keep this note");
   app.mutationFails = false;
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Save genres" }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences[0].source_text).toBe("Keep this note");
   expect(app.preferences.map(item => item.tag_id)).toContain(3);
@@ -313,7 +316,7 @@ test("failed preference save preserves edits and can be retried", async ({ page,
 test("explicitly clearing loaded preferences still works", async ({ page, app }) => {
   await page.goto("/preferences");
   await page.getByLabel("Fantasy", { exact: true }).uncheck();
-  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByRole("button", { name: "Save genres" }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.preferences).toEqual([]);
 });
@@ -439,8 +442,8 @@ test("registration, onboarding, logout and protected routes remain connected", a
   await expect(page).toHaveURL(/\/my-books$/);
   await page.goto("/onboarding");
   await expect(page).toHaveURL(/\/preferences$/);
-  await page.getByRole("link", { name: "Back to discovery", exact: true }).click();
-  await expect(page).toHaveURL(/\/browse$/);
+  await page.getByRole("link", { name: "Back", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
   await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();

@@ -29,12 +29,13 @@ def _complete(values: dict) -> bool:
                 and values["page_count"] and values["page_count"] > 0 and values["published_year"] is not None)
 
 
-def dry_run_report(factory: sessionmaker, config: ImportConfig) -> dict:
+def dry_run_report(factory: sessionmaker, config: ImportConfig, neon_factory: sessionmaker | None = None) -> dict:
     """Walk the staged works the merge would visit; store and return the prediction in the run report."""
     report = Counter()
     filled: Counter = Counter()
     cursor = ""
-    with factory() as session:
+    from contextlib import nullcontext
+    with factory() as session, (neon_factory() if neon_factory else nullcontext(session)) as catalogue:
         while True:
             works = session.execute(select(CatalogueStageWork).where(
                 CatalogueStageWork.run_id == config.run_id, CatalogueStageWork.source_id > cursor,
@@ -45,9 +46,9 @@ def dry_run_report(factory: sessionmaker, config: ImportConfig) -> dict:
             cursor = works[-1].source_id
             keys = {work.source_id for work in works}
             old_by_new: dict[str, list[str]] = defaultdict(list)
-            for old, new in _existing_book_aliases(session, keys).items():
+            for old, new in _existing_book_aliases(session, keys, catalogue if neon_factory else None).items():
                 old_by_new[new].append(old)
-            books = session.execute(select(Book).where(or_(
+            books = catalogue.execute(select(Book).where(or_(
                 Book.source_id.in_(keys | {old for olds in old_by_new.values() for old in olds}),
                 Book.id.in_([work.legacy_book_id for work in works if work.legacy_book_id]),
             ))).scalars().all()

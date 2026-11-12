@@ -22,7 +22,8 @@ from models import (
 log = logging.getLogger("bookvane.catalogue")
 
 
-def _mark_legacy_matches(session: Session, run: CatalogueImportRun, batch_size: int) -> None:
+def _mark_legacy_matches(session: Session, run: CatalogueImportRun, batch_size: int, neon: Session | None = None) -> None:
+    catalogue = neon if neon is not None else session
     cursor = ""
     while True:
         works = session.execute(select(CatalogueStageWork).where(
@@ -46,7 +47,7 @@ def _mark_legacy_matches(session: Session, run: CatalogueImportRun, batch_size: 
         titles = {work.title for work in works if work.source_id in primary}
         if not titles:
             continue
-        legacy_rows = session.execute(
+        legacy_rows = catalogue.execute(
             select(Book.title, Author.name, func.count(func.distinct(Book.id)), func.min(Book.id))
             .join(book_authors, book_authors.c.book_id == Book.id)
             .join(Author, Author.id == book_authors.c.author_id)
@@ -56,7 +57,7 @@ def _mark_legacy_matches(session: Session, run: CatalogueImportRun, batch_size: 
         by_title_author = {(title, name): (count, book_id)
                            for title, name, count, book_id in legacy_rows}
         unique_ids = {book_id for _, _, count, book_id in legacy_rows if count == 1}
-        legacy_details = {book_id: (isbn, cover) for book_id, isbn, cover in session.execute(
+        legacy_details = {book_id: (isbn, cover) for book_id, isbn, cover in catalogue.execute(
             select(Book.id, Book.isbn13, Book.cover_image_url).where(Book.id.in_(unique_ids))
         )}
         # Check all staged works with these titles, including those outside this page.
@@ -105,7 +106,8 @@ def _mark_legacy_matches(session: Session, run: CatalogueImportRun, batch_size: 
                        "Title/author matched, but ISBN or cover did not corroborate")
 
 
-def _clear_unverified_forced(session: Session, run: CatalogueImportRun, batch_size: int) -> None:
+def _clear_unverified_forced(session: Session, run: CatalogueImportRun, batch_size: int, neon: Session | None = None) -> None:
+    catalogue = neon if neon is not None else session
     cursor = ""
     while True:
         works = session.execute(select(CatalogueStageWork).where(
@@ -118,10 +120,10 @@ def _clear_unverified_forced(session: Session, run: CatalogueImportRun, batch_si
             return
         cursor = works[-1].source_id
         keys = {work.source_id for work in works}
-        existing = set(session.execute(select(Book.source_id).where(
+        existing = set(catalogue.execute(select(Book.source_id).where(
             Book.source_id.in_(keys)
         )).scalars())
-        redirected = set(_existing_book_aliases(session, keys).values())
+        redirected = set(_existing_book_aliases(session, keys, neon).values())
         for work in works:
             if work.source_id not in existing and work.source_id not in redirected:
                 work.forced = False
@@ -194,13 +196,13 @@ def _choose_category_batch(session: Session, run: CatalogueImportRun,
     return len(ids)
 
 
-def _select_works(session: Session, config: ImportConfig) -> None:
+def _select_works(session: Session, config: ImportConfig, neon: Session | None = None) -> None:
     run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
     if run.phase != "select":
         raise RuntimeError("Import phase changed during selection")
-    _check_storage(session, run, config)
-    _mark_legacy_matches(session, run, config.batch_size)
-    _clear_unverified_forced(session, run, config.batch_size)
+    _check_storage(session, run, config, neon)
+    _mark_legacy_matches(session, run, config.batch_size, neon)
+    _clear_unverified_forced(session, run, config.batch_size, neon)
     remaining = max(0, config.target_books - run.baseline_count)
     quotas = percentage_quotas(remaining, config.category_weights)
     scarcity = {}
@@ -263,23 +265,26 @@ def _select_works(session: Session, config: ImportConfig) -> None:
     """), {"run_id": run.id})
     _prune_candidates(session, run, config)
     run.phase, run.checkpoint_line = "hydrate", 0
-    _check_storage(session, run, config)
+    _check_storage(session, run, config, neon)
 
 
-def _backfill_authors(factory: sessionmaker, config: ImportConfig) -> None:
-    """Reuse a legacy Author row only when all its linked works prove one identity."""
+def _backfill_authors(factory: sessionmaker, config: ImportConfig, neon_factory: sessionmaker | None = None) -> None:
+    """Reuse a legacy Author row only when all its linked works prove one identity.
+
+    `factory` is the staging database (the run and staged works); `neon_factory` the catalogue (the Author rows)."""
+    from contextlib import nullcontext
     cursor = 0
     while True:
-        with factory.begin() as session:
+        with factory.begin() as session, (neon_factory.begin() if neon_factory else nullcontext(session)) as catalogue:
             run = session.get(CatalogueImportRun, config.run_id)
-            authors = session.execute(select(Author).where(
+            authors = catalogue.execute(select(Author).where(
                 Author.id > cursor, Author.source_id.is_(None)
             ).order_by(Author.id).limit(config.batch_size)).scalars().all()
             if not authors:
                 return
             cursor = authors[-1].id
             ids = [author.id for author in authors]
-            links = session.execute(select(
+            links = catalogue.execute(select(
                 book_authors.c.author_id, book_authors.c.book_id, Book.source_id
             ).join(Book, Book.id == book_authors.c.book_id).where(
                 book_authors.c.author_id.in_(ids)
@@ -305,7 +310,7 @@ def _backfill_authors(factory: sessionmaker, config: ImportConfig) -> None:
             linked: dict[int, list[str | None]] = defaultdict(list)
             for author_id, book_id, source_id in links:
                 linked[author_id].append(source_id or legacy_work.get(book_id))
-            existing_source_keys = set(session.execute(select(Author.source_id).where(
+            existing_source_keys = set(catalogue.execute(select(Author.source_id).where(
                 Author.source_id.in_({key for keys in identities.values() for key in keys})
             )).scalars())
             for author in authors:

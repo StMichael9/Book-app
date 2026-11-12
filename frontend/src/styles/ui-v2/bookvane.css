@@ -491,3 +491,12 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 @media (max-width: 700px) {
   .bv-root .bv-account-links { justify-items: start; text-align: left; }
 }
+
+/* Cards for books found beyond the catalogue: the same card, with a button where a link would be. */
+.bv-root .bv-work-cover { display: block; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
+.bv-root .bv-work-title { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.bv-root .bv-work-title:hover:not(:disabled) { text-decoration: underline; }
+.bv-root .bv-work-card :is(.bv-work-cover, .bv-work-title):focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
+.bv-root .bv-work-card[aria-busy="true"] .bv-cover { opacity: .5; }
+.bv-root .bv-work-card :is(.bv-work-cover, .bv-work-title):disabled { cursor: progress; }
+.bv-root .bv-book-grid { align-content: start; }

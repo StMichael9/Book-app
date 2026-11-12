@@ -57,8 +57,11 @@ def _resolve_aliases(session: Session, keys: set[str]) -> dict[str, str | None]:
     return resolved
 
 
-def _existing_book_aliases(session: Session, canonical_keys: set[str]) -> dict[str, str]:
-    """Find existing Book IDs behind even multi-hop redirects, without scanning all books."""
+def _existing_book_aliases(session: Session, canonical_keys: set[str], neon: Session | None = None) -> dict[str, str]:
+    """Find existing Book IDs behind even multi-hop redirects, without scanning all books.
+
+    The redirect chains are read from `session` (the staging database); which of the old keys are books we hold is read from
+    `neon` (the catalogue database). With one database they are the same session and the result is the old joined query's."""
     if not canonical_keys:
         return {}
     rows = session.execute(text("""
@@ -72,10 +75,12 @@ def _existing_book_aliases(session: Session, canonical_keys: set[str]) -> dict[s
             JOIN ancestors ON a.canonical_source_id = ancestors.old_source_id
             WHERE a.source_type = 'redirect' AND ancestors.depth < 10
         )
-        SELECT DISTINCT ancestors.old_source_id, ancestors.target_source_id
-        FROM ancestors JOIN books b ON b.source_id = ancestors.old_source_id
+        SELECT DISTINCT ancestors.old_source_id, ancestors.target_source_id FROM ancestors
     """), {"keys": list(canonical_keys)}).all()
-    return dict(rows)
+    if not rows:
+        return {}
+    held = set((neon or session).execute(select(Book.source_id).where(Book.source_id.in_({old for old, _ in rows}))).scalars())
+    return {old: target for old, target in rows if old in held}
 
 
 def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict], phase: str,
@@ -101,7 +106,8 @@ def _write_aliases(session: Session, run: CatalogueImportRun, records: list[dict
         ))
 
 
-def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_shortlist: bool = True) -> None:
+def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_shortlist: bool = True,
+                     neon: Session | None = None) -> None:
     """Keep complete alias chains needed by this shortlist and existing Books.
 
     This table is importer bookkeeping, not catalogue/user data. A transactional
@@ -110,11 +116,20 @@ def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_short
     the operation. A wider shortlist must first re-stream pinned alias dumps.
     """
     before = session.scalar(select(func.count()).select_from(CatalogueSourceAlias)) or 0
-    session.execute(text("""
+    seed_books = "SELECT source_id FROM books WHERE source_id IS NOT NULL"
+    if neon is not None:
+        # The books live in the catalogue database: bring just their keys across as seeds.
+        session.execute(text("CREATE TEMP TABLE bookvane_seed_books (source_id text) ON COMMIT DROP"))
+        keys = [key for key in neon.execute(select(Book.source_id).where(Book.source_id.is_not(None))).scalars()]
+        for start in range(0, len(keys), 5000):
+            session.execute(text("INSERT INTO bookvane_seed_books (source_id) SELECT unnest(CAST(:keys AS text[]))"),
+                            {"keys": keys[start:start + 5000]})
+        seed_books = "SELECT source_id FROM bookvane_seed_books"
+    session.execute(text(f"""
         CREATE TEMP TABLE bookvane_alias_keep ON COMMIT DROP AS
         WITH RECURSIVE
         seeds(key) AS (
-            SELECT source_id FROM books WHERE source_id IS NOT NULL
+            {seed_books}
             UNION
             SELECT source_id FROM catalogue_stage_works
             WHERE run_id = :run_id AND :include_shortlist
@@ -141,11 +156,23 @@ def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_short
         SELECT * FROM ancestors UNION SELECT * FROM descendants
     """), {"run_id": run.id, "include_shortlist": include_shortlist})
     retained = session.scalar(text("SELECT count(*) FROM bookvane_alias_keep"))
+    kept = session.execute(text("SELECT old_source_id, canonical_source_id, source_type FROM bookvane_alias_keep")).all() \
+        if neon is not None else []
     session.execute(text("TRUNCATE catalogue_source_aliases"))
     session.execute(text("""
         INSERT INTO catalogue_source_aliases (old_source_id, canonical_source_id, source_type)
         SELECT old_source_id, canonical_source_id, source_type FROM bookvane_alias_keep
     """))
+    if neon is not None:
+        # Only the compacted, book-relevant chains reach the catalogue database (later lookups resolve through them).
+        for start in range(0, len(kept), 2000):
+            rows = [{"old_source_id": o, "canonical_source_id": c, "source_type": t} for o, c, t in kept[start:start + 2000]]
+            statement = insert(CatalogueSourceAlias).values(rows)
+            neon.execute(statement.on_conflict_do_update(
+                index_elements=["old_source_id"],
+                set_={"canonical_source_id": statement.excluded.canonical_source_id,
+                      "source_type": statement.excluded.source_type},
+                where=(CatalogueSourceAlias.source_type != "deleted")))
     # Explicit drop also allows two compactions within the same transaction.
     session.execute(text("DROP TABLE bookvane_alias_keep"))
     run.report = dict(run.report or {}) | {
@@ -155,7 +182,8 @@ def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_short
     }
 
 
-def _write_works(session: Session, run: CatalogueImportRun, records: list[dict], popular: bool = False) -> None:
+def _write_works(session: Session, run: CatalogueImportRun, records: list[dict], popular: bool = False,
+                 neon: Session | None = None) -> None:
     kept = [record for record in records if not (popular and is_derivative(record))]
     normalized = [item for record in kept if (item := clean.normalize_work(record))]
     _count_skipped(run, "works", len(records) - len(normalized))
@@ -196,9 +224,10 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
             item["tags"] = list({(tag["name"], tag["type"]): tag
                                  for tag in previous.tags + item["tags"]}.values())
             item["quality"] = max(previous.quality, item["quality"])
-    old_aliases = _existing_book_aliases(session, set(works))
+    catalogue = neon if neon is not None else session
+    old_aliases = _existing_book_aliases(session, set(works), neon)
     old_keys = set(old_aliases)
-    existing_ids = set(session.execute(select(Book.source_id).where(
+    existing_ids = set(catalogue.execute(select(Book.source_id).where(
         Book.source_id.in_(set(works) | old_keys)
     )).scalars())
     forced_keys = set(works) & existing_ids
@@ -221,7 +250,7 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
             session.execute(insert(CatalogueStagePopularity).values([
                 {"run_id": run.id, "source_id": key, "score": score} for key, score in points.items()
             ]).on_conflict_do_nothing())
-    legacy_titles = set(session.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_({w["title"] for w in works.values()}))).scalars())
+    legacy_titles = set(catalogue.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_({w["title"] for w in works.values()}))).scalars())
     values = [{"run_id": run.id, "source_id": key, "title": work["title"],
                "description": None, "published_year": work["published_year"],
                "cover_image_url": work["cover_image_url"], "tags": work["tags"],
