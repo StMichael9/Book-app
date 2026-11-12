@@ -72,11 +72,11 @@ jobs:
         run: |
           case "$TASK" in
             backfill_popularity)
-              python -m data.load --mode production --snapshot "$SNAPSHOT" --backfill-popularity ;;
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.load --mode production --snapshot "$SNAPSHOT" --backfill-popularity ;;
             remap_genres)
               args=(--mode production --snapshot "$SNAPSHOT" --remap-genres)
               [[ "$DRY_RUN" == "true" ]] && args+=(--dry-run)
-              python -m data.load "${args[@]}" ;;
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.load "${args[@]}" ;;
             clean_dry_run)
               python -m data.clean_catalogue --dry-run --samples 50 --report "$RUNNER_TEMP/clean-report.md"
               cat "$RUNNER_TEMP/clean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
