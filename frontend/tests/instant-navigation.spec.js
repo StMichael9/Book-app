@@ -48,6 +48,7 @@ const test = base.extend({
         is_owned: id === 9001, is_wanted: false, version: id === 9001 ? 2 : null, reading_state: id === 9001 ? "reading" : null })) });
       if (path === "/me/library/501/reading") { await wait("workspace"); return reply(200, { entry, current_attempt: attempt, editions: [] }); }
       if (path === "/me/library/501/attempts") return reply(200, { items: [attempt], next_cursor: null });
+      if (path === "/books/more") return reply(200, []);
       if (path === "/books") {
         await wait("books");
         const size = Number(url.searchParams.get("size") || 20), page = Number(url.searchParams.get("page") || 1);

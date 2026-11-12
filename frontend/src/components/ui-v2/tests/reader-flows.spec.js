@@ -52,6 +52,7 @@ const test = base.extend({
         if (method === "DELETE") return route.fulfill({ status: 204 });
         const saved = { id, book_id: id, status: body.status, book: state.catalogue.find((item) => item.id === id) }; state.saved.push(saved); return reply(200, saved);
       }
+      if (path === "/books/more") return reply(200, []);
       if (path === "/books") {
         if (state.holdCatalogue) await state.holdCatalogue;
         if (state.catalogueFails) return reply(503, {});

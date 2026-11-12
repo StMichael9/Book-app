@@ -45,6 +45,6 @@ export function usePageWarmers() {
   return useCallback(path => {
     if (path === "/home") warmHome();
     else if (path === "/my-books") warmLibrary();
-    else if (path === "/browse") getBooks({ size: 20 }).catch(() => {});
+    else if (path === "/browse") getBooks({ size: 20, sort: "popular" }).catch(() => {});
   }, [warmHome, warmLibrary]);
 }
