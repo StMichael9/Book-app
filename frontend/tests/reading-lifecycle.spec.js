@@ -99,6 +99,13 @@ const test = base.extend({
         if (state.holdMemory) await state.holdMemory;
         return reply(200, { entry: state.entries.get(101), attempt: state.historicalAttempt });
       }
+      if (state.historicalAttempt && path === `/me/reading-attempts/${state.historicalAttempt.id}` && method === "DELETE") {
+        if (state.removeFails) return reply(503, { detail: "Temporary failure" });
+        const entry = state.entries.get(101);
+        if (body.expected_version !== entry.version) return reply(409, { detail: "Your library changed. Reload before trying again." });
+        state.historicalAttempt = null; entry.version += 1;
+        return reply(200, entry);
+      }
       const patch = path.match(/^\/me\/library\/(\d+)$/);
       if ((patch || path === `/me/reading-attempts/${attemptId}`) && method === "DELETE") {
         if (state.removalMissingRoute) return reply(404, { detail: "Not found" });
@@ -767,4 +774,131 @@ test("an earlier reading opens in place from the journal and can be deleted from
   await expect(page.getByRole("dialog")).toContainText("Finished");
   await page.keyboard.press("Escape");
   expect(app.requests.filter(r => r.method === "DELETE")).toHaveLength(0);
+});
+
+// Ported from the old workspace tests, for the new page.
+const departed = async (page, app) => {
+  app.authenticated = false;
+  await page.evaluate(() => window.dispatchEvent(new Event("bookvane:session-expired")));
+  await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
+};
+
+test("a late workspace response cannot render after the account has left", async ({ page, app }) => {
+  let release;
+  app.holdWorkspace = new Promise(done => { release = done; });
+  try {
+    await page.goto("/my-books/101");
+    await expect.poll(() => app.requests.filter(r => r.path === "/me/library/101/reading").length).toBe(1);
+    await departed(page, app);
+    release();
+    await page.waitForTimeout(400);
+    await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toHaveCount(0);
+    await expect(pageBox(page)).toHaveCount(0);
+  } finally { release(); }
+});
+
+test("a different login on the same entry starts with an empty box and thought, never the last reader's text", async ({ page, app }) => {
+  await page.goto("/my-books/101");
+  await pageBox(page).fill("33%");
+  await page.getByRole("textbox", { name: "Add a thought" }).fill("Account A only");
+  await departed(page, app);
+  await page.getByLabel("Email address", { exact: true }).fill("account-b@example.test");
+  await page.getByLabel("Password", { exact: true }).fill("SyntheticPassword123");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(pageBox(page)).toBeVisible();
+  await expect(pageBox(page)).toHaveValue("");
+  await expect(page.getByRole("textbox", { name: "Add a thought" })).toHaveValue("");
+  expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(0);
+});
+
+test("Remove from My Books: a failure keeps the page, and a confirmed removal leaves cleanly", async ({ page, app }) => {
+  app.dataControls = true; app.removeFails = true;
+  await page.goto("/my-books/101");
+  await openFold(page);
+  await page.getByRole("button", { name: "Remove from My Books", exact: true }).click();
+  await page.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page.getByRole("dialog").getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: "Keep it", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books\/101$/);
+  await expect(page.getByRole("heading", { name: "Reading fixture 101", level: 1 })).toBeVisible();
+  expect(app.entries.has(101)).toBe(true);
+  app.removeFails = false;
+  await page.getByRole("button", { name: "Remove from My Books", exact: true }).click();
+  await page.getByRole("button", { name: "Forget book and history", exact: true }).click();
+  await expect(page).toHaveURL(/\/my-books$/);
+  expect(app.entries.has(101)).toBe(false);
+  await expect(page.getByRole("heading", { name: "Reading fixture 101", level: 1 })).toHaveCount(0);
+});
+
+test("Delete one reading: only that reading goes, the current one and its box stay", async ({ page, app }) => {
+  app.dataControls = true;
+  app.historicalAttempt = { ...app.attempt, id: "22222222-2222-4222-8222-222222222222", state: "finished", started_on: "2025-01-02", ended_on: "2025-02-03", note: "Earlier reading memory" };
+  await page.goto("/my-books/101");
+  await expect(page.locator(".bv-journal")).toContainText("Read before: 2025, finished");
+  await page.getByRole("button", { name: /^Edit: Read before: 2025/ }).click();
+  await page.locator(".bv-journal").getByRole("button", { name: "Delete this reading", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete this reading", exact: true }).click();
+  await expect.poll(() => app.requests.filter(r => r.method === "DELETE").map(r => r.path)).toEqual(["/me/reading-attempts/22222222-2222-4222-8222-222222222222"]);
+  await expect(page.locator(".bv-journal")).not.toContainText("Read before");
+  await expect(pageBox(page)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Reading", exact: true })).toBeVisible();
+  expect(app.attempt.state).toBe("reading");
+  expect(app.historicalAttempt).toBeNull();
+});
+
+test("a pending progress save stays visible, and a saved one does not wait for the refetch", async ({ page, app }) => {
+  let releaseSave, releaseWorkspace;
+  app.holdSave = new Promise(done => { releaseSave = done; });
+  try {
+    await page.goto("/my-books/101");
+    await pageBox(page).fill("50%");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    // While the save is pending nothing is hidden or lost, and Pause and Finish stay available.
+    await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
+    await expect(pageBox(page)).toHaveValue("50%");
+    await expect(page.getByRole("button", { name: "Finish book", exact: true })).toBeEnabled();
+    expect(app.attempt.progress_value).toBe(40);
+    app.holdWorkspace = new Promise(done => { releaseWorkspace = done; });
+    releaseSave();
+    await expect(page.getByText("Saved. 50%, about page 100.", { exact: true })).toBeVisible();
+    await expect(pageBox(page)).toHaveValue("");
+    expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(1);
+    releaseWorkspace();
+    await expect(page.locator(".bv-progress-line")).toContainText("50%");
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain("50%");
+  } finally { releaseSave(); releaseWorkspace?.(); }
+});
+
+test("Finish moves focus to the finish moment and it stays there", async ({ page, app }) => {
+  app.attempt.note = "A thought to edit";
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: /^Edit: A thought to edit/ }).click();
+  // Hold animation frames so an older editor-close callback becomes runnable only after Finish: the valid adverse ordering.
+  await page.evaluate(() => {
+    window.closeFrames = [];
+    window.nativeFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = callback => { window.closeFrames.push(callback); return window.closeFrames.length; };
+  });
+  try {
+    await page.locator(".bv-journal").getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Finish book", exact: true }).click();
+    const saved = page.getByRole("heading", { name: /^You finished / });
+    await expect(saved).toBeFocused();
+    await page.evaluate(() => { for (const callback of window.closeFrames.splice(0)) callback(performance.now()); });
+    await expect(saved).toBeFocused();
+    await page.waitForTimeout(400);
+    await expect(saved).toBeFocused();
+    expect(app.requests.filter(item => item.method === "PATCH" && item.body.state === "finished")).toHaveLength(1);
+  } finally { await page.evaluate(() => { window.requestAnimationFrame = window.nativeFrame; }); }
+});
+
+test("Yes, finished from the box also moves focus to the finish moment", async ({ page, app: _app }) => {
+  await page.goto("/my-books/101");
+  await pageBox(page).fill("100%");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+  const saved = page.getByRole("heading", { name: /^You finished / });
+  await expect(saved).toBeFocused();
+  await page.waitForTimeout(400);
+  await expect(saved).toBeFocused();
 });
