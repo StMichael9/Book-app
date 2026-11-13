@@ -4,8 +4,9 @@ Everything that shows or assigns a genre reads this module: the importer, the ga
 that feeds the UI's single genre picker, and the migration that renames the old tags. Moods and themes stay as tags and never
 appear in the genre picker.
 
-A book gets a genre from ONE exact alias (a subject that is exactly an alias) or from TWO partial hits (two different subjects
-that each contain one of the genre's keywords).
+A book gets a genre from ONE exact alias (a subject that is exactly a strong alias) or from TWO partial hits (two different
+subjects that each contain one of the genre's keywords as a whole word). Noisy bare subjects are weak, and a fiction book needs
+two subjects behind a nonfiction genre (T57).
 """
 from __future__ import annotations
 
@@ -156,39 +157,55 @@ SUBJECT_ALIASES: dict[str, tuple[str, ...]] = {
 }
 assert set(SUBJECT_ALIASES) == set(GENRE_KEYS)
 
-# Partial hits: a subject that merely CONTAINS one of these words. Two different such subjects give the genre.
+# Partial hits: a subject that contains one of these WHOLE WORDS or phrases (plural -s/-es is allowed; no stems, so "invest" can
+# never match "investigators" and "alien" never matches "alienation"). Two different such subjects give the genre.
 PARTIAL_KEYWORDS: dict[str, tuple[str, ...]] = {
-    "fantasy": ("fantasy", "wizard", "dragon", "fairy", "magic", "sorcer", "elves", "mythical"),
-    "science_fiction": ("science fiction", "sci fi", "dystopi", "alien", "robot", "cyborg", "time travel", "futur"),
-    "mystery_crime": ("mystery", "detective", "murder", "crime", "private investigator", "whodunit", "sleuth", "police"),
-    "thriller": ("thriller", "suspense", "spy", "espionage", "conspirac", "terroris"),
+    "fantasy": ("fantasy", "fantasies", "wizard", "dragon", "fairy", "fairies", "magic", "magical", "sorcery", "sorcerer",
+                "elves", "elf", "mythical"),
+    "science_fiction": ("science fiction", "sci fi", "dystopia", "dystopian", "alien", "robot", "cyborg", "time travel",
+                        "futuristic"),
+    "mystery_crime": ("mystery", "mysteries", "detective", "murder", "crime", "private investigator", "whodunit", "sleuth",
+                      "police"),
+    "thriller": ("thriller", "suspense", "spy", "spies", "espionage", "conspiracy", "conspiracies", "terrorism", "terrorist"),
     "horror": ("horror", "ghost", "vampire", "haunted", "zombie", "occult", "gothic", "supernatural", "monster"),
     "romance": ("romance", "love stories", "love story", "man woman relationships", "dating"),
     "historical_fiction": ("historical fiction", "history fiction", "war fiction"),
     "literary_fiction": ("literary", "psychological fiction", "family life fiction", "domestic fiction"),
     "classics": ("classic", "19th century fiction", "early modern"),
-    "young_adult": ("young adult", "teenage", "teen", "high school"),
+    "young_adult": ("young adult", "teenage", "teenager", "teen", "high school"),
     "childrens": ("children", "juvenile", "picture book", "nursery"),
-    "humor": ("humor", "humour", "humorous", "comedy", "funny", "satire", "parod"),
+    "humor": ("humor", "humour", "humorous", "comedy", "funny", "satire", "parody", "parodies"),
     "poetry": ("poetry", "poems", "poet", "verse"),
     "drama": ("drama", "plays", "theatre", "theater", "tragedies"),
     "short_stories": ("short stories", "short story", "short fiction", "novella"),
     "graphic_novels": ("graphic novel", "comic", "manga", "superhero"),
-    "biography_memoir": ("biograph", "autobiograph", "memoir", "personal narrative", "diaries"),
+    "biography_memoir": ("biography", "biographies", "biographical", "autobiography", "autobiographies", "autobiographical",
+                         "memoir", "personal narrative", "diaries"),
     "history": ("history", "histories", "ancient", "medieval", "empire", "civilization"),
-    "science_nature": ("science", "nature", "physics", "biology", "chemistry", "astronomy", "mathematic", "animals", "technology",
-                       "computer", "engineering", "medicine", "environment"),
-    "business_money": ("business", "management", "economics", "finance", "invest", "entrepreneur", "marketing", "leadership"),
-    "self_help": ("self help", "self improvement", "personal development", "motivation", "happiness", "habit", "mindful"),
-    "psychology": ("psycholog", "psychiatr", "mental health", "behavior", "therapy"),
-    "philosophy_religion": ("philosoph", "religion", "ethics", "buddhis", "islam", "judaism", "hindu", "theolog", "spiritual"),
-    "christian_faith": ("christian", "bible", "jesus", "church", "prayer", "devotion"),
-    "politics_society": ("politic", "government", "sociolog", "social science", "human rights", "feminis", "democrac", "civil rights"),
+    "science_nature": ("science", "nature", "physics", "biology", "chemistry", "astronomy", "mathematics", "mathematical",
+                       "animal", "technology", "computer", "engineering", "medicine", "environment", "environmental"),
+    "business_money": ("business", "management", "economics", "finance", "invest", "investing", "investment", "investor",
+                       "entrepreneur", "entrepreneurship", "marketing", "leadership"),
+    "self_help": ("self help", "self improvement", "personal development", "motivation", "happiness", "habit", "mindfulness"),
+    "psychology": ("psychology", "psychological", "psychiatry", "psychiatric", "mental health", "behavior", "therapy"),
+    "philosophy_religion": ("philosophy", "philosophical", "religion", "ethics", "buddhism", "buddhist", "islam", "judaism",
+                            "hindu", "hinduism", "theology", "theological", "spiritual", "spirituality"),
+    "christian_faith": ("christian", "bible", "jesus", "church", "prayer", "devotion", "devotional"),
+    "politics_society": ("politics", "political", "government", "sociology", "social science", "human rights", "feminism",
+                         "feminist", "democracy", "democracies", "civil rights"),
     "travel": ("travel", "voyage", "guidebook", "tourism", "expedition"),
-    "food_cooking": ("cook", "cuisine", "recipe", "baking", "food", "nutrition", "diet"),
-    "art_music": ("music", "painting", "photograph", "architecture", "musician", "sculpture", "film", "art history"),
+    "food_cooking": ("cook", "cooking", "cookery", "cookbook", "cuisine", "recipe", "baking", "food", "nutrition", "diet"),
+    "art_music": ("music", "painting", "photograph", "photography", "architecture", "musician", "sculpture", "film",
+                  "art history"),
 }
 assert set(PARTIAL_KEYWORDS) == set(GENRE_KEYS)
+
+# Bare subjects that Open Library users add to almost anything (T57): they count as ONE partial hit for their genre, never as an
+# exact alias. Strong forms ("travel writing", "humorous stories", "picture books"...) stay exact aliases.
+WEAK_SUBJECTS = frozenset({"travel", "humor", "humour", "juvenile", "juvenile fiction"})
+# Words that mark a book as fiction. A nonfiction genre then needs two different subjects behind it, not one exact hit.
+FICTION_WORDS = frozenset({"fiction", "novel", "novels", "novella", "novellas", "stories"})
+GUARD_EXEMPT = frozenset({"graphic_novels"})  # listed under nonfiction for the picker, but its books are often fiction
 
 CATEGORY_TYPES = {key: "genre" for key in GENRE_KEYS}
 MAX_GENRES_PER_BOOK = 3
@@ -232,28 +249,48 @@ def subject_map() -> dict[str, str]:
 
 SUBJECT_MAP = subject_map()
 MOOD_THEME_MAP = {_subject_key(alias): target for alias, target in MOOD_THEME_ALIASES.items()}
-_PARTIAL = {key: tuple(_subject_key(word) for word in words) for key, words in PARTIAL_KEYWORDS.items()}
+def _phrase(words) -> re.Pattern:
+    return re.compile(r"(?<![a-z0-9])(?:" + "|".join(re.escape(word) for word in sorted(words, key=len, reverse=True))
+                      + r")(?:s|es)?(?![a-z0-9])")
+
+
+_PARTIAL = {key: _phrase(_subject_key(word) for word in words) for key, words in PARTIAL_KEYWORDS.items()}
+STRONG_MAP = {key: genre for key, genre in SUBJECT_MAP.items() if key not in WEAK_SUBJECTS}
+_NONFICTION = {key for key, _, group in GENRES if group == "nonfiction"} - GUARD_EXEMPT
+
+
+def _is_fiction(key: str) -> bool:
+    key = re.sub(r"\bnon fiction\b", " ", key)
+    return "graphic novel" not in key and "bible" not in key and any(word in FICTION_WORDS for word in key.split())
 
 
 def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list[str]:
-    """The genres of one book from its Open Library subjects: a genre needs one exact alias or two partial hits.
-    Best-supported first (an exact alias counts double), at most three. A custom `mapping` (tests, reviewed overrides)
-    is exact-only."""
-    exact_map = SUBJECT_MAP if mapping is None else mapping
+    """The genres of one book from its Open Library subjects: a genre needs one strong exact alias or two partial hits
+    (whole words only; a bare noisy subject such as "Travel" is one partial hit). A fiction book needs two different subjects
+    behind any nonfiction genre. Best-supported first (an exact alias counts double), at most three. A custom `mapping`
+    (tests, reviewed overrides) is exact-only."""
+    exact_map = STRONG_MAP if mapping is None else mapping
     keys = list(dict.fromkeys(_subject_key(item) for item in subjects or [] if isinstance(item, str)))
     score: dict[str, int] = {}
+    support: dict[str, set] = {}
     for key in keys:
         if key in exact_map:
             score[exact_map[key]] = score.get(exact_map[key], 0) + 2
+            support.setdefault(exact_map[key], set()).add(key)
     if mapping is None:
         partial: dict[str, set] = {}
         for key in keys:
-            for genre, words in _PARTIAL.items():
-                if any(word in key for word in words):
+            for genre, pattern in _PARTIAL.items():
+                if pattern.search(key):
                     partial.setdefault(genre, set()).add(key)
         for genre, hits in partial.items():
+            support.setdefault(genre, set()).update(hits)
             if len(hits) >= 2:
                 score[genre] = score.get(genre, 0) + len(hits)
+        if any(_is_fiction(key) for key in keys):
+            for genre in list(score):
+                if genre in _NONFICTION and len(support.get(genre, ())) < 2:
+                    del score[genre]
     order = {key: index for index, key in enumerate(GENRE_KEYS)}
     return [genre for genre, _ in sorted(score.items(), key=lambda item: (-item[1], order.get(item[0], 99)))][:MAX_GENRES_PER_BOOK]
 
