@@ -1,3 +1,4 @@
+import ClampedText from "./ClampedText.jsx";
 import { GOOGLE_CREDIT } from "./descriptionCredit.js";
 
 const httpsLink = value => { try { return new URL(value).protocol === "https:" ? value : null; } catch { return null; } };
@@ -10,6 +11,7 @@ export function GoogleCredit({ link }) {
     : GOOGLE_CREDIT}</p>;
 }
 
-export default function DescriptionBody({ text, link }) {
-  return <><p className="bv-description-full">{text}</p><GoogleCredit link={link} /></>;
+// With `lines`, the text starts clamped behind "Show more"; the credit always stays visible under it.
+export default function DescriptionBody({ text, link, lines }) {
+  return <>{lines ? <ClampedText text={text} lines={lines} className="bv-description-full" /> : <p className="bv-description-full">{text}</p>}<GoogleCredit link={link} /></>;
 }
