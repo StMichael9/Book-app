@@ -36,7 +36,7 @@ test("signing in with nothing typed shows our own errors, focuses the first and 
   await page.goto("/login");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByText("Enter an email address, like you@example.com.")).toBeVisible();
-  await expect(page.getByText("Use at least 8 characters.")).toBeVisible();
+  await expect(page.getByText("Enter your password.")).toBeVisible();
   await expect(email(page)).toHaveAttribute("aria-invalid", "true");
   await expect(password(page)).toHaveAttribute("aria-invalid", "true");
   await expect(email(page)).toBeFocused();
@@ -48,7 +48,8 @@ test("signing in with nothing typed shows our own errors, focuses the first and 
   await email(page).fill("rae@example.com");
   await expect(page.getByText("Enter an email address, like you@example.com.")).toHaveCount(0);
   await expect(email(page)).not.toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByText("Use at least 8 characters.")).toBeVisible();
+  await expect(page.getByText("Enter your password.")).toBeVisible();
+  await expect(page.getByText("Use at least 8 characters.")).toHaveCount(0);
 });
 
 test("a malformed email is caught before anything is sent, and the typed password stays", async ({ page, app }) => {

@@ -97,7 +97,7 @@ export function AuthPage({ register = false }) {
     const credentials = { email: String(values.get("email")).trim(), password: String(values.get("password")) };
     const problems = {};
     if (!looksLikeEmail(credentials.email)) problems.email = EMAIL_MESSAGE;
-    if (register ? credentials.password.length < 8 : !credentials.password) problems.password = PASSWORD_MESSAGE;
+    if (register ? credentials.password.length < 8 : !credentials.password) problems.password = register ? PASSWORD_MESSAGE : "Enter your password.";
     if (problems.email || problems.password) { setErrors(problems); (problems.email ? emailRef : passwordRef).current?.focus(); return; }
     setPending(true); setErrors({});
     try {
