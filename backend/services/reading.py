@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from fastapi import HTTPException
-from sqlalchemy import case, func, literal_column, select, tuple_
+from sqlalchemy import Text, case, func, literal_column, select, tuple_
 from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
@@ -135,6 +135,7 @@ class ReadingService(LibraryService):
         self._touch(entry)
         try:
             if attempt.progress_value is not None:
+                self.db.flush()  # the day row references the attempt; a Core insert does not autoflush the pending ORM row
                 self._record_progress(attempt.id, attempt.progress_unit, attempt.progress_value, data.on)
             self.db.commit()
         except IntegrityError:
@@ -232,12 +233,13 @@ class ReadingService(LibraryService):
             .where(ImportedLibraryRecord.user_id == UserBook.user_id, ImportedLibraryRecord.user_book_id == UserBook.id,
                 ImportedLibraryRecord.removed.is_(False), ImportedLibraryRecord.context != {}).correlate(UserBook).scalar_subquery())
         current = aliased(ReadingAttempt)
-        # The current reading's progress history rides in the same statement as one JSON column (owner-only, newest first).
+        # The current reading's progress history rides in the same statement as one text column of JSON (owner-only, newest
+        # first). Text, not jsonb: joinedload's .unique() must hash every column, and a decoded JSON list cannot be hashed.
         day = ReadingProgressDay.__table__
         days = (select(func.coalesce(func.jsonb_agg(aggregate_order_by(func.jsonb_build_object(
                 literal_column("'day'"), day.c.day, literal_column("'unit'"), day.c.unit,
                 literal_column("'first_value'"), day.c.first_value, literal_column("'last_value'"), day.c.last_value),
-                day.c.day.desc())), literal_column("'[]'::jsonb")))
+                day.c.day.desc())), literal_column("'[]'::jsonb")).cast(Text))
             .where(day.c.attempt_id == current.id).correlate(current).scalar_subquery())
         row = self.db.execute(select(UserBook, current, _reading_state(), imported, days)
             .outerjoin(current, current.id == current_attempt_id)
@@ -251,7 +253,7 @@ class ReadingService(LibraryService):
         return ReadingWorkspace(entry=entry_dto(entry, state, detail=True),
             current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
             editions=[dict(item) for item in editions], imported_sources_count=imported_count,
-            progress_days=(progress_days or [])[:366])
+            progress_days=json.loads(progress_days or "[]")[:366])
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):
         self.detail(user_id, entry_id)  # Owner predicate before any history lookup.
