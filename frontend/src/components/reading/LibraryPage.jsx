@@ -5,12 +5,13 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import { useRequest } from "../ui-v2/data.js";
+import { useGenres } from "../ui-v2/useGenres.js";
 import { ActionLink, BookSkeletons, Button, EmptyState, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
 import { LibraryEntryCard, LibraryEntryRow } from "./ReadingCards.jsx";
 import { LETTERS, entryLetter, letterId } from "./library/libraryIndex.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
-import { MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
+import { FILTER_GROUPS, MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
 import "../../styles/ui-v2/library.css";
 
 const DESKTOP = "(min-width: 901px)";
@@ -22,7 +23,6 @@ const readView = () => { try { return localStorage.getItem(VIEW_KEY) === "list" 
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const LENGTH_FALLBACK = { short: "Short", medium: "Medium", long: "Long" };
 const SHORT_SORT = { added: "Added", title: "Title", author: "Author", finished: "Finished", updated: "Updated" };
-const FACET_NAME = { source: "source_label", year: "year_finished" };
 
 function SortMenu({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -53,6 +53,7 @@ function SortMenu({ value, onChange }) {
 export default function LibraryPage() {
   const auth = useAuth();
   const library = useUserBooks();
+  const genres = useGenres();
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigation = useLibraryNavigation();
@@ -131,11 +132,14 @@ export default function LibraryPage() {
     if (loaded) navigate(location.pathname + location.search, { replace: true, state: { ...location.state, libraryLoaded: loaded, libraryScroll: scroll } });
   }
   const apply = next => setParams(writeLibraryState(next));
-  const labelFor = (group, value) => picked[`${group}:${value}`]
-    ?? page?.facets?.[FACET_NAME[group] || group]?.find(item => String(item.value) === value)?.label
+  // A genre is named from the app's one genre list (by what the facet calls it, else by its id), or not at all: never by a key.
+  const genreName = value => genres.labelOf(page?.facets?.subject?.find(item => String(item.value) === value)?.label)
+    ?? (genres.genres || []).find(genre => String(genres.idFor(genre.key)) === value)?.label ?? null;
+  const labelFor = (group, value) => group === "subject" ? genreName(value) : picked[`${group}:${value}`]
+    ?? page?.facets?.[group]?.find(item => String(item.value) === value)?.label
     ?? (group === "length" ? LENGTH_FALLBACK[value] : value);
   function toggle(group, value, label) {
-    if (label) setPicked(known => ({ ...known, [`${group}:${value}`]: label }));
+    if (label && group !== "subject") setPicked(known => ({ ...known, [`${group}:${value}`]: label }));
     apply({ ...state, [group]: state[group].includes(value) ? state[group].filter(item => item !== value) : [...state[group], value] });
   }
   const flag = name => apply({ ...state, [name]: !state[name] });
@@ -167,15 +171,13 @@ export default function LibraryPage() {
   const chips = [
     state.q && ["q", `“${state.q}”`, () => apply({ ...state, q: "" })],
     state.owned && ["owned", "Owned", () => apply({ ...state, owned: false })],
-    ...["subject", "author", "length", "source", "year"].flatMap(group => state[group].map(value => [`${group}:${value}`, labelFor(group, value), () => toggle(group, value)])),
-    state.note && ["note", "Has my note", () => apply({ ...state, note: false })],
-    state.recent && ["recent", "Just imported", () => apply({ ...state, recent: false })],
+    ...FILTER_GROUPS.flatMap(group => state[group].map(value => [`${group}:${value}`, labelFor(group, value), () => toggle(group, value)])).filter(chip => chip[1]),
     state.label && ["label", `Import: ${state.label}`, () => apply({ ...state, label: "" })],
   ].filter(Boolean);
   const clearAll = () => { focusChip.current = -1; apply(clearFilters(state)); };
   const filterCount = activeFilterCount(state);
   const affiliateLinks = state.shelf === "want" && items.some(entry => entry.book && bookshopAffiliateUrl(entry.book));
-  const facets = <LibraryFilters facets={page?.facets} state={state} labelFor={labelFor} onToggle={toggle} onFlag={flag} />;
+  const facets = <LibraryFilters facets={page?.facets} state={state} labelFor={labelFor} onToggle={toggle} />;
 
   return <section className="bv-container bv-reading-library bv-library">
     <div className="bv-library-head">

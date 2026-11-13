@@ -390,7 +390,7 @@ test("editorial workspace paused actions put Resume first visually and by keyboa
   await page.goto("/my-books/101");
   await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const label of ["Want to read", "I own it", "Resume reading", "Finish book", "Update progress"]) {
+  for (const label of ["Want to read", "I own it", "Add to list", "Resume reading", "Finish book", "Update progress"]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: label, exact: true })).toBeFocused();
   }

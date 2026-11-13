@@ -293,7 +293,7 @@ export function ProfileListPage() {
         <Button variant="quiet" className="bv-icon-button" aria-label={`Remove ${book.title} from this list`} onClick={() => remove(book, index)}><X aria-hidden="true" /></Button></span>}
     </li>)}</ol>}
     <p className="bv-list-add"><TextLink to="/my-books"><Plus aria-hidden="true" />Add a book</TextLink></p>
-    <p className="bv-help">Open a book and choose Add to list.</p>
+    <p className="bv-help">Add books from My Books or any book page.</p>
     {undo && <div className="bv-undo-toast" role="status"><span>Removed {undo.book.title}.</span><Button variant="quiet" onClick={putBack}>Undo</Button></div>}
     <RenameSheet key={`${list.name}|${list.description}`} list={list} open={renaming} onClose={() => setRenaming(false)} onSave={change} onDelete={() => { setRenaming(false); setConfirming(true); }} />
     <NativeDialog open={confirming} onClose={() => !pending && setConfirming(false)} title="Delete this list?">

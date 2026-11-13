@@ -5,6 +5,7 @@ import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import { useRequest } from "../../ui-v2/data.js";
+import { useGenres } from "../../ui-v2/useGenres.js";
 import { YearInBooks } from "../../profile/YearShelf.jsx";
 import { BookCover, Button, EmptyState, TextLink } from "../../ui-v2/primitives.jsx";
 import { startReading } from "../home/homeLogic.js";
@@ -49,7 +50,8 @@ function LengthAndAuthors({ stats }) {
 }
 
 function Compared({ stats }) {
-  const lines = comparison(stats);
+  const { labelOf } = useGenres();
+  const lines = comparison(stats, labelOf);
   if (!lines.length) return null;
   return <section className="bv-life-card" aria-labelledby="bv-life-compare"><h3 id="bv-life-compare">Compared with {stats.year - 1}</h3><ul className="bv-life-compare">{lines.map(line => <li key={line}>{line}</li>)}</ul></section>;
 }

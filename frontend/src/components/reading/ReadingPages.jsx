@@ -18,6 +18,8 @@ import ReadingEditor from "./ReadingEditors.jsx";
 import { draftKey, useReadingDrafts } from "./readingDraftState.js";
 import { useReader } from "../ui-v2/readerState.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
+import AddToList from "../profile/AddToList.jsx";
+import PinToUpNext from "./home/PinToUpNext.jsx";
 
 const stateLabel = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
 const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
@@ -184,6 +186,9 @@ export function ReadingWorkspacePage() {
     });
   }
   const entry = workspace?.entry, attempt = workspace?.current_attempt;
+  // The saved state of this book, for the controls that go by it (Pin to Up next), when the page is opened directly.
+  const { rememberEntries } = library;
+  useEffect(() => { if (entry?.book_id) rememberEntries([entry]); }, [entry, rememberEntries]);
   const book = entry ? displayBook(entry) : null, terminal = attempt && ["finished", "dnf"].includes(attempt.state);
   const selected = editing?.attempt;
   useDocumentTitle(book?.title);
@@ -250,7 +255,9 @@ export function ReadingWorkspacePage() {
         : !entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
         : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
         : <>
-          <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_wanted", "Want to read"], ["is_owned", "I own it"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending || request.loading || Boolean(request.error)} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{entry[flag] && <Check aria-hidden="true" />}{label}</Button>)}</div>} />
+          <ReadingBookIdentity entry={entry} headingRef={completeFocus} flags={<><div className="bv-form-actions bv-workspace-flags" role="group" aria-label="Your book flags">{[["is_wanted", "Want to read"], ["is_owned", "I own it"]].map(([flag, label]) => <Button key={flag} variant={entry[flag] ? "saved" : "secondary"} aria-pressed={entry[flag]} disabled={library.readOnly || command.pending || request.loading || Boolean(request.error)} onClick={() => command.run(async () => ({ entry: await updateLibraryEntry(entry.id, { [flag]: !entry[flag], expected_version: entry.version }) }), result => library.readingChanged(result.entry))}>{entry[flag] && <Check aria-hidden="true" />}{label}</Button>)}</div>
+            {/* Lists and pins need a catalogue book, so a private book has neither. */}
+            {entry.book_id && <>{!library.readOnly && <AddToList book={{ id: entry.book_id, title: entry.book?.title }} />}<PinToUpNext bookId={entry.book_id} /></>}</>} />
           <div className="bv-workspace-reading"><ReadingProgress attempt={attempt} statusRef={statusHeading} readOnly={library.readOnly}>
             <div className="bv-workspace-primary-actions" role="group" aria-label="Reading actions" aria-describedby={editing ? "bv-reading-actions-paused" : undefined}>
               {editing && <p id="bv-reading-actions-paused" className="bv-help">Save or close the open editor to use these actions.</p>}

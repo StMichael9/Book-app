@@ -6,6 +6,7 @@ import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import { useRequest } from "../../ui-v2/data.js";
 import { Button } from "../../ui-v2/primitives.jsx";
 import { MAX_PINS } from "./homeLogic.js";
+import "../../../styles/ui-v2/home.css";
 
 // A quiet "Pin to Up next" / "Unpin" beside the shelf actions on a book's page. It only appears for a saved book, and only
 // where pinning exists (before the endpoint ships, or if it fails, there is simply no button).

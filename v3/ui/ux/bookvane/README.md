@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [November 12: My Books actions, genre names and a smaller filter panel](2026-11-12-mybooks-actions.md)
 - [November 5: Foundations (Phase A)](2026-11-05-foundations.md)
 - [November 5: the tabbed profile (hub and public page)](2026-11-05-profile-tabs.md)
 - [November 5: You, as a home (profile rework)](2026-11-05-profile-rework.md)

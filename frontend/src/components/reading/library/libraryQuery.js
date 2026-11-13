@@ -6,9 +6,9 @@ export const SHELVES = ["all", "reading", "want", "finished", "paused", "dnf"];
 export const SORTS = [["added", "Recently added"], ["title", "Title"], ["author", "Author (surname)"], ["finished", "Date finished"], ["updated", "Recently updated"]];
 export const PAGE_SIZE = 24;
 export const MAX_RESTORE = 100;
-const GROUPS = { subject: "subject", author: "author", length: "length", source: "source_label", year: "year_finished" };
-export const FILTER_GROUPS = Object.keys(GROUPS);
-export const JUST_IMPORTED_DAYS = 7;
+// The filters a reader can set: Genre, Author and Length. Older links may still carry others (an import, a year, a note);
+// those keys are not read, so they never narrow the list unseen, and they drop out of the address at the next change.
+export const FILTER_GROUPS = ["subject", "author", "length"];
 
 const numeric = values => values.filter(value => /^\d{1,9}$/.test(value));
 
@@ -24,10 +24,6 @@ export function readLibraryState(params) {
     subject: numeric(params.getAll("subject")),
     author: params.getAll("author").slice(0, 50),
     length: params.getAll("length").filter(value => ["short", "medium", "long"].includes(value)),
-    source: params.getAll("source").slice(0, 50),
-    year: numeric(params.getAll("year")),
-    note: params.get("note") === "1",
-    recent: params.get("imported") === "week",
     label: params.get("label") || "",
   };
 }
@@ -39,33 +35,27 @@ export function writeLibraryState(state) {
   if (state.owned) out.set("owned", "1");
   if (state.sort !== "added") out.set("sort", state.sort);
   for (const group of FILTER_GROUPS) for (const value of state[group]) out.append(group, value);
-  if (state.note) out.set("note", "1");
-  if (state.recent) out.set("imported", "week");
   if (state.label) out.set("label", state.label);
   return out;
 }
 
 export function activeFilterCount(state) {
-  return FILTER_GROUPS.reduce((total, group) => total + state[group].length, 0) + (state.note ? 1 : 0) + (state.recent ? 1 : 0);
+  return FILTER_GROUPS.reduce((total, group) => total + state[group].length, 0);
 }
 
 // Anything that narrows the list apart from the shelf: the count in the head reads "N of M" while one of these is on.
 export const isFiltered = state => Boolean(state.q || state.owned || state.label || activeFilterCount(state));
 
-export const clearFilters = state => ({ ...state, q: "", owned: false, label: "", note: false, recent: false, subject: [], author: [], length: [], source: [], year: [] });
-
-const isoDay = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+export const clearFilters = state => ({ ...state, q: "", owned: false, label: "", subject: [], author: [], length: [] });
 
 // The API's own names for the same state. `shelf` is the facet; Owned is a flag that combines with any shelf.
-export function libraryApiParams(state, { search = true, now = new Date() } = {}) {
+export function libraryApiParams(state, { search = true } = {}) {
   const out = new URLSearchParams();
   if (search) out.set("q", state.q);
   out.set("facet", state.shelf);
   if (state.owned) out.set("owned", "true");
   out.set("sort", state.sort);
-  for (const [group, name] of Object.entries(GROUPS)) for (const value of state[group]) out.append(name, value);
-  if (state.note) out.set("has_note", "true");
-  if (state.recent) out.set("imported_since", isoDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - JUST_IMPORTED_DAYS)));
+  for (const group of FILTER_GROUPS) for (const value of state[group]) out.append(group, value);
   if (state.label) out.set("label", state.label);
   return out;
 }
