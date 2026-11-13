@@ -432,7 +432,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-auth-layout:has(.bv-auth-strip) { margin-top: 16px; }
   .bv-root .bv-auth-strip { display: block; margin: 0 0 8px; }
   .bv-root .bv-auth-strip .bv-hero-covers { min-height: 0; gap: 8px; justify-content: flex-start; max-width: none; margin: 0; }
-  .bv-root .bv-auth-strip .bv-hero-covers > .bv-hero-cover { width: 52px; }
+  .bv-root .bv-auth-strip .bv-hero-covers > .bv-hero-cover { width: 48px; }
   .bv-root .bv-auth-strip .bv-hero-covers > :nth-child(2) { transform: none; }
   .bv-root .bv-auth-card { max-width: 100%; }
   .bv-root .bv-auth-card h1 { font-size: var(--bv-fs-page); }
