@@ -212,13 +212,16 @@ test("the save does not send `on` while SEND_PROGRESS_DAY is false", async ({ pa
 });
 
 test("progress days show one line each in the journal, newest first; a missing or empty list shows nothing", async ({ page, app }) => {
-  app.progressDays = [{ day: "2026-11-14", progress_unit: "pages", first_value: 14, last_value: 52 }, { day: "2026-11-12", progress_unit: "percent", first_value: 20, last_value: 35 }];
+  // The exact T55 shape: {day, unit, first_value, last_value}. A day sent under other names shows no line.
+  app.progressDays = [{ day: "2026-11-14", unit: "pages", first_value: 14, last_value: 52 }, { day: "2026-11-12", unit: "percent", first_value: 20, last_value: 35 },
+    { on: "2026-11-10", progress_unit: "pages", first: 1, last: 9 }];
   await page.goto("/my-books/101");
   const lines = page.locator(".bv-journal-day");
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("14 Nov");
   await expect(lines.first()).toContainText("Page 14 → 52");
   await expect(lines.nth(1)).toContainText("20% → 35%");
+  await expect(page.getByText("Page 1 → 9")).toHaveCount(0);
   for (const empty of [[], undefined]) {
     app.progressDays = empty;
     await page.goto("/my-books/101");
