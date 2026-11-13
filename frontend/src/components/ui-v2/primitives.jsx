@@ -75,7 +75,7 @@ function isCached(src) {
 
 const CACHE_PATIENCE_MS = 1500;
 
-export function BookCover({ book, priority = false, hero = false, size = "medium" }) {
+export function BookCover({ book, priority = false, hero = false, size = "medium", decorative = false }) {
   const [failed, setFailed] = useState({ url: null, step: 0 });
   const [loadedUrl, setLoadedUrl] = useState(null);
   const url = book.cover_image_url;
@@ -96,7 +96,7 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
     {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) { arrived(node); setLoadedUrl(src); } }}
-      src={src} alt={`Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
+      src={src} alt={decorative ? "" : `Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
       {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={event => { arrived(event.currentTarget); setLoadedUrl(src); }} onError={fail} />}
   </div>;
 }
