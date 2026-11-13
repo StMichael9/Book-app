@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ActionLink, BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import { trackEvent } from "../ui-v2/events.js";
+import BookMenu from "./BookMenu.jsx";
 import "../../styles/ui-v2/reading-home.css";
 
 const readingLabels = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" };
@@ -46,7 +47,7 @@ function StatusLine({ labels }) {
 const finishedDate = value => { const date = typeof value === "string" ? new Date(`${value}T00:00:00`) : null; return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""; };
 
 // One line of the list view: a small cover, the title (the link), the author and the shelf state. Like the card, one link per row.
-export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen }) {
+export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen, moreMenu }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   navigationState = readingActions ? { ...navigationState, entry } : navigationState;
@@ -58,10 +59,11 @@ export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen
     <p className="bv-row-author">{authorLabel(book)}</p>
     <p className="bv-row-shelf">{labels.join(" · ")}</p>
     {finished ? <p className="bv-row-finished">Finished {finished}</p> : <span className="bv-row-finished" aria-hidden="true" />}
+    {moreMenu && entry.book_id && <BookMenu bookId={entry.book_id} title={book.title} />}
   </li>;
 }
 
-export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navigationState, onOpen }) {
+export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navigationState, onOpen, moreMenu }) {
   const book = entryBook(entry);
   const destination = readingActions ? `/my-books/${entry.id}` : entry.book ? `/book/${entry.book.id}` : null;
   // The entry travels with the click, so the workspace can draw the book's identity before its own request returns.
@@ -71,6 +73,8 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
   // and it is not a second tab stop: the title link carries it as its description.
   const reason = entry.save_note?.trim(), line = reason || entry.snippet;
   return <article className="bv-book-card bv-personal-book">
+    {/* A sibling of the cover's link, never inside it. Private books have no catalogue book to list or pin, so no button. */}
+    {moreMenu && entry.book_id && <BookMenu bookId={entry.book_id} title={book.title} />}
     {destination ? <Link className="bv-book-link" to={destination} state={navigationState} onClick={onOpen} tabIndex={-1} aria-label={`Open ${book.title}`}><BookCover book={book} priority={priority} /></Link> : <BookCover book={book} priority={priority} />}
     <h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen} aria-describedby={line ? noteId : undefined}>{book.title}</Link> : book.title}</h3>
     <EnglishTitle book={book} />

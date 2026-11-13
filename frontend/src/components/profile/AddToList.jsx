@@ -6,8 +6,9 @@ import { Button } from "../ui-v2/primitives.jsx";
 const limitText = code => code === "list_limit";
 
 // Which of the reader's lists a catalogue book is on, with a check for each; toggling adds or removes it at once.
-export default function AddToList({ book }) {
-  const [open, setOpen] = useState(false);
+// In a book's "more" menu (`menu`) the panel is the whole control: it opens with the menu, and `onChange` / `onClose` tell the menu.
+export default function AddToList({ book, menu = false, onChange, onClose }) {
+  const [open, setOpen] = useState(menu);
   const [state, setState] = useState({ lists: null, error: false });
   const [attempt, setAttempt] = useState(0);
   const [message, setMessage] = useState(""), [creating, setCreating] = useState(false), [name, setName] = useState("");
@@ -21,17 +22,17 @@ export default function AddToList({ book }) {
   }, [open, attempt, book.id]);
   const wrapper = useRef(null);
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open || menu) return undefined;
     const outside = event => { if (wrapper.current && !wrapper.current.contains(event.target)) { setOpen(false); setCreating(false); setMessage(""); if (!event.target.closest?.("a, button, input, select, textarea, [tabindex]:not([tabindex=\"-1\"])")) requestAnimationFrame(() => trigger.current?.focus({ preventScroll: true })); } };
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
+  }, [open, menu]);
   const lists = state.lists;
   const update = (id, has_book) => setState(current => ({ ...current, lists: current.lists.map(item => item.id === id ? { ...item, has_book, book_count: item.book_count + (has_book ? 1 : -1) } : item) }));
   async function toggle(item) {
     const adding = !item.has_book;
     setMessage(""); update(item.id, adding);
-    try { await (adding ? addListBook(item.id, book.id) : removeListBook(item.id, book.id)); } catch (error) {
+    try { await (adding ? addListBook(item.id, book.id) : removeListBook(item.id, book.id)); onChange?.(`${adding ? "Added to" : "Removed from"} ${item.name}`); } catch (error) {
       update(item.id, !adding);
       setMessage(limitText(error?.detail?.code) ? "This list is full (500 books)." : "We couldn’t change that list. Please try again.");
     }
@@ -44,12 +45,12 @@ export default function AddToList({ book }) {
       const created = await createList(name.trim());
       await addListBook(created.id, book.id);
       setState(current => ({ ...current, lists: [...(current.lists || []), { ...created, has_book: true, book_count: 1, covers: [] }] }));
-      setName(""); setCreating(false);
+      setName(""); setCreating(false); onChange?.(`Added to ${created.name}`);
     } catch (error) { setMessage(limitText(error?.detail?.code) ? "You’ve reached 50 lists." : "We couldn’t make that list. Please try again."); }
   }
-  function close() { setOpen(false); setCreating(false); setMessage(""); trigger.current?.focus(); }
+  function close() { setCreating(false); setMessage(""); if (menu) { onClose?.(); return; } setOpen(false); trigger.current?.focus(); }
   return <div className="bv-add-list" ref={wrapper} onKeyDown={event => { if (event.key === "Escape" && open) { event.stopPropagation(); close(); } }}>
-    <Button ref={trigger} variant="quiet" aria-expanded={open} aria-controls={open ? panel : undefined} onClick={() => open ? close() : setOpen(true)}><ListPlus aria-hidden="true" />Add to list</Button>
+    {!menu && <Button ref={trigger} variant="quiet" aria-expanded={open} aria-controls={open ? panel : undefined} onClick={() => open ? close() : setOpen(true)}><ListPlus aria-hidden="true" />Add to list</Button>}
     {open && <div id={panel} className="bv-add-list-panel" role="group" aria-label={`Add ${book.title} to a list`}>
       {state.error ? <p role="alert">We couldn’t load your lists. <Button variant="quiet" onClick={() => { setState({ lists: null, error: false }); setAttempt(value => value + 1); }}>Try again</Button></p>
         : !lists ? <p role="status" className="bv-muted">Loading your lists…</p>

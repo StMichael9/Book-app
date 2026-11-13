@@ -98,7 +98,7 @@ test("a reader with no name sees just Home", async ({ page, app }) => {
 test("Update progress saves on Home, updates the card in place and returns focus", async ({ page, app }) => {
   await page.goto("/home");
   const button = page.getByRole("button", { name: "Update progress for Piranesi" });
-  await button.click();
+  await button.tap();
   const sheet = page.getByRole("dialog", { name: "Piranesi" });
   await expect(sheet.getByText("Last time: Page 156 of 245")).toBeVisible();
   await sheet.getByLabel("Page you’re on").fill("172");
@@ -109,7 +109,7 @@ test("Update progress saves on Home, updates the card in place and returns focus
   await expect(button).toBeFocused();
   const save = app.requests.find(request => request.method === "PATCH");
   expect(save.body).toMatchObject({ progress_unit: "pages", progress_value: 172, expected_version: 3 });
-  await button.click();
+  await button.tap();
   await expect(page.getByRole("link", { name: "I finished it" })).toHaveAttribute("href", "/my-books/201");
   await expect(page.getByRole("link", { name: "Add a note" })).toHaveAttribute("href", "/my-books/201");
 });
@@ -308,6 +308,105 @@ test("while changes are paused the My Books book page offers neither control", a
   await expect(page.getByRole("button", { name: "Want to read" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add to list" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Pin to Up next|Unpin/ })).toHaveCount(0);
+});
+
+// The per-book "more" menu on My Books cards and rows.
+const zine = () => ({ ...entry(1), id: 150, book_id: null, book: null, private_title: "My zine", private_author: "A Friend", is_owned: false, is_wanted: true });
+const moreButton = (page, title) => page.getByRole("button", { name: `More actions for ${title}`, exact: true });
+
+for (const view of ["covers", "list"]) {
+  test(`${view}: the more menu holds Add to list and Pin to Up next, and opening it doesn't open the book`, async ({ page, app }) => {
+    app.pins = []; app.lists = [{ id: 7, name: "Holiday", books: [] }];
+    await page.addInitScript(mode => localStorage.setItem("bookvane-library-view", mode), view);
+    await page.goto("/my-books");
+    await moreButton(page, "Middlemarch").click();
+    const menu = page.getByRole("menu", { name: "More actions for Middlemarch" });
+    await expect(menu.getByRole("menuitem")).toHaveText(["Add to list", "Pin to Up next"]);
+    await expect(page).toHaveURL(/\/my-books$/);
+    // Add to list works from the menu, with a quiet confirmation.
+    await menu.getByRole("menuitem", { name: "Add to list" }).click();
+    await page.getByRole("group", { name: "Add Middlemarch to a list" }).getByRole("checkbox", { name: "Holiday" }).check();
+    await expect.poll(() => app.requests.filter(request => request.method === "POST" && request.path === "/me/lists/7/books").at(-1)?.body).toEqual({ book_id: 1 });
+    await expect(menu.getByRole("status")).toHaveText("Added to Holiday");
+    await expect(page).toHaveURL(/\/my-books$/);
+  });
+
+  test(`${view}: Pin to Up next toggles from the more menu`, async ({ page, app }) => {
+    app.pins = [];
+    await page.addInitScript(mode => localStorage.setItem("bookvane-library-view", mode), view);
+    await page.goto("/my-books");
+    await moreButton(page, "Middlemarch").click();
+    const menu = page.getByRole("menu", { name: "More actions for Middlemarch" });
+    await menu.getByRole("menuitem", { name: "Pin to Up next" }).click();
+    await expect.poll(() => app.requests.filter(request => request.method === "PUT" && request.path === "/me/up-next").at(-1)?.body).toEqual({ entry_ids: [101] });
+    await expect(menu.getByRole("menuitem", { name: "Unpin" })).toBeVisible();
+    await expect(menu.getByRole("status")).toHaveText("Pinned to Up next");
+    await menu.getByRole("menuitem", { name: "Unpin" }).click();
+    await expect.poll(() => app.requests.filter(request => request.method === "PUT" && request.path === "/me/up-next").at(-1)?.body).toEqual({ entry_ids: [] });
+    await expect(menu.getByRole("menuitem", { name: "Pin to Up next" })).toBeVisible();
+  });
+}
+
+test("a private book has no more button, and neither does any book while changes are paused", async ({ page, app }) => {
+  app.pins = []; app.lists = [];
+  app.entries.push(zine());
+  await page.goto("/my-books");
+  await expect(page.getByRole("link", { name: "My zine", exact: true })).toBeVisible();
+  await expect(moreButton(page, "Middlemarch")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^More actions for/ })).toHaveCount(8);
+  await expect(moreButton(page, "My zine")).toHaveCount(0);
+  app.readOnly = true;
+  await page.reload();
+  await expect(page.getByRole("link", { name: "Middlemarch", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^More actions for/ })).toHaveCount(0);
+});
+
+test("the more menu works by keyboard: Enter opens, arrows move, Escape closes and focus returns", async ({ page, app }) => {
+  app.pins = []; app.lists = [];
+  await page.goto("/my-books");
+  const button = moreButton(page, "Middlemarch");
+  await button.focus();
+  await page.keyboard.press("Enter");
+  const menu = page.getByRole("menu", { name: "More actions for Middlemarch" });
+  await expect(menu.getByRole("menuitem", { name: "Add to list" })).toBeFocused();
+  await expect(menu.getByRole("menuitem", { name: "Pin to Up next" })).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  await expect(menu.getByRole("menuitem", { name: "Pin to Up next" })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(menu.getByRole("menuitem", { name: "Add to list" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await expect(page).toHaveURL(/\/my-books$/);
+  // Space opens it too, and Escape from the list panel also closes everything and returns focus.
+  await page.keyboard.press("Space");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("group", { name: "Add Middlemarch to a list" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+});
+
+test.describe("on a touch phone", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  test("the more button is visible without hovering and is at least 44px", async ({ page, app }) => {
+  app.pins = [];
+  await page.goto("/my-books");
+  const button = moreButton(page, "Middlemarch");
+  await expect(button).toBeVisible();
+  const box = await button.boundingBox();
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(Number(await button.evaluate(node => getComputedStyle(node.parentElement).opacity))).toBe(1);
+  // Not inside the cover's link, and the menu opens fully on screen.
+  expect(await button.evaluate(node => Boolean(node.closest("a")))).toBe(false);
+  await button.tap();
+  const menu = page.getByRole("menu", { name: "More actions for Middlemarch" });
+  const edge = await menu.boundingBox();
+  expect(edge.x).toBeGreaterThanOrEqual(0);
+  expect(edge.x + edge.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
 });
 
 test("Can't decide? keeps the genre's name as written, capitals included", async ({ page, app }) => {
