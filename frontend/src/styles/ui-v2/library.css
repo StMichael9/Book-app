@@ -176,7 +176,8 @@
 .bv-root .bv-more-lists { outline: none; }
 .bv-root .bv-more-lists .bv-add-list-panel { border: 0; margin: 0; padding: 4px 6px; }
 .bv-root .bv-more-status { margin: 2px 12px 4px; min-height: 0; }
-.bv-root .bv-more-status:empty { display: none; }
+/* Kept rendered (not display:none) so screen readers announce the status when it appears. */
+.bv-root .bv-more-status:empty { margin: 0; }
 .bv-root .bv-library-row .bv-more { position: relative; top: auto; right: auto; justify-self: end; }
 /* A mouse sees it faintly until the card is hovered or focused; a finger always sees it in full. */
 @media (hover: hover) and (pointer: fine) {
