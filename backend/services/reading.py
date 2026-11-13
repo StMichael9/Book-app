@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from fastapi import HTTPException
-from sqlalchemy import case, func, select, tuple_
+from sqlalchemy import case, func, literal_column, select, tuple_
 from sqlalchemy.orm import aliased
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
 
-from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, UserBook
+from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, ReadingProgressDay, UserBook
 from reading_schemas import AttemptDetail, AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
 from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
 
@@ -65,6 +65,22 @@ class ReadingService(LibraryService):
         entry.updated_at = datetime.now(timezone.utc)
         entry.status = projection(entry.is_owned, entry.is_wanted)
 
+    @staticmethod
+    def _progress_day(on):
+        # The reader's local date, trusted only within a day of the server's UTC date (no time zone is stored).
+        today = datetime.now(timezone.utc).date()
+        return on if on is not None and abs((on - today).days) <= 1 else today
+
+    def _record_progress(self, attempt_id, unit, value, on):
+        """Upsert today's history row in the caller's transaction: first value kept, last value moved; a unit change resets it."""
+        table = ReadingProgressDay.__table__
+        statement = insert(table).values(attempt_id=attempt_id, day=self._progress_day(on), unit=unit,
+            first_value=value, last_value=value)
+        self.db.execute(statement.on_conflict_do_update(index_elements=[table.c.attempt_id, table.c.day], set_={
+            "first_value": case((table.c.unit == statement.excluded.unit, table.c.first_value),
+                else_=statement.excluded.first_value),
+            "unit": statement.excluded.unit, "last_value": statement.excluded.last_value, "updated_at": func.now()}))
+
     def _result(self, user_id, entry_id, attempt_id):
         return ReadingResult(entry=self.detail(user_id, entry_id),
             attempt=AttemptDetail.model_validate(self._attempt(user_id, attempt_id)))
@@ -84,7 +100,7 @@ class ReadingService(LibraryService):
 
     def create_attempt(self, user_id, attempt_id, data):
         entry = self._entry(user_id, data.entry_id)
-        intent = fingerprint(data.model_dump(mode="json", exclude={"expected_version"}))
+        intent = fingerprint(data.model_dump(mode="json", exclude={"expected_version", "on"}))
         existing = self.db.get(ReadingAttempt, attempt_id)
         if existing is not None:
             if existing.user_book_id != entry.id:
@@ -96,7 +112,7 @@ class ReadingService(LibraryService):
         if self._active(entry.id):
             raise HTTPException(409, detail="This book already has a current reading. Open it to continue or correct it.")
         attempt = ReadingAttempt(id=attempt_id, user_book_id=entry.id,
-            **data.model_dump(exclude={"entry_id", "expected_version", "edition_id"}),
+            **data.model_dump(exclude={"entry_id", "expected_version", "edition_id", "on"}),
             creation_fingerprint=intent)
         book = self.db.get(Book, entry.book_id) if entry.book_id is not None else None
         edition_id = data.edition_id if "edition_id" in data.model_fields_set else book.preferred_edition_id if book else None
@@ -118,6 +134,8 @@ class ReadingService(LibraryService):
             entry.is_wanted = False
         self._touch(entry)
         try:
+            if attempt.progress_value is not None:
+                self._record_progress(attempt.id, attempt.progress_unit, attempt.progress_value, data.on)
             self.db.commit()
         except IntegrityError:
             self.db.rollback()
@@ -132,7 +150,7 @@ class ReadingService(LibraryService):
         # with ownership rather than refreshing a now-deleted ORM instance.
         attempt = self._attempt(user_id, attempt_id)
         self._version(user_id, entry, data.expected_version)
-        changes = data.model_dump(exclude_unset=True, exclude={"expected_version"})
+        changes = data.model_dump(exclude_unset=True, exclude={"expected_version", "on"})
         target = changes.get("state", attempt.state)
         if attempt.state in ("finished", "dnf"):
             if target == "paused":
@@ -147,8 +165,12 @@ class ReadingService(LibraryService):
             setattr(candidate, key, value)
         self._validate(candidate)
         changed = any(getattr(attempt, key) != value for key, value in changes.items())
+        before = (attempt.progress_unit, attempt.progress_value)
         for key, value in changes.items():
             setattr(attempt, key, value)
+        after = (attempt.progress_unit, attempt.progress_value)
+        if after != before and after[1] is not None:
+            self._record_progress(attempt.id, after[0], after[1], data.on)
         if changed:
             attempt.updated_at = datetime.now(timezone.utc)
             self._touch(entry)
@@ -210,18 +232,26 @@ class ReadingService(LibraryService):
             .where(ImportedLibraryRecord.user_id == UserBook.user_id, ImportedLibraryRecord.user_book_id == UserBook.id,
                 ImportedLibraryRecord.removed.is_(False), ImportedLibraryRecord.context != {}).correlate(UserBook).scalar_subquery())
         current = aliased(ReadingAttempt)
-        row = self.db.execute(select(UserBook, current, _reading_state(), imported)
+        # The current reading's progress history rides in the same statement as one JSON column (owner-only, newest first).
+        day = ReadingProgressDay.__table__
+        days = (select(func.coalesce(func.jsonb_agg(aggregate_order_by(func.jsonb_build_object(
+                literal_column("'day'"), day.c.day, literal_column("'unit'"), day.c.unit,
+                literal_column("'first_value'"), day.c.first_value, literal_column("'last_value'"), day.c.last_value),
+                day.c.day.desc())), literal_column("'[]'::jsonb")))
+            .where(day.c.attempt_id == current.id).correlate(current).scalar_subquery())
+        row = self.db.execute(select(UserBook, current, _reading_state(), imported, days)
             .outerjoin(current, current.id == current_attempt_id)
             .where(UserBook.user_id == user_id, UserBook.id == entry_id).options(*_summary_options())).unique().one_or_none()
         if row is None:
             raise HTTPException(404, detail="Library entry not found")
-        entry, attempt, state, imported_count = row
+        entry, attempt, state, imported_count, progress_days = row
         editions = [] if entry.book_id is None else self.db.execute(select(Edition.id, Edition.source_id,
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
         return ReadingWorkspace(entry=entry_dto(entry, state, detail=True),
             current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
-            editions=[dict(item) for item in editions], imported_sources_count=imported_count)
+            editions=[dict(item) for item in editions], imported_sources_count=imported_count,
+            progress_days=(progress_days or [])[:366])
 
     def history(self, user_id, entry_id, *, limit=25, cursor=None):
         self.detail(user_id, entry_id)  # Owner predicate before any history lookup.
