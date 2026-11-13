@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [November 12: Speed S0, a repeatable speed baseline](2026-11-12-speed-baseline.md)
 - [November 12: the more menu on My Books](2026-11-12-mybooks-menu.md)
 - [November 12: My Books actions, genre names and a smaller filter panel](2026-11-12-mybooks-actions.md)
 - [November 5: Foundations (Phase A)](2026-11-05-foundations.md)

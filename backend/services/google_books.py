@@ -8,6 +8,7 @@ in-memory cache only; nothing from Google is ever written to the database.
 from __future__ import annotations
 
 import html
+import logging
 import re
 import threading
 import time
@@ -26,6 +27,11 @@ MAX_PER_SECOND = 5
 MAX_TTL = 24 * 60 * 60
 DEFAULT_TTL = 60 * 60
 MAX_ENTRIES = 500
+
+# One INFO line per real description lookup, with a reason code only (never a title, author, ISBN, text, URL or key). The app
+# configures no logging of its own and uvicorn sets up only its own loggers, so a plain "bookvane.*" logger would be silent on
+# Render; a child of "uvicorn.error" inherits uvicorn's INFO level and handler.
+log = logging.getLogger("uvicorn.error.google_books")
 
 bucket = _TokenBucket(MAX_PER_SECOND)
 _lock = threading.Lock()
@@ -56,31 +62,32 @@ def _ttl(response) -> int:
     return min(int(match.group(1)), MAX_TTL) if match else min(DEFAULT_TTL, MAX_TTL)
 
 
-def _get(params: dict) -> dict | None:
+def _get(params: dict) -> tuple[dict | None, str]:
+    """(data, how): how is "cached", "live", `http_<status>` or "error"; data is None unless Google answered 200."""
     key = tuple(sorted(params.items()))
     now = time.monotonic()
     with _lock:
         hit = _cache.get(key)
         if hit and hit[0] > now:
             _cache.move_to_end(key)
-            return hit[1]
+            return hit[1], "cached"
     bucket.take()
     try:
         response = requests.get(API, params={**params, "key": settings.google_books_api_key.get_secret_value()},
                                 timeout=TIMEOUT)
         if response.status_code != 200:
-            return None
+            return None, f"http_{response.status_code}"
         data = response.json()
     except (requests.RequestException, ValueError):
-        return None
+        return None, "error"
     if not isinstance(data, dict):
-        return None
+        return None, "error"
     with _lock:
         _cache[key] = (time.monotonic() + _ttl(response), data)
         _cache.move_to_end(key)
         while len(_cache) > MAX_ENTRIES:
             _cache.popitem(last=False)
-    return data
+    return data, "live"
 
 
 def _query(isbn: str | None, title: str | None, author: str | None) -> str | None:
@@ -91,17 +98,24 @@ def _query(isbn: str | None, title: str | None, author: str | None) -> str | Non
     return None
 
 
-def _items(isbn, title, author, fields: str) -> list[dict]:
+def _lookup(isbn, title, author, fields: str) -> tuple[list[dict], str]:
+    """(volumes, how): how is "disabled", "no_query", or what `_get` reports."""
+    if not enabled():
+        return [], "disabled"
     query = _query(isbn, title, author)
-    if not query or not enabled():
-        return []
-    data = _get({"q": query, "maxResults": 5, "printType": "books", "fields": f"items(volumeInfo({fields}))"})
+    if not query:
+        return [], "no_query"
+    data, how = _get({"q": query, "maxResults": 5, "printType": "books", "fields": f"items(volumeInfo({fields}))"})
     items = [item.get("volumeInfo") for item in (data or {}).get("items") or [] if isinstance(item, dict)]
     items = [item for item in items if isinstance(item, dict)]
     if isbn:
-        return items
+        return items, how
     return [item for item in items if norm_title(item.get("title") or "") == norm_title(title or "")
-            and author_names_match(author or "", [a for a in item.get("authors") or [] if isinstance(a, str)])]
+            and author_names_match(author or "", [a for a in item.get("authors") or [] if isinstance(a, str)])], how
+
+
+def _items(isbn, title, author, fields: str) -> list[dict]:
+    return _lookup(isbn, title, author, fields)[0]
 
 
 def isbn_for(title: str, author: str) -> str | None:
@@ -121,11 +135,23 @@ def _google_link(value) -> str | None:
     return None
 
 
-def description_for(isbn: str | None, title: str | None, author: str | None) -> dict | None:
-    """{text, link} for the first volume with a description, or None. Needs the volume's Google Books link to show it."""
-    for item in _items(isbn, title, author, "title,authors,description,infoLink"):
+def description_for(isbn: str | None, title: str | None, author: str | None, book_id: int | None = None) -> dict | None:
+    """{text, link} for the first volume with a description, or None. Needs the volume's Google Books link to show it.
+
+    Each real lookup logs one reason code (`hit`, `disabled`, `no_query`, `http_<status>`, `error`, `no_items`,
+    `no_description`, `bad_link`); an answer served from the in-memory cache logs nothing, so a cached miss never repeats."""
+    items, how = _lookup(isbn, title, author, "title,authors,description,infoLink")
+    result, reason = None, how if how.startswith(("disabled", "no_query", "http_", "error")) else "no_items"
+    for item in items:
         text = html_to_text(item["description"]) if isinstance(item.get("description"), str) else ""
         link = _google_link(item.get("infoLink"))
         if text and link:
-            return {"text": text, "link": link}
-    return None
+            result, reason = {"text": text, "link": link}, "hit"
+            break
+        if text:
+            reason = "bad_link"
+        elif reason == "no_items":
+            reason = "no_description"
+    if how != "cached":
+        log.info("google description: %s%s", reason, f" book={book_id}" if book_id is not None else "")
+    return result

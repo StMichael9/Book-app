@@ -136,7 +136,7 @@ def book_description(book_id: int, response: Response, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Book not found")
     text = book.description.strip() if book.description and book.description.strip() else None
     if text is None and (google := google_books.description_for(
-            book.isbn13, book.title, book.authors[0].name if book.authors else None)):
+            book.isbn13, book.title, book.authors[0].name if book.authors else None, book_id=book.id)):
         response.headers["Cache-Control"] = "private, no-store"  # Google text is never cached beyond the server's memory
         return {"text": google["text"], "source": "google", "link": google["link"]}
     response.headers["Cache-Control"] = PUBLIC_CACHE
