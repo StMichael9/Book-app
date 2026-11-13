@@ -79,7 +79,7 @@ test("the page shows every figure, the shelf with a text version, the cards and 
   await expect(compare).toContainText("5 more books than 2025");
   await expect(compare).toContainText("1,200 more pages");
   await expect(compare).toContainText("Books took about 3 days less");
-  await expect(compare).toContainText("More fantasy");
+  await expect(compare).toContainText("More Fantasy");
   const shelfCard = page.getByRole("region", { name: "Your shelf" });
   await expect(shelfCard).toContainText("38 books you own and haven’t read · 148 on Want to read");
   await expect(shelfCard).toContainText("Waiting longest · saved March 2021");

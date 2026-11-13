@@ -20,7 +20,7 @@ export function importNote(stats, years) {
 export const hasData = figures => Boolean(figures && (figures.books > 0 || figures.pages > 0));
 
 // Compared with the previous year, as short sentences. Anything equal or unknown is left out.
-export function comparison(stats) {
+export function comparison(stats, genreLabel) {
   const now = { books: stats.books_finished ?? stats.books, pages: stats.pages ?? stats.pages_read, days: stats.median_days }, before = stats.previous;
   if (!hasData(before)) return [];
   const lines = [], books = now.books - before.books, pages = now.pages - before.pages;
@@ -32,7 +32,9 @@ export function comparison(stats) {
     lines.push(`Books took about ${days} ${plural(days, "day", "days")} ${now.days < before.median_days ? "less" : "more"}`);
   }
   const top = stats.top_subjects?.[0], earlier = new Map((before.top_subjects || []).map(item => [item.name, item.count]));
-  if (top && (earlier.get(top.name) ?? 0) < top.count) lines.push(`More ${top.name.toLowerCase()}`);
+  // The genre's name as written; a subject that isn't a genre gets no line.
+  const label = top ? genreLabel(top.name) : null;
+  if (label && (earlier.get(top.name) ?? 0) < top.count) lines.push(`More ${label}`);
   return lines;
 }
 
