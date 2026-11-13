@@ -73,13 +73,13 @@ export default function ReadingJournal({ entry, attempt, entryId, workspace, vis
     else if (attempt.reaction) add("reaction", attempt.updated_at, reactionLabel[attempt.reaction], { kind: "memory", attempt });
     if (attempt.started_on) add("started", attempt.started_on, "Started", { kind: "progress", attempt });
   }
-  // Days with saved progress, when the server sends them ("14 Nov · page 14 → 52"). Missing or empty means no lines.
+  // Days with saved progress, when the server sends them ("14 Nov · Page 14 → 52"). Missing or empty means no lines.
   const days = workspace?.progress_days ?? entry?.progress_days;
   for (const day of Array.isArray(days) ? days : []) {
     const from = day.first_value ?? day.first, to = day.last_value ?? day.last, unit = day.progress_unit ?? day.unit, on = day.day ?? day.on;
     if (from == null || to == null || !on) continue;
     const mark = value => unit === "percent" ? `${value}%` : value;
-    add(`day-${on}`, on, unit === "percent" ? `${mark(from)} → ${mark(to)}` : `page ${from} → ${to}`);
+    add(`day-${on}`, on, unit === "percent" ? `${mark(from)} → ${mark(to)}` : `Page ${from} → ${to}`);
   }
   if (entry?.save_note) add("saved", entry.created_at, `Saved it: ${entry.save_note}`, { kind: "save_note" });
   for (const past of history.data?.items || []) {

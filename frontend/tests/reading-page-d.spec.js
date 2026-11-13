@@ -217,7 +217,7 @@ test("progress days show one line each in the journal, newest first; a missing o
   const lines = page.locator(".bv-journal-day");
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("14 Nov");
-  await expect(lines.first()).toContainText("page 14 → 52");
+  await expect(lines.first()).toContainText("Page 14 → 52");
   await expect(lines.nth(1)).toContainText("20% → 35%");
   for (const empty of [[], undefined]) {
     app.progressDays = empty;

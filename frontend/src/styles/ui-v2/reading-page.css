@@ -17,7 +17,7 @@
 .bv-root .bv-foreedge-read { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--bv-green) 28%, transparent); border-radius: 3px 0 0 3px; }
 .bv-root .bv-foreedge-mark { position: absolute; top: -5px; bottom: -5px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--bv-rust); }
 .bv-root .bv-progress-line p { margin: 0 0 14px; color: var(--bv-ink); font-size: var(--bv-fs-body); }
-.bv-root .bv-progress-line .bv-inline-action { min-height: 44px; min-width: 44px; padding: 0 4px; margin: -12px 0; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; vertical-align: baseline; }
+.bv-root .bv-progress-line .bv-inline-action { min-height: 44px; min-width: 0; padding: 0 2px; margin: -12px 0; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; vertical-align: baseline; }
 .bv-root .bv-progress-total-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
 .bv-root .bv-progress-total-edit input { width: 7rem; }
 
@@ -33,10 +33,13 @@
 .bv-root .bv-progress-total { margin-top: 10px; }
 .bv-root .bv-progress-thought { display: block; width: 100%; margin-top: 10px; }
 .bv-root .bv-progress-status { margin: 8px 0 0; min-height: 0; color: var(--bv-green); font-size: var(--bv-fs-helper); font-weight: 600; }
-.bv-root .bv-progress-status:empty { display: none; }
+/* Kept rendered (not display:none) so screen readers announce the status when it appears. */
+.bv-root .bv-progress-status:empty { margin: 0; }
 .bv-root .bv-finished-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }
 .bv-root .bv-finished-prompt span { font-weight: 600; }
 .bv-root .bv-now-body .bv-progress-box { margin: 10px 0 0; }
+/* A page number needs a short field: on the wide page the box stops at a comfortable width. */
+.bv-root .bv-reading-page .bv-progress-box { max-width: 480px; }
 
 /* Pause and Finish, the journal, the fold. */
 .bv-root .bv-reading-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 22px; }
