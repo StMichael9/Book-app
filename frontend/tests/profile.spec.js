@@ -466,6 +466,7 @@ test("every spine shows up to what fits, in light, dark and 200% text", async ({
   const by = [1, 2, 1, 3, 2, 4, 9, 3, 1, 2];
   app.stats = stats({ books_finished: 28, by_month: month(...by) });
   for (const theme of ["light", "dark"]) for (const zoom of [false, true]) {
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.goto("/profile?tab=year");
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200%; }" });
@@ -594,6 +595,7 @@ test("the selected tab is lifted above the track in dark and light, with readabl
   const channels = colour => colour.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => colour.startsWith("color(") ? value * 255 : value);
   const luminance = colour => { const [r, g, b] = channels(colour).map(value => { const v = value / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.goto("/profile");
     const selected = page.getByRole("tab", { name: "Overview" }), track = page.getByRole("tablist");
@@ -945,6 +947,7 @@ test("profile tab screenshots", async ({ page, app }) => {
   const data = app.stats;
   const shoot = async name => { await page.waitForTimeout(450); await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true }); };
   for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     for (const [label, _width, height] of [["375", 375, 812], ["1440", 1440, 900], ["375-text200", 375, 812]]) {
       await page.setViewportSize({ width: Number.parseInt(label, 10), height });
@@ -980,7 +983,7 @@ test("Settings has the four sections, Sign out only there, and /account goes to 
   await expect(page.getByRole("link", { name: "Choose genres" })).toHaveAttribute("href", "/preferences");
   await expect(page.getByRole("link", { name: "Your reading data" })).toHaveAttribute("href", "/my-data");
   await expect(page.getByText(/Make yourself at home|View books|A library to call your own|catches your eye/)).toHaveCount(0);
-  await page.getByRole("button", { name: "Switch theme" }).click();
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).check({ force: true });
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect.poll(() => sent(app, "POST", "/auth/logout").length).toBe(1);
 });

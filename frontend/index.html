@@ -24,22 +24,28 @@
     </script>
     <script>
       (() => {
+        // Theme: Match device (nothing stored), or the reader's own Light or Dark. Same rule as src/components/ui-v2/theme.js.
         const valid = value => value === "light" || value === "dark";
-        let theme;
+        const system = window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        let choice = null;
         try {
-          const current = window.localStorage.getItem("bookvane-theme");
-          if (valid(current)) theme = current;
-          else {
-            const legacy = window.localStorage.getItem("shelfbound-theme");
-            if (valid(legacy)) {
-              theme = legacy;
-              window.localStorage.setItem("bookvane-theme", theme);
-            }
+          const store = window.localStorage;
+          const current = store.getItem("bookvane-theme"), legacy = store.getItem("shelfbound-theme");
+          let saved = valid(current) ? current : valid(legacy) ? legacy : null;
+          if (!store.getItem("bookvane-theme-migrated")) {
+            // Once: a value saved automatically (it equals the device now) is dropped; any other is kept as a choice.
+            if (saved === null || saved === system) { store.removeItem("bookvane-theme"); saved = null; } else store.setItem("bookvane-theme", saved);
+            store.removeItem("shelfbound-theme");
+            store.setItem("bookvane-theme-migrated", "1");
           }
-        } catch { /* Storage is optional; apply the selected theme even if persistence fails. */ }
-        theme ||= window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          choice = saved;
+          // A guest always matches the device; the choice belongs to a signed-in reader.
+          if (store.getItem("bookvane:session-hint:v1") !== "1") choice = null;
+        } catch { /* Storage is optional: match the device. */ }
+        const theme = choice || system;
         document.documentElement.setAttribute("data-theme", theme);
         document.documentElement.style.colorScheme = theme;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#1e1d1b" : "#faf8f2");
         document.documentElement.classList.add("js");
       })();
     </script>

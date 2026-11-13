@@ -357,7 +357,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-mobile-nav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 68px; min-height: 50px; font-size: var(--bv-fs-small); color: var(--bv-muted); }
   .bv-root .bv-mobile-nav .bv-active { color: var(--bv-green); font-weight: 700; }
   .bv-root .bv-mobile-nav svg { width: 21px; height: 21px; }
-  .bv-root:has(input:not([type="checkbox"]):focus) .bv-mobile-nav { display: none; }
+  .bv-root:has(input:not([type="checkbox"]):not([type="radio"]):focus) .bv-mobile-nav { display: none; }
   .bv-root :is(a, button, input, select) { scroll-margin-bottom: 90px; }
   .bv-root .bv-section { padding-top: 25px; padding-bottom: 25px; }
   .bv-root .bv-section-heading { gap: 12px; align-items: start; margin-bottom: 16px; }

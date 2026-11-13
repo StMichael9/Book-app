@@ -439,6 +439,7 @@ test("enrichment screenshots", async ({ page, app }) => {
   app.enrichment = [{ pending: 12, upgraded: 0 }];
   for (const theme of ["light", "dark"]) for (const [label, width, height] of [["375", 375, 812], ["1440", 1440, 900]]) {
     await page.setViewportSize({ width, height });
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     app.run = null; app.rows = [];
     await openReady(page, app);

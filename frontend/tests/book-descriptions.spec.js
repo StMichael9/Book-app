@@ -342,6 +342,7 @@ test("description screenshots", async ({ page, app }) => {
   app.entries.set(300, privateEntry({ private_description: "A memoir lent to me by my aunt." }));
   for (const theme of ["light", "dark"]) for (const [label, width, height] of [["375", 375, 812], ["1440", 1440, 900]]) {
     await page.setViewportSize({ width, height });
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.goto("/my-books"); await expect(page.locator(".bv-personal-book").first()).toBeVisible();
     await page.screenshot({ path: `${dir}/cards-${label}-${theme}.png`, fullPage: true });

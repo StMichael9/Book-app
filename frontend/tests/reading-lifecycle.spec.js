@@ -196,6 +196,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     { entry: app.entries.get(102), attempt: { ...app.attempt, progress_value: null } },
   ];
   app.readingCount = 8; app.pausedCount = 2;
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -255,6 +256,7 @@ for (const theme of ["light", "dark"]) test(`editorial workspace is book-first w
   app.privateContext = true; app.nextRead = true;
   app.entries.set(201, { ...makeEntry(201, null), is_wanted: true });
   app.entries.set(203, { ...makeEntry(203, null, true), is_wanted: true });
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -293,6 +295,7 @@ for (const theme of ["light", "dark"]) test(`editorial workspace phone text enla
   app.entries.set(101, entry);
   app.entries.set(201, { ...makeEntry(201, null), is_wanted: true });
   await page.setViewportSize({ width: 320, height: 900 });
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.goto("/my-books/101");
   await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
@@ -629,6 +632,7 @@ for (const flag of ["Want to read", "I own it"]) {
 for (const theme of ["light", "dark"]) {
   test(`library cards display supplied active/latest states for public/private entries in ${theme}`, async ({ page, app }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     app.entries = new Map([makeEntry(101, "reading"), makeEntry(102, "paused"), makeEntry(103, "finished"),
       makeEntry(104, "dnf", true), makeEntry(105, null)].map(entry => [entry.id, entry]));
@@ -839,6 +843,7 @@ test("M3 late context response cannot reopen a departed account's draft", async 
 for (const theme of ["light", "dark"]) test(`zero-friction active reader journey and responsive evidence; ${theme}`, async ({ page, app }) => {
   app.privateContext = true; app.nextRead = true;
   app.entries.set(201, { ...makeEntry(201, null), is_wanted: true });
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -1081,6 +1086,7 @@ test("minimalist closed stale note keeps its version and requires explicit saved
 
 for (const theme of ["light", "dark"]) test(`minimalist point-of-use editors, enlarged text and reduced motion; ${theme}`, async ({ page, app }) => {
   app.privateContext = true; app.nextRead = true;
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/my-books/101");
