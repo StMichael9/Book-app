@@ -122,15 +122,17 @@ test("header search goes to Discover's search on Enter, and an empty Enter does 
   await page.goto("/my-books");
   const search = page.getByRole("searchbox", { name: "Search books" });
   await expect(search).toHaveAttribute("placeholder", "Search books");
+  // It sits on the right, before the avatar.
+  const box = await search.boundingBox(), avatar = await page.getByRole("link", { name: "Your profile", exact: true }).boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(avatar.x);
+  expect(box.x).toBeGreaterThan(720);
   await search.focus(); await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/my-books$/);
   await search.fill("dune messiah");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/browse\?q=dune(\+|%20)messiah$/);
-  // It sits on the right, before the avatar.
-  const box = await search.boundingBox(), avatar = await page.getByRole("link", { name: "Your profile", exact: true }).boundingBox();
-  expect(box.x + box.width).toBeLessThanOrEqual(avatar.x);
-  expect(box.x).toBeGreaterThan(720);
+  // Discover has its own search box, so the header one is left out there.
+  await expect(page.getByRole("searchbox", { name: "Search books" })).toHaveCount(0);
 });
 
 test("the header search is not shown on a phone", async ({ page, app: _app }) => {
