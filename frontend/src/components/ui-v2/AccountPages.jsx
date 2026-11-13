@@ -2,14 +2,15 @@ import { useProfile } from "../profile/profileState.js";
 import { useEffect, useRef, useState } from "react";
 import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Mail, Moon, Sun } from "lucide-react";
+import { ArrowLeft, BookOpen, Moon, Sun } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getBookById } from "../../api/books.js";
 import { getPreferences, savePreferences } from "../../api/preferences.js";
 import { requestPasswordReset, resetPassword } from "../../api/auth.js";
 import { useReader } from "./readerState.js";
-import { errorText, safeReturnTo, useRequest, validBookId } from "./data.js";
+import { errorText, firstImpressionOrder, safeReturnTo, useRequest, validBookId } from "./data.js";
+import { useInstantBooks } from "./instantBooks.js";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageFrame, PageHeading, TextLink } from "./primitives.jsx";
@@ -25,12 +26,32 @@ export function RequireAccount({ children, title }) {
   return children;
 }
 
-function PasswordField({ label = "Password", creating = false }) {
+// Our own checks on submit (the forms carry noValidate), so the browser's bubbles never show.
+const EMAIL_MESSAGE = "Enter an email address, like you@example.com.";
+const PASSWORD_MESSAGE = "Use at least 8 characters.";
+const looksLikeEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+// A server answer is mapped here and never shown as it came: only a rate limit or an outage keeps its existing message.
+const serviceText = (error, fallback) => (error?.status === 429 || error?.status >= 500 || error instanceof TypeError) ? errorText(error, fallback) : fallback;
+
+function FieldError({ id, children }) {
+  return children ? <p id={id} className="bv-field-error">{children}</p> : null;
+}
+
+function EmailField({ id, error, inputRef, onInput, defaultValue }) {
+  return <div className="bv-field"><label htmlFor={id}>Email address</label>
+    <input id={id} ref={inputRef} type="email" name="email" autoComplete="email" required placeholder="you@example.com" defaultValue={defaultValue}
+      aria-invalid={error ? "true" : undefined} aria-describedby={error ? `${id}-error` : undefined} onInput={onInput} />
+    <FieldError id={`${id}-error`}>{error}</FieldError></div>;
+}
+
+function PasswordField({ label = "Password", creating = false, error, inputRef, onInput }) {
   const [visible, setVisible] = useState(false);
+  const described = [creating && "bv-password-help", error && "bv-password-error"].filter(Boolean).join(" ");
   return <div className="bv-field"><label htmlFor="bv-password">{label}</label><div className="bv-password-wrap">
-    <input id="bv-password" name="password" type={visible ? "text" : "password"} autoComplete={creating ? "new-password" : "current-password"} minLength={creating ? 8 : undefined} maxLength={128} required aria-describedby="bv-password-help" />
+    <input id="bv-password" ref={inputRef} name="password" type={visible ? "text" : "password"} autoComplete={creating ? "new-password" : "current-password"} maxLength={128} required
+      aria-invalid={error ? "true" : undefined} aria-describedby={described || undefined} onInput={onInput} />
     <Button variant="quiet" onClick={() => setVisible((value) => !value)} aria-label={visible ? "Hide password" : "Show password"} aria-pressed={visible}>{visible ? "Hide" : "Show"}</Button>
-  </div><small id="bv-password-help">{creating ? "Use 8–128 characters. You can paste or use your password manager." : "You can use your password manager."}</small></div>;
+  </div>{creating && <small id="bv-password-help">At least 8 characters.</small>}<FieldError id="bv-password-error">{error}</FieldError></div>;
 }
 
 function accountIntent(params) {
@@ -55,39 +76,62 @@ export function AuthPage({ register = false }) {
   const [params] = useSearchParams();
   const { returnTo, intent } = accountIntent(params);
   const pendingBook = useRequest(() => getBookById(intent.id), `pending:${intent?.id || "none"}`, Boolean(intent));
+  // The shelf shows the landing hero's three covers from the snapshot or this browser's copy; it never asks for books of its own.
+  const idle = useRequest(() => Promise.resolve(null), "auth-shelf", false);
+  const shelf = useInstantBooks({ view: "landing", eligible: !intent, auth, live: idle });
+  const covers = firstImpressionOrder(shelf.data?.items || []).slice(0, 3);
   const [pending, setPending] = useState(false);
   const started = useRef(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [typed, setTyped] = useState("");
+  const emailRef = useRef(null), passwordRef = useRef(null);
   const destination = intent ? (() => {
     const url = new URL(returnTo, window.location.origin); url.searchParams.set("save", intent.status); return url.pathname + url.search;
   })() : returnTo;
   useEffect(() => { if (auth.isAuthenticated && !auth.isLoading && !pending) navigate(destination, { replace: true }); }, [auth.isAuthenticated, auth.isLoading, pending, destination, navigate]);
+  const clear = name => setErrors(current => current[name] || current.form ? { ...current, [name]: undefined, form: undefined } : current);
   async function submit(event) {
     event.preventDefault(); if (pending) return;
     if (register && !started.current) { started.current = true; trackEvent("register_started", { src: params.get("src") }); }
-    const values = new FormData(event.currentTarget); setPending(true); setError("");
+    const values = new FormData(event.currentTarget);
+    const credentials = { email: String(values.get("email")).trim(), password: String(values.get("password")) };
+    const problems = {};
+    if (!looksLikeEmail(credentials.email)) problems.email = EMAIL_MESSAGE;
+    if (register ? credentials.password.length < 8 : !credentials.password) problems.password = register ? PASSWORD_MESSAGE : "Enter your password.";
+    if (problems.email || problems.password) { setErrors(problems); (problems.email ? emailRef : passwordRef).current?.focus(); return; }
+    setPending(true); setErrors({});
     try {
-      const credentials = { email: String(values.get("email")).trim(), password: String(values.get("password")) };
       if (register) await auth.register(credentials, { src: knownSource(params.get("src")) }); else await auth.login(credentials);
       navigate(destination, { replace: true });
     } catch (requestError) {
-      setError(errorText(requestError, register ? "Your account couldn’t be created. Please try again." : "You couldn’t be signed in. Please try again."));
+      const status = requestError?.status;
+      if (register && status === 409) { setErrors({ email: "exists" }); emailRef.current?.focus(); }
+      else if (status === 422) { setErrors({ password: PASSWORD_MESSAGE }); passwordRef.current?.focus(); }
+      else if (!register && status === 401) setErrors({ form: "mismatch" });
+      else setErrors({ form: serviceText(requestError, register ? "Your account couldn’t be created. Please try again." : "You couldn’t be signed in. Please try again.") });
     } finally { setPending(false); }
   }
   const switchPath = `${register ? "/login" : "/register"}${params.size ? `?${params}` : ""}`;
+  const forgotPath = `/forgot-password${recoveryNavigation(params)}`;
+  const emailError = errors.email === "exists"
+    ? <>There’s already an account for this email. <TextLink to={`/login${params.size ? `?${params}` : ""}`}>Sign in</TextLink> or <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>reset your password</TextLink>.</>
+    : errors.email;
+  const covered = covers.map(book => <div key={book.id} className="bv-hero-cover"><BookCover book={book} hero decorative /></div>);
   return <section className="bv-container"><div className="bv-auth-layout">
-    <aside className="bv-auth-story"><h2>Keep track of the books you own and the ones you want to read.</h2>
-      {pendingBook.data ? <div className="bv-auth-story-cover"><BookCover book={pendingBook.data} priority /></div> : <div className="bv-auth-story-shelves"><BookOpen aria-hidden="true" /></div>}
+    {!intent && covers.length > 0 && <div className="bv-auth-strip" aria-hidden="true"><div className="bv-hero-covers">{covered}</div><div className="bv-shelf-rule" /></div>}
+    <aside className="bv-auth-story">
+      {intent ? pendingBook.data && <div className="bv-auth-story-cover" aria-hidden="true"><BookCover book={pendingBook.data} priority decorative /></div>
+        : covers.length > 0 && <div className="bv-auth-shelf" aria-hidden="true"><div className="bv-hero-covers">{covered}</div><div className="bv-shelf-rule" /></div>}
+      <p>Keep track of the books you own and the ones you want to read.</p>
     </aside>
-    <div className="bv-auth-card"><PageHeading title={register ? "Start your library." : "Welcome back."}>{register ? "Save discoveries and make room for your reading." : "Your books are right where you left them."}</PageHeading>
+    <div className="bv-auth-card"><PageHeading title={register ? "Create your account" : "Welcome back."}>{register ? <>Free. Your library is private. We only email you for password resets. <TextLink to="/privacy">Privacy</TextLink></> : "Your books are right where you left them."}</PageHeading>
       {intent && <div className="bv-pending-book">{pendingBook.data && <BookCover book={pendingBook.data} priority />}<p><strong>{pendingBook.data?.title || "Your chosen book"}</strong>{register ? `Saves to ${intent.status === "owned" ? "Owned" : "Want to read"} as soon as your account is ready.` : `Ready to save as ${intent.status === "owned" ? "Owned" : "Want to read"} after you sign in.`}</p></div>}
-      <form onSubmit={submit} aria-busy={pending}>
-        {error && <p className="bv-field-error" role="alert">{error}</p>}
-        <div className="bv-field"><label htmlFor="bv-auth-email">Email address</label><input id="bv-auth-email" type="email" name="email" autoComplete="email" required placeholder="you@example.com" /></div>
-        <PasswordField creating={register} />
-        {!register && <TextLink to={`/forgot-password${recoveryNavigation(params)}`}>Forgot password?</TextLink>}
+      <form onSubmit={submit} noValidate aria-busy={pending}>
+        {errors.form && <p className="bv-field-error" role="alert">{errors.form === "mismatch" ? <>That email and password don’t match. Try again or <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>reset your password</TextLink>.</> : errors.form}</p>}
+        <EmailField id="bv-auth-email" error={emailError} inputRef={emailRef} onInput={event => { setTyped(event.currentTarget.value.trim()); clear("email"); }} />
+        <PasswordField creating={register} error={errors.password} inputRef={passwordRef} onInput={() => clear("password")} />
+        {!register && <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>Forgot password?</TextLink>}
         <Button type="submit" className="bv-full-width" disabled={pending}>{pending ? register ? "Creating your account…" : "Signing in…" : register ? "Create account" : "Sign in"}</Button>
-        {register && <p className="bv-help bv-auth-trust">Free. Your library is private. We only email you for password resets. <TextLink to="/privacy">Privacy</TextLink></p>}
       </form><p className="bv-auth-switch">{register ? "Already have an account? " : "New to Bookvane? "}<TextLink to={switchPath}>{register ? "Sign in" : "Create an account"}</TextLink></p>
       <TextLink to="/browse"><ArrowLeft aria-hidden="true" />Back to books</TextLink>
     </div>
@@ -177,30 +221,37 @@ export function RecoveryPage({ reset = false }) {
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
   const [expired, setExpired] = useState(reset && !token);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(""), [fieldError, setFieldError] = useState("");
+  const fieldRef = useRef(null);
   const incomingToken = reset ? new URLSearchParams(location.hash.slice(1)).get("token") : null;
   if (incomingToken && (incomingToken !== token || done || expired)) {
-    setToken(incomingToken); setDone(false); setExpired(false); setError("");
+    setToken(incomingToken); setDone(false); setExpired(false); setError(""); setFieldError("");
   }
   useEffect(() => { if (reset && location.hash) navigate({ pathname: location.pathname, search: location.search }, { replace: true }); }, [reset, location.hash, location.pathname, location.search, navigate]);
   async function submit(event) {
     event.preventDefault(); if (pending || expired) return;
-    const values = new FormData(event.currentTarget); setPending(true); setError("");
+    const values = new FormData(event.currentTarget);
+    const email = String(values.get("email") ?? "").trim(), newPassword = String(values.get("password") ?? "");
+    const problem = reset ? (newPassword.length < 8 ? PASSWORD_MESSAGE : "") : (looksLikeEmail(email) ? "" : EMAIL_MESSAGE);
+    if (problem) { setFieldError(problem); setError(""); fieldRef.current?.focus(); return; }
+    setPending(true); setError(""); setFieldError("");
     try {
-      if (reset) await resetPassword(token, String(values.get("password"))); else await requestPasswordReset(String(values.get("email")).trim());
+      if (reset) await resetPassword(token, newPassword); else await requestPasswordReset(email);
       setDone(true);
     } catch (requestError) {
-      if (reset && [400, 404, 410, 422].includes(requestError.status)) setExpired(true);
-      else setError(errorText(requestError, "We couldn’t complete your request. Please try again."));
+      // Only 400, 404 and 410 mean the link is spent. A 422 is the password itself.
+      if (reset && [400, 404, 410].includes(requestError.status)) setExpired(true);
+      else if (reset && requestError.status === 422) { setFieldError(PASSWORD_MESSAGE); fieldRef.current?.focus(); }
+      else setError(serviceText(requestError, "We couldn’t complete your request. Please try again."));
     } finally { setPending(false); }
   }
   return <section className="bv-container"><div className="bv-narrow">{!done && <TextLink to={`/login${recoveryContext}`}><ArrowLeft aria-hidden="true" />Back to sign in</TextLink>}
     {expired ? <><PageHeading title="This link is no longer valid.">Request a new reset link to get back to your books. Your account is still there.</PageHeading><ActionLink to={`/forgot-password${recoveryContext}`}>Send a new link</ActionLink></> : done ? <>
-      {!reset && <div className="bv-medallion"><Mail aria-hidden="true" /></div>}<PageHeading title={reset ? "A fresh start." : "Check your inbox."}>{reset ? "Your password is updated. You can sign in again." : "If an account exists for that email address, we’ll send a link to reset your password."}</PageHeading>
+      <PageHeading title={reset ? "Password updated" : "Check your inbox."}>{reset ? "Your password is updated. You can sign in again." : "If an account exists for that email address, we’ll send a link to reset your password."}</PageHeading>
       {!reset && <p className="bv-notice">Not there yet? Check your spam folder, or try another email address.</p>}<TextLink to={`/login${recoveryContext}`}>Back to sign in</TextLink>{!reset && <Button variant="quiet" onClick={() => setDone(false)}>Try another email address</Button>}
-    </> : <><PageHeading title={reset ? "A fresh start." : "Forgot your password?"}>{reset ? "Choose a new password for your Bookvane account." : "Enter the email address you used for Bookvane. We’ll help you get back to your books."}</PageHeading>
-      <form onSubmit={submit} aria-busy={pending}>{reset ? <PasswordField label="New password" creating /> : <div className="bv-field"><label htmlFor="bv-recovery-email">Email address</label><input id="bv-recovery-email" name="email" type="email" autoComplete="email" required placeholder="you@example.com" /></div>}
-        {error && <p className="bv-field-error" role="alert">{error}</p>}<Button type="submit" className="bv-full-width" disabled={pending}>{pending ? "Working…" : reset ? "Reset password" : "Send reset link"}</Button>
+    </> : <><PageHeading title={reset ? "Choose a new password" : "Forgot your password?"}>{reset ? "Choose a new password for your Bookvane account." : "Enter the email address you used for Bookvane. We’ll help you get back to your books."}</PageHeading>
+      <form onSubmit={submit} noValidate aria-busy={pending}>{reset ? <PasswordField label="New password" creating error={fieldError} inputRef={fieldRef} onInput={() => setFieldError("")} /> : <EmailField id="bv-recovery-email" error={fieldError} inputRef={fieldRef} onInput={() => setFieldError("")} defaultValue={typeof location.state?.email === "string" ? location.state.email : ""} />}
+        {error && <p className="bv-field-error" role="alert">{error}</p>}<Button type="submit" className="bv-full-width" disabled={pending}>{pending ? reset ? "Working…" : "Sending…" : reset ? "Reset password" : "Send reset link"}</Button>
       </form></>}
   </div></section>;
 }
