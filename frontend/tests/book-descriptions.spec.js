@@ -48,6 +48,7 @@ const test = base.extend({
         const next = { ...saved, ...body, version: saved.version + 1, ...(state.saveNoteOnPut ? { save_note: state.saveNoteOnPut } : {}) }; delete next.expected_version;
         state.entries.set(id, next); return reply(200, next);
       }
+      if (/^\/me\/library\/\d+\/attempts$/.test(path)) return reply(200, { items: [], next_cursor: null });
       const workspace = path.match(/^\/me\/library\/(\d+)\/reading$/);
       if (workspace) { const found = [...state.entries.values()].find(item => item.id === Number(workspace[1])); return found ? reply(200, { entry: found, current_attempt: null, editions: [] }) : reply(404, {}); }
       const patch = path.match(/^\/me\/library\/(\d+)$/);
@@ -178,18 +179,15 @@ test("a failed reason save says so and the book stays saved", async ({ page, app
   expect(patches(app).at(-1).body.save_note).toBe("Maybe later");
 });
 
-test("the reading page opens 'Why I saved this book' when there is a note, and keeps the quiet button when there is not", async ({ page, app }) => {
+test("the reading page shows the save reason as a journal line when there is one, and nothing when there is not", async ({ page, app }) => {
   app.readingActions = true;
   app.entries.set(1, entry(1, { save_note: "Because a friend swore by it" }));
   app.entries.set(2, entry(2));
   await page.goto("/my-books/101");
-  const reason = page.locator(".bv-save-reason");
-  await expect(reason).toHaveAttribute("open", "");
-  await expect(reason.getByText("Because a friend swore by it")).toBeVisible();
+  await expect(page.locator(".bv-journal")).toContainText("Saved it: Because a friend swore by it");
   await page.goto("/my-books/102");
-  await expect(page.locator(".bv-save-reason")).not.toHaveAttribute("open", "");
-  await page.locator(".bv-save-reason summary").click();
-  await expect(page.getByRole("button", { name: "Why did you save it?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your reading", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-journal")).not.toContainText("Saved it");
 });
 
 test("a private book without a description shows no description line, and one with a description shows it", async ({ page, app }) => {
@@ -202,6 +200,7 @@ test("a private book without a description shows no description line, and one wi
   await expect(page.getByRole("heading", { name: "About this book" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
   await page.goto("/my-books/301");
+  await page.getByText("About this book · Manage").click();
   await expect(page.getByText("Filled in by the server.")).toBeVisible();
   await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
   expect(patches(app)).toHaveLength(0);
@@ -313,6 +312,7 @@ test("a private entry shows a Google description in full with the credit on its 
   app.entries.set(300, privateEntry());
   app.descriptions["entry:300"] = google;
   await page.goto("/my-books/300");
+  await page.getByText("About this book · Manage").click();
   await expect(page.getByText("The very last words.")).toBeVisible();
   await expect(page.getByRole("button", { name: /show more/i })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Description from Google Books (opens in a new tab)" })).toHaveAttribute("href", "https://books.google.com/books?id=abc123");

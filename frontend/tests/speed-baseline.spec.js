@@ -100,7 +100,7 @@ const PAGES = {
     await visible(page.getByRole("heading", { level: 1, name: "Live Book 1" }))();
     await page.waitForFunction(() => { const want = [...document.querySelectorAll("button")].find(node => /Want to read/.test(node.textContent)); return Boolean(want) && !want.disabled; }, null, { polling: "raf", timeout: 30_000 });
   } },
-  "/my-books/{entryId} (direct)": { url: "/my-books/104", ready: page => visible(page.getByRole("region", { name: "My reading" }))() },
+  "/my-books/{entryId} (direct)": { url: "/my-books/104", ready: page => visible(page.getByRole("textbox", { name: /^Page or %/ }))() },
 };
 
 async function measure(page, app, target) {

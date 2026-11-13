@@ -1,0 +1,58 @@
+/* The reading page (Direction D): header, the one progress box, the fore-edge, the journal and one fold. Existing tokens only. */
+.bv-root .bv-reading-page { max-width: 720px; margin-inline: auto; padding-bottom: 48px; }
+.bv-root .bv-reading-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; }
+.bv-root .bv-reading-head .bv-more { position: relative; top: auto; right: auto; opacity: 1; flex: none; }
+.bv-root .bv-reading-id { display: flex; gap: 16px; align-items: flex-start; margin: 8px 0 18px; }
+.bv-root .bv-reading-id .bv-cover { width: 64px; flex: none; box-shadow: var(--bv-shadow); }
+.bv-root .bv-reading-id h1 { font-size: var(--bv-fs-page); margin: 0 0 4px; }
+.bv-root .bv-reading-id .bv-detail-author { margin: 0 0 10px; color: var(--bv-muted); }
+.bv-root .bv-reading-chip { display: inline-block; margin: 0; padding: 4px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft-green); font: 600 var(--bv-fs-helper)/1.4 var(--bv-body); }
+.bv-root .bv-more-blank { display: inline-block; width: 18px; height: 18px; flex: none; }
+.bv-root .bv-more-item svg { width: 18px; height: 18px; flex: none; }
+.bv-root .bv-more-item[role="menuitemcheckbox"] { gap: 8px; }
+
+/* The fore-edge: fine page lines, the read part darker, a rust bookmark at the place. */
+.bv-root .bv-foreedge { position: relative; height: 26px; margin: 4px 0 10px; border: 1px solid var(--bv-line); border-radius: 3px; overflow: visible;
+  background: repeating-linear-gradient(90deg, var(--bv-line) 0 1px, var(--bv-panel) 1px 5px); }
+.bv-root .bv-foreedge-read { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--bv-green) 28%, transparent); border-radius: 3px 0 0 3px; }
+.bv-root .bv-foreedge-mark { position: absolute; top: -5px; bottom: -5px; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--bv-rust); }
+.bv-root .bv-progress-line p { margin: 0 0 14px; color: var(--bv-ink); font-size: var(--bv-fs-body); }
+.bv-root .bv-progress-line .bv-inline-action { min-height: 44px; min-width: 44px; padding: 0 4px; margin: -12px 0; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; vertical-align: baseline; }
+.bv-root .bv-progress-total-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+.bv-root .bv-progress-total-edit input { width: 7rem; }
+
+/* The box. Its fields look like every other field in the app. */
+.bv-root .bv-progress-box input, .bv-root .bv-progress-total-edit input { font-size: var(--bv-fs-body); min-height: 50px; padding: 11px 13px; border: 1px solid var(--bv-control); background: var(--bv-panel); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
+.bv-root .bv-progress-box .bv-button { min-height: 50px; }
+.bv-root .bv-progress-box { margin: 0 0 14px; }
+.bv-root .bv-progress-row { display: flex; gap: 8px; align-items: stretch; }
+.bv-root .bv-progress-row input { flex: 1 1 auto; min-width: 0; }
+.bv-root .bv-progress-row .bv-button { flex: none; min-width: 84px; }
+.bv-root .bv-progress-box .bv-help { margin: 6px 0 0; }
+.bv-root .bv-progress-box .bv-field-error { margin: 8px 0 0; }
+.bv-root .bv-progress-total { margin-top: 10px; }
+.bv-root .bv-progress-thought { display: block; width: 100%; margin-top: 10px; }
+.bv-root .bv-progress-status { margin: 8px 0 0; min-height: 0; color: var(--bv-green); font-size: var(--bv-fs-helper); font-weight: 600; }
+.bv-root .bv-progress-status:empty { display: none; }
+.bv-root .bv-finished-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; padding: 10px 12px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }
+.bv-root .bv-finished-prompt span { font-weight: 600; }
+.bv-root .bv-now-body .bv-progress-box { margin: 10px 0 0; }
+
+/* Pause and Finish, the journal, the fold. */
+.bv-root .bv-reading-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 22px; }
+.bv-root .bv-reading-actions .bv-button { flex: 1 1 140px; }
+.bv-root .bv-reading-actions .bv-workspace-undo { flex-basis: 100%; margin: 0; }
+.bv-root .bv-journal { border-top: 1px solid var(--bv-line); padding-top: 18px; margin-top: 8px; }
+.bv-root .bv-journal h2 { font-size: var(--bv-fs-section); margin: 0 0 8px; }
+.bv-root .bv-journal-list { list-style: none; margin: 0; padding: 0; }
+.bv-root .bv-journal-list li { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--bv-line); }
+.bv-root .bv-journal-list time { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-journal-text { white-space: pre-line; overflow-wrap: anywhere; }
+.bv-root .bv-journal-list li > .bv-reading-draft { grid-column: 1 / -1; }
+.bv-root .bv-journal-edit { min-height: 44px; color: var(--bv-muted); }
+.bv-root .bv-reading-fold { margin-top: 22px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-reading-fold > summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--bv-muted); }
+.bv-root .bv-reading-manage { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 14px; }
+@media (max-width: 700px) {
+  .bv-root .bv-journal-list li { grid-template-columns: 4rem minmax(0, 1fr) auto; }
+}
