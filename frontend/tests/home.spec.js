@@ -98,7 +98,7 @@ test("a reader with no name sees just Home", async ({ page, app }) => {
 test("Update progress saves on Home, updates the card in place and returns focus", async ({ page, app }) => {
   await page.goto("/home");
   const button = page.getByRole("button", { name: "Update progress for Piranesi" });
-  await button.tap();
+  await button.click();
   const sheet = page.getByRole("dialog", { name: "Piranesi" });
   await expect(sheet.getByText("Last time: Page 156 of 245")).toBeVisible();
   await sheet.getByLabel("Page you’re on").fill("172");
@@ -109,7 +109,7 @@ test("Update progress saves on Home, updates the card in place and returns focus
   await expect(button).toBeFocused();
   const save = app.requests.find(request => request.method === "PATCH");
   expect(save.body).toMatchObject({ progress_unit: "pages", progress_value: 172, expected_version: 3 });
-  await button.tap();
+  await button.click();
   await expect(page.getByRole("link", { name: "I finished it" })).toHaveAttribute("href", "/my-books/201");
   await expect(page.getByRole("link", { name: "Add a note" })).toHaveAttribute("href", "/my-books/201");
 });

@@ -845,7 +845,8 @@ for (const theme of ["light", "dark"]) test(`zero-friction active reader journey
     await page.goto("/my-books");
     const cards = page.locator(".bv-personal-book");
     await expect(cards).toHaveCount(3);
-    await expect(cards.getByRole("button")).toHaveCount(0);
+    // No shelf buttons on a card: its only control is the quiet "more" menu button.
+    await expect(cards.getByRole("button").filter({ hasNotText: /^$/ }).and(page.locator(":not(.bv-more-button)"))).toHaveCount(0);
     await expect(page.getByRole("link", { name: /^Open your reading:/ })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "Shelf", exact: true }).getByRole("button")).toHaveCount(4);
     await page.screenshot({ path: test.info().outputPath(`simplified-library-${theme}-${width}.png`), fullPage: true });
