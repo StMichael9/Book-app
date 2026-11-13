@@ -1,6 +1,6 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
 import { getBookById } from "../../api/books.js";
 import { getBookDescription, getEntryDescription } from "../../api/descriptions.js";
+import ClampedText from "../ui-v2/ClampedText.jsx";
 import DescriptionBody from "../ui-v2/DescriptionBody.jsx";
 import { useDescription } from "../ui-v2/useDescription.js";
 import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
@@ -20,23 +20,6 @@ export function ReadingBookIdentity({ entry, flags, headingRef }) {
   </article>;
 }
 
-function Synopsis({ text }) {
-  const [expanded, setExpanded] = useState(false);
-  const [clipped, setClipped] = useState(false);
-  const paragraph = useRef(null);
-  const id = useId();
-  // The synopsis starts at two lines; offer Show more only when the clamp actually hides text.
-  // ResizeObserver reports once on observe, then on every width change.
-  useLayoutEffect(() => {
-    const node = paragraph.current;
-    if (!node || expanded) return undefined;
-    const observer = new ResizeObserver(() => setClipped(node.scrollHeight > node.clientHeight + 1));
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [text, expanded]);
-  return <><p ref={paragraph} id={id} className={`bv-private-text bv-description-full bv-reading-synopsis${!expanded ? " bv-reading-synopsis--short" : ""}`}>{text}</p>
-    {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}</>;
-}
 
 export function ReadingBookDetails({ bookId, description, entryId }) {
   const request = useRequest(() => getBookById(bookId), `book:${bookId}`, Boolean(bookId));
@@ -48,7 +31,7 @@ export function ReadingBookDetails({ bookId, description, entryId }) {
   const text = answered ? answer.data.text : own, google = answered && answer.data.source === "google" && Boolean(text);
   // A private book shows its description when there is one, and nothing at all otherwise.
   if (!bookId && !text) return null;
-  const shown = google ? <DescriptionBody text={text} link={answer.data.link} /> : text ? <Synopsis text={text} /> : answer.status === "error" && bookId ? <p className="bv-muted">A description isn’t available for this book yet.</p> : null;
+  const shown = google ? <DescriptionBody text={text} link={answer.data.link} /> : text ? <ClampedText text={text} lines={2} className="bv-private-text bv-description-full bv-reading-synopsis" /> : answer.status === "error" && bookId ? <p className="bv-muted">A description isn’t available for this book yet.</p> : null;
   return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
     <h3 id="bv-reading-about-title">About this book</h3>
     {!bookId ? shown
