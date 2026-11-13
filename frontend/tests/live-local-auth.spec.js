@@ -108,7 +108,7 @@ test("real HTTPS cookies, refresh, two-user isolation, persistence and password 
     await expect(a.getByRole("heading", { name: "This link is no longer valid." })).toBeVisible();
     await a.goto(`${origin}/login`); await a.getByLabel("Email address", { exact: true }).fill(emailA);
     await a.getByLabel("Password", { exact: true }).fill(password); await a.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(a.getByRole("alert")).toContainText("Invalid email or password");
+    await expect(a.getByRole("alert")).toContainText("That email and password don’t match.");
     await a.getByLabel("Password", { exact: true }).fill("New-local-password-456"); await a.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(a).toHaveURL(`${origin}${accountLanding}`);
     if (testInfo.config.metadata.readingTLS) await a.goto(`${origin}/my-books`);

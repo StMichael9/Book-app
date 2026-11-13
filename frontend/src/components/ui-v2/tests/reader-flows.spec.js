@@ -217,7 +217,7 @@ test("missing cover and description have intentional fallbacks; search failures 
 });
 
 test("external return URLs are ignored and invalid login preserves the form", async ({ page, app }) => {
-  app.loginFails = true; await page.goto("/login?returnTo=https%3A%2F%2Fexample.com"); await signIn(page); await expect(page.getByRole("alert")).toContainText("Invalid email or password"); await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("reader@example.com"); app.loginFails = false; await signIn(page); await expect(page).toHaveURL(/\/my-books$/);
+  app.loginFails = true; await page.goto("/login?returnTo=https%3A%2F%2Fexample.com"); await signIn(page); await expect(page.getByRole("alert")).toContainText("That email and password don’t match."); await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("reader@example.com"); app.loginFails = false; await signIn(page); await expect(page).toHaveURL(/\/my-books$/);
 });
 
 for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at ${width}px`, async ({ page, app }) => {

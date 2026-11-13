@@ -459,7 +459,7 @@ test("failed login displays an error and remains signed out", async ({ page, app
   await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveText("Invalid email or password");
+  await expect(page.getByRole("alert")).toHaveText("That email and password don’t match. Try again or reset your password.");
   await expect(page).toHaveURL(/\/login$/);
 });
 
