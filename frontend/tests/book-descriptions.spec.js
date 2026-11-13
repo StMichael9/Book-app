@@ -234,17 +234,22 @@ test("the profile sheet marks what is shown with an icon, not a text tick", asyn
 const googleText = "A quiet town, a long winter.\n\nSecond paragraph with <b>tags</b> & an ampersand, kept exactly as sent. " + "More words follow. ".repeat(30) + "The very last words.";
 const google = { text: googleText, source: "google", link: "https://books.google.com/books?id=abc123" };
 
-test("a Google description shows whole and as plain text, with a credit link that opens in a new tab", async ({ page, app }) => {
+test("a long Google description starts at five lines, opens whole as plain text, and keeps its credit link under it", async ({ page, app }) => {
   app.descriptions["book:1"] = google;
   await page.goto("/book/1");
-  const about = page.locator(".bv-description");
+  const about = page.locator(".bv-description"), text = about.locator(".bv-description-full");
+  await expect(text).toHaveText(googleText);
+  expect(await text.evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("5");
+  const more = about.getByRole("button", { name: "Show more" });
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(about.locator(".bv-description-credit")).toBeVisible();
+  await more.click();
+  await expect(about.getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+  expect(await text.evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("none");
   await expect(about.getByText("The very last words.")).toBeVisible();
-  await expect(about.locator(".bv-description-full")).toHaveText(googleText);
   await expect(about.getByText("<b>tags</b>", { exact: false })).toBeVisible();
   await expect(about.locator("b")).toHaveCount(0);
-  await expect(about.getByRole("button", { name: /show more/i })).toHaveCount(0);
-  await expect(about.locator(".bv-description-full")).toHaveCSS("white-space", "pre-line");
-  expect(await about.locator(".bv-description-full").evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("none");
+  await expect(text).toHaveCSS("white-space", "pre-line");
   const credit = about.getByRole("link", { name: "Description from Google Books (opens in a new tab)" });
   await expect(credit).toHaveText("Description from Google Books");
   await expect(credit).toHaveAttribute("href", "https://books.google.com/books?id=abc123");
@@ -354,4 +359,25 @@ test("description screenshots", async ({ page, app }) => {
     await page.goto("/my-books/300"); await expect(page.getByText("A memoir lent to me by my aunt.")).toBeVisible();
     await page.screenshot({ path: `${dir}/private-${label}-${theme}.png`, fullPage: true });
   }
+});
+
+test("a long book-page description starts at five lines with Show more; a short one has no toggle", async ({ page, app }) => {
+  const long = "Opening line of a long description. " + "Another sentence about the book. ".repeat(40) + "The final sentence.";
+  app.descriptions["book:1"] = { text: long, source: "openlibrary" };
+  app.descriptions["book:2"] = { text: "A short description.", source: "openlibrary" };
+  await page.goto("/book/1");
+  const about = page.locator(".bv-description"), text = about.locator(".bv-description-full");
+  await expect(text).toHaveText(long);
+  expect(await text.evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("5");
+  const more = about.getByRole("button", { name: "Show more" });
+  await expect(more).toHaveAttribute("aria-controls", await text.getAttribute("id"));
+  await more.click();
+  const less = about.getByRole("button", { name: "Show less" });
+  await expect(less).toHaveAttribute("aria-expanded", "true");
+  expect(await text.evaluate(node => node.scrollHeight <= node.clientHeight + 1)).toBe(true);
+  await less.click();
+  await expect(about.getByRole("button", { name: "Show more" })).toBeVisible();
+  await page.goto("/book/2");
+  await expect(page.locator(".bv-description .bv-description-full")).toHaveText("A short description.");
+  await expect(page.locator(".bv-description").getByRole("button", { name: /show (more|less)/i })).toHaveCount(0);
 });
