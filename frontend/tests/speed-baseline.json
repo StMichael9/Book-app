@@ -1,0 +1,22 @@
+{
+  "/home": {
+    "stages": 4,
+    "contentMs": 1842
+  },
+  "/my-books": {
+    "stages": 3,
+    "contentMs": 1539
+  },
+  "/browse (signed in)": {
+    "stages": 2,
+    "contentMs": 1314
+  },
+  "/book/{id} (direct)": {
+    "stages": 3,
+    "contentMs": 1394
+  },
+  "/my-books/{entryId} (direct)": {
+    "stages": 3,
+    "contentMs": 1550
+  }
+}
