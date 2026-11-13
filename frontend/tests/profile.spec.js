@@ -270,12 +270,12 @@ test("Esc and Cancel on the Edit profile sheet discard changes and send nothing"
 });
 
 test("the avatar picker previews the choice, sends the icon and colour, and the header and You tab show it", async ({ page, app }) => {
-  await page.setViewportSize({ width: 375, height: 800 });
+  // The header avatar is for desktop; on a phone the You tab carries it (the phone top bar is only the logo).
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("/profile");
   const header = page.locator(".bv-header-avatar"), tab = page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You" });
   await expect(header).toHaveAttribute("aria-label", "Your profile");
   await expect(header.locator(".bv-avatar")).toHaveCSS("width", "32px");
-  await expect(tab.locator(".bv-avatar")).toHaveCSS("width", "22px");
   await expect(header.locator(".bv-avatar")).toHaveCSS("background-color", "rgb(40, 81, 63)");
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "96px");
   await page.getByRole("button", { name: "Edit profile" }).click();
@@ -291,15 +291,20 @@ test("the avatar picker previews the choice, sends the icon and colour, and the 
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toBeHidden();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ avatar_icon: "feather", avatar_color: "plum" });
-  for (const avatar of [header.locator(".bv-avatar"), tab.locator(".bv-avatar"), page.locator(".bv-profile-head .bv-avatar")]) {
+  for (const avatar of [header.locator(".bv-avatar"), page.locator(".bv-profile-head .bv-avatar")]) {
     await expect(avatar).toHaveCSS("background-color", "rgb(107, 63, 94)");
     await expect(avatar.locator("svg")).toHaveCount(1);
   }
-  // The glyph is about 44% of the diameter: 30 px in the 68 px avatar, 14 in the 32 px header, 10 in the 22 px tab.
+  // The glyph is about 44% of the diameter: 42 px in the profile avatar, 14 in the 32 px header, 10 in the 22 px tab.
   const glyphWidth = avatar => avatar.locator("svg").evaluate(node => Math.round(node.getBoundingClientRect().width));
-  expect([await glyphWidth(page.locator(".bv-profile-head .bv-avatar")), await glyphWidth(header.locator(".bv-avatar")), await glyphWidth(tab.locator(".bv-avatar"))]).toEqual([42, 14, 10]);
+  expect([await glyphWidth(page.locator(".bv-profile-head .bv-avatar")), await glyphWidth(header.locator(".bv-avatar"))]).toEqual([42, 14]);
   await header.click();
   await expect(page).toHaveURL(/\/profile$/);
+  await page.setViewportSize({ width: 375, height: 800 });
+  await expect(tab.locator(".bv-avatar")).toHaveCSS("width", "22px");
+  await expect(tab.locator(".bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
+  await expect(tab.locator(".bv-avatar svg")).toHaveCount(1);
+  expect(await glyphWidth(tab.locator(".bv-avatar"))).toBe(10);
 });
 
 test("with no avatar chosen the avatar shows the reader's initials on green", async ({ page, app: _app }) => {

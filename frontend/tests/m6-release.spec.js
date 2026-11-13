@@ -43,8 +43,9 @@ for (const scenario of [
 test("M6 saved theme switches and reloads without preference reversal", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.route("**/test-api/**", route => route.fulfill({ status: 401, json: {} }));
+  // The switch lives in Settings; a saved choice is what the app reads. Start from a saved dark choice.
+  await page.addInitScript(() => { if (!sessionStorage.getItem("m6-seeded")) { sessionStorage.setItem("m6-seeded", "1"); localStorage.setItem("bookvane-theme", "dark"); } });
   await page.goto("/login");
-  await page.getByRole("button", { name: "Use dark theme", exact: true }).click();
   await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(30, 29, 27)");
@@ -52,7 +53,8 @@ test("M6 saved theme switches and reloads without preference reversal", async ({
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
-  await page.getByRole("button", { name: "Use light theme", exact: true }).click();
+  await page.evaluate(() => localStorage.setItem("bookvane-theme", "light"));
+  await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator("body")).toHaveCSS("background-color", "rgb(250, 248, 242)");
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
