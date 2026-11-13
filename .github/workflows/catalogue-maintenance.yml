@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply"
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply"
         required: true
         default: remap_genres
         type: choice
@@ -15,6 +15,8 @@ on:
           - remap_genres
           - clean_dry_run
           - clean_apply
+          - fill_descriptions_dry_run
+          - fill_descriptions_apply
       target_env:
         description: GitHub environment, which selects the database secret (a safety copy or production)
         required: true
@@ -83,8 +85,22 @@ jobs:
             clean_apply)
               python -m data.clean_catalogue --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/clean-report.md"
               head -40 "$RUNNER_TEMP/clean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            fill_descriptions_dry_run)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.fill_descriptions --mode production --dry-run --samples 50 --report "$RUNNER_TEMP/fill-report.md"
+              head -20 "$RUNNER_TEMP/fill-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            fill_descriptions_apply)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.fill_descriptions --mode production --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/fill-report.md"
+              head -20 "$RUNNER_TEMP/fill-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "unknown task"; exit 1 ;;
           esac
+      - name: Keep the description report
+        if: ${{ always() && startsWith(inputs.task, 'fill_descriptions_') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-description-report
+          path: ${{ runner.temp }}/fill-report.md
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep the cleaning report
         if: ${{ always() && startsWith(inputs.task, 'clean_') }}
         uses: actions/upload-artifact@v4
