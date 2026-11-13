@@ -223,8 +223,8 @@ export default function LibraryPage() {
               })}</nav>}
               <div className="bv-library-list">{groups.map((group, groupIndex) => <section key={groupIndex} className="bv-letter-group" aria-label={group.letter ? `${group.letter === "#" ? "Other" : group.letter}` : undefined}>
                 {group.letter && <h3 className="bv-letter" tabIndex={-1} {...(groups.findIndex(other => other.letter === group.letter) === groupIndex ? { id: letterId(group.letter) } : {})}>{group.letter === "#" ? "Other" : group.letter}</h3>}
-                <ul>{group.items.map(entry => <LibraryEntryRow key={entry.id} entry={entry} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView} />)}</ul></section>)}</div>
-            </div> : <div className="bv-book-grid">{items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView}
+                <ul>{group.items.map(entry => <LibraryEntryRow key={entry.id} entry={entry} moreMenu={!library.readOnly} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView} />)}</ul></section>)}</div>
+            </div> : <div className="bv-book-grid">{items.map((entry, index) => <LibraryEntryCard key={entry.id} entry={entry} moreMenu={!library.readOnly} priority={index < 5} readingActions={library.readingActions} navigationState={{ libraryReturn: location.key }} onOpen={rememberView}
               buyUrl={state.shelf === "want" && entry.book ? bookshopAffiliateUrl(entry.book) : undefined} />)}</div>}
             {affiliateLinks && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}
             <div className="bv-show-more">
