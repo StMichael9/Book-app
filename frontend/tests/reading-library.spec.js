@@ -361,7 +361,7 @@ test("filter chips hand focus on, the badge reads aloud, and N of M shows on a f
 test("on a phone the Filters button says how many are active", async ({ page, app }) => {
   app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/my-books?has=1&note=1");
+  await page.goto("/my-books?has=1&length=short");
   await expect(page.getByRole("button", { name: "Filters (1 active)" })).toBeVisible();
 });
 
@@ -500,6 +500,60 @@ test("filters show live counts, narrow the list and come off as chips", async ({
   await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
   await page.getByRole("button", { name: "Clear all", exact: true }).click();
   await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+});
+
+test("the Genre filter shows genre names and never a key", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id), book: { ...books[book.id - 1], tags: book.id <= 2 ? [{ id: 7, name: "art_music" }] : [] } }]));
+  app.facets = { subject: [{ value: 7, label: "art_music", count: 2 }, { value: 9, label: "cosy_vibes", count: 1 }], author: [], length: [] };
+  await page.goto("/my-books");
+  const genre = page.getByRole("complementary", { name: "Filters" }).getByRole("group", { name: "Genre" });
+  await expect(genre.getByRole("checkbox")).toHaveCount(1);
+  await genre.getByRole("checkbox", { name: /Art & music/ }).check();
+  await expect(page).toHaveURL(/subject=7/);
+  await expect(page.getByRole("button", { name: "Remove filter: Art & music" })).toBeVisible();
+  await expect(page.getByText(/art_music|cosy_vibes/)).toHaveCount(0);
+  // A fresh load of the filtered link names the chip from the genre list too.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Remove filter: Art & music" })).toBeVisible();
+  await expect(page.getByText(/art_music|cosy_vibes/)).toHaveCount(0);
+});
+
+test("the filter panel holds Genre, Author and Length, and nothing else", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id), book: { ...books[book.id - 1], tags: book.id <= 2 ? [{ id: 7, name: "fantasy" }] : [] } }]));
+  app.facets = { subject: [{ value: 7, label: "fantasy", count: 2 }], author: [{ value: "author 1", label: "Author 1", count: 3 }], length: [{ value: "short", label: "Short", count: 1 }, { value: "medium", label: "Medium", count: 0 }, { value: "long", label: "Long", count: 0 }],
+    year_finished: [{ value: 2026, label: "2026", count: 2 }], source_label: [{ value: "Goodreads", label: "Goodreads", count: 4 }] };
+  await page.goto("/my-books");
+  const panel = page.getByRole("complementary", { name: "Filters" });
+  await expect(panel.locator("legend")).toHaveText(["Genre", "Author", "Length"]);
+  await expect(panel.getByRole("searchbox", { name: "Find an author" })).toBeVisible();
+  await expect(panel.getByText(/Imported from|Just imported|Year finished|Has my note|Goodreads|2026/)).toHaveCount(0);
+  // Each of the three still narrows the list and comes off as a chip.
+  for (const [name, param, chip] of [[/Fantasy/, /subject=7/, "Fantasy"], [/Author 1/, /author=author\+1/, "Author 1"], [/Short/, /length=short/, "Short"]]) {
+    await panel.getByRole("checkbox", { name }).check();
+    await expect(page).toHaveURL(param);
+    await page.getByRole("button", { name: `Remove filter: ${chip}` }).click();
+    await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  await expect(page.getByRole("dialog", { name: "Filters" }).locator("legend")).toHaveText(["Genre", "Author", "Length"]);
+});
+
+test("an old link with a removed filter shows every book, with no chips and no filter count", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 6).map(book => [book.id, row(book.id)]));
+  await page.goto("/my-books?source=Goodreads&year=2026&note=1&imported=week");
+  await expect(page.locator(".bv-book-card")).toHaveCount(6);
+  await expect(page.getByText("6 books", { exact: true })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+  const sent = app.requests.filter(request => request.path === "/me/library");
+  expect(sent.length).toBeGreaterThan(0);
+  for (const request of sent) for (const name of ["source_label", "year_finished", "has_note", "imported_since"]) expect(request.query.has(name)).toBe(false);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("button", { name: "Filters", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-filters-button .bv-count-badge")).toHaveCount(0);
+  // Using any control drops the old keys from the address.
+  await page.getByRole("button", { name: /^Want to read/ }).click();
+  await expect(page).toHaveURL(/\/my-books\?status=want$/);
 });
 
 test("on a phone the filters open in a sheet that shows the result count", async ({ page, app }) => {

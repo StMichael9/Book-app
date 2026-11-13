@@ -732,7 +732,7 @@ test("a list page shows shelf status per book, can be shared and made private, r
   await page.getByRole("button", { name: "Make private" }).click();
   await expect(page.getByText("Only you can see this list")).toBeVisible();
   await expect(page.getByRole("link", { name: "Add a book" })).toHaveAttribute("href", "/my-books");
-  await expect(page.getByText("Open a book and choose Add to list.")).toBeVisible();
+  await expect(page.getByText("Add books from My Books or any book page.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Rename or delete" })).toHaveCount(0);
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("button", { name: "Rename or delete" }).click();

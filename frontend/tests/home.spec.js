@@ -15,7 +15,7 @@ const pin = (id, extra = {}) => ({ entry_id: 100 + id, book_id: id, title: TITLE
 const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
     const state = { errors: [], requests: [], name: "Rae Fixture", currentReads: [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468)],
-      entries: TITLES.map((_, index) => entry(index + 1)), pins: null, pinsStatus: 200, putStatus: 200, stats: null, facets: { length: [{ value: "short", label: "Short", count: 3 }], subject: [{ value: 7, label: "Fantasy", count: 4 }] }, hour: null };
+      entries: TITLES.map((_, index) => entry(index + 1)), pins: null, lists: null, workspaceEntries: {}, readOnly: false, pinsStatus: 200, putStatus: 200, stats: null, facets: { length: [{ value: "short", label: "Short", count: 3 }], subject: [{ value: 7, label: "Fantasy", count: 4 }] }, hour: null };
     page.on("pageerror", error => state.errors.push(error.message));
     await page.route("**/*", async route => {
       const url = new URL(route.request().url()), method = route.request().method();
@@ -29,7 +29,7 @@ const test = base.extend({
       if (path === "/health") return reply(200, { status: "ok" });
       if (path === "/auth/refresh") return reply(200, {});
       if (path === "/me/profile") return reply(200, { display_name: state.name, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: true } });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: !state.readOnly, contract_version: 1, features: { reading_actions: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: state.currentReads, reading_count: state.currentReads.length, paused_count: 0 });
       if (path === "/me/stats") return reply(200, state.stats || { year: 2026, books_finished: 23, pages_read: 7840, median_days: 11, biggest_month: 5, by_month: [2, 1, 3, 2, 4, 1, 3, 2, 1, 3, 1, 0], top_genres: [], shelf: { owned_unfinished: 4, want: 4, oldest_waiting: { entry_id: 108, book_id: 8, title: "Orlando", cover_url: null, saved_at: "2021-03-01T00:00:00Z" } } });
       if (path === "/me/up-next") {
@@ -52,8 +52,15 @@ const test = base.extend({
         if (url.searchParams.get("length") === "short") items = items.filter(item => item.book.page_count < 250);
         return reply(200, { items, counts: { all: state.entries.length, owned: state.entries.filter(item => item.is_owned).length, want: state.entries.filter(item => item.is_wanted).length, reading: 2, paused: 0, finished: 0, dnf: 0 }, total: items.length, next_cursor: null, facets: state.facets, index: null });
       }
+      if (path === "/me/lists" && method === "GET" && state.lists) return reply(200, state.lists.map(list => ({ id: list.id, name: list.name, description: null, is_public: false, book_count: list.books.length, covers: [], has_book: list.books.includes(Number(url.searchParams.get("book_id"))) })));
+      const listBook = path.match(/^\/me\/lists\/(\d+)\/books(?:\/(\d+))?$/);
+      if (listBook && state.lists) {
+        const list = state.lists.find(item => item.id === Number(listBook[1]));
+        if (method === "POST") list.books.push(body.book_id); else list.books = list.books.filter(id => id !== Number(listBook[2]));
+        return reply(200, {});
+      }
       const workspace = path.match(/^\/me\/library\/(\d+)\/reading$/);
-      if (workspace) return reply(200, { entry: entry(Number(workspace[1]) - 100), current_attempt: null, editions: [] });
+      if (workspace) return reply(200, { entry: state.workspaceEntries[workspace[1]] || entry(Number(workspace[1]) - 100), current_attempt: null, editions: [] });
       const attempt = path.match(/^\/me\/reading-attempts\/(.+)$/);
       if (attempt && method === "PUT") return reply(200, { entry: { ...entry(body.entry_id - 100), reading_state: "reading" }, attempt: { id: attempt[1], state: "reading", started_on: body.started_on } });
       if (attempt && method === "PATCH") {
@@ -171,7 +178,7 @@ test("Start opens a reading from an Up next card", async ({ page, app }) => {
 test("Can't decide? shows three at a time and Try again walks through the rest", async ({ page, app }) => {
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" });
-  await expect(pills.getByRole("button", { name: "More fantasy" })).toBeEnabled();
+  await expect(pills.getByRole("button", { name: "More Fantasy" })).toBeEnabled();
   await pills.getByRole("button", { name: "Something I own" }).click();
   const picks = page.locator(".bv-picks .bv-next-card");
   await expect(picks).toHaveCount(3);
@@ -259,6 +266,59 @@ test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
   await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [] });
 });
 
+test("the My Books book page adds the book to a list and takes it off again", async ({ page, app }) => {
+  app.lists = [{ id: 7, name: "Holiday", books: [] }];
+  await page.goto("/my-books/101");
+  const actions = page.locator(".bv-workspace-identity");
+  await actions.getByRole("button", { name: "Add to list" }).click();
+  const panel = page.getByRole("group", { name: "Add Middlemarch to a list" });
+  await panel.getByRole("checkbox", { name: "Holiday" }).check();
+  await expect.poll(() => app.requests.filter(request => request.method === "POST" && request.path === "/me/lists/7/books").at(-1)?.body).toEqual({ book_id: 1 });
+  await panel.getByRole("checkbox", { name: "Holiday" }).uncheck();
+  await expect.poll(() => app.requests.filter(request => request.method === "DELETE" && request.path === "/me/lists/7/books/1").length).toBe(1);
+  // The two quiet controls follow the Want to read / I own it flags, in the book page's order, and stay out of the Start reading row.
+  await page.keyboard.press("Escape");
+  expect(await actions.evaluate(node => [...node.querySelectorAll("button")].map(button => button.textContent.trim()))).toEqual(["Want to read", "I own it", "Add to list", "Pin to Up next"]);
+  await expect(page.getByRole("group", { name: "Reading actions" }).getByRole("button")).toHaveText(["Start reading"]);
+});
+
+test("the My Books book page pins the book to Up next and unpins it", async ({ page, app }) => {
+  app.pins = [];
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Pin to Up next" }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT" && request.path === "/me/up-next").at(-1)?.body).toEqual({ entry_ids: [101] });
+  await page.getByRole("button", { name: "Unpin", exact: true }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT" && request.path === "/me/up-next").at(-1)?.body).toEqual({ entry_ids: [] });
+  await expect(page.getByRole("button", { name: "Pin to Up next" })).toBeVisible();
+});
+
+test("a private book's page has neither Add to list nor Pin to Up next", async ({ page, app }) => {
+  app.pins = []; app.lists = [{ id: 7, name: "Holiday", books: [] }];
+  app.workspaceEntries[150] = { ...app.entries[0], id: 150, book_id: null, book: null, private_title: "My zine", private_author: "A Friend", is_wanted: true, is_owned: false };
+  await page.goto("/my-books/150");
+  await expect(page.getByRole("heading", { name: "My zine", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Want to read" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add to list" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Pin to Up next|Unpin/ })).toHaveCount(0);
+});
+
+test("while changes are paused the My Books book page offers neither control", async ({ page, app }) => {
+  app.pins = []; app.lists = []; app.readOnly = true;
+  await page.goto("/my-books/101");
+  await expect(page.getByRole("button", { name: "Want to read" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add to list" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Pin to Up next|Unpin/ })).toHaveCount(0);
+});
+
+test("Can't decide? keeps the genre's name as written, capitals included", async ({ page, app }) => {
+  app.facets = { ...app.facets, subject: [{ value: 7, label: "art_music", count: 4 }] };
+  await page.goto("/home");
+  const pills = page.getByRole("group", { name: "Help me choose" });
+  await pills.getByRole("button", { name: "More Art & music", exact: true }).click();
+  await expect(page.locator(".bv-choose-foot")).toContainText("Art & music you own or want");
+  await expect(page.getByText(/art_music|art & music/)).toHaveCount(0);
+});
+
 test("a book's page has no pin button before pinning exists", async ({ page, app }) => {
   app.pinsStatus = 404;
   await page.goto("/book/1");
@@ -326,13 +386,13 @@ test("switching a pill keeps the old cards, dimmed, and the page never shrinks w
 test("a shelf pill asks the library a bounded number of times and then stops", async ({ page, app }) => {
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" });
-  await expect(pills.getByRole("button", { name: "More fantasy" })).toBeVisible();
+  await expect(pills.getByRole("button", { name: "More Fantasy" })).toBeVisible();
   app.requests.length = 0;
-  await pills.getByRole("button", { name: "More fantasy" }).click();
+  await pills.getByRole("button", { name: "More Fantasy" }).click();
   await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
   const library = () => app.requests.filter(request => request.path === "/me/library").length;
   const settled = library();
-  // "More fantasy" reads Want to read and what you own: at most two requests per source.
+  // "More Fantasy" reads Want to read and what you own: at most two requests per source.
   expect(settled).toBeLessThanOrEqual(4);
   await page.waitForTimeout(2000);
   expect(library()).toBe(settled);
