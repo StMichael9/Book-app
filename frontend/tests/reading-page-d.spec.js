@@ -203,12 +203,13 @@ test("keyboard order runs header, menu, box, Save, thought, Pause, Finish, journ
   expect(await page.evaluate(() => Boolean(document.activeElement?.closest(".bv-journal")))).toBe(true);
 });
 
-test("the save does not send `on` while SEND_PROGRESS_DAY is false", async ({ page, app }) => {
+test("the save sends the reader's local day as `on`", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await onPage(page).fill("52");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => app.patches.length).toBe(1);
-  expect(Object.keys(app.patches[0])).not.toContain("on");
+  const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  expect(app.patches[0].on).toBe(today);
 });
 
 test("progress days show one line each in the journal, newest first; a missing or empty list shows nothing", async ({ page, app }) => {
