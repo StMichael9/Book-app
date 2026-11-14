@@ -48,11 +48,12 @@ def test_only_the_data_load_and_description_tasks_opt_in_to_production():
     branches = _branches(_task_script(_load()))
     assert {"backfill_popularity", "remap_genres", "clean_dry_run", "clean_apply",
             "fill_descriptions_dry_run", "fill_descriptions_apply", "retag_genres_dry_run", "retag_genres_apply",
-            "reclean_descriptions_dry_run", "reclean_descriptions_apply"} <= set(branches)
+            "reclean_descriptions_dry_run", "reclean_descriptions_apply",
+            "reclean_stored_dry_run", "reclean_stored_apply"} <= set(branches)
     opted_in = {task for task, body in branches.items() if f"{OPT_IN}=yes" in body}
     assert opted_in == {"backfill_popularity", "remap_genres", "fill_descriptions_dry_run", "fill_descriptions_apply",
                         "retag_genres_dry_run", "retag_genres_apply", "reclean_descriptions_dry_run",
-                        "reclean_descriptions_apply"}
+                        "reclean_descriptions_apply", "reclean_stored_dry_run", "reclean_stored_apply"}
     for task in ("backfill_popularity", "remap_genres"):
         assert re.search(rf"{OPT_IN}=yes python -m data\.load\b", branches[task]), task
     for task in ("fill_descriptions_dry_run", "fill_descriptions_apply"):
@@ -89,6 +90,17 @@ def test_the_description_reclean_dry_run_cannot_apply_and_the_apply_is_tagged():
     assert "--tag" in branches["reclean_descriptions_apply"]
     options = _load()[True]["workflow_dispatch"]["inputs"]["task"]["options"]
     assert {"reclean_descriptions_dry_run", "reclean_descriptions_apply"} <= set(options)
+
+
+def test_the_stored_text_reclean_dry_run_cannot_apply_and_the_apply_is_tagged():
+    branches = _branches(_task_script(_load()))
+    assert "--dry-run" in branches["reclean_stored_dry_run"] and "--apply" not in branches["reclean_stored_dry_run"]
+    assert "--apply" in branches["reclean_stored_apply"] and "--dry-run" not in branches["reclean_stored_apply"]
+    assert "--tag" in branches["reclean_stored_apply"]
+    for task in ("reclean_stored_dry_run", "reclean_stored_apply"):
+        assert re.search(rf"{OPT_IN}=yes python -m data\.reclean_stored --mode production\b", branches[task]), task
+    options = _load()[True]["workflow_dispatch"]["inputs"]["task"]["options"]
+    assert {"reclean_stored_dry_run", "reclean_stored_apply"} <= set(options)
 
 
 def test_remap_still_defaults_to_a_dry_run():
