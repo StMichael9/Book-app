@@ -165,3 +165,13 @@ test("the logo link is at least 44 px tall", async ({ page, app: _app }) => {
     expect(box.height).toBeGreaterThanOrEqual(44);
   }
 });
+
+test("a returning reader during an outage sees Account unavailable in the header, not an empty avatar", async ({ page, app }) => {
+  await page.route("**/test-api/auth/refresh", route => route.abort());
+  await page.addInitScript(() => localStorage.setItem("bookvane:session-hint:v1", "1"));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/browse");
+  await expect(page.locator(".bv-header").getByRole("status").filter({ hasText: "Account unavailable" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("link", { name: "Your profile", exact: true })).toHaveCount(0);
+  void app;
+});
