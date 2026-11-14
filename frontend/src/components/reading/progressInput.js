@@ -1,8 +1,8 @@
 // The progress box takes one thing: a page ("52") or a percent ("35%"). The unit is whatever was typed.
 
-// The progress save will send the reader's local day as `on` once the backend accepts it (T55). Until then the endpoint rejects
-// unknown fields, so it stays off. Switch it on here, in this one place.
-export const SEND_PROGRESS_DAY = false;
+// The progress save sends the reader's local day as `on`, so the journal's day lines use the reader's calendar (T55, live 14 Nov 2026).
+// Switch it off here, in this one place, if the backend ever needs it held back.
+export const SEND_PROGRESS_DAY = true;
 
 export const UNREADABLE = "Type a page, like 52, or a percent, like 35%.";
 

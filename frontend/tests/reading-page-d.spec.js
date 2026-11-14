@@ -64,7 +64,7 @@ for (const where of ["Home", "the book page"]) {
     const box = where === "Home" ? home(page) : onPage(page);
     await box.fill("52");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52 });
+    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. Page 52, 14%.");
     await expect(box).toHaveValue("");
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -76,7 +76,7 @@ for (const where of ["Home", "the book page"]) {
     await box.fill("35 %");
     await expect(page.getByText("about page 126")).toBeVisible();
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35 });
+    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. 35%, about page 126.");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
@@ -107,7 +107,7 @@ test("a page with no known total asks for it once, inline, and saves it with the
   expect(app.patches).toHaveLength(0);
   await page.getByLabel("How many pages in your copy?").fill("360");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, total_pages: 360 });
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, total_pages: 360, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   await expect(page.getByLabel("How many pages in your copy?")).toHaveCount(0);
 });
 
@@ -203,12 +203,13 @@ test("keyboard order runs header, menu, box, Save, thought, Pause, Finish, journ
   expect(await page.evaluate(() => Boolean(document.activeElement?.closest(".bv-journal")))).toBe(true);
 });
 
-test("the save does not send `on` while SEND_PROGRESS_DAY is false", async ({ page, app }) => {
+test("the save sends the reader's local day as `on`", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await onPage(page).fill("52");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect.poll(() => app.patches.length).toBe(1);
-  expect(Object.keys(app.patches[0])).not.toContain("on");
+  const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
+  expect(app.patches[0].on).toBe(today);
 });
 
 test("progress days show one line each in the journal, newest first; a missing or empty list shows nothing", async ({ page, app }) => {
