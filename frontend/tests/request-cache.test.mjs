@@ -182,3 +182,23 @@ test("clearing the cache drops an early answer, and an early request that finish
   assert.equal(cache.readRequestCache("late"), null);
   assert.equal(cache.requestCacheSize(), 0);
 });
+
+// The early-request marker (api/client.js): an expired session met by a request started with the account check is left to
+// the check, even when the loader awaits something before calling apiRequest. Outside the window, the expiry is announced.
+test("an early request that awaits before asking does not announce an expired session; a normal one does", async () => {
+  const events = [];
+  globalThis.window = { dispatchEvent: event => { events.push(event.type); return true; }, addEventListener() {}, removeEventListener() {} };
+  globalThis.fetch = async () => new Response(JSON.stringify({ detail: "Session expired" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  const client = await import(`../src/api/client.js?case=${crypto.randomUUID()}`);
+  let finish;
+  const check = new Promise(done => { finish = done; });
+  client.speculativeUntil(check);
+  const early = client.asSpeculative(async () => { await Promise.resolve(); await new Promise(done => setTimeout(done, 5)); return client.apiRequest("/me/profile"); });
+  await assert.rejects(early);
+  assert.deepEqual(events.filter(type => type === "bookvane:session-expired"), []);
+  finish();
+  await check; await new Promise(done => setTimeout(done, 0));
+  await assert.rejects(client.apiRequest("/me/profile"));
+  assert.deepEqual(events.filter(type => type === "bookvane:session-expired"), ["bookvane:session-expired"]);
+  delete globalThis.window; delete globalThis.fetch;
+});

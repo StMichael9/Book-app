@@ -37,6 +37,7 @@ export async function checkService() {
 let sessionChanges = 0;
 let sessionEpoch = 0;
 let speculativeCalls = 0;
+let speculativeWindows = 0;
 
 // Requests a returning reader's page starts together with the account check (api/earlyStart.js) may meet an expired session.
 // The account check itself decides what that means for the reader, so these do not announce the expiry a second time.
@@ -44,6 +45,15 @@ let speculativeCalls = 0;
 export function asSpeculative(load) {
   speculativeCalls += 1;
   try { return load(); } finally { speculativeCalls -= 1; }
+}
+
+// The sturdier half of the marker: while the startup account check is under way no page that needs an account is shown, so any
+// request that meets a 401 in that time is one of the early ones, even if its loader awaited something before calling apiRequest.
+// The window closes once the check and its handlers have finished.
+export function speculativeUntil(settled) {
+  speculativeWindows += 1;
+  const close = () => { speculativeWindows -= 1; };
+  Promise.resolve(settled).then(close, close);
 }
 
 export function refreshSession() {
@@ -83,7 +93,7 @@ export async function withSessionChange(change) {
 
 export async function apiRequest(path, options = {}) {
   const epoch = sessionEpoch;
-  const { skipRefresh = false, responseType, speculative = speculativeCalls > 0, ...requestOptions } = options;
+  const { skipRefresh = false, responseType, speculative = speculativeCalls > 0 || speculativeWindows > 0, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
   let response;

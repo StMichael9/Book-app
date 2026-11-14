@@ -28,8 +28,9 @@ export const loadHomeShelf = () => getLibraryPage({ facet: "all", sort: "added",
 
 const idFrom = value => (/^\d{1,9}$/.test(value || "") && Number(value) > 0 ? Number(value) : null);
 
+// Returns whether anything was started.
 export function startEarly(generation, { pathname = window.location.pathname, search = window.location.search } = {}) {
-  if (!likelySignedIn()) return;
+  if (!likelySignedIn()) return false;
   const go = (key, load) => startEarlyRequest(key, () => asSpeculative(load));
   go(profileKey(generation), getProfile);
   go(capabilitiesKey(generation), getReadingCapabilities);
@@ -44,7 +45,7 @@ export function startEarly(generation, { pathname = window.location.pathname, se
     go(keys.pins, getUpNext);
   } else if (path === "/my-books") {
     // Coming back from a book restores a longer list under another key; that case asks for itself.
-    if (Number(window.history.state?.usr?.libraryLoaded) > PAGE_SIZE) return;
+    if (Number(window.history.state?.usr?.libraryLoaded) > PAGE_SIZE) return true;
     const state = readLibraryState(new URLSearchParams(search));
     go(libraryKey(generation, state, 0), () => loadLibraryPage(state, "", PAGE_SIZE));
   } else if (path === "/browse") {
@@ -57,4 +58,5 @@ export function startEarly(generation, { pathname = window.location.pathname, se
     go(`book:${id}`, () => getBookById(id)); // the key data.js and the book pages use
     go(lookupKey(generation, id), () => lookupLibraryBooks([id]));
   }
+  return true;
 }

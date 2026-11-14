@@ -166,7 +166,7 @@ test("hint set but the session has expired: one calm signed-out landing, no dupl
   await expect(page).toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { name: /Sign in|Welcome back/ }).first()).toBeVisible();
   expect(app.calls("/auth/refresh", "POST").length).toBe(1);
-  expect(await page.evaluate(() => window.__expired)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => window.__expired)).toBe(0);
   await expect(page.getByText(OWN.a.title)).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
   expect(await page.evaluate(() => localStorage.getItem("bookvane:session-hint:v1"))).toBeNull();

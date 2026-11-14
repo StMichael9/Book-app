@@ -8,6 +8,7 @@ import {
 } from "../api/auth.js";
 import { clearBookCache, rememberSignedIn } from "../api/bookCache.js";
 import { startEarly } from "../api/earlyStart.js";
+import { speculativeUntil } from "../api/client.js";
 import { clearRequestCache } from "../api/requestCache.js";
 
 const AuthContext = createContext(null);
@@ -42,8 +43,8 @@ export function AuthProvider({ children }) {
     const pending = refreshSession();
     startupRefresh.current = pending;
     // A returning reader's page data starts now, together with the account check (api/earlyStart.js).
-    startEarly(version);
-    return pending
+    const early = startEarly(version);
+    const checked = pending
       .then(() => {
         if (isCurrent()) {
           setIsAuthenticated(true);
@@ -54,6 +55,7 @@ export function AuthProvider({ children }) {
         if (!isCurrent()) return;
         if (error.status === 401) {
           clearBookCache("member"); // a signed-in copy must not outlive its session; the guest copy stays
+          clearRequestCache(); // nothing started early outlives a failed check
           setIsAuthenticated(false);
           setIsLoading(false);
         } else {
@@ -62,6 +64,9 @@ export function AuthProvider({ children }) {
           setSessionError("We couldn’t reach the server. Your saved books haven’t changed.");
         }
       });
+    // Early requests that meet a 401 before the check has finished leave the verdict to it (api/client.js speculativeUntil).
+    if (early) speculativeUntil(checked);
+    return checked;
   }, []);
 
   useEffect(() => {
