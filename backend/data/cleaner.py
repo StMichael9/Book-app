@@ -242,8 +242,8 @@ _CREDIT_WORDS = frozenset(
 
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
 REVIEW = re.compile(
-    r"\b(?:title\s+of\s+review|my\s+rating|my\s+review|i\s+give\s+this\s+(?:book|one)|stars?\s+out\s+of|"
-    r"out\s+of\s+(?:5|five)\s+stars)\b", re.IGNORECASE)
+    # Star counts alone ("five out of five stars") also appear in real blurbs, so only first-person review phrases count.
+    r"\b(?:title\s+of\s+review|my\s+rating|my\s+review|i\s+give\s+this\s+(?:book|one))\b", re.IGNORECASE)
 _CONTENTS_LABEL = re.compile(r"\b(?:table\s+of\s+)?contents\s*:", re.IGNORECASE)
 _SPACED_SLASH = re.compile(r"\s/\s")
 _SENTENCE_END = re.compile(r"[.!?]\s+(?=[A-Z])")
