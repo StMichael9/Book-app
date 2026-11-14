@@ -26,7 +26,9 @@ def test_a_reader_review_is_dropped():
 
 def test_ordinary_blurbs_that_mention_reviews_or_stars_are_kept():
     for text in ("A New York Times review called this the best crime novel of the decade, and the detective is its star.",
-                 "The stars wheel overhead as the old astronomer counts out the long nights of his last winter on the hill."):
+                 "The stars wheel overhead as the old astronomer counts out the long nights of his last winter on the hill.",
+                 "How could it have happened that a wine was given five out of five stars, the highest rating, in one journal "
+                 "and in another it was called the worst wine of the decade?"):
         assert cleaner.clean_description(text) == text, text
 
 
