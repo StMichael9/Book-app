@@ -17,6 +17,15 @@ class TagSchema(BaseModel):
     type: str
 
 
+class BookSuggestion(BaseModel):
+    """One title type-ahead suggestion: no description, no tags, just enough for a dropdown row."""
+    id: int
+    title: str
+    authors: list[str] = []
+    cover_url: str | None = None
+    year: int | None = None
+
+
 class BookSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
