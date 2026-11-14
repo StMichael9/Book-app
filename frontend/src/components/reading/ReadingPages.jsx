@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { workspaceKey } from "../../api/earlyStart.js";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
@@ -70,7 +71,7 @@ export function ReadingWorkspacePage() {
   const libraryView = navigation.get(location.state?.libraryReturn);
   const auth = useAuth(), library = useUserBooks();
   const reader = useReader();
-  const request = useRequest(() => getReadingWorkspace(entryId), `workspace:${auth.sessionGeneration}:${entryId}:${library.revision}`);
+  const request = useRequest(() => getReadingWorkspace(entryId), workspaceKey(auth.sessionGeneration, entryId, library.revision));
   const command = useReadingCommand();
   const intent = useRef(null);
   const [editing, setEditing] = useState(null);

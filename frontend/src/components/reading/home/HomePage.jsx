@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { getUpNext } from "../../../api/home.js";
-import { getLibraryPage, getReadingHome } from "../../../api/reading.js";
+import { homeKeys, loadHomeShelf } from "../../../api/earlyStart.js";
+import { getReadingHome } from "../../../api/reading.js";
 import { getStats } from "../../../api/profile.js";
 import { useRequest } from "../../ui-v2/data.js";
 import { useProfile } from "../../profile/profileState.js";
@@ -44,15 +45,16 @@ function YearGlance({ stats }) {
 export default function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks(), { profile } = useProfile() || {};
   const key = `${auth.sessionGeneration}:${library.revision}`;
-  const request = useRequest(getReadingHome, `home:${key}`);
+  const keys = homeKeys(key);
+  const request = useRequest(getReadingHome, keys.home);
   const quiet = Boolean(request.data) && !request.data.current_reads.length && !request.data.reading_count && !request.data.paused_count;
   // One library request serves everything on Home, including the empty-library check. A failure leaves that block out instead of failing the page.
-  const shelf = useRequest(() => getLibraryPage({ facet: "all", sort: "added", limit: "100" }).catch(() => null), `home-shelf:${key}`, Boolean(request.data));
+  const shelf = useRequest(() => loadHomeShelf().catch(() => null), keys.shelf, Boolean(request.data));
   const [firstRun, setFirstRun] = useState(false);
   if (!firstRun && quiet && shelf.data?.counts?.all === 0) setFirstRun(true);
   const ready = Boolean(request.data) && !firstRun;
-  const stats = useRequest(() => getStats().catch(() => null), `home-stats:${key}`, ready);
-  const pinned = useRequest(() => getUpNext().catch(() => null), `home-pins:${key}`, ready);
+  const stats = useRequest(() => getStats().catch(() => null), keys.stats, ready);
+  const pinned = useRequest(() => getUpNext().catch(() => null), keys.pins, ready);
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [showAll, setShowAll] = useState(false);

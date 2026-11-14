@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { getBooks } from "../../api/books.js";
 import { getReadingHome, getReadingWorkspace } from "../../api/reading.js";
 import { defaultLibraryState, libraryKey, loadLibraryPage } from "../reading/library/libraryQuery.js";
+import { homeKeys, workspaceKey } from "../../api/earlyStart.js";
 import { prefetchRequest, readRequestCache } from "../../api/requestCache.js";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
@@ -21,12 +22,12 @@ export function usePageWarmers() {
     if (!Array.isArray(entries)) return;
     for (const entry of entries.slice(0, WORKSPACES_AHEAD)) {
       const id = entry?.id;
-      if (Number.isSafeInteger(id)) prefetchRequest(`workspace:${generation}:${id}:${revision}`, () => getReadingWorkspace(id));
+      if (Number.isSafeInteger(id)) prefetchRequest(workspaceKey(generation, id, revision), () => getReadingWorkspace(id));
     }
   }, [generation, revision]);
   const warmHome = useCallback(() => {
     if (!ready) return;
-    const key = `home:${generation}:${revision}`;
+    const key = homeKeys(`${generation}:${revision}`).home;
     prefetchRequest(key, () => getReadingHome().then(home => { warmWorkspaces(home?.current_reads?.map(item => item?.entry)); return home; }));
     const cached = readRequestCache(key);
     if (cached) warmWorkspaces(cached.data?.current_reads?.map(item => item?.entry));
