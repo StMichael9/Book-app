@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply"
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply"
         required: true
         default: remap_genres
         type: choice
@@ -17,6 +17,8 @@ on:
           - clean_apply
           - fill_descriptions_dry_run
           - fill_descriptions_apply
+          - retag_genres_dry_run
+          - retag_genres_apply
       target_env:
         description: GitHub environment, which selects the database secret (a safety copy or production)
         required: true
@@ -34,6 +36,11 @@ on:
         description: For remap_genres - report what would be linked without writing
         required: false
         default: true
+        type: boolean
+      skip_empty:
+        description: For retag_genres_apply - leave books that would end up with no genre as they are
+        required: false
+        default: false
         type: boolean
 
 permissions:
@@ -60,6 +67,7 @@ jobs:
       TASK: ${{ inputs.task }}
       SNAPSHOT: ${{ inputs.snapshot }}
       DRY_RUN: ${{ inputs.dry_run }}
+      SKIP_EMPTY: ${{ inputs.skip_empty }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -91,6 +99,14 @@ jobs:
             fill_descriptions_apply)
               CATALOGUE_IMPORT_PRODUCTION=yes python -m data.fill_descriptions --mode production --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/fill-report.md"
               head -20 "$RUNNER_TEMP/fill-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            retag_genres_dry_run)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.retag_genres --mode production --snapshot "$SNAPSHOT" --dry-run --samples 50 --report "$RUNNER_TEMP/retag-report.md"
+              head -40 "$RUNNER_TEMP/retag-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            retag_genres_apply)
+              args=(--mode production --snapshot "$SNAPSHOT" --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/retag-report.md")
+              [[ "$SKIP_EMPTY" == "true" ]] && args+=(--skip-empty)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.retag_genres "${args[@]}"
+              head -40 "$RUNNER_TEMP/retag-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "unknown task"; exit 1 ;;
           esac
       - name: Keep the description report
@@ -99,6 +115,14 @@ jobs:
         with:
           name: catalogue-description-report
           path: ${{ runner.temp }}/fill-report.md
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Keep the genre report
+        if: ${{ always() && startsWith(inputs.task, 'retag_genres_') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-genre-report
+          path: ${{ runner.temp }}/retag-report.md
           if-no-files-found: ignore
           retention-days: 14
       - name: Keep the cleaning report

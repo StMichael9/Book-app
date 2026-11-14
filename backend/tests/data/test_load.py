@@ -681,7 +681,7 @@ def test_new_classifications_hidden_from_existing_book_schema(import_env, monkey
     from schemas import BookSchema
     source = records()
     source[WORKS_URL] = [source[WORKS_URL][0] | {
-        "subjects": ["Fantasy", "Science", "Friendship -- Fiction"]
+        "subjects": ["Fantasy", "Science", "Physics", "Friendship -- Fiction"]
     }]
     source[EDITIONS_URL] = source[EDITIONS_URL][:1]
     fake_stream(monkeypatch, source)
