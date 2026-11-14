@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply"
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply | reclean_descriptions_dry_run | reclean_descriptions_apply"
         required: true
         default: remap_genres
         type: choice
@@ -19,6 +19,8 @@ on:
           - fill_descriptions_apply
           - retag_genres_dry_run
           - retag_genres_apply
+          - reclean_descriptions_dry_run
+          - reclean_descriptions_apply
       target_env:
         description: GitHub environment, which selects the database secret (a safety copy or production)
         required: true
@@ -107,6 +109,12 @@ jobs:
               [[ "$SKIP_EMPTY" == "true" ]] && args+=(--skip-empty)
               CATALOGUE_IMPORT_PRODUCTION=yes python -m data.retag_genres "${args[@]}"
               head -40 "$RUNNER_TEMP/retag-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            reclean_descriptions_dry_run)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.reclean_descriptions --mode production --snapshot "$SNAPSHOT" --dry-run --samples 50 --report "$RUNNER_TEMP/reclean-report.md"
+              head -40 "$RUNNER_TEMP/reclean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            reclean_descriptions_apply)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.reclean_descriptions --mode production --snapshot "$SNAPSHOT" --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/reclean-report.md"
+              head -40 "$RUNNER_TEMP/reclean-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "unknown task"; exit 1 ;;
           esac
       - name: Keep the description report
@@ -123,6 +131,12 @@ jobs:
         with:
           name: catalogue-genre-report
           path: ${{ runner.temp }}/retag-report.md
+      - name: Keep the description re-clean report
+        if: ${{ always() && startsWith(inputs.task, 'reclean_descriptions_') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-reclean-report
+          path: ${{ runner.temp }}/reclean-report.md
           if-no-files-found: ignore
           retention-days: 14
       - name: Keep the cleaning report
