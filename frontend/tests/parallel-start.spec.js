@@ -140,7 +140,7 @@ test("a book page: the book and the saved-status check start with the account ch
 test("the reading workspace opened by its address: the workspace starts with the account check and is requested once", async ({ page, app }) => {
   await withHint(page);
   await page.goto(`/my-books/${100 + OWN.a.id}`);
-  await expect(page.getByRole("region", { name: "My reading" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: /^Page or %/ })).toBeVisible();
   expect(app.calls(`/me/library/${100 + OWN.a.id}/reading`).length).toBe(1);
   expect(app.calls(`/me/library/${100 + OWN.a.id}/reading`)[0].start).toBeLessThan(refreshEnd(app));
   expect(app.errors).toEqual([]);
