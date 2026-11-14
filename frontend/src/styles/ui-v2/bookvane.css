@@ -120,7 +120,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
 .bv-root .bv-hero-display { background: var(--bv-hero); border-radius: 9px; padding: 32px; overflow: hidden; }
 .bv-root .bv-hero-covers { display: flex; align-items: end; justify-content: center; gap: 17px; min-height: 230px; }
-.bv-root .bv-hero-covers > a, .bv-root .bv-hero-covers > .bv-skeleton { width: 30%; min-width: 0; border-radius: 3px; }
+.bv-root .bv-hero-covers > a, .bv-root .bv-hero-covers > .bv-hero-cover, .bv-root .bv-hero-covers > .bv-skeleton { width: 30%; min-width: 0; border-radius: 3px; }
 .bv-root .bv-hero-covers > :nth-child(2) { transform: translateY(-12px); }
 .bv-root .bv-hero-covers .bv-cover { box-shadow: var(--bv-shadow); }
 .bv-root .bv-hero-placeholder { padding: 20px; display: grid; place-items: center; text-align: center; gap: 16px; color: var(--bv-green); }
@@ -224,6 +224,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-description { max-width: 70ch; margin-top: 28px; }
 .bv-root .bv-description h2 { font-size: var(--bv-fs-section); }
 .bv-root .bv-description p { line-height: 1.65; white-space: pre-line; }
+.bv-root .bv-description .bv-synopsis-toggle { padding-inline: 0; }
 .bv-root .bv-share .bv-share-error { display: block; color: var(--bv-danger); font-size: var(--bv-fs-body); margin: 10px 0; }
 .bv-root .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 16px; }
 .bv-root .bv-library-heading .bv-page-heading { padding-bottom: 28px; }
@@ -236,10 +237,12 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root :is(input, select) { color: var(--bv-ink); }
 .bv-root :is(.bv-field, .bv-why, .bv-import-page, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 50px; padding: 11px 13px; border: 1px solid var(--bv-control); background: var(--bv-panel); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
 .bv-root input::placeholder { color: var(--bv-muted); opacity: 1; }
-.bv-root .bv-auth-layout { max-width: 1020px; margin: 62px auto 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-.bv-root .bv-auth-story { background: var(--bv-hero); border-radius: 8px; padding: 44px; min-height: 490px; }
-.bv-root .bv-auth-story h2 { font-size: var(--bv-fs-section); }
-.bv-root .bv-auth-story-cover { max-width: 180px; margin-top: 24px; box-shadow: var(--bv-shadow); }
+.bv-root .bv-auth-layout { max-width: 1020px; margin: 62px auto 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
+.bv-root .bv-auth-story { background: var(--bv-hero); border-radius: 8px; padding: 44px; }
+.bv-root .bv-auth-story p { margin: 28px 0 0; font-size: var(--bv-fs-body); color: var(--bv-ink); text-align: center; }
+.bv-root .bv-auth-story .bv-hero-covers { min-height: 0; }
+.bv-root .bv-auth-strip { display: none; }
+.bv-root .bv-auth-story-cover { max-width: 180px; margin: 0 auto; box-shadow: var(--bv-shadow); }
 .bv-root .bv-auth-story-shelves { border-top: 1px solid var(--bv-control); margin-top: 28px; padding-top: 24px; }
 .bv-root .bv-auth-story-shelves svg { width: 42px; height: 42px; color: var(--bv-green); margin-bottom: 18px; }
 .bv-root .bv-auth-story-shelves p { display: flex; gap: 24px; color: var(--bv-muted); }
@@ -255,7 +258,9 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-password-wrap input { padding-right: 76px; }
 .bv-root .bv-password-wrap .bv-button { position: absolute; right: 3px; top: 3px; min-height: 44px; padding: 8px 12px; font-size: var(--bv-fs-body); color: var(--bv-green); }
 .bv-root .bv-auth-card form > .bv-text-link { margin-bottom: 16px; }
-.bv-root .bv-auth-switch { font-size: var(--bv-fs-body); text-align: center; margin: 20px 0 12px; }
+.bv-root .bv-auth-switch { font-size: var(--bv-fs-body); margin: 20px 0 12px; }
+/* A link inside a sentence gets its 44 px target from padding and a matching negative margin, so the line is not stretched. */
+.bv-root :is(.bv-auth-card, .bv-narrow) :is(p, .bv-muted, .bv-field-error) .bv-text-link { display: inline; min-height: 0; padding: 12px 0; margin: -12px 0; }
 .bv-root .bv-pending-book { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); margin: 24px 0; text-align: left; }
 .bv-root .bv-pending-book .bv-cover { width: 38px; flex-shrink: 0; }
 .bv-root .bv-pending-book p { margin: 0; font-size: var(--bv-fs-helper); line-height: 1.4; }
@@ -425,6 +430,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-library-caption { font-size: var(--bv-fs-helper); }
   .bv-root .bv-auth-layout { display: block; max-width: 440px; margin: 30px auto 42px; }
   .bv-root .bv-auth-story { display: none; }
+  .bv-root .bv-auth-layout:has(.bv-auth-strip) { margin-top: 16px; }
+  .bv-root .bv-auth-strip { display: block; margin: 0 0 8px; }
+  .bv-root .bv-auth-strip .bv-hero-covers { min-height: 0; gap: 8px; justify-content: flex-start; max-width: none; margin: 0; }
+  .bv-root .bv-auth-strip .bv-hero-covers > .bv-hero-cover { width: 48px; }
+  .bv-root .bv-auth-strip .bv-hero-covers > :nth-child(2) { transform: none; }
   .bv-root .bv-auth-card { max-width: 100%; }
   .bv-root .bv-auth-card h1 { font-size: var(--bv-fs-page); }
   .bv-root .bv-auth-switch { font-size: var(--bv-fs-body); }

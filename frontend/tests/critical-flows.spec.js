@@ -133,6 +133,8 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      // An older service has no reading library: the requests a returning reader's page starts early (api/earlyStart.js) are simply refused.
+      if (path === "/me/library" || path === "/me/library/lookup" || path === "/me/home" || /^\/me\/library\/\d+\/reading$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
@@ -459,7 +461,7 @@ test("failed login displays an error and remains signed out", async ({ page, app
   await page.getByLabel("Email address", { exact: true }).fill("browser-test@example.invalid");
   await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveText("Invalid email or password");
+  await expect(page.getByRole("alert")).toHaveText("That email and password don’t match. Try again or reset your password.");
   await expect(page).toHaveURL(/\/login$/);
 });
 

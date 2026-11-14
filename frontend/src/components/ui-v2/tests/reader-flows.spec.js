@@ -76,6 +76,8 @@ const test = base.extend({
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
+      // An older service has no reading library: the requests a returning reader's page starts early (api/earlyStart.js) are simply refused.
+      if (path === "/me/library" || path === "/me/library/lookup" || path === "/me/home" || /^\/me\/library\/\d+\/reading$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, {}, { batch: false });
@@ -217,7 +219,7 @@ test("missing cover and description have intentional fallbacks; search failures 
 });
 
 test("external return URLs are ignored and invalid login preserves the form", async ({ page, app }) => {
-  app.loginFails = true; await page.goto("/login?returnTo=https%3A%2F%2Fexample.com"); await signIn(page); await expect(page.getByRole("alert")).toContainText("Invalid email or password"); await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("reader@example.com"); app.loginFails = false; await signIn(page); await expect(page).toHaveURL(/\/my-books$/);
+  app.loginFails = true; await page.goto("/login?returnTo=https%3A%2F%2Fexample.com"); await signIn(page); await expect(page.getByRole("alert")).toContainText("That email and password don’t match."); await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("reader@example.com"); app.loginFails = false; await signIn(page); await expect(page).toHaveURL(/\/my-books$/);
 });
 
 for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at ${width}px`, async ({ page, app }) => {
