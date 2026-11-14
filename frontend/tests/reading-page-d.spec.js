@@ -64,7 +64,7 @@ for (const where of ["Home", "the book page"]) {
     const box = where === "Home" ? home(page) : onPage(page);
     await box.fill("52");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, on: expect.stringMatching(/^d{4}-d{2}-d{2}$/) });
+    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. Page 52, 14%.");
     await expect(box).toHaveValue("");
     await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -76,7 +76,7 @@ for (const where of ["Home", "the book page"]) {
     await box.fill("35 %");
     await expect(page.getByText("about page 126")).toBeVisible();
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35, on: expect.stringMatching(/^d{4}-d{2}-d{2}$/) });
+    await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
     await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. 35%, about page 126.");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
@@ -107,7 +107,7 @@ test("a page with no known total asks for it once, inline, and saves it with the
   expect(app.patches).toHaveLength(0);
   await page.getByLabel("How many pages in your copy?").fill("360");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, total_pages: 360, on: expect.stringMatching(/^d{4}-d{2}-d{2}$/) });
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, total_pages: 360, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   await expect(page.getByLabel("How many pages in your copy?")).toHaveCount(0);
 });
 
