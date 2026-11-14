@@ -249,22 +249,32 @@ _SPACED_SLASH = re.compile(r"\s/\s")
 _SENTENCE_END = re.compile(r"[.!?]\s+(?=[A-Z])")
 
 
+_NAME_WORD = re.compile(r"[A-Z][A-Za-z.'’-]*$")
+_NOT_A_NAME = frozenset({"The", "A", "An", "Of", "In", "On", "And"})
+MIN_CONTENTS_PAIRS = 4
+CONTENTS_SHARE = 0.6
+
+
+def _starts_with_a_name(segment: str) -> bool:
+    """"Nathaniel Hawthorne Purloined Letter": two or more capitalised words up front, the first not an article."""
+    words = segment.split()
+    return (len(words) >= 2 and words[0] not in _NOT_A_NAME and all(_NAME_WORD.match(word) for word in words[:2]))
+
+
 def _contents_prefix(value: str) -> str | None:
-    """The text before a contents list ("Contents: …", or mostly "Title / Author / Title" pairs); None when there is no list."""
+    """The text before a contents list; None when there is no list. A list is a "Contents:" label, or at least four
+    "Title / Author" pairs (the part after each slash starts with a personal name) that make up most of the text."""
     label = _CONTENTS_LABEL.search(value)
     if label:
         return value[:label.start()]
     flat = " ".join(value.split())
     parts = _SPACED_SLASH.split(flat)
-    if len(parts) < 4:                                  # fewer than three " / " separators
-        return None
-    words = sorted(len(part.split()) for part in parts)
-    long = sum(1 for count in words if count >= 14)
-    if words[len(words) // 2] > 10 or long > len(parts) * 0.25:
+    if sum(1 for part in parts[1:] if _starts_with_a_name(part)) < MIN_CONTENTS_PAIRS:
         return None
     before = flat[:_SPACED_SLASH.search(flat).start()]
     ends = [m.end() for m in _SENTENCE_END.finditer(before)]
-    return before[:ends[-1]] if ends else ""
+    prefix = before[:ends[-1]] if ends else ""
+    return prefix if len(flat) - len(prefix) >= CONTENTS_SHARE * len(flat) else None
 
 
 def description_flags(text: str | None) -> list[str]:

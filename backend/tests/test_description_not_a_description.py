@@ -34,9 +34,21 @@ def test_a_contents_list_is_dropped_and_a_real_intro_before_it_is_kept():
     assert cleaner.clean_description(CONTENTS) is None
     intro = "A wonderful anthology of stories from many lands, chosen for young readers with great care by the editors."
     assert cleaner.clean_description(intro + " Contents: One / Two / Three") == intro
-    assert cleaner.clean_description(intro + " The Open Boat / Stephen Crane The Outcasts / Bret Harte Young Goodman Brown / "
-                                                "Nathaniel Hawthorne The Luck / Bret Harte") == intro
+    longer = ("The Open Boat / Stephen Crane The Outcasts / Bret Harte Young Goodman Brown / Nathaniel Hawthorne The Luck / "
+              "Bret Harte The Gift of the Magi / William Porter The Tell-Tale Heart / Edgar Poe To Build a Fire / Jack London")
+    assert cleaner.clean_description(intro + " " + longer) == intro
+    assert cleaner.clean_description(intro + " " + longer.split(" / ")[0] + " / Stephen Crane") == intro + " The Open Boat / Stephen Crane"
     assert "contents" in cleaner.description_flags(CONTENTS)
+
+
+def test_slash_separated_word_pairs_in_a_real_description_are_kept():
+    text = ("A story of love / loss, hope / despair and life / death in a small town where everyone knows everyone and "
+            "secrets never stay buried for long.")
+    assert cleaner.clean_description(text) == text
+    assert "contents" not in cleaner.description_flags(text)
+    names = ("Four friends, Ann Lee / Bob Ray, Cy Dunn / Di Fox and Ed Poe / Flo Kay, try to cross a long and very quiet "
+             "country by train in the winter, and nothing goes as planned for any of them.")
+    assert cleaner.clean_description(names) == names                        # fewer than four pairs
 
 
 def test_slashes_in_ordinary_prose_are_not_a_contents_list():
