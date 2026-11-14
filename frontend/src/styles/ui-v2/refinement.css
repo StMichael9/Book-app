@@ -46,7 +46,6 @@
 }
 @media (max-width: 700px) {
   .bv-root--landing { padding-bottom: 0; }
-  .bv-root--landing .bv-desktop-theme { display: inline-flex; }
   .bv-root--landing .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
   .bv-root--landing .bv-hero-actions { flex-direction: column; }
   .bv-root--landing .bv-header-inner { gap: 12px; }
@@ -94,8 +93,6 @@
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
   /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
   .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
-  /* Signed-in phone headers have room for the theme toggle; guests reach it from You. */
-  .bv-root .bv-header-actions:not(.bv-header-actions--guest) .bv-desktop-theme { display: inline-flex; }
   .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
@@ -130,3 +127,17 @@
 .bv-root .bv-first-run h2 { margin-bottom: 14px; }
 .bv-root .bv-first-run-done { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 18px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }
 .bv-root .bv-service-notice strong { display: block; margin-bottom: 4px; }
+
+/* Header: search (desktop), the empty avatar circle, and the slim phone bar that hides on scroll. */
+.bv-root .bv-header-search { display: none; position: relative; align-items: center; }
+.bv-root .bv-header-search svg { position: absolute; left: 13px; width: 18px; height: 18px; color: var(--bv-muted); pointer-events: none; }
+.bv-root .bv-header-search input { width: 240px; min-height: 44px; padding: 9px 14px 9px 38px; border: 1px solid var(--bv-control); border-radius: 22px; background: var(--bv-panel); color: var(--bv-ink); font-size: var(--bv-fs-body); }
+@media (min-width: 901px) { .bv-root .bv-header-search { display: flex; } }
+.bv-root .bv-header-avatar .bv-avatar--empty { background: var(--bv-wash); border: 1px solid var(--bv-line); }
+@media (max-width: 700px) {
+  .bv-root .bv-header { position: sticky; top: 0; z-index: 11; padding-top: env(safe-area-inset-top); transition: transform 180ms ease-out; }
+  .bv-root .bv-header.is-hidden { transform: translateY(-100%); }
+  .bv-root .bv-header .bv-header-inner { min-height: 52px; padding-block: 4px; }
+  .bv-root .bv-header .bv-header-avatar, .bv-root .bv-header .bv-header-check { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .bv-root .bv-header { transition: none; } }
