@@ -111,9 +111,10 @@ test("landing to Discover to a book and back never shows an empty page, and a vi
 });
 
 test("a book page opens at once from the card while its details are still loading", async ({ page, app }) => {
+  // Held before the page opens: a card in view is fetched ahead when the browser is idle, and that answer must be held too.
+  let release; app.hold.book = new Promise(done => { release = () => { app.hold.book = null; done(); }; });
   await page.goto("/browse");
   await expect(card(page)).toBeVisible();
-  let release; app.hold.book = new Promise(done => { release = () => { app.hold.book = null; done(); }; });
   await card(page).click();
   await expect(bookHeading(page)).toBeVisible();
   await expect(page.getByText("Nav Author").first()).toBeVisible();
