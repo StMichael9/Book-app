@@ -91,6 +91,7 @@ const mutations = (app) => app.requests.filter((request) => request.path.endsWit
 test("charcoal dark surfaces keep sage actions, form boundaries and focus readable", async ({ page, app }) => {
   app.authenticated = true;
   app.saved = [{ id: 1, book_id: 1, status: "want", book: books[0] }];
+  await page.emulateMedia({ colorScheme: "dark" });
   await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
   async function checkContrast(selector, property = "color", minimum = 4.5) {
     const pairs = await page.locator(selector).evaluateAll((elements, property) => {
@@ -136,7 +137,7 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await page.goto("/book/1"); await expect(page.getByRole("button", { name: "Remove Pride and Prejudice from Want to read" })).toBeEnabled();
   app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
   await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
-  await page.goto("/settings"); await page.getByRole("button", { name: "Switch theme" }).click();
+  await page.goto("/settings"); await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Light" }).check({ force: true });
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
   await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(32, 46, 40)");
 });
@@ -231,7 +232,7 @@ for (const width of [320, 390, 768, 1440]) test(`responsive routes and themes at
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path}: ${JSON.stringify(overflow)}`).toBe(true);
     await expect(page.locator("body")).not.toContainText(/Shelfbound/i);
   }
-  await page.goto("/settings"); await page.getByRole("button", { name: "Switch theme" }).click(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark"); await page.reload(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
+  await page.goto("/settings"); await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).check({ force: true }); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark"); await page.reload(); await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
   await page.emulateMedia({ reducedMotion: "reduce" }); await page.goto("/browse"); await page.getByRole("button", { name: "Filters", exact: true }).click(); expect(await page.getByRole("dialog").evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
 });
 
@@ -260,6 +261,7 @@ test("visual review exports the implemented desktop and mobile screens", async (
   const directory = new URL("../../../../../docs/ui-v2/implementation/screenshots/", import.meta.url);
   mkdirSync(directory, { recursive: true });
   for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript((value) => localStorage.setItem("bookvane-theme", value), theme);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
@@ -281,7 +283,7 @@ test("visual review exports the implemented desktop and mobile screens", async (
 
 
 test("dark theme keeps primary headings and book titles legible alongside legacy styles", async ({ page, app }) => {
-  app.authenticated = true; await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
+  app.authenticated = true; await page.emulateMedia({ colorScheme: "dark" }); await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
   for (const path of ["/browse", "/book/1", "/my-books", "/preferences", "/settings"]) {
     await page.goto(path); await expect(page.locator("h1")).toBeVisible();
     if (path === "/browse") await expect(page.locator(".bv-book-card")).toHaveCount(5);
@@ -345,6 +347,7 @@ test("choosing a different shelf after continuation failure replaces the pending
 });
 
 for (const theme of ["light", "dark"]) test(`minimalist landing is clear, responsive and account-free; ${theme}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });

@@ -255,7 +255,7 @@ test("pilot library stays usable on a phone in both themes", async ({ page, app 
   await page.screenshot({ path: "../backend/.v3-test-runtime/m1-library-phone-final.png", fullPage: true });
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.getByRole("button", { name: "Switch theme", exact: true }).click();
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).check({ force: true });
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "My Books", exact: true }).click();
   await expect(page.getByLabel("Search title or author")).toBeVisible();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
@@ -607,6 +607,7 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
     app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id, true, true), reading_state: "reading" }]));
     app.entries.set(7, { ...row(7), book: null, private_title: "My private reading", private_author: "Private author" });
     app.entries.set(8, { ...row(8), book: { ...books[7], cover_image_url: "/invalid-fixture-cover.png" } });
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -771,6 +772,7 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
     app.facets = { subject: [{ value: 7, label: "Fantasy", count: 12 }, { value: 8, label: "Literary fiction", count: 9 }, { value: 9, label: "History", count: 5 }, { value: 10, label: "Poetry", count: 0 }],
       author: [{ value: "Isolated test author", label: "Isolated test author", count: 30 }], year_finished: [], length: [{ value: "short", label: "Short", count: 11 }, { value: "medium", label: "Medium", count: 12 }, { value: "long", label: "Long", count: 7 }],
       source_label: [{ value: "Goodreads: to-read", label: "Goodreads: to-read", count: 8 }] };
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ reducedMotion: "reduce" });

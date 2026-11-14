@@ -136,7 +136,7 @@ test("M2 real lifecycle, progress, history, Home and phone navigation", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "../backend/.v3-test-runtime/m2-home-phone.png", fullPage: true });
   await nav.getByRole("link", { name: "You", exact: true }).click();
-  await page.getByRole("button", { name: "Switch theme", exact: true }).click();
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).check({ force: true });
   await nav.getByRole("link", { name: "Home", exact: true }).click();
   await page.screenshot({ path: "../backend/.v3-test-runtime/m2-home-phone-dark.png", fullPage: true });
   for (const width of [320, 390, 1440]) {
