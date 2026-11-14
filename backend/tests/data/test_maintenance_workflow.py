@@ -47,13 +47,16 @@ def test_the_opt_in_is_not_a_blanket_environment_setting():
 def test_only_the_data_load_and_description_tasks_opt_in_to_production():
     branches = _branches(_task_script(_load()))
     assert {"backfill_popularity", "remap_genres", "clean_dry_run", "clean_apply",
-            "fill_descriptions_dry_run", "fill_descriptions_apply"} <= set(branches)
+            "fill_descriptions_dry_run", "fill_descriptions_apply", "retag_genres_dry_run", "retag_genres_apply"} <= set(branches)
     opted_in = {task for task, body in branches.items() if f"{OPT_IN}=yes" in body}
-    assert opted_in == {"backfill_popularity", "remap_genres", "fill_descriptions_dry_run", "fill_descriptions_apply"}
+    assert opted_in == {"backfill_popularity", "remap_genres", "fill_descriptions_dry_run", "fill_descriptions_apply",
+                        "retag_genres_dry_run", "retag_genres_apply"}
     for task in ("backfill_popularity", "remap_genres"):
         assert re.search(rf"{OPT_IN}=yes python -m data\.load\b", branches[task]), task
     for task in ("fill_descriptions_dry_run", "fill_descriptions_apply"):
         assert re.search(rf"{OPT_IN}=yes python -m data\.fill_descriptions --mode production\b", branches[task]), task
+    for task in ("retag_genres_dry_run", "retag_genres_apply"):
+        assert re.search(rf"{OPT_IN}=yes python -m data\.retag_genres\b", branches[task]), task
     for task in ("clean_dry_run", "clean_apply"):
         assert OPT_IN not in branches[task]
 
@@ -65,6 +68,16 @@ def test_the_description_dry_run_cannot_apply_and_the_apply_is_tagged():
     assert "--tag" in branches["fill_descriptions_apply"]  # the tag is what --undo needs
     options = _load()[True]["workflow_dispatch"]["inputs"]["task"]["options"]
     assert {"fill_descriptions_dry_run", "fill_descriptions_apply"} <= set(options)
+
+
+def test_the_genre_dry_run_cannot_apply_and_the_apply_is_tagged():
+    branches = _branches(_task_script(_load()))
+    assert "--dry-run" in branches["retag_genres_dry_run"] and "--apply" not in branches["retag_genres_dry_run"]
+    assert "--apply" in branches["retag_genres_apply"] and "--dry-run" not in branches["retag_genres_apply"]
+    assert "--tag" in branches["retag_genres_apply"] and "--skip-empty" in branches["retag_genres_apply"]
+    inputs = _load()[True]["workflow_dispatch"]["inputs"]
+    assert {"retag_genres_dry_run", "retag_genres_apply"} <= set(inputs["task"]["options"])
+    assert inputs["skip_empty"]["default"] is False
 
 
 def test_remap_still_defaults_to_a_dry_run():
