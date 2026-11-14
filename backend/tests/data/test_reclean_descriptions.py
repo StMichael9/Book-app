@@ -184,7 +184,7 @@ def test_undo_round_trip_and_an_edited_book_is_skipped(tool):
         session.execute(text("UPDATE books SET description = 'Edited afterwards by the owner of the library.' WHERE id = :i"), {"i": edited.id})
     assert tool.module.undo(tool.factory, "uXd")["restored"] == 0                       # "_" is not a wildcard
     result = tool.module.undo(tool.factory, "u_1")
-    assert result == {"restored": 2, "skipped_changed_since": 1}
+    assert result == {"restored": 2, "skipped_changed_since": 1, "not_restorable_privacy": 0}
     assert stored(tool, changed) == MARKDOWN and stored(tool, emptied) == CREDITS
     assert stored(tool, edited).startswith("Edited afterwards")
     assert tool.module.undo(tool.factory, "u_1")["restored"] == 0
