@@ -3,6 +3,7 @@
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
 - [November 14: the navbar](2026-11-14-navbar.md)
+- [November 14: Speed S1, start account requests together](2026-11-14-parallel-start.md)
 - [November 13: Auth pages refresh](2026-11-13-auth-pages-refresh.md)
 - [November 12: Speed S0, a repeatable speed baseline](2026-11-12-speed-baseline.md)
 - [November 12: the more menu on My Books](2026-11-12-mybooks-menu.md)

@@ -224,6 +224,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-description { max-width: 70ch; margin-top: 28px; }
 .bv-root .bv-description h2 { font-size: var(--bv-fs-section); }
 .bv-root .bv-description p { line-height: 1.65; white-space: pre-line; }
+.bv-root .bv-description .bv-synopsis-toggle { padding-inline: 0; }
 .bv-root .bv-share .bv-share-error { display: block; color: var(--bv-danger); font-size: var(--bv-fs-body); margin: 10px 0; }
 .bv-root .bv-library-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 16px; }
 .bv-root .bv-library-heading .bv-page-heading { padding-bottom: 28px; }

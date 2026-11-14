@@ -52,8 +52,17 @@ def year(value: object) -> int | None:
     return candidate if candidate is not None and 1 <= candidate <= 2100 else None
 
 
+def _body(value: object) -> str | None:
+    """Like `_text` but keeps line breaks (T58): whitespace inside a line is normalised, runs of blank lines become one."""
+    if not isinstance(value, str):
+        return None
+    text = unicodedata.normalize("NFKC", value).replace("\r\n", "\n").replace("\r", "\n")
+    result = re.sub(r"\n{3,}", "\n\n", "\n".join(" ".join(line.split()) for line in text.split("\n"))).strip()
+    return result or None
+
+
 def description(value: object) -> str | None:
-    result = _text(value.get("value") if isinstance(value, dict) else value)
+    result = _body(value.get("value") if isinstance(value, dict) else value)
     # Outlier records are reported and omitted, never silently truncated.
     return result if result is None or len(result.encode("utf-8")) <= 262144 else None
 

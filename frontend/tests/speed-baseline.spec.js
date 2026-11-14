@@ -89,18 +89,19 @@ function stagesBefore(log, until) {
   return Math.max(0, ...stage.values());
 }
 
-// "Main content visible" for each page. These wait with locator.waitFor (fast polling), because expect()'s own polling backs off to 1 s
-// and would add up to a second of measurement error.
-const visible = (...locators) => async () => { for (const locator of locators) await locator.waitFor({ state: "visible", timeout: 30_000 }); };
+// "Main content visible" for each page, decided inside the page on every animation frame. The moment is stamped by the page itself
+// (window.__seenAt), so the measurement does not include the time Playwright needs to notice it: that delay was about 300 ms, long
+// enough for a background warm-up that no reader waits for to finish "before" the content and be counted as a stage.
 const PAGES = {
-  "/home": { url: "/home", ready: page => visible(page.getByRole("heading", { name: "Reading now" }), page.getByRole("heading", { name: "Up next" }))() },
-  "/my-books": { url: "/my-books", ready: page => visible(page.locator(".bv-personal-book").first())() },
-  "/browse (signed in)": { url: "/browse", ready: page => visible(page.locator(".bv-book-card h3", { hasText: "Live Browse 1" }).first())() },
-  "/book/{id} (direct)": { url: "/book/9001", ready: async page => {
-    await visible(page.getByRole("heading", { level: 1, name: "Live Book 1" }))();
-    await page.waitForFunction(() => { const want = [...document.querySelectorAll("button")].find(node => /Want to read/.test(node.textContent)); return Boolean(want) && !want.disabled; }, null, { polling: "raf", timeout: 30_000 });
+  "/home": { url: "/home", isReady: () => { const shown = text => [...document.querySelectorAll("h1,h2,h3")].some(node => node.textContent.trim() === text && node.getClientRects().length > 0); return shown("Reading now") && shown("Up next"); } },
+  "/my-books": { url: "/my-books", isReady: () => [...document.querySelectorAll(".bv-personal-book")].some(node => node.getClientRects().length > 0) },
+  "/browse (signed in)": { url: "/browse", isReady: () => [...document.querySelectorAll(".bv-book-card h3")].some(node => node.textContent.includes("Live Browse 1") && node.getClientRects().length > 0) },
+  "/book/{id} (direct)": { url: "/book/9001", isReady: () => {
+    const title = [...document.querySelectorAll("h1")].some(node => node.textContent.trim() === "Live Book 1" && node.getClientRects().length > 0);
+    const want = [...document.querySelectorAll("button")].find(node => /Want to read/.test(node.textContent));
+    return title && Boolean(want) && !want.disabled;
   } },
-  "/my-books/{entryId} (direct)": { url: "/my-books/104", ready: page => visible(page.getByRole("region", { name: "My reading" }))() },
+  "/my-books/{entryId} (direct)": { url: "/my-books/104", isReady: () => [...document.querySelectorAll("[aria-label=\"My reading\"]")].some(node => node.getClientRects().length > 0) },
 };
 
 async function measure(page, app, target) {
@@ -110,8 +111,8 @@ async function measure(page, app, target) {
   app.log.length = 0;
   const began = Date.now();
   await page.goto(target.url, { waitUntil: "commit" });
-  await target.ready(page);
-  const seen = Date.now();
+  await page.waitForFunction(`(() => { if (!window.__seenAt && (${target.isReady.toString()})()) window.__seenAt = Date.now(); return Boolean(window.__seenAt); })()`, null, { polling: "raf", timeout: 30_000 });
+  const seen = await page.evaluate(() => window.__seenAt);
   // SPEED_TIMELINE=1 prints each call as "path  start-end" in ms from navigation, for the request map in the handoff note.
   if (process.env.SPEED_TIMELINE) console.log([`${target.url}  content visible at ${seen - began} ms`, ...[...app.log].sort((x, y) => x.start - y.start).map(call => `  ${call.method} ${call.path}${call.search}  ${call.start - began}-${call.end - began}`)].join("\n"));
   return { stages: stagesBefore(app.log, seen), contentMs: seen - began };
