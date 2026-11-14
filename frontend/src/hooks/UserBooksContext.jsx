@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { getMyBooks, removeBookStatus, setBookStatus } from "../api/userBooks.js";
+import { capabilitiesKey, lookupKey } from "../api/earlyStart.js";
 import { ensureLibraryBook, getReadingCapabilities, lookupLibraryBooks } from "../api/reading.js";
+import { earlyAnswer, earlyOrRequest } from "../api/requestCache.js";
 import { useAuth } from "./AuthContext.jsx";
 
 const UserBooksContext = createContext(null);
@@ -82,7 +84,8 @@ export function UserBooksProvider({ children }) {
     queued.current.clear(); pipeline.current = null;
     if (!auth.isAuthenticated) { setMode("legacy"); setLoading(false); return undefined; }
     setLoading(true);
-    getReadingCapabilities().catch((failure) => {
+    // The first check may already be under way, started with the account check; a retry asks again.
+    (loadAttempt ? getReadingCapabilities() : earlyOrRequest(capabilitiesKey(auth.sessionGeneration), getReadingCapabilities)).catch((failure) => {
       // Compatibility with an older backend only; network/500 failures remain unknown.
       if (failure.status === 404) return { enabled: false };
       throw failure;
@@ -142,7 +145,9 @@ export function UserBooksProvider({ children }) {
           if (!missing.length) continue;
           const controller = new AbortController(); requests.current.add(controller);
           try {
-            const payload = await lookupLibraryBooks(missing.map(([id]) => id), controller.signal);
+            // One book (a book page opened by its address): its check may already have been started with the account check.
+            const early = missing.length === 1 ? earlyAnswer(lookupKey(auth.sessionGeneration, missing[0][0])) : undefined;
+            const payload = await (early ?? lookupLibraryBooks(missing.map(([id]) => id), controller.signal));
             if (generation.current !== token) throw new Error("Account changed");
             if (!Array.isArray(payload?.items) || payload.items.length !== missing.length || missing.some(([id]) => !payload.items.some(item =>
               item.book_id === id && typeof item.is_owned === "boolean" && typeof item.is_wanted === "boolean" &&
@@ -164,7 +169,7 @@ export function UserBooksProvider({ children }) {
       });
     }
     return Promise.all(pending);
-  }, [mode, rememberEntries]);
+  }, [mode, rememberEntries, auth.sessionGeneration]);
 
   const setFlag = useCallback((bookId, status, value) => {
     const writes = pendingFlagWrites.current.get(bookId) || new Set();
