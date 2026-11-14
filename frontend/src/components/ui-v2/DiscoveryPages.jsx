@@ -9,7 +9,6 @@ import { mergeResults, normalTitle, rankAll } from "./searchMerge.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
-import ShareBookButton from "../ShareBookButton.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
@@ -297,7 +296,6 @@ export function BookPage() {
         {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
         {request.data ? <BookAbout key={book.id} book={book} />
           : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
-        <div className="bv-share"><ShareBookButton book={book} /></div>
       </div>
     </article>}
   </section>;
