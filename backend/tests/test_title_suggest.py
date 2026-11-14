@@ -142,3 +142,26 @@ def test_it_is_one_statement_and_fast_on_a_small_catalogue(client, shelf, app_mo
         event.remove(engine, "before_cursor_execute", watch)
     assert sum(1 for s in seen if "bookvane_search_key" in s) == 1
     assert elapsed < 1.5
+
+
+def test_the_per_statement_settings_hold_on_the_autocommit_read_engine_and_do_not_leak(app_modules, client, shelf):
+    """/autocomplete/books runs on database.read_engine (AUTOCOMMIT). psycopg2 sends the whole string as one simple query,
+    which Postgres runs as one implicit transaction, so SET LOCAL applies to the SELECT and is gone afterwards."""
+    from sqlalchemy import text
+    engine = app_modules["database"].read_engine
+    with engine.connect() as conn:
+        assert conn.connection.driver_connection.autocommit is True        # really the autocommit pool
+        inside = conn.execute(text("SET LOCAL enable_seqscan = off; SET LOCAL pg_trgm.word_similarity_threshold = 0.5;"
+                                   " SELECT current_setting('enable_seqscan'), current_setting('pg_trgm.word_similarity_threshold')")).one()
+        assert tuple(inside) == ("off", "0.5")
+        after = conn.execute(text("SELECT current_setting('enable_seqscan'), current_setting('pg_trgm.word_similarity_threshold')")).one()
+        assert after[0] == "on" and after[1] in ("", "0.6")      # back to the defaults (an unset custom setting reads as empty)
+    shelf.book("Quixalon Autocommit")
+    from services.autocomplete import suggest_books
+    session = app_modules["database"].ReadSession(bind=engine)
+    try:
+        assert [r["title"] for r in suggest_books(session, "quixalon autoc")] == ["Quixalon Autocommit"]
+    finally:
+        session.close()
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT current_setting('enable_seqscan')")).scalar() == "on"
