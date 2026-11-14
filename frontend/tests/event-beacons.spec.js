@@ -55,12 +55,10 @@ test("the guest save dialog and an empty guest search each send their event once
   expect(names(app)).toHaveLength(2);
 });
 
-test("sharing sends share_click, and a book opened from a shared link sends share_visit", async ({ page, app }) => {
+test("the book page has no share-image button, and a book opened from an older shared link still sends share_visit", async ({ page, app }) => {
   await page.goto("/book/1");
-  await expect(page.getByRole("button", { name: "Share book image" })).toBeVisible();
-  await page.evaluate(() => { navigator.canShare = undefined; });
-  await page.getByRole("button", { name: "Share book image" }).click();
-  await expect.poll(() => names(app)).toContain("share_click");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: /share/i })).toHaveCount(0);
   await page.goto("/book/1?src=share");
   await expect.poll(() => app.events.filter(event => event.body.name === "share_visit")).toEqual([{ type: expect.stringContaining("text/plain"), body: { name: "share_visit", src: "share" } }]);
 });

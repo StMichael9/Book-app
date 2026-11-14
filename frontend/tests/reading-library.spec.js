@@ -707,7 +707,6 @@ test("independent review: workspace history pagination retains the collection re
   await page.goto("/my-books?status=want&q=Library");
   await expect(page.locator(".bv-personal-book")).toHaveCount(1);
   await page.locator(".bv-personal-book h3 a").click();
-  await page.getByText("Reading history", { exact: true }).click();
   await page.getByRole("button", { name: "Older readings", exact: true }).click();
   await expect(page).toHaveURL(/history_cursor=older-reading/);
   await expect(page.getByRole("link", { name: "Back to My Books", exact: true })).toHaveAttribute("href", "/my-books?status=want&q=Library");
@@ -751,12 +750,13 @@ test("an English title shows on My Books cards and the reading page; private boo
   books[0].published_year = -700; books[1].published_year = 1813;
   await page.goto("/my-books/1");
   await expect(page.locator("#bv-reading-book-title + .bv-english-title")).toHaveText("The Odyssey");
+  await page.getByText("About this book · Manage").click();
   await expect(page.getByText("Published 700 BCE")).toBeVisible();
   await expect(page.locator(".bv-english-title")).toHaveAttribute("lang", "en");
   for (const id of [2, 3, 4, 5]) {
     await page.goto(`/my-books/${id}`); await expect(page.locator("#bv-reading-book-title")).toBeVisible();
     await expect(page.locator(".bv-english-title")).toHaveCount(0);
-    if (id === 2) await expect(page.getByText("Published 1813")).toBeVisible();
+    if (id === 2) { await page.getByText("About this book · Manage").click(); await expect(page.getByText("Published 1813")).toBeVisible(); }
   }
   delete books[0].published_year; delete books[1].published_year;
 });

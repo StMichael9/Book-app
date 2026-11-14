@@ -271,7 +271,8 @@ def test_the_owner_view_carries_shelf_status_and_finished_month_in_one_query(wor
 
 SECRET_KEYS = {"email", "save_note", "note", "notes", "reaction", "reactions", "rating", "ratings", "status", "finished_month",
                "ended_on", "started_on", "finished_on", "hashed_password", "profile_prompted_at", "is_owned", "is_wanted",
-               "private_title", "private_author", "private_description", "user_id", "id_user", "handle_hash"}
+               "private_title", "private_author", "private_description", "user_id", "id_user", "handle_hash",
+               "progress_days", "progress_day", "first_value", "last_value"}
 
 
 def all_keys(value):
@@ -294,8 +295,9 @@ def test_public_payloads_never_contain_private_data(world):
     world.db.add(world.models.UserBook(user_id=user.id, book_id=None, private_title="SECRET-PRIVATE-ENTRY", is_wanted=True))
     attempt = world.db.scalar(select(world.models.ReadingAttempt).where(world.models.ReadingAttempt.user_book_id == entry.id))
     attempt.note, attempt.reaction = "SECRET-ATTEMPT-NOTE", "loved"
+    world.db.add(world.models.ReadingProgressDay(attempt_id=attempt.id, day=date.today(), unit="pages", first_value=4242, last_value=4343))
     world.db.commit()
-    public_id = world.client.post("/me/lists", json={"name": "Public one", "is_public": True}).json()["id"]
+    public_id =world.client.post("/me/lists", json={"name": "Public one", "is_public": True}).json()["id"]
     private_id = world.client.post("/me/lists", json={"name": "SECRET-PRIVATE-LIST"}).json()["id"]
     for lid in (public_id, private_id):
         for book in (a, b):
@@ -306,7 +308,7 @@ def test_public_payloads_never_contain_private_data(world):
     assert page.status_code == one.status_code == 200
     blob = json.dumps([page.json(), one.json()])
     for needle in ("very.secret", "example.test", "SECRET-SAVE-NOTE", "SECRET-PRIVATE-ENTRY", "SECRET-ATTEMPT-NOTE",
-                   "SECRET-PRIVATE-LIST", "loved", str(date.today())):
+                   "SECRET-PRIVATE-LIST", "loved", str(date.today()), "4242", "4343"):
         assert needle not in blob
     assert not SECRET_KEYS & set(all_keys([page.json(), one.json()]))
     assert [item["name"] for item in page.json()["lists"]] == ["Public one"]

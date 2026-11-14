@@ -128,13 +128,8 @@ test("M4 finish: collapsing choices cannot hide a committed pending start and co
 
 test("editorial workspace preview shares choices and a new finish returns to Want without a duplicate module", async ({ page, app }) => {
   await page.goto("/my-books/1");
-  await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
-  const before = app.requests.filter(r => r.path === "/me/next-read").length;
-  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Choose your next read" }).getByRole("article")).toHaveCount(2);
-  expect(app.requests.filter(r => r.path === "/me/next-read")).toHaveLength(before);
-  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
+  // The next read is not on the page while the book is being read; it appears on the finish moment.
+  await expect(page.getByRole("region", { name: "Next after this" })).toHaveCount(0);
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   // The finish is acknowledged quietly; the same controller collapses back to one Want book.
   await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeFocused();
@@ -151,22 +146,6 @@ test("editorial workspace preview shares choices and a new finish returns to Wan
   await expect(page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true })).toBeVisible();
 });
 
-test("editorial workspace excludes its current book and returning from catalogue restores a truthful Want preview", async ({ page, app }) => {
-  app.entries.get(1).is_wanted = true; app.attempts.delete(1);
-  await page.goto("/my-books/1");
-  const preview = page.getByRole("region", { name: "Next after this" });
-  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
-  expect(app.requests.find(r => r.path === "/me/next-read").excludes).toEqual(["book:1"]);
-  await page.getByRole("button", { name: "Explore more choices", exact: true }).click();
-  await page.getByRole("button", { name: "Explore something new", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "M4 fixture 4", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Back to this reading", exact: true }).click();
-  await expect(preview.getByRole("heading", { name: "M4 fixture 2", exact: true })).toBeVisible();
-  await expect(preview.getByRole("heading", { name: "M4 fixture 4", exact: true })).toHaveCount(0);
-  expect(app.requests.filter(r => r.path === "/me/next-read").at(-1).params.source).toBe("want");
-  expect(app.requests.filter(r => ["PUT", "PATCH"].includes(r.method))).toHaveLength(0);
-});
-
 for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -175,7 +154,7 @@ for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede 
   const finished = page.getByRole("heading", { name: "You finished M4 fixture 1.", exact: true });
   await expect(finished).toBeFocused();
   await expect(page.getByRole("region", { name: "Next after this" }).getByRole("article")).toHaveCount(1);
-  expect(await page.locator(".bv-finish-moment").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-workspace-actions")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+  expect(await page.locator(".bv-finish-moment").evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector(".bv-journal")) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -280,18 +259,16 @@ for (const malformed of [false, true]) test(`M4 ${malformed ? "malformed" : "fai
 test("M4 failed finish never opens next choices", async ({ page, app }) => {
   app.finishFails = true;
   await page.goto("/my-books/1");
-  // The quiet workspace preview is valid before Finish. A rejected Finish
-  // must neither refetch choices nor promote that preview to a finish flow.
+  // Nothing about the next read shows before Finish, and a rejected Finish must not fetch choices or start a finish flow.
   const preview = page.getByRole("region", { name: "Next after this", exact: true });
-  await expect(preview.getByRole("link", { name: "Open your book", exact: true })).toBeVisible();
+  await expect(preview).toHaveCount(0);
   const requestsBeforeFinish = app.requests.filter(item => item.path === "/me/next-read").length;
-  expect(requestsBeforeFinish).toBe(1);
   await page.getByRole("button", { name: "Finish book", exact: true }).click();
   await expect(page.getByRole("alert")).toBeVisible();
   expect(app.requests.filter(item => item.path === "/me/next-read")).toHaveLength(requestsBeforeFinish);
   await expect(page.getByRole("heading", { name: /^You finished / })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Choose your next read", exact: true })).toHaveCount(0);
-  await expect(preview).toBeVisible();
+  await expect(preview).toHaveCount(0);
   expect(app.attempts.get(1).state).toBe("reading");
 });
 
@@ -426,15 +403,6 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`sh
   expect(await page.evaluate(() => document.querySelector(".bv-skip").getBoundingClientRect().bottom)).toBeLessThanOrEqual(0);
   await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
   await page.screenshot({ path: `../.bv-shots/home-polish/adjust-${width}-${theme}.png`, fullPage: true });
-});
-
-test("Next after this with the current book as the only Want to read says nothing else is on it", async ({ page, app }) => {
-  for (const item of app.entries.values()) item.is_wanted = false;
-  app.entries.get(1).is_wanted = true; app.attempts.delete(1);
-  await page.goto("/my-books/1");
-  const preview = page.getByRole("region", { name: "Next after this" });
-  await expect(preview.getByText("Nothing else on Want to read yet.")).toBeVisible();
-  await expect(preview.getByText("Nothing is on your Want to read list yet")).toHaveCount(0);
 });
 
 test("Adjust drops the genre choice, and nothing in its place, when the genre list can't load", async ({ page, app }) => {
