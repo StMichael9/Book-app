@@ -17,6 +17,7 @@ import BookAbout from "./BookAbout.jsx";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
 import { useBookSeo } from "./bookSeo.js";
+import { browseKey, browseRequestParams, browseScope, readBrowseQuery } from "./browseQuery.js";
 import PinToUpNext from "../reading/home/PinToUpNext.jsx";
 import { ActionLink, BookCard, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
@@ -102,14 +103,8 @@ export function BrowsePage() {
   const location = useLocation();
   const queryKey = params.toString();
   const { labelFor } = useGenres();
-  const book = params.get("book") || "";
-  const author = params.get("author") || "";
-  // A shared link can carry ?q= : one phrase that is looked for in titles and authors.
-  const query = (params.get("q") || "").trim();
-  const tags = [...new Set(params.getAll("tag").filter(Boolean))];
-  const page = Math.max(1, parseInt(params.get("page"), 10) || 1);
-  const exclude = auth.isAuthenticated && params.get("exclude_owned") === "true";
-  const shelf = auth.isAuthenticated && ["want", "owned"].includes(params.get("shelf_status")) ? params.get("shelf_status") : "";
+  const browse = readBrowseQuery(params, auth.isAuthenticated);
+  const { book, author, query, tags, page, exclude, shelf } = browse;
   const [searchDraft, setSearchDraft] = useState({ book, author, query, mode: author && !book ? "author" : "book", value: author && !book ? author : book || query });
   if (searchDraft.book !== book || searchDraft.author !== author || searchDraft.query !== query) {
     setSearchDraft({ book, author, query, mode: author && !book ? "author" : "book", value: author && !book ? author : book || query });
@@ -120,9 +115,9 @@ export function BrowsePage() {
   const setDraft = (value) => setSearchDraft((current) => ({ ...current, value }));
   const [filterOpen, setFilterOpen] = useState(false);
   const shelfRevision = shelf || exclude ? library.revision : 0;
-  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}:${reader.preferencesVersion}:${shelfRevision}` : "public";
-  const searching = Boolean(book || author || query);
-  const live = useRequest(async () => catalogueResponse(await getBooks({ book, author, q: query, ...(searching ? {} : { sort: "popular" }), tags, exclude_owned: exclude, shelf_status: shelf, page, size: 20, cacheScope: scope })), `browse:${scope}:${queryKey}:${reader.preferencesVersion}`, !auth.isLoading);
+  const scope = browseScope(auth.isAuthenticated, auth.sessionGeneration, reader.preferencesVersion, shelfRevision);
+  const { searching } = browse;
+  const live = useRequest(async () => catalogueResponse(await getBooks(browseRequestParams(browse, scope))), browseKey(scope, queryKey, reader.preferencesVersion), !auth.isLoading);
   // Only the plain first page (no search, filters or paging) may start from the snapshot or this browser's last copy.
   const request = useInstantBooks({ view: "browse", eligible: queryKey === "", auth, live });
   // Guests browsing without a search get the landing's first-impression order within each page.
