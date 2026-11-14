@@ -9,7 +9,7 @@ from time import monotonic
 
 from sqlalchemy import func, select, text
 
-from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, Tag, UserBook, UserPreference, book_authors
+from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, ReadingProgressDay, Tag, UserBook, UserPreference, book_authors
 
 
 def _line(record):
@@ -21,6 +21,7 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
     entry = UserBook.__table__
     attempt = ReadingAttempt.__table__
     preference = UserPreference.__table__
+    progress = ReadingProgressDay.__table__
     # A correlated aggregate avoids one author lookup per personal book.
     authors = select(func.array_agg(Author.name)).select_from(book_authors.join(Author))\
         .where(book_authors.c.book_id == entry.c.book_id).correlate(entry).scalar_subquery()
@@ -39,6 +40,10 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
             "note", "reaction", "started_via", "origin", "created_at", "updated_at")))
             .join(entry, attempt.c.user_book_id == entry.c.id)
             .where(entry.c.user_id == user_id).order_by(attempt.c.user_book_id, attempt.c.id)),
+        # Optional kind (only when the reader has any): the daily progress history of their readings.
+        ("progress_day", select(*(progress.c[name] for name in ("attempt_id", "day", "unit", "first_value", "last_value", "updated_at")))
+            .join(attempt, progress.c.attempt_id == attempt.c.id).join(entry, attempt.c.user_book_id == entry.c.id)
+            .where(entry.c.user_id == user_id).order_by(progress.c.attempt_id, progress.c.day)),
         ("preference", select(preference.c.id, preference.c.tag_id, preference.c.source_text,
             preference.c.created_at, Tag.name, Tag.type).join(Tag)
             .where(preference.c.user_id == user_id).order_by(preference.c.id)),

@@ -304,6 +304,24 @@ class ReadingAttempt(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     entry: Mapped["UserBook"] = relationship(back_populates="attempts")
 
+
+class ReadingProgressDay(Base):
+    """One row per attempt and reader-local day: the first and last progress value saved that day. Owner-only history."""
+    __tablename__ = "reading_progress_days"
+    __table_args__ = (
+        CheckConstraint("unit IN ('pages','percent')", name="ck_progress_day_unit"),
+        CheckConstraint("(unit = 'percent' AND first_value BETWEEN 0 AND 100 AND last_value BETWEEN 0 AND 100) OR "
+                        "(unit = 'pages' AND first_value >= 0 AND last_value >= 0)", name="ck_progress_day_values"),
+    )
+
+    attempt_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("reading_attempts.id", ondelete="CASCADE"), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    unit: Mapped[str] = mapped_column(String(10), nullable=False)
+    first_value: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_value: Mapped[int] = mapped_column(Integer, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class ReadingList(Base):
     __tablename__ = "reading_lists"
 
