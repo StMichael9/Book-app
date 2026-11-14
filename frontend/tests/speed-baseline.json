@@ -1,22 +1,22 @@
 {
   "/home": {
-    "stages": 4,
-    "contentMs": 1842
+    "stages": 1,
+    "contentMs": 822
   },
   "/my-books": {
-    "stages": 3,
-    "contentMs": 1539
+    "stages": 1,
+    "contentMs": 801
   },
   "/browse (signed in)": {
-    "stages": 2,
-    "contentMs": 1314
+    "stages": 1,
+    "contentMs": 912
   },
   "/book/{id} (direct)": {
-    "stages": 3,
-    "contentMs": 1394
+    "stages": 1,
+    "contentMs": 827
   },
   "/my-books/{entryId} (direct)": {
-    "stages": 3,
-    "contentMs": 1550
+    "stages": 1,
+    "contentMs": 729
   }
 }

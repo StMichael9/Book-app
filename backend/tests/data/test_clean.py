@@ -15,7 +15,7 @@ def test_work_normalization_and_curated_tags():
     work = clean.normalize_work({
         "key": "/works/OL123W",
         "title": "  Shared   Title ",
-        "subjects": ["Fantasy fiction", "SCIENCE", "Fantasy"],
+        "subjects": ["Fantasy fiction", "SCIENCE", "Physics", "Fantasy"],
         "authors": [
             {"author": {"key": "/authors/OL1A"}},
             {"author": {"key": "/authors/OL1A"}},

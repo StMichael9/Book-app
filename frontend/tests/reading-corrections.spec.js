@@ -123,17 +123,15 @@ test('mistaken active reread can be explicitly removed, then previous reading co
   app.entry.reading_state = 'reading';
   await page.setViewportSize({ width: 320, height: 750 });
   await page.goto('/my-books/101');
-  await page.locator('.bv-workspace-history > summary').click();
-  const rows = page.locator('.bv-reading-history > li');
-  await expect(rows.first()).toContainText('Current reading');
-  await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
+  await page.locator('.bv-reading-fold > summary').click();
+  await page.getByRole('button', { name: 'Delete this reading', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Your saved book, Want to read and Owned marks, save reason and other readings will stay.');
   await page.getByRole('button', { name: 'Keep it', exact: true }).click();
   expect(writes(app)).toHaveLength(0);
-  await rows.first().getByRole('button', { name: 'Delete this reading:' }).click();
-  // The final, irreversible confirmation is styled as destructive.
-  await expect(page.getByRole('button', { name: 'Delete this reading', exact: true })).toHaveClass(/bv-button--danger/);
   await page.getByRole('button', { name: 'Delete this reading', exact: true }).click();
+  // The final, irreversible confirmation is styled as destructive.
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Delete this reading', exact: true })).toHaveClass(/bv-button--danger/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete this reading', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toBeVisible();
   expect(app.attempts).toEqual(previous);
   await page.getByRole('button', { name: 'Mark as reading', exact: true }).click();
@@ -159,9 +157,8 @@ test('current Reading entry is absent from Finished while earlier finishes remai
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Import books', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
-  await page.locator('.bv-workspace-history > summary').click();
-  await expect(page.locator('.bv-reading-history > li')).toHaveCount(3);
-  await expect(page.locator('.bv-reading-history')).toContainText('2020-01-02');
+  await expect(page.locator('.bv-journal-list > li')).toHaveCount(4);
+  await expect(page.locator('.bv-journal-list')).toContainText('Read before: 2020, finished');
   expect(writes(app)).toHaveLength(0);
 });
 
@@ -184,8 +181,8 @@ test('read-only workspace cannot reopen, reread or delete', async ({ page, app }
   await expect(page.getByRole('heading', { name: 'Finished', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark as reading', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Read it again', exact: true })).toHaveCount(0);
-  await page.locator('.bv-workspace-history > summary').click();
-  await expect(page.getByRole('button', { name: 'Delete this reading:' }).first()).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Delete this reading' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Edit:/ })).toHaveCount(0);
   expect(writes(app)).toHaveLength(0);
 });
 
@@ -194,8 +191,7 @@ test('a historical finished record cannot be reopened while another reading is a
   app.attempts.unshift({ ...finished('active', 2026), state: 'reading', ended_on: null });
   app.entry.reading_state = 'reading';
   await page.goto('/my-books/101');
-  await page.locator('.bv-workspace-history > summary').click();
-  await page.locator('.bv-reading-history > li').nth(1).getByRole('button', { name: 'Edit dates and progress:' }).click();
+  await page.getByRole('button', { name: /^Edit: Read before: 2025/ }).click();
   await expect(page.getByRole('heading', { name: 'Selected reading' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reopen selected reading' })).toHaveCount(0);
   expect(writes(app)).toHaveLength(0);
@@ -260,8 +256,7 @@ for (const width of [390, 1440]) test(`same book Finish → Mark as reading upda
   await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
-  await page.locator('.bv-workspace-history > summary').click();
-  await expect(page.locator('.bv-reading-history > li')).toHaveCount(2);
+  await expect(page.locator('.bv-journal-list > li')).toHaveCount(3);
   expect(app.attempts[0]).toEqual(original[0]);
   expect(app.attempts[1]).toEqual(original[1]);
   expect(app.entry).toMatchObject({ id: 101, is_owned: true, is_wanted: true });
@@ -306,13 +301,13 @@ test('stale Mark as reading does not retry or silently create a reread', async (
 // Finish and Stop are single clicks; their moment offers an immediate undo on the same attempt.
 for (const [action, heading, prompt, open] of [
   ['Finish book', 'You finished A book with history.', 'Finished by mistake?', null],
-  ['Stop reading this book', 'You stopped reading A book with history.', 'Stopped by mistake?', 'Manage this book'],
+  ['Stop reading this book', 'You stopped reading A book with history.', 'Stopped by mistake?', 'About this book · Manage'],
 ]) test(`undo right after "${action}" returns the same attempt to reading without new records`, async ({ page, app }) => {
   app.attempts[0].state = 'reading'; app.attempts[0].ended_on = null;
   app.entry.reading_state = 'reading';
   const original = structuredClone(app.attempts);
   await page.goto('/my-books/101');
-  if (open) await page.locator('.bv-workspace-manage > summary').click();
+  if (open) await page.locator('.bv-reading-fold > summary').click();
   await page.getByRole('button', { name: action, exact: true }).click();
   await expect(page.getByRole('heading', { name: heading, exact: true })).toBeFocused();
   const moment = page.locator('.bv-finish-moment');

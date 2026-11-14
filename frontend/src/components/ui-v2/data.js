@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { getBookById } from "../../api/books.js";
 import { prefetchWhenIdle } from "../../api/prefetchQueue.js";
-import { prefetchRequest, readRequestCache, sharedRequest } from "../../api/requestCache.js";
+import { earlyAnswer, prefetchRequest, readRequestCache, sharedRequest } from "../../api/requestCache.js";
 
 export function authorLabel(book) {
   return book.authors?.map((author) => author.name).filter(Boolean).join(", ") ||
@@ -51,12 +51,14 @@ export function useRequest(load, key, enabled = true) {
     if (!enabled) return undefined;
     let active = true;
     // Shares the request with any prefetch already under way for this key; a failed request is forgotten, so retry asks again.
-    sharedRequest(key, () => loadCurrent()).then(
+    // The first read also takes an answer that was started with the account check (api/earlyStart.js), once, instead of asking again.
+    const pending = (attempt === 0 ? earlyAnswer(key) : undefined) ?? sharedRequest(key, () => loadCurrent());
+    pending.then(
       (data) => { if (active) setState({ token, data, error: null }); },
       (error) => { if (active) setState({ token, data: null, error }); },
     );
     return () => { active = false; };
-  }, [token, enabled, key]);
+  }, [token, enabled, key, attempt]);
   const current = state.token === token;
   const stale = current ? null : readRequestCache(key);
   return {

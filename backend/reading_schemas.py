@@ -164,6 +164,9 @@ class AttemptValues(BaseModel):
     progress_unit: Literal["pages", "percent"] | None = None
     progress_value: int | None = Field(default=None, strict=True, ge=0)
     total_pages: int | None = Field(default=None, strict=True, ge=1)
+    # The reader's local date for a progress save (history only; never stored on the attempt). Used within one day of
+    # the server's UTC date, otherwise ignored.
+    on: date | None = None
 
 
 class AttemptCreate(AttemptValues):
@@ -186,7 +189,7 @@ class AttemptUpdate(AttemptValues):
 
     @model_validator(mode="after")
     def has_changes(self):
-        if not (self.model_fields_set - {"expected_version"}):
+        if not (self.model_fields_set - {"expected_version", "on"}):
             raise ValueError("Supply a reading change")
         if "state" in self.model_fields_set and self.state is None:
             raise ValueError("Reading state cannot be empty")
@@ -220,11 +223,20 @@ class ReadingResult(BaseModel):
     attempt: AttemptDetail
 
 
+class ProgressDay(BaseModel):
+    day: date
+    unit: Literal["pages", "percent"]
+    first_value: int
+    last_value: int
+
+
 class ReadingWorkspace(BaseModel):
     entry: EntryDetail
     current_attempt: AttemptDetail | None
     editions: list[dict]
     imported_sources_count: int = 0
+    # Owner-only: the current reading's saved progress by day, newest first, at most 366.
+    progress_days: list[ProgressDay] = []
 
 
 class AttemptPage(BaseModel):
