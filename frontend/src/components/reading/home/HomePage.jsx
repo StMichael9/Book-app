@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
@@ -13,7 +13,7 @@ import { BookCover, BookSkeletons, Button, EmptyState, TextLink } from "../../ui
 import FirstRunHome from "../FirstRunHome.jsx";
 import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
-import ProgressSheet from "./ProgressSheet.jsx";
+import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
 import { greetingFor, progressOf, shortDate, suggestions, useNarrow } from "./homeLogic.js";
 import "../../../styles/ui-v2/home.css";
@@ -21,7 +21,7 @@ import "../../../styles/ui-v2/home.css";
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
 const entryBook = entry => entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
 
-function ReadingCard({ read, onUpdate, readOnly, buttonRef }) {
+function ReadingCard({ read, onSaved, onFinished, readOnly }) {
   const { entry, attempt } = read, book = entryBook(entry), progress = progressOf(attempt);
   const percent = progress && (progress.max ? Math.min(100, Math.round(100 * progress.value / progress.max)) : null);
   const started = shortDate(attempt.started_on);
@@ -32,7 +32,7 @@ function ReadingCard({ read, onUpdate, readOnly, buttonRef }) {
       <p className="bv-author">{(book.authors || []).map(author => author.name).join(", ") || "Author not listed"}</p>
       {percent != null && <progress className="bv-reading-meter" value={percent} max="100" aria-label={`Reading progress for ${book.title}`} />}
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
-      <Button ref={buttonRef} disabled={readOnly} aria-label={`Update progress for ${book.title}`} onClick={() => onUpdate(read)}>Update progress</Button>
+      <ProgressBox entry={entry} attempt={attempt} title={book.title} readOnly={readOnly} onSaved={onSaved} onFinished={onFinished} />
     </div>
   </article>;
 }
@@ -57,8 +57,8 @@ export default function ReadingHomePage() {
   const pinned = useRequest(() => getUpNext().catch(() => null), keys.pins, ready);
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
-  const [sheet, setSheet] = useState(null), [showAll, setShowAll] = useState(false);
-  const narrow = useNarrow(), buttons = useRef({});
+  const [showAll, setShowAll] = useState(false);
+  const narrow = useNarrow();
   if (firstRun) return <FirstRunHome />;
   if (quiet && shelf.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
 
@@ -66,13 +66,9 @@ export default function ReadingHomePage() {
   const pins = current.pins !== undefined ? current.pins : pinned.data;
   const shown = narrow && !showAll ? reads.slice(0, 1) : reads;
   const readingCount = request.data?.reading_count ?? reads.length;
-  function saved(result) {
-    const id = sheet.entry.id;
-    setOverride({ ...current, reads: { ...current.reads, [id]: { entry: result.entry || sheet.entry, attempt: result.attempt } } });
-    setSheet(null);
-    // The sheet closes by itself; focus goes back to the button that opened it.
-    queueMicrotask(() => buttons.current[id]?.focus());
-  }
+  // A saved box keeps its card up to date in place; a finished book leaves Reading now once the library has refreshed.
+  const saved = read => result => setOverride({ ...current, reads: { ...current.reads, [read.entry.id]: { entry: result.entry || read.entry, attempt: result.attempt } } });
+  const finished = result => library.readingChanged(result.entry);
   return <section className="bv-container bv-reading-home bv-home">
     <div className="bv-home-greeting"><h1>{greetingFor(profile?.display_name)}</h1>{readingCount > 0 && <p className="bv-muted">You’re reading {books(readingCount)}</p>}</div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
@@ -81,7 +77,7 @@ export default function ReadingHomePage() {
       <h2 id="bv-now-title">Reading now</h2>
       {request.loading ? <BookSkeletons count={2} /> : request.error ? <EmptyState error title="Your reading couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your books haven’t changed.</EmptyState>
         : reads.length ? <>
-          <div className="bv-now-grid">{shown.map(read => <ReadingCard key={read.entry.id} read={read} readOnly={library.readOnly} buttonRef={node => { if (node) buttons.current[read.entry.id] = node; }} onUpdate={item => setSheet({ ...item, book: entryBook(item.entry) })} />)}</div>
+          <div className="bv-now-grid">{shown.map(read => <ReadingCard key={read.entry.id} read={read} readOnly={library.readOnly} onSaved={saved(read)} onFinished={finished} />)}</div>
           {narrow && reads.length > 1 && <p className="bv-more-reading">{showAll ? <Button variant="quiet" onClick={() => setShowAll(false)}>Show fewer</Button> : <>+ {reads.length - 1} more you’re reading · <Button variant="quiet" onClick={() => setShowAll(true)}>Show</Button></>}</p>}
           {readingCount > reads.length && <p className="bv-more-reading"><TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink></p>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
@@ -92,6 +88,5 @@ export default function ReadingHomePage() {
       {!shelf.loading && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
       <YearGlance stats={stats.data} />
     </>}
-    {sheet && <ProgressSheet read={sheet} onClose={() => setSheet(null)} onSaved={saved} />}
   </section>;
 }

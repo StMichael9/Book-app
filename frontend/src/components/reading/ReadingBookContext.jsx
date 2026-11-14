@@ -3,22 +3,10 @@ import { getBookDescription, getEntryDescription } from "../../api/descriptions.
 import ClampedText from "../ui-v2/ClampedText.jsx";
 import DescriptionBody from "../ui-v2/DescriptionBody.jsx";
 import { useDescription } from "../ui-v2/useDescription.js";
-import { BookCover, Button, EnglishTitle, TextLink } from "../ui-v2/primitives.jsx";
-import { authorLabel, formatYear, useRequest } from "../ui-v2/data.js";
+import { Button, TextLink } from "../ui-v2/primitives.jsx";
+import { formatYear, useRequest } from "../ui-v2/data.js";
 import { useGenres } from "../ui-v2/useGenres.js";
 import "../../styles/ui-v2/reading-workspace.css";
-
-export function ReadingBookIdentity({ entry, flags, headingRef }) {
-  const book = entry.book || { title: entry.private_title, cover_image_url: entry.private_catalogue?.cover_image_url, authors: entry.private_author ? [{ name: entry.private_author }] : [] };
-  return <article className="bv-workspace-book" aria-labelledby="bv-reading-book-title">
-    <div className="bv-workspace-cover"><BookCover book={book} priority /></div>
-    <div className="bv-workspace-identity">
-      <h1 id="bv-reading-book-title" tabIndex={-1} ref={headingRef}>{book.title}</h1><EnglishTitle book={book} /><p className="bv-detail-author">{authorLabel(book)}</p>
-      {!entry.book && <p className="bv-help">Private book, only in your library.</p>}
-      {flags}
-    </div>
-  </article>;
-}
 
 
 export function ReadingBookDetails({ bookId, description, entryId }) {
@@ -28,12 +16,12 @@ export function ReadingBookDetails({ bookId, description, entryId }) {
   const answer = useDescription(() => bookId ? getBookDescription(bookId) : getEntryDescription(entryId), bookId ? `book:${bookId}` : `entry:${entryId}`, Boolean(bookId || entryId));
   // The server picks the source. Until it answers the page keeps what it has; a failed answer falls back to exactly that.
   const answered = answer.status === "ok", own = bookId ? request.data?.description : description;
-  const text = answered ? answer.data.text : own, google = answered && answer.data.source === "google" && Boolean(text);
+  // Markdown stars are stripped from our own text; a Google description is shown exactly as it came.
+  const raw = answered ? answer.data.text : own, text = answered && answer.data.source === "google" ? raw : raw?.replace(/\*/g, ""), google = answered && answer.data.source === "google" && Boolean(text);
   // A private book shows its description when there is one, and nothing at all otherwise.
   if (!bookId && !text) return null;
   const shown = google ? <DescriptionBody text={text} link={answer.data.link} /> : text ? <ClampedText text={text} lines={2} className="bv-private-text bv-description-full bv-reading-synopsis" /> : answer.status === "error" && bookId ? <p className="bv-muted">A description isn’t available for this book yet.</p> : null;
-  return <section className="bv-workspace-about" aria-labelledby="bv-reading-about-title">
-    <h3 id="bv-reading-about-title">About this book</h3>
+  return <section className="bv-workspace-about" aria-label="About this book">
     {!bookId ? shown
       : request.loading ? <p role="status" className="bv-muted">Loading book details…</p>
       : request.error ? <div><p className="bv-muted">The synopsis couldn’t load. Your reading is still available.</p><Button variant="quiet" onClick={request.retry}>Try book details again</Button></div>
@@ -45,22 +33,5 @@ export function ReadingBookDetails({ bookId, description, entryId }) {
         {shown}
       </>}
     {bookId && <TextLink to={`/book/${bookId}`}>Full book details</TextLink>}
-  </section>;
-}
-
-export function ReadingProgress({ attempt, children, statusRef, readOnly }) {
-  const label = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" }[attempt?.state] || "Not started";
-  const value = attempt?.progress_value;
-  const maximum = attempt?.progress_unit === "percent" ? 100 : attempt?.total_pages;
-  const validProgress = value != null && maximum > 0 && value >= 0 && value <= maximum;
-  const text = value == null ? "Not tracking progress" : attempt.progress_unit === "percent" ? `${value}%` : `Page ${value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
-  const terminal = ["finished", "dnf"].includes(attempt?.state);
-  return <section className="bv-workspace-progress" aria-label="My reading">
-    <div className="bv-workspace-progress-heading"><h2>My reading</h2><h3 ref={statusRef} tabIndex={-1} className="bv-reading-state-pill">{label}</h3></div>
-    {readOnly && <p role="status" className="bv-notice">Your reading is available to read. Changes are temporarily paused.</p>}
-    {attempt && <div className="bv-workspace-progress-value"><p>{terminal && value != null ? `Last recorded: ${text}` : text}</p>{validProgress && attempt.progress_unit !== "percent" && <strong>{Math.round(value / maximum * 100)}%</strong>}</div>}
-    {validProgress && <progress value={value} max={maximum} aria-label="Reading progress" aria-valuetext={text} />}
-    {children}
-    {attempt && <p className="bv-workspace-dates">{attempt.started_on ? `Started ${attempt.started_on}` : "Start date unknown"}{attempt.ended_on ? ` · Ended ${attempt.ended_on}` : ""}</p>}
   </section>;
 }
