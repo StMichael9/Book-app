@@ -147,6 +147,7 @@ test("editorial workspace preview shares choices and a new finish returns to Wan
 });
 
 for (const theme of ["light", "dark"]) test(`UI refactor finish choices precede secondary workspace actions; theme=${theme}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/1");
@@ -174,6 +175,7 @@ test("M4 Home folds Next Read into Can't decide?; viewing and adjusting never wr
 });
 
 for (const theme of ["light", "dark"]) test(`Home Something new keeps the card layout without overflow; theme=${theme}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   app.catalogueCount = 3;
   for (const width of [1440, 390, 320]) {
@@ -393,6 +395,7 @@ test.describe("Next Read start dates use the reader's local calendar day", () =>
 // Design review: NEXT_SHOTS=1 writes Home with "Something new" and Adjust open to ../.bv-shots/home.
 for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`shot: Something new with Adjust open ${theme} ${width}`, async ({ page, app: _app }) => {
   test.skip(!process.env.NEXT_SHOTS, "design review only");
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.setViewportSize({ width, height: 900 });
   const choices = await openNew(page);

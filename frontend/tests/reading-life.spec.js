@@ -186,6 +186,7 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
   test(`reading life screenshots ${theme} ${width}${zoom ? " 200%" : ""}`, async ({ page, app }) => {
     test.skip(!process.env.LIFE_SHOTS, "design review only");
     app.years = [2023, 2024, 2025, 2026]; app.imported = [2023, 2024];
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height });

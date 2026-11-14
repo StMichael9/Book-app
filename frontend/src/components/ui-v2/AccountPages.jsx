@@ -2,7 +2,7 @@ import { useProfile } from "../profile/profileState.js";
 import { useEffect, useRef, useState } from "react";
 import { knownSource, trackEvent } from "./events.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, BookOpen, Moon, Sun } from "lucide-react";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { getBookById } from "../../api/books.js";
@@ -273,7 +273,8 @@ export function SettingsPage() {
     <section className="bv-account-row" aria-labelledby="bv-set-genres"><div><h2 id="bv-set-genres" className="bv-account-heading">Favourite genres</h2><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></section>
     {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete your account.</span></div>
       <div className="bv-account-links">{dataLinks && <TextLink to="/my-data">Your reading data</TextLink>}{importLink && <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink>}</div></section>}
-    <section className="bv-account-row" aria-labelledby="bv-set-theme"><div><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2><span>{reader.theme === "dark" ? "Dark" : "Light"}</span></div><Button variant="secondary" onClick={() => reader.setTheme((value) => value === "dark" ? "light" : "dark")}>{reader.theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}Switch theme</Button></section>
+    <section className="bv-account-row bv-theme-row" aria-labelledby="bv-set-theme"><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2>
+      <div className="bv-theme-choice" role="radiogroup" aria-labelledby="bv-set-theme">{[["device", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([value, label]) => <label key={value}><input type="radio" name="bv-theme" value={value} checked={reader.themeChoice === value} onChange={() => reader.chooseTheme(value)} /><span>{label}</span></label>)}</div></section>
     <section className="bv-account-row" aria-labelledby="bv-set-out"><div><h2 id="bv-set-out" className="bv-account-heading">{signedInAs}</h2></div><Button variant="secondary" disabled={loggingOut} onClick={logout}>{loggingOut ? "Signing out…" : "Sign out"}</Button></section>
     {error && <p className="bv-field-error" role="alert">{error}</p>}
   </div></section>;

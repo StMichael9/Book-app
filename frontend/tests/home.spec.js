@@ -324,6 +324,7 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
   test(`home screenshots ${theme} ${width}${zoom ? " 200%" : ""}`, async ({ page, app }) => {
     test.skip(!process.env.HOME_SHOTS, "design review only");
     app.pins = [pin(1), pin(2), pin(3), pin(4)];
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width, height });
@@ -437,6 +438,7 @@ test("Discover shows no catalogue total", async ({ page, app }) => {
 // Design review: HOME_POLISH_SHOTS=1 writes ../.bv-shots/home-polish.
 for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`shot: Home polish ${theme} ${width}`, async ({ page, app }) => {
   test.skip(!process.env.HOME_POLISH_SHOTS, "design review only");
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   await page.setViewportSize({ width, height: 900 });
   const settle = async () => { await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); }); };

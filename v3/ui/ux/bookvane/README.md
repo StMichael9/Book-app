@@ -2,6 +2,7 @@
 
 New documents for this frontend workstream belong in `v3/ui/ux/bookvane/`, following Michael's clarification that the leading folder names the version being worked on. Historical reports are retained at their original paths.
 
+- [November 14: theme follows the device](2026-11-14-theme-match-device.md)
 - [November 14: the navbar](2026-11-14-navbar.md)
 - [November 14: the reading page, Direction D](2026-11-14-reading-page-d.md)
 - [November 14: Speed S1, start account requests together](2026-11-14-parallel-start.md)
