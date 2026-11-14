@@ -200,18 +200,160 @@ def is_english(text: str) -> bool:
     return ascii_share >= 0.85 and sum(w in _STOPWORDS for w in words) / len(words) >= 0.2
 
 
-def clean_description(text: str | None) -> str | None:
-    """English prose only, without edition or seller sentences; None when nothing usable is left."""
-    value = " ".join((text or "").replace("\r", "\n").split(" ")).strip()
+# --- description: Markdown, paragraphs, sections, credits (T58) ------------------------------------------------------------
+
+_LINK_DEFINITION = re.compile(r"(?m)^[ \t]*\[[^\]\n]+\]:[ \t]*\S+.*$")
+_LINK_DEFINITION_TAIL = re.compile(r"\s*\[\w+\]:\s*https?://\S+")          # a definition left inside collapsed text
+_OPEN_LIBRARY_URL = re.compile(r"https?://(?:www\.)?openlibrary\.org\S*", re.IGNORECASE)
+_IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
+_INLINE_LINK = re.compile(r"\[([^\]]+)\]\([^)\s]*(?:\s+\"[^\"]*\")?\)")
+_REFERENCE_LINK = re.compile(r"\[([^\]]+)\]\[[^\]]*\]")
+_STARS = re.compile(r"(\*{1,3})(?=\S)(.+?)(?<=\S)\1")
+_UNDERSCORES = re.compile(r"(?<!\w)(_{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s*(.*?)\s*#*\s*$")
+_BOLD_LINE = re.compile(r"^\s*(?:\*{1,3}|_{1,3})\s*([^*_\n]{2,60}?)\s*:?\s*(?:\*{1,3}|_{1,3})\s*:?\s*$")
+_LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+(.*)$")
+_SERIES_LINE = re.compile(r"^\s*(?:\*{1,3}|_{1,3})?\s*(?:followed|preceded)\s+by\b", re.IGNORECASE)
+
+KEEP_SECTIONS = frozenset({"plot", "summary", "synopsis", "plot summary", "plot overview", "book summary", "story summary",
+                           "about the book", "about this book"})
+DROP_SECTIONS = frozenset({
+    "characters", "key characters", "main characters", "major characters", "list of characters", "character list", "themes",
+    "major themes", "awards", "awards and recognition", "awards and honors", "awards and honours", "awards and nominations",
+    "reception", "critical reception", "adaptations", "adaptation", "film adaptation", "see also", "contents",
+    "table of contents", "followed by", "preceded by", "series", "editions", "publication history", "references",
+    "external links", "further reading", "sequels", "legacy", "notes"})
+
+_CREDIT_HEAD = re.compile(
+    r"^(?:(?:written|edited|translated|illustrated|retold|adapted|compiled|abridged|introduced|annotated|selected|narrated)"
+    r"(?:\s*,\s*|\s+and\s+|\s*&\s*)?)+\s+(?:from\s+(?:the\s+)?[A-Z][\w-]*(?:\s+and\s+[A-Z][\w-]*)?\s+)?by\b(?P<rest>.*)$",
+    re.IGNORECASE)
+_CREDIT_NOTES = re.compile(
+    r"^(?:with\s+)?(?:an?\s+)?(?:notes?|introduction|foreword|afterword|bibliography|commentary|glossary|chronology|"
+    r"appendi(?:x|ces)|index)\b(?P<rest>.*)$", re.IGNORECASE)
+_TRANSLATION_OF = re.compile(r"^translation\s+(?:of|from)\b.{0,120}$", re.IGNORECASE)
+_CREDIT_WORDS = frozenset(
+    "and & with by the a an of de van von der den la le du da di del y e notes note introduction foreword afterword bibliography "
+    "filmography discography commentary glossary chronology appendix appendices index illustrations essays criticism sources "
+    "edited written translated illustrated".split())
+
+
+def _credit(sentence: str) -> bool:
+    """A statement of responsibility ("Written and edited by Leonard Wolf ; notes, bibliography…", "Translation of: …")."""
+    value = sentence.strip().strip("\"“”'‘’ ").strip()
     if not value:
+        return False
+    if _TRANSLATION_OF.match(value):
+        return True
+    head = _CREDIT_HEAD.match(value)
+    match = head or _CREDIT_NOTES.match(value)
+    if not match:
+        return False
+    tokens = [t.strip(".,;:()\"“”'") for t in re.findall(r"[^\s;,]+", match.group("rest"))]
+    tokens = [t for t in tokens if t]
+    if (not tokens and head) or len(tokens) > 30:
+        return False
+    return all(t[0].isupper() or t[0].isdigit() or t.lower() in _CREDIT_WORDS for t in tokens)
+
+
+def _section_key(title: str) -> str:
+    return re.sub(r"[^a-z ]", "", re.sub(r"[*_#:]", "", title).lower()).strip()
+
+
+def _heading(line: str) -> str | None:
+    match = _HEADING.match(line)
+    if match:
+        return match.group(1)
+    match = _BOLD_LINE.match(line)
+    if match and _section_key(match.group(1)) in KEEP_SECTIONS | DROP_SECTIONS:
+        return match.group(1)
+    return None
+
+
+def _trim_sections(lines: list[str]) -> list[str]:
+    """With headed sections, keep the intro and the plot or summary; drop characters, themes, awards and the rest."""
+    sections: list[tuple[str | None, list[str]]] = [(None, [])]
+    for line in lines:
+        title = _heading(line)
+        if title is None:
+            sections[-1][1].append(line)
+        else:
+            sections.append((_section_key(title), []))
+    if len(sections) == 1:
+        return lines
+    kept = [body for key, body in sections if key is None or key in KEEP_SECTIONS]
+    if not any("".join(body).strip() for body in kept):
+        kept = [body for key, body in sections if key is None or key not in DROP_SECTIONS]
+    result: list[str] = []
+    for body in kept:
+        result += body + [""]
+    return result
+
+
+def markdown_to_text(value: str) -> str:
+    """Open Library descriptions are often Markdown: keep the words, drop the markup. Paragraphs stay as blank-line gaps and
+    list items as their own lines."""
+    value = _LINK_DEFINITION.sub("", value)
+    value = _LINK_DEFINITION_TAIL.sub("", value)
+    value = _IMAGE.sub(r"\1", value)
+    value = _INLINE_LINK.sub(r"\1", value)
+    value = _REFERENCE_LINK.sub(r"\1", value)
+    for _ in range(2):
+        value = _STARS.sub(r"\2", value)
+        value = _UNDERSCORES.sub(r"\2", value)
+    value = _OPEN_LIBRARY_URL.sub("", value)
+    return value
+
+
+def description_blocks(value: str) -> list[tuple[str, str]]:
+    """Plain-text blocks [("p" | "li", text)] of one description after section and series-line handling."""
+    lines = _trim_sections(value.replace("\r\n", "\n").replace("\r", "\n").split("\n"))
+    blocks: list[tuple[str, str]] = []
+    paragraph: list[str] = []
+
+    def close():
+        if paragraph:
+            blocks.append(("p", " ".join(" ".join(paragraph).split())))
+            paragraph.clear()
+
+    for line in lines:
+        if _SERIES_LINE.match(line):
+            continue
+        if not line.strip():
+            close()
+            continue
+        item = _LIST_ITEM.match(line)
+        if item:
+            close()
+            if item.group(1).strip():
+                blocks.append(("li", " ".join(item.group(1).split())))
+        else:
+            paragraph.append(line.strip())
+    close()
+    return blocks
+
+
+def clean_description(text: str | None) -> str | None:
+    """English prose only, without markup, edition, seller or credit text, keeping paragraphs (blank line) and list lines;
+    None when nothing usable is left."""
+    value = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not value.strip():
         return None
     cut = _TRAILER.search(value)
     if cut:
         value = value[:cut.start()]
     value = re.sub(r"<[^>]+>", " ", value)
-    kept = [s for s in _SENTENCE.split(" ".join(value.split())) if s.strip() and not SELLER.search(s)]
-    result = " ".join(kept).strip()
-    if len(result) < 5 or (len(result.split()) >= 8 and not is_english(result)):
+    parts: list[tuple[str, str]] = []
+    for kind, block in description_blocks(value):
+        kept = " ".join(s for s in _SENTENCE.split(" ".join(markdown_to_text(block).split())) if s.strip() and not SELLER.search(s)
+                        and not _credit(s)).strip()
+        if kept:
+            parts.append((kind, kept))
+    result = ""
+    for index, (kind, block) in enumerate(parts):
+        result += block if index == 0 else ("\n" if kind == "li" and parts[index - 1][0] == "li" else "\n\n") + block
+    flat = " ".join(result.split())
+    if len(flat) < 5 or (len(flat.split()) >= 8 and not is_english(flat)):
         return None       # too short to judge the language: kept (unless it was seller text, removed above)
     return result
 
@@ -230,7 +372,7 @@ def quality_score(*, title: str | None, authors: list[str], description: str | N
     points += 20 if cover else 0
     points += 10 if pages else 0
     points += 10 if year else 0
-    points += 15 if description and clean_description(description) == " ".join(description.split()) else 0
+    points += 15 if description and " ".join((clean_description(description) or "").split()) == " ".join(description.split()) else 0
     points += 5 if popularity is not None else 0
     points += 5 if genres > 0 else 0
     return min(points, 40) if derivative else points
