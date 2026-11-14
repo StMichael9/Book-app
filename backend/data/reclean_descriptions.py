@@ -29,7 +29,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Integer, Text, column, create_engine, func, insert, or_, select, text, update, values
+from sqlalchemy import Integer, Text, column, create_engine, func, insert, or_, select, text, true, update, values
 from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from data import clean, cleaner, fill_descriptions
@@ -61,6 +61,7 @@ class Change:
     new: str | None     # None: the stored text is removed
     source: str         # "dump" | "api" | "stored"
     kind: str           # "filled" | "changed" | "emptied"
+    withhold: bool = False  # do not keep the old text in the log (it holds a stranger's email address): not restorable
 
 
 def _md5(value: str | None) -> str:
@@ -207,19 +208,22 @@ def _decide(item: Book_, new: str | None, source: str, changes: dict, counts: Co
     changes[item.id] = Change(item.id, item.work_key, item.md5, new, source, kind)
 
 
-def _write(factory: sessionmaker, chunk: list[Change], tag: str) -> int:
-    """One UPDATE (only rows that still hold the value we read, and are ours to rewrite) and one INSERT of log rows."""
+def _write(factory: sessionmaker, chunk: list[Change], tag: str, owned_only: bool = True) -> int:
+    """One UPDATE (only rows that still hold the value we read, and, unless `owned_only` is off, are ours to rewrite) and one
+    INSERT of log rows."""
     old = aliased(Book)
     data = values(column("id", Integer), column("d", Text), column("m", Text), name="v").data(
         [(c.book_id, c.new, c.old_md5) for c in chunk])
     with factory.begin() as session:
         result = session.execute(update(Book).where(
             Book.id == data.c.id, old.id == Book.id, func.md5(func.coalesce(old.description, "")) == data.c.m,
-            or_(old.description.is_(None), func.btrim(old.description) == "", old.source_managed_fields.op("&")(FIELD_DESCRIPTION) > 0))
+            true() if not owned_only else or_(old.description.is_(None), func.btrim(old.description) == "",
+                                           old.source_managed_fields.op("&")(FIELD_DESCRIPTION) > 0))
             .values(description=data.c.d).returning(Book.id, old.description)).all()
         before = dict(result)
         logs = [{"run_id": None, "code": CODE, "source_id": c.work_key, "detail": json.dumps({
-            "tag": tag, "book_id": c.book_id, "kind": c.kind, "source": c.source, "before": before[c.book_id],
+            "tag": tag, "book_id": c.book_id, "kind": c.kind, "source": c.source,
+            "before": None if c.withhold else before[c.book_id], "before_withheld": c.withhold,
             "after_chars": len(c.new) if c.new else 0, "after_sha256": _sha(c.new) if c.new else None},
             ensure_ascii=False, separators=(",", ":"))} for c in chunk if c.book_id in before]
         if logs:
@@ -231,7 +235,7 @@ def undo(factory: sessionmaker, tag: str) -> dict:
     """Put back the old text of every description changed under this tag, unless it has been edited since."""
     if not TAG.fullmatch(tag):
         raise ValueError("tag must be 1-40 letters, digits, dot, dash or underscore")
-    restored = skipped = 0
+    restored = skipped = withheld = 0
     with factory.begin() as session:
         issues = session.scalars(select(CatalogueImportIssue.detail).where(
             CatalogueImportIssue.code == CODE, CatalogueImportIssue.detail.like(f'%"tag":"{tag}"%'))
@@ -240,6 +244,9 @@ def undo(factory: sessionmaker, tag: str) -> dict:
             data = json.loads(detail)
             if data.get("tag") != tag:  # LIKE treats "_" as a wildcard: confirm the exact tag
                 continue
+            if data.get("before_withheld"):  # the old text was a privacy problem and is deliberately not kept
+                withheld += 1
+                continue
             if data["after_sha256"] is None:
                 same = Book.description.is_(None)
             else:
@@ -247,7 +254,7 @@ def undo(factory: sessionmaker, tag: str) -> dict:
             result = session.execute(update(Book).where(Book.id == data["book_id"], same).values(description=data["before"]))
             restored += result.rowcount
             skipped += 1 - result.rowcount
-    return {"restored": restored, "skipped_changed_since": skipped}
+    return {"restored": restored, "skipped_changed_since": skipped, "not_restorable_privacy": withheld}
 
 
 def _clip(value: str | None, n: int = 400) -> str:

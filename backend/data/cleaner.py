@@ -238,6 +238,62 @@ _CREDIT_WORDS = frozenset(
     "edited written translated illustrated revised in collaboration".split())
 
 
+# --- text that is not a description (T59): a stranger's email, a reader's review, a contents list --------------------------
+
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+REVIEW = re.compile(
+    r"\b(?:title\s+of\s+review|my\s+rating|my\s+review|i\s+give\s+this\s+(?:book|one)|stars?\s+out\s+of|"
+    r"out\s+of\s+(?:5|five)\s+stars)\b", re.IGNORECASE)
+_CONTENTS_LABEL = re.compile(r"\b(?:table\s+of\s+)?contents\s*:", re.IGNORECASE)
+_SPACED_SLASH = re.compile(r"\s/\s")
+_SENTENCE_END = re.compile(r"[.!?]\s+(?=[A-Z])")
+
+
+_NAME_WORD = re.compile(r"[A-Z][A-Za-z.'’-]*$")
+_NOT_A_NAME = frozenset({"The", "A", "An", "Of", "In", "On", "And"})
+MIN_CONTENTS_PAIRS = 4
+CONTENTS_SHARE = 0.6
+
+
+def _starts_with_a_name(segment: str) -> bool:
+    """"Nathaniel Hawthorne Purloined Letter": two or more capitalised words up front, the first not an article."""
+    words = segment.split()
+    return (len(words) >= 2 and words[0] not in _NOT_A_NAME and all(_NAME_WORD.match(word) for word in words[:2]))
+
+
+def _contents_prefix(value: str) -> str | None:
+    """The text before a contents list; None when there is no list. A list is a "Contents:" label, or at least four
+    "Title / Author" pairs (the part after each slash starts with a personal name) that make up most of the text."""
+    label = _CONTENTS_LABEL.search(value)
+    if label:
+        return value[:label.start()]
+    flat = " ".join(value.split())
+    parts = _SPACED_SLASH.split(flat)
+    if sum(1 for part in parts[1:] if _starts_with_a_name(part)) < MIN_CONTENTS_PAIRS:
+        return None
+    before = flat[:_SPACED_SLASH.search(flat).start()]
+    ends = [m.end() for m in _SENTENCE_END.finditer(before)]
+    prefix = before[:ends[-1]] if ends else ""
+    return prefix if len(flat) - len(prefix) >= CONTENTS_SHARE * len(flat) else None
+
+
+def description_flags(text: str | None) -> list[str]:
+    """Why a description is not one: "email", "review" or "contents" (for the re-clean report)."""
+    value = text or ""
+    flags = []
+    if EMAIL.search(value):
+        flags.append("email")
+    if REVIEW.search(value):
+        flags.append("review")
+    if _contents_prefix(value) is not None:
+        flags.append("contents")
+    return flags
+
+
+def mask_emails(text: str | None) -> str | None:
+    return None if text is None else EMAIL.sub("[email removed]", text)
+
+
 def _credit_clause(value: str) -> bool:
     value = value.strip().strip("\"“”'‘’ ").strip()
     if not value:
@@ -348,6 +404,13 @@ def clean_description(text: str | None) -> str | None:
     cut = _TRAILER.search(value)
     if cut:
         value = value[:cut.start()]
+    if EMAIL.search(value) or REVIEW.search(value):
+        return None       # a stranger's email address or a reader's review is not a description (and the email is private)
+    prefix = _contents_prefix(value)
+    if prefix is not None:
+        if len(prefix.split()) < 8:
+            return None
+        value = prefix
     value = re.sub(r"<[^>]+>", " ", value)
     parts: list[tuple[str, str]] = []
     for kind, block in description_blocks(value):
