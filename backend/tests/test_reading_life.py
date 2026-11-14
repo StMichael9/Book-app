@@ -163,7 +163,7 @@ def test_an_empty_library_is_zeros_and_nulls_without_errors(world):
         assert figures["months"] == [{"books": 0, "pages": 0}] * 12
         assert figures["length_mix"] == {"short": 0, "medium": 0, "long": 0, "unknown": 0}
         assert (figures["authors_new"], figures["authors_returning"]) == (0, 0)
-    assert s["all_time"] == {"books": 0, "pages": 0, "top_subjects": []}
+    assert s["all_time"] == {"books": 0, "pages": 0, "top_subjects": [], "avg_days": None, "pages_per_day": None, "reading_days": 0}
     assert s["shelf"] == {"owned_unfinished": 0, "want": 0, "oldest_waiting": None}
 
 
@@ -181,7 +181,8 @@ def test_the_public_profile_payload_is_unchanged_and_shows_none_of_it(life):
     page = world.client.get("/u/life-reader").json()
     assert set(page["stats"]) == OLD_KEYS
     blob = str(page)
-    for private in ("shelf", "oldest_waiting", "pages_unknown", "median_days", "authors_new", "all_time", "length_mix", "Older"):
+    for private in ("shelf", "oldest_waiting", "pages_unknown", "median_days", "avg_days", "pages_per_day", "reading_days", "authors_new",
+                    "all_time", "length_mix", "Older"):
         assert private not in blob
 
 
