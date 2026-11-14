@@ -1,7 +1,7 @@
 """The signed-in reader's "reading life" figures for GET /me/stats. Private to the reader: none of this reaches the public
 profile (whose stats come from services.profile.year_stats and stay exactly as they were).
 
-A constant number of statements (attempts, authors, subject tags, shelf counts, the oldest waiting book); everything else is
+A constant number of statements (attempts, authors, subject tags, progress days, shelf counts, the oldest waiting book); everything else is
 worked out from those rows in memory.
 """
 from __future__ import annotations
@@ -13,10 +13,67 @@ from datetime import date, timezone
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
-from models import Author, Book, ReadingAttempt, Tag, TagType, UserBook, book_authors, book_tags
+from models import Author, Book, ReadingAttempt, ReadingProgressDay, Tag, TagType, UserBook, book_authors, book_tags
 from services.library_view import LENGTHS, length_of
 
 SUBJECT_TYPES = (TagType.genre, TagType.topic, TagType.form, TagType.audience)
+
+
+MIN_BOOKS_FOR_AVERAGE = 3       # a single odd book never becomes a headline
+MIN_READING_DAYS = 5
+
+
+def _half_up(value: float) -> int:
+    return int(value + 0.5)
+
+
+def _progress_rows(db: Session, user_id) -> list:
+    """The reader's own progress days (one read; the join to the entry is the owner check), oldest first per attempt."""
+    return db.execute(
+        select(ReadingProgressDay.attempt_id, ReadingProgressDay.day, ReadingProgressDay.unit, ReadingProgressDay.first_value,
+               ReadingProgressDay.last_value, ReadingAttempt.total_pages)
+        .select_from(ReadingProgressDay).join(ReadingAttempt, ReadingAttempt.id == ReadingProgressDay.attempt_id)
+        .join(UserBook, UserBook.id == ReadingAttempt.user_book_id).where(UserBook.user_id == user_id)
+        .order_by(ReadingProgressDay.attempt_id, ReadingProgressDay.day)).all()
+
+
+def page_gains(rows) -> dict[date, int]:
+    """Pages gained per reader-local day, summed over all the reader's attempts. For each attempt a day's gain is its last
+    value minus the last value of the attempt's previous row (the first row: last minus first). A percent row is turned into
+    pages with the attempt's total pages (rounded) and skipped when they are unknown; a change of unit skips that day's gain;
+    a correction downwards counts as 0."""
+    gains: dict[date, int] = defaultdict(int)
+    previous: dict = {}
+    for attempt_id, day, unit, first, last, total in rows:
+        if unit == "percent":
+            if not total:
+                continue
+            first, last = _half_up(first * total / 100), _half_up(last * total / 100)
+        before = previous.get(attempt_id)
+        previous[attempt_id] = (unit, last)
+        if before is None:
+            gain = last - first
+        elif before[0] != unit:
+            continue
+        else:
+            gain = last - before[1]
+        gains[day] += max(gain, 0)
+    return gains
+
+
+def reading_days(gains: dict[date, int], year: int | None = None) -> dict:
+    """Reading days (a day with a gain over all attempts) and pages per reading day, for one year or for all time."""
+    counted = [g for d, g in gains.items() if g > 0 and (year is None or d.year == year)]
+    return {"reading_days": len(counted),
+            "pages_per_day": _half_up(sum(counted) / len(counted)) if len(counted) >= MIN_READING_DAYS else None}
+
+
+def days_to_finish(attempts: list) -> list[int]:
+    return [(a.ended - a.started).days for a in attempts if a.started and a.ended and a.ended >= a.started]
+
+
+def average_days(days: list[int]) -> int | None:
+    return _half_up(sum(days) / len(days)) if len(days) >= MIN_BOOKS_FOR_AVERAGE else None
 
 
 def length_band(pages: int | None) -> str:
@@ -88,7 +145,7 @@ def top_subjects(attempts: list[Attempt], tags: dict[int, list[str]]) -> list[di
     return [{"name": name, "count": count} for name, count in sorted(subjects.items(), key=lambda item: (-item[1], item[0]))[:5]]
 
 
-def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> dict:
+def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int, gains: dict[date, int] | None = None) -> dict:
     """The per-year figures. A reread is another finish; unknown pages are left out of the page totals and counted."""
     done = [a for a in attempts if a.state == "finished" and a.ended and a.ended.year == year]
     stopped = sum(1 for a in attempts if a.state == "dnf" and a.ended and a.ended.year == year)
@@ -97,7 +154,7 @@ def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> d
     for a in done:
         months[a.ended.month - 1]["books"] += 1
         months[a.ended.month - 1]["pages"] += a.pages or 0
-    days = [(a.ended - a.started).days for a in done if a.started and a.ended >= a.started]
+    days = days_to_finish(done)
     median = statistics.median(days) if days else None
     later = rereads_of(attempts)
     mix = Counter(length_band(a.pages) for a in done)
@@ -108,6 +165,7 @@ def figures(attempts: list[Attempt], tags: dict[int, list[str]], year: int) -> d
         "books": len(done), "pages": sum(known), "pages_unknown": len(done) - len(known),
         "avg_length": round(sum(known) / len(known)) if known else None,
         "median_days": int(median) if median is not None and median == int(median) else median,
+        "avg_days": average_days(days), **reading_days(gains or {}, year),
         "stopped": stopped, "months": months,
         "top_subjects": top_subjects(done, tags), "rereads": sum(1 for a in done if a.id in later),
         "length_mix": {band: mix.get(band, 0) for band in (*LENGTHS, "unknown")},
@@ -137,10 +195,12 @@ def shelf(db: Session, user_id) -> dict:
 def reading_life(db: Session, user_id, year: int) -> dict:
     attempts = _load(db, user_id)
     tags = _subjects(db, attempts)
+    gains = page_gains(_progress_rows(db, user_id))
     every = [a for a in attempts if a.state == "finished"]
     pages = [a.pages for a in every if a.pages]
-    return {**figures(attempts, tags, year), "previous": figures(attempts, tags, year - 1),
-            "all_time": {"books": len(every), "pages": sum(pages), "top_subjects": top_subjects(every, tags)},
+    return {**figures(attempts, tags, year, gains), "previous": figures(attempts, tags, year - 1, gains),
+            "all_time": {"books": len(every), "pages": sum(pages), "top_subjects": top_subjects(every, tags),
+                         "avg_days": average_days(days_to_finish(every)), **reading_days(gains)},
             "years_with_reading": sorted({a.ended.year for a in every if a.ended}),
             "imported_years": sorted({a.ended.year for a in every if a.ended and a.origin == "import"}),
             "shelf": shelf(db, user_id)}
