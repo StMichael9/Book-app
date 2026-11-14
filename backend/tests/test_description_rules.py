@@ -72,6 +72,10 @@ def test_unknown_headings_only_are_not_thrown_away_entirely():
 
 def test_credit_only_text_is_dropped_but_a_credit_inside_prose_goes_alone():
     assert cleaner.clean_description("Written and edited by Leonard Wolf ; notes, bibliography, and filmography") is None
+    live = ("Written and edited by Leonard Wolf ; notes, bibliography, and filmography revised in collaboration with Roxana "
+            "Stuart ; illustrations by Christopher Bing.")
+    assert cleaner.clean_description(live) is None                              # the exact live Dracula text
+    assert cleaner.clean_description("A count moves to London and trouble follows him. " + live) == "A count moves to London and trouble follows him."
     assert cleaner.clean_description("Translation of: Les miserables, by Victor Hugo") is None
     kept = cleaner.clean_description("A count moves to London and trouble follows him there. Written and edited by Leonard Wolf.")
     assert kept == "A count moves to London and trouble follows him there."

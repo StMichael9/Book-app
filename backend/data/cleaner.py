@@ -229,18 +229,17 @@ _CREDIT_HEAD = re.compile(
     r"(?:\s*,\s*|\s+and\s+|\s*&\s*)?)+\s+(?:from\s+(?:the\s+)?[A-Z][\w-]*(?:\s+and\s+[A-Z][\w-]*)?\s+)?by\b(?P<rest>.*)$",
     re.IGNORECASE)
 _CREDIT_NOTES = re.compile(
-    r"^(?:with\s+)?(?:an?\s+)?(?:notes?|introduction|foreword|afterword|bibliography|commentary|glossary|chronology|"
+    r"^(?:with\s+)?(?:an?\s+)?(?:notes?|introduction|foreword|afterword|bibliography|commentary|glossary|chronology|illustrations?|revised|"
     r"appendi(?:x|ces)|index)\b(?P<rest>.*)$", re.IGNORECASE)
 _TRANSLATION_OF = re.compile(r"^translation\s+(?:of|from)\b.{0,120}$", re.IGNORECASE)
 _CREDIT_WORDS = frozenset(
     "and & with by the a an of de van von der den la le du da di del y e notes note introduction foreword afterword bibliography "
     "filmography discography commentary glossary chronology appendix appendices index illustrations essays criticism sources "
-    "edited written translated illustrated".split())
+    "edited written translated illustrated revised in collaboration".split())
 
 
-def _credit(sentence: str) -> bool:
-    """A statement of responsibility ("Written and edited by Leonard Wolf ; notes, bibliography…", "Translation of: …")."""
-    value = sentence.strip().strip("\"“”'‘’ ").strip()
+def _credit_clause(value: str) -> bool:
+    value = value.strip().strip("\"“”'‘’ ").strip()
     if not value:
         return False
     if _TRANSLATION_OF.match(value):
@@ -254,6 +253,13 @@ def _credit(sentence: str) -> bool:
     if (not tokens and head) or len(tokens) > 30:
         return False
     return all(t[0].isupper() or t[0].isdigit() or t.lower() in _CREDIT_WORDS for t in tokens)
+
+
+def _credit(sentence: str) -> bool:
+    """A statement of responsibility: every ";" clause is one ("Written and edited by Leonard Wolf ; notes, bibliography, and
+    filmography revised in collaboration with Roxana Stuart ; illustrations by Christopher Bing", "Translation of: …")."""
+    clauses = [clause for clause in re.split(r"\s*;\s*", sentence.strip()) if clause.strip()]
+    return bool(clauses) and all(_credit_clause(clause) for clause in clauses)
 
 
 def _section_key(title: str) -> str:
