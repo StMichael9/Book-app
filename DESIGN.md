@@ -1,33 +1,37 @@
 ---
 name: Bookvane
-description: A calm, private reading home on ivory paper, with book spines as the shared unit.
+description: A calm, private reading home on ivory paper, framed by bookcloth at its two front doors, with book spines as the shared unit.
 colors:
-  paper: "#faf8f2"
-  panel: "#ffffff"
-  wash: "#f0eee5"
-  hero: "#e8ebe0"
-  ink: "#202e28"
-  muted: "#59675e"
-  line: "#d8ddd3"
+  paper: "#f3eee3"
+  sheet: "#fdfaf3"
+  raised: "#ffffff"
+  ink: "#1f2a24"
+  muted: "#5d665f"
+  line: "#e2dccd"
   control: "#7e8c80"
   green: "#28513f"
   on-green: "#fffdf5"
-  soft-green: "#e7ede3"
+  soft: "#e6e9dd"
   rust: "#9c432d"
   danger: "#9b2f32"
-  paper-dark: "#1e1d1b"
-  panel-dark: "#262523"
-  wash-dark: "#2e2c29"
-  hero-dark: "#2b2926"
-  ink-dark: "#ebe8e1"
-  muted-dark: "#b6b1a9"
-  line-dark: "#4b4741"
+  band: "#28513f"
+  on-band: "#f6efdf"
+  band-muted: "#c9d6c4"
+  paper-dark: "#16130f"
+  sheet-dark: "#2f2a23"
+  raised-dark: "#3b352c"
+  ink-dark: "#f0e9dc"
+  muted-dark: "#bdb3a3"
+  line-dark: "#3f382f"
   control-dark: "#8c867d"
-  green-dark: "#a9c9b3"
-  on-green-dark: "#1e1d1b"
-  soft-green-dark: "#30332f"
+  green-dark: "#b9d3bf"
+  on-green-dark: "#14201a"
+  soft-dark: "#463f35"
   rust-dark: "#d9826c"
   danger-dark: "#f0a39e"
+  band-dark: "#1d3a2d"
+  on-band-dark: "#efe7d6"
+  band-muted-dark: "#a9bfae"
   cloth-green: "#28513f"
   cloth-rust: "#9c432d"
   cloth-ink-blue: "#2f4a6b"
@@ -38,20 +42,25 @@ colors:
   cloth-ink-white: "#ffffff"
   cloth-ink-dark: "#1a251f"
 typography:
+  display:
+    fontFamily: "Bookvane Caslon, Georgia, serif"
+    fontSize: "clamp(2.25rem, 6vw, 3.5rem)"
+    fontWeight: 400
+    lineHeight: 1.05
   page:
-    fontFamily: "Bookvane Lora, Georgia, serif"
-    fontSize: "1.75rem"
-    fontWeight: 500
-    lineHeight: 1.2
+    fontFamily: "Bookvane Caslon, Georgia, serif"
+    fontSize: "clamp(2rem, 5vw, 2.75rem)"
+    fontWeight: 400
+    lineHeight: 1.08
   section:
-    fontFamily: "Bookvane Lora, Georgia, serif"
-    fontSize: "1.375rem"
-    fontWeight: 500
-    lineHeight: 1.2
-  card:
-    fontFamily: "Bookvane Lora, Georgia, serif"
+    fontFamily: "Bookvane Caslon, Georgia, serif"
+    fontSize: "clamp(1.75rem, 3.5vw, 2.125rem)"
+    fontWeight: 400
+    lineHeight: 1.1
+  title:
+    fontFamily: "Bookvane Caslon, Georgia, serif"
     fontSize: "1.0625rem"
-    fontWeight: 500
+    fontWeight: 400
     lineHeight: 1.25
   body:
     fontFamily: "Bookvane Sans, Segoe UI, sans-serif"
@@ -72,11 +81,9 @@ rounded:
   spine: "1px"
   slot: "3px"
   cover: "4px"
-  control: "6px"
-  panel: "8px"
-  card: "10px"
+  field: "10px"
   sheet: "16px"
-  pill: "24px"
+  pill: "999px"
   full: "50%"
 spacing:
   "1": "4px"
@@ -85,80 +92,77 @@ spacing:
   "4": "16px"
   "5": "20px"
   "6": "24px"
-  "7": "28px"
   "8": "32px"
-  "9": "36px"
+  "10": "40px"
+  "12": "48px"
 components:
   button-primary:
     backgroundColor: "{colors.green}"
     textColor: "{colors.on-green}"
     typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 22px"
+    rounded: "{rounded.pill}"
+    padding: "0 22px"
     height: "48px"
-  button-secondary:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 22px"
-    height: "48px"
-  button-secondary-hover:
-    backgroundColor: "{colors.wash}"
   button-quiet:
+    backgroundColor: "{colors.soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "0 22px"
+    height: "48px"
+  button-outline:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 12px"
+    rounded: "{rounded.pill}"
+    padding: "0 22px"
     height: "48px"
-  button-saved:
-    backgroundColor: "{colors.soft-green}"
-    textColor: "{colors.green}"
+  button-on-band:
+    backgroundColor: "{colors.on-band}"
+    textColor: "{colors.band}"
     typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 22px"
+    rounded: "{rounded.pill}"
+    padding: "0 22px"
     height: "48px"
   button-danger:
     backgroundColor: "{colors.danger}"
-    textColor: "{colors.paper}"
+    textColor: "{colors.on-green}"
     typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 22px"
-    height: "48px"
-  button-danger-outline:
-    backgroundColor: "transparent"
-    textColor: "{colors.danger}"
-    typography: "{typography.label}"
-    rounded: "{rounded.control}"
-    padding: "10px 22px"
+    rounded: "{rounded.pill}"
+    padding: "0 22px"
     height: "48px"
   link-tertiary:
     textColor: "{colors.green}"
     typography: "{typography.label}"
     height: "44px"
   input:
-    backgroundColor: "{colors.panel}"
+    backgroundColor: "{colors.raised}"
     textColor: "{colors.ink}"
     typography: "{typography.body}"
-    rounded: "{rounded.control}"
-    padding: "11px 13px"
+    rounded: "{rounded.field}"
+    padding: "11px 14px"
     height: "50px"
-  list-card:
-    backgroundColor: "{colors.panel}"
+  sheet:
+    backgroundColor: "{colors.sheet}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
-    padding: "10px"
-  privacy-pill:
-    backgroundColor: "{colors.wash}"
-    textColor: "{colors.muted}"
-    typography: "{typography.body}"
+    rounded: "{rounded.sheet}"
+    padding: "20px"
+  chip:
+    backgroundColor: "{colors.soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
     rounded: "{rounded.pill}"
-    padding: "4px 8px 4px 16px"
+    height: "40px"
+  chip-selected:
+    backgroundColor: "{colors.green}"
+    textColor: "{colors.on-green}"
+  band:
+    backgroundColor: "{colors.band}"
+    textColor: "{colors.on-band}"
   dialog:
-    backgroundColor: "{colors.panel}"
+    backgroundColor: "{colors.sheet}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.card}"
+    rounded: "{rounded.sheet}"
     padding: "28px"
   avatar:
     backgroundColor: "{colors.cloth-green}"
@@ -166,191 +170,191 @@ components:
     rounded: "{rounded.full}"
     size: "96px"
   book-cover:
-    backgroundColor: "{colors.wash}"
+    backgroundColor: "{colors.soft}"
     rounded: "{rounded.cover}"
 ---
 
 # Design System: Bookvane
 
+**Status:** direction E ("Cloth frames"), chosen by Michael on 14 Nov 2026 from the Phase 0 board, with Libre Caslon Display for headings and pill buttons. This file replaces the earlier "Bookcloth Shelf" system. Every visual decision below is made once; changes need Michael's approval.
+
 ## Overview
 
-**Creative North Star: "The Bookcloth Shelf"**
+**Creative North Star: "Cloth Frames"**
 
-Bookvane is a reading home printed on ivory paper. The page is quiet: warm off-white grounds, a deep green-black ink, hairline rules in a pale sage grey, and one restrained green for the action that matters. The only saturated material is bookcloth: six cloth colours that dress avatars, spines and coverless books, so colour always means "a book" or "a reader", never decoration for its own sake.
+Bookvane is a reading home printed on ivory paper, bound in green cloth at its two front doors. The page is quiet: warm ivory grounds, a deep green-black ink, sections that sit on soft sheets one step lighter than the page, and one green for the action that matters. The only saturated material is bookcloth. A full-width cloth band frames the top of Home and My Books, the two places a reader comes back to. Everywhere else, and behind every cover, is paper.
 
-The shared unit is the book spine. A book with artwork sits in a 2:3 frame; a book without it becomes a typographic jacket with a spine stripe down its left edge, a bookcloth spine block in list artwork, or a single spine standing on the year shelf. Wherever a book appears, it is never a blank tile or a letter tile.
+The shared unit is still the book. A book with artwork sits in a 2:3 frame; a book without it becomes a typographic jacket with a spine stripe, a bookcloth spine block in list artwork, or a single spine on the year shelf. A book's own colours are never competed with: no cover ever sits on cloth.
 
-Density is calm and one-handed: a single reading column on phones with a 20px gutter and 44px+ tap targets, with the profile as one centred 720px column (header, tabs, panels and account rows) and a 1240px container elsewhere. Lora carries names and headings at three sizes; Source Sans carries everything else. Light and dark themes share every rule; dark mode swaps the paper for warm charcoal and lifts the greens to a pale sage.
+Libre Caslon Display carries headings and book titles at large, generous sizes with tight leading; Source Sans carries everything a reader reads closely or acts on. Buttons and chips are pills. Light and dark share every rule; dark mode is warm ink-brown in three surface steps, with the cloth deepened to a forest green.
 
 **Key Characteristics:**
-- Ivory paper (light) and warm charcoal (dark), with ink-green text and hairline sage rules.
-- Six bookcloth colours as the only saturated material, each paired with a contrast-checked ink.
-- The book spine as the signature: jacket stripe, list-art spine block, year-shelf spine.
-- Lora at three sizes for names and headings; Source Sans for body, labels and helper text.
-- One filled action per view; everything else is outlined, quiet, or a single underlined green link.
-- Motion is a 140–240ms acknowledgement, never a performance, and is removed under reduced motion.
+- Ivory paper (light) and warm ink-brown (dark), green-black ink, no borders around sections.
+- A bookcloth band at the top of Home and My Books only.
+- Sections separate by tone: sheets one step lighter than the page, at most a soft warm shadow.
+- Libre Caslon Display for headings and titles; Source Sans 3 for everything else.
+- Pill buttons and chips; one filled action per view.
+- Covers carry the colour; the interface stays calm around them.
 
 ## Colors
 
-A paper-and-ink palette with one working green, one rust for focus and warmth, and six bookcloth colours reserved for books and readers.
+A paper-and-ink palette with one working green, a cloth band for two pages, a rust focus ring, and six bookcloth colours reserved for books and readers.
 
 ### Primary
-- **Bookbinder Green** (`green`; pale sage `green-dark` in dark mode): the action colour. Filled primary buttons, the tertiary link, the active nav tab, checked picker tiles, the saved-shelf state, checkbox accents. Its partner `on-green` is the warm ivory text on a filled green button.
-- **Soft Green Wash** (`soft-green`): the tint behind a saved toggle, a notice, the guest join panel and checked tiles.
+- **Bookbinder Green** (`green`; pale sage `green-dark` in dark mode): the action colour. Filled primary buttons, the tertiary link, the selected chip and tab, progress fills, checked controls. `on-green` is the ivory label on it.
+- **Soft** (`soft` / `soft-dark`): the quiet fill. Quiet buttons, unselected chips, the progress track, the search field, skeletons, empty cover frames.
+
+### The Cloth Band
+- **Band** (`band`, deepened to `band-dark` in dark mode): the full-width cloth at the top of Home and My Books. It holds the header, the greeting or page title, and on My Books the shelf tabs.
+- **On band** (`on-band`): text, the wordmark, the active nav link, the filled button and the selected tab on the band.
+- **Band muted** (`band-muted`): secondary text and inactive nav links on the band (5.6:1 light, 6.3:1 dark).
 
 ### Secondary
-- **Rust** (`rust`; `rust-dark` in dark mode): the focus ring (3px solid, 4px offset) on every interactive element, and the rust jacket tint. It is a signal colour, not a fill.
+- **Rust** (`rust` / `rust-dark`): the focus ring on every interactive element (3px solid, 3px offset). A signal, never a fill. On the band the ring is `on-band`.
 
 ### Tertiary: Bookcloth
-The six cloths, fixed hex values that do not change between themes:
-- **Green cloth** (`cloth-green`, the default avatar), **Rust cloth** (`cloth-rust`), **Ink Blue cloth** (`cloth-ink-blue`), **Mustard cloth** (`cloth-mustard`), **Plum cloth** (`cloth-plum`), **Sage cloth** (`cloth-sage`).
-
-Each cloth's ink is chosen by measured contrast, in a fixed order: the warm light ink (`cloth-ink-light`) if it reaches 4.5:1 on the cloth, otherwise plain white (`cloth-ink-white`), otherwise the dark ink (`cloth-ink-dark`). In practice green, rust, ink blue and plum take the warm light ink, sage takes plain white (warm light falls just short of 4.5:1), and mustard takes the dark ink.
+Six fixed cloths, the same in both themes: green, rust, ink blue, mustard, plum, sage. They dress avatars, year-shelf spines and coverless books by a stable hash, so a book wears the same cloth everywhere. Each cloth's ink is chosen by measured contrast in the order warm light, white, dark (the first to reach 4.5:1).
 
 ### Neutral
-- **Ivory Paper** (`paper` / `paper-dark` charcoal): the page ground, header and fixed mobile nav.
-- **Panel White** (`panel` / `panel-dark`): cards, dialogs, sheets, inputs and the search field.
-- **Linen Wash** (`wash` / `wash-dark`): quiet fills: the privacy pill, tab counts, tags, skeletons, empty cover frames, hover on secondary and quiet buttons.
-- **Hero Sage** (`hero` / `hero-dark`): the large display panels behind hero covers, book detail art and the auth story.
-- **Ink** (`ink` / `ink-dark`): body text, the 3px shelf baselines, toasts (as a fill, with paper text).
-- **Muted Ink** (`muted` / `muted-dark`): secondary text, helper lines, month initials, icons in facts lists.
-- **Hairline** (`line` / `line-dark`): dividers, card borders, row rules, disabled borders.
-- **Control Grey** (`control` / `control-dark`): input and secondary-button strokes, the outlined empty-list spine.
-- **Danger** (`danger` / `danger-dark`): destructive actions and field errors (with a 3px left rule).
+- **Paper** (`paper` / `paper-dark`): the page ground, the header off the band, and the phone nav.
+- **Sheet** (`sheet` / `sheet-dark`): sections, the current-read card, dialogs, the get-a-copy panel. In dark mode it sits 1.30:1 above the page so it reads without an outline.
+- **Raised** (`raised` / `raised-dark`): inputs, menus and anything that sits on a sheet.
+- **Ink** (`ink` / `ink-dark`): text, the 3px shelf baseline, toasts as a fill.
+- **Muted** (`muted` / `muted-dark`): secondary text and helper lines (5.7:1 light, 6.9:1 dark on sheet).
+- **Line** (`line` / `line-dark`): dividers inside lists only.
+- **Control** (`control` / `control-dark`): input strokes and the outline button (3:1 or more on sheet).
+- **Danger** (`danger` / `danger-dark`): destructive actions and field errors.
 
 ### Named Rules
-**The Bookcloth Rule.** Saturated colour belongs to books and readers. The six cloths dress avatars, year-shelf spines and coverless list artwork, chosen by a stable hash so a book wears the same cloth everywhere it appears. They never fill buttons, banners or backgrounds.
+**The Cloth Frame Rule.** The cloth band appears at the top of Home and the top of My Books, and nowhere else. Later the welcome screen and the year recap may use it, with Michael's approval. It never fills a button, a card, a banner or a book page.
 
-**The Measured Ink Rule.** Text or glyphs on a cloth use the first ink in the order warm light, white, dark that reaches 4.5:1. Never hand-pick an ink for a cloth.
+**The Paper Under Covers Rule.** A cover, jacket or spine never sits directly on the cloth band. On Home the current read lives on a paper sheet that rests on the band's lower edge; on My Books every card is below the band.
 
-**The Charcoal Field Rule.** In dark mode, large surfaces stay charcoal (`panel-dark` with a hairline border); the pale green is kept for actions only.
+**The Bookcloth Rule.** Apart from the band, saturated colour belongs to books and readers.
+
+**The Measured Ink Rule.** Text on any cloth uses the first ink in the order warm light, white, dark that reaches 4.5:1. Never hand-pick an ink.
 
 ## Typography
 
-**Display Font:** Bookvane Lora (self-hosted Lora, 400–700; fallback Georgia, serif)
-**Body Font:** Bookvane Sans (self-hosted Source Sans 3, 200–900; fallback Segoe UI, sans-serif)
+**Display Font:** Bookvane Caslon (self-hosted Libre Caslon Display, 400; fallback Georgia, serif). Open Font Licence.
+**Body Font:** Bookvane Sans (self-hosted Source Sans 3, 400–700; fallback Segoe UI, sans-serif).
 
-**Character:** A bookish serif for names and headings over a plain, warm humanist sans for everything a reader acts on. The serif speaks; the sans works.
+**Character:** a classic book-face for names and titles, set large and tight, over a plain, warm humanist sans for everything a reader acts on. Caslon speaks; the sans works.
 
 ### Hierarchy
-The type-scale tokens live on `:root` as `--bv-fs-page`, `--bv-fs-section`, `--bv-fs-card`, `--bv-fs-body` and `--bv-fs-helper`.
-- **Page** (Lora 500, `--bv-fs-page`, 1.2): the page title, such as the reader's name on the profile.
-- **Section** (Lora 500, `--bv-fs-section`, 1.2): section heads ("Your 2026", "Lists") and sheet titles.
-- **Card** (Lora 500, `--bv-fs-card`, 1.25): list card titles and the guest join line.
-- **Body** (Source Sans 400, `--bv-fs-body`, 1.5): all running text. The root sets 1.0625rem on desktop and 1rem under 700px. Long prose is held to 70ch.
-- **Label** (Source Sans 600, `--bv-fs-body`): buttons, links, field labels, picker legends.
-- **Helper** (Source Sans 400, `--bv-fs-helper`, 1.45): one helper line per control, shelf month initials, card meta, the "+N" overflow on the shelf.
+Tokens: `--bv-fs-display`, `--bv-fs-page`, `--bv-fs-section`, `--bv-fs-title`, `--bv-fs-body`, `--bv-fs-helper`.
+- **Display** (Caslon 400, clamp 36–56px, 1.05): the Home greeting and the book page title.
+- **Page** (Caslon 400, clamp 32–44px, 1.08): page titles ("My Books", "Discover", the profile name) and the current read's title.
+- **Section** (Caslon 400, clamp 28–34px, 1.1): section heads ("Up next", "Your 2026").
+- **Title** (Caslon 400, 17px, 1.25): book titles under covers and list titles.
+- **Body** (Source Sans 400, 16–17px, 1.5): running text, held to 65–70ch.
+- **Label** (Source Sans 600): buttons, links, field labels, chips, nav.
+- **Helper** (Source Sans 400, 14px, 1.45): author lines, card meta, shelf months, one helper line per control.
 
-The jacket title and author scale with the cover's own width (container query units): title Lora 500 `clamp(9px, 12cqi, 26px)`; author Source Sans 600 small caps `clamp(8px, 6.5cqi, 14px)`.
+Headings use `text-wrap: balance` and tracking of -0.01em. Book descriptions, notes and thoughts are Source Sans; a quoted thought on Home may use Caslon at 20px.
 
 ### Named Rules
-**The Three Lora Sizes Rule.** Lora appears at page, section and card size only. Everything else is Source Sans, at body size or helper size. Sizes come from the `--bv-fs-*` tokens, never one-off rem values.
+**The Caslon Floor Rule.** Caslon is never smaller than 17px, and never bold: the display cut has one weight. Anything smaller or heavier is Source Sans.
 
-**The Word-Break Rule.** Headings and buttons wrap between words (`overflow-wrap: break-word`); running text may break anywhere so enlarged text never overflows at 320px.
+**The No Eyebrow Rule.** No small or uppercase label above a heading ("Reading now", "Your last thought"). The heading carries its own weight.
+
+**The Word-Break Rule.** Headings and buttons wrap between words; running text may break anywhere, so 200% text never overflows at 320px.
 
 ## Layout
 
-- **Containers:** the main container is 1240px with 32px side padding (28px at 701–1050px, 20px under 700px, 16px under 350px). The profile is one centred 720px column from 1024px (header, tabs, panels and account rows share its left edge); a single list page stays 640px.
-- **Rhythm:** spacing runs in 4px steps (4, 8, 12, 16, 20, 24, 28, 32, 36). Sections sit 36px apart on desktop and 25px on phones; profile sections end with 24–32px bottom margins.
-- **Breakpoints:** 350px (smallest phones), 700/701px (phone to tablet; the mobile nav appears and sheets become bottom sheets), 1024px (profile column and taller shelf), 1050px (tablet tightening).
-- **Phones:** a fixed bottom nav (70px plus safe area) with four items; the page pads 78px plus safe area at the bottom so content clears it. The nav hides while a text input has focus. Toasts sit above the nav.
-- **Lists grid:** list cards are two across, falling to one when the lists area is narrower than 20.5rem (a container query, so it also responds to enlarged text).
-- **Book grid:** five across on desktop, three on tablet, two on phones.
+- **Two widths:** the app column is 1120px; reading and settings columns are 680px. Side padding is 40px from 900px, 20px below it, 16px under 350px.
+- **The band:** full width, its content on the app column. On Home it holds the header and greeting, and the current-read sheet overlaps its lower edge by 96px. On My Books it holds the header, the page title and the shelf tabs, ending 28px below the tabs.
+- **Rhythm:** 4px steps (4, 8, 12, 16, 20, 24, 32, 40, 48). Sections sit 40px apart; more space above a heading than below it.
+- **Breakpoints:** 350px, 700px (phone nav and bottom sheets), 900px (desktop header, wider grids).
+- **Phones:** the fixed four-item bottom nav (Home, Discover, My Books, You) stays; the page pads for it and the safe area.
+- **Book grids:** six across on Home's Up next on desktop and three on phones; five across in My Books on desktop and two on phones.
 
 ## Elevation & Depth
 
-Bookvane is paper-flat. Depth is carried by tone (panel on paper, wash on panel) and hairlines; a single soft shadow token marks the few things that genuinely lift off the page. Small shadows exist only as state acknowledgements (hover, press, focus).
+Surfaces separate by tone first. A sheet is one step lighter than the page (light) or 1.30:1 above it (dark). Borders around sections are not used.
 
 ### Shadow Vocabulary
-- **Lift** (`--bv-shadow`: `0 12px 24px #172e2219`; `0 12px 24px #0005` in dark): covers in hero and detail panels, dialogs and sheets, toasts.
-- **Spine stripe** (`inset 5cqi 0 0` of the jacket ink at 14%): the jacket's spine; on list art `inset 5px 0 0` black at 20%; on shelf spines `inset 1.5px 0 0` warm light at 30%. These are the signature, not elevation.
-- **Hover lift** (`0 2px 6px` ink at 8%): buttons on fine-pointer hover. Cover links take `0 10px 22px` ink at 14% on hover.
-- **Press** (`inset 0 2px 3px #00000018`): a button while pressed.
-- **Input focus halo** (`0 0 0 3px` green at 14%): alongside the rust focus ring on fields.
-- **Selected** (`inset 0 0 0 2px green`): a checked picker tile; `inset 0 0 0 1px green` for the saved shelf button.
+- **Sheet** (light only): `0 1px 2px #3a2a1410, 0 2px 8px #3a2a140a`. None in dark mode, where lightness does the work.
+- **Lift** (`0 1px 2px #3a2a1412, 0 8px 24px #3a2a1414`; dark `0 10px 30px #0000005c`): the current-read sheet on the band, dialogs, menus, toasts.
+- **Cover** (`0 1px 2px #0002, 0 6px 16px #2a1a0a1f`): every cover and jacket.
+- **Spine stripe:** the jacket's inset spine band, as before. It is the signature, not elevation.
+- **Press:** a button darkens 8% while pressed. No inset shadows.
 
 ### Named Rules
-**The Paper-Flat Rule.** Surfaces are flat at rest. Only covers on display, dialogs, sheets and toasts carry the lift shadow; everything else separates by tone and hairline.
+**The Sheets Not Borders Rule.** Sections are sheets on paper with no outline. Hairlines appear only between rows inside a list.
 
 ## Shapes
 
-Corners are gently rounded, and the radius grows with the size of the object: shelf spines 1px at the top only, list-art slots 3px, covers 4px, buttons and inputs 6px, panels and picker tiles 8px, list cards and dialogs 10px, phone bottom sheets 16px on the top corners only, the privacy pill 24px (20px on phones), chips 40px, and avatars fully round. Borders are 1px hairlines; the shelf baseline and the empty-list baseline are a deliberate 3px ink rule.
+Covers 4px, list-art slots 3px, shelf spines 1px at the top. Fields 10px. Sheets, dialogs and phone bottom sheets 16px. Buttons, chips, tabs and the search field are full pills. Avatars are round.
 
 ## Components
 
 ### Buttons
-Tactile but quiet: solid shapes, no gradients, a single filled action per view.
-- **Shape:** gently rounded (6px), at least 48px tall (44px in the header, pagination and compact shelf controls), 600 weight label with an optional 20px line icon.
-- **Primary:** green fill, warm ivory label. Hover mixes 12% ink into the green.
-- **Secondary:** transparent with a control-grey stroke; hover fills with wash.
-- **Quiet:** text-only with tighter padding; hover fills with wash. Icon-only quiet buttons are at least 44px square.
-- **Saved:** a chosen toggle: soft-green fill, green stroke plus a 1px inset green ring, green label (ink label in dark mode).
-- **Danger / Danger outline:** outlined in management views; filled only on the final confirmation.
-- **Disabled:** flat, transparent, muted label and hairline border, so it never resembles an available primary.
-- **Motion:** background, border, colour and shadow transition over 150ms.
+- **Shape:** full pill, 48px tall (44px in the header and compact rows), 600 label, 22px side padding.
+- **Primary:** green fill, ivory label. One per view.
+- **Quiet:** soft fill, ink label. The everyday secondary action.
+- **Outline:** a 1.5px control stroke, for actions that leave the page ("Find it at a bookshop").
+- **On the band:** ivory fill with a band-green label for the main action, and an ivory-at-12% fill for the rest.
+- **Danger:** outlined in management views; filled only on the final confirmation.
+- **Disabled:** soft fill, muted label.
+- **Motion:** background and colour 150ms ease-out.
 
 ### Links
-**The One Link Rule.** There is one tertiary link style: green, 600 weight, underlined with a 3px offset, at least 44px tall. Text-style buttons ("Edit profile", "Make public", "New list") and account rows use the same treatment.
+**The One Link Rule.** One tertiary link style: green, 600, underlined with a 3px offset, at least 44px tall. "See all" and "Reading life" beside section heads are the same link without the underline at rest.
 
-### Inputs / Fields
-- **Style:** panel fill, 1px control-grey stroke, 6px radius, at least 50px tall, 11px 13px padding. Label above in 600 weight; one helper line below in helper size and muted ink.
-- **Focus:** the 3px rust focus ring plus a 3px green halo at 14%; border and halo transition over 150ms.
-- **Error:** a danger message with a 3px danger left rule on a wash fill.
+### Inputs
+Raised fill, 1px control stroke, 10px radius, 50px tall. The label sits above; one helper line below. Focus shows the rust ring. Errors show a danger message under the field.
 
-### Chips and Pills
-- **Privacy pill:** a wash pill (24px) holding a muted 18px line icon, a muted sentence that wraps inside the pill, and a single tertiary link action. At 700px and below it becomes a two-row grid: the sentence on one line, the action centred on its own line. On desktop it is a single line with 16px padding on both sides.
-- **Subject chips:** fully rounded, 44px tall; on phones they scroll horizontally behind a soft right-edge fade rather than wrapping.
+### Chips and Tabs
+- **Chips** (genres, filters): soft pills, 40px tall; selected is green with an ivory label.
+- **Shelf tabs** (My Books, on the band): ivory-at-12% pills with on-band text and a quiet count; the selected tab is an ivory pill with band-green text. They scroll sideways on phones. A real tablist.
+- **Profile tabs:** the same pill tabs on paper (soft, selected green).
 
-### Cards / Containers
-- **List card:** panel fill, 1px hairline, 10px radius, 10px padding (16px from 1024px); hover darkens the border to control grey. List artwork on top, card-size Lora title, helper-size meta with a 14px icon.
-- **Panels:** 8px radius with a hairline border (preference panels, import confirmation, reading desk).
+### Sheets
+- **Current read** (Home): a sheet with the lift shadow, cover left, title at page size, author, progress line and bar, then "Log progress" (primary) and "Finished" (quiet).
+- **Sections** (Your year, Last thought, Get a copy): sheet fill, 16px radius, 20px padding (32–36px on desktop).
 
-### Sheets and Dialogs
-Native modal dialogs on panel fill with a hairline border, 10px radius, 28px padding (22px on phones) and the lift shadow; they fade up 6px over 180ms. The backdrop is a translucent deep green (near-black in dark). Under 700px a profile sheet becomes a full-width bottom sheet with 16px top corners and safe-area padding; its actions pin to the bottom as a sticky bar with a hairline top rule, so they sit in the thumb zone.
+### Dialogs and Sheets
+Native dialogs on sheet fill, 16px radius, 28px padding, lift shadow, a 6px rise over 180ms. Under 700px they become bottom sheets with actions pinned in the thumb zone.
 
 ### Navigation
-- **Desktop:** a 84px header on paper with a hairline bottom rule; Lora wordmark with the logo; 600-weight nav links, the active one green with a 2px green underline.
-- **Phones:** a fixed four-item bottom nav (Home, Discover, My Books, You), 12px labels under 21px icons, muted at rest and green and bold when active. The You item shows the reader's avatar; labels wrap between words rather than truncating.
-
-### Tabs
-The profile's Overview · Lists · Year switcher. A wash track with equal segments (`flex: 1 1 0`, never narrower than the label), the selected segment raised as a pill: panel white in light, a lift of 12% ink over the wash in dark, so it always reads above the track. It is a real ARIA tablist: arrow keys move, Home/End jump, and the selection lives in `?tab=` so Back and links work. Labels never wrap or truncate, at 320px or 200% text. The incoming panel settles over 160ms on a switch, never on first load.
-
-### Avatar
-A round bookcloth disc with a single line icon, chosen from twelve (open book, coffee cup, cat, feather, moon, leaf, lamp, glasses, bird, mountain, sun, library). The glyph is 44% of the diameter, with a 2px stroke at 32px and below and 1.75px above. The disc's ink follows the Measured Ink Rule. Sizes: 96px in the centred profile header and the edit-sheet preview, small in the header and mobile nav. With no icon chosen it shows the reader's initials, else an open book. It is decorative; the name beside it identifies the reader. A changed avatar crossfades over 200ms; the first paint never animates. The picker is a four-column icon grid and a two-column colour grid of 48px tiles; the checked tile gets a green stroke and 2px inset ring.
+- **Desktop header:** the Caslon wordmark, then Home, Discover and My Books in 600, the active one in ink (on-band on the band); the search field as a soft pill, then the avatar. On paper pages the header has no rule.
+- **Phones:** the slim logo bar that hides on scroll down, and the fixed bottom nav.
 
 ### Book Cover and Typographic Jacket (signature)
-Every book image sits in a 2:3 frame with a 4px radius on a wash ground. While artwork loads, or when none exists, the cover is a typographic jacket: one of five tints derived from the palette (sage, ivory, rust, forest, ink) chosen by a stable hash of the title, a spine stripe down the left edge (an inset band at 14% of the jacket ink plus a 1px hairline at 22%), the title in Lora and the author in small caps above a hairline. Type scales with the cover's own width; under 96px the author drops, under 48px only tint and spine remain. The jacket under loading art waits 180ms then fades in over 160ms, so fast covers never flash text; cached covers paint at once.
-
-### List Artwork
-Up to four covers side by side in 2:3 slots (3px radius, 2px gaps) on a 64px strip (96px on a list page, 120px on the desktop hub). A slot with no art is a bookcloth spine block: the book's cloth with a 5px inset spine shade and a 1px warm-light hairline at 8px. An empty list shows one outlined spine standing on a 3px ink baseline. Loaded covers fade in over 160ms.
+Every book image sits in a 2:3 frame with a 4px radius and the cover shadow. With no artwork, the typographic jacket shows instead: a cloth tint by stable hash, a spine stripe, the title in Caslon and the author in small caps above a hairline, scaled to the cover's width. Covers never sit on the cloth band.
 
 ### Year Spine Shelf
-The reader's year as a shelf: twelve month columns on a 3px ink baseline, 96px tall (140px on the desktop hub), with helper-size month initials beneath (the biggest month in bold ink). Each finished book is one spine in a bookcloth colour with a stable height between 78% and 100%, a 1.5px warm-light edge and a 1px band near the top. Spines are at least 4px wide on phones and 8px on desktop; when a month has more books than fit, the extra show as a muted "+N" above the column. Spines rise from the baseline once per page load (240ms, staggered 20ms per month). The shelf is decorative; a screen-reader list carries the counts.
+Twelve month columns on a 3px ink baseline, each finished book a bookcloth spine. It sits on a sheet, never on the band. Beside it go two facts only, as quiet type, not tiles: "Average days to finish" and "Pages per reading day". Each has a calm line, approved by Michael, for when there isn't enough reading yet.
+
+### Avatar, List Artwork
+Unchanged from the previous system: round bookcloth discs with one line icon, and up to four covers on a strip with spine blocks for missing art.
 
 ### Motion
-Every state change gets one quiet acknowledgement between 140ms and 240ms, ease-out: button state 150ms, details disclosure 140ms, jacket and artwork fade 160ms, dialog rise 180ms, avatar crossfade 200ms, tab panel settle 160ms (switches only), spine rise 240ms. Nothing bounces. Under `prefers-reduced-motion` every animation and transition is removed.
+One quiet acknowledgement per state change, 140–240ms ease-out: buttons 150ms, disclosures 140ms, cover fade 160ms, dialog rise 180ms, spine rise 240ms once per load. Nothing bounces. Under reduced motion every animation is removed.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** use the `--bv-*` tokens for every colour so light and dark follow automatically; the six bookcloth hexes are the only fixed colours.
-- **Do** render every book through the 2:3 cover frame, falling back to the typographic jacket or a bookcloth spine block.
-- **Do** keep one filled primary button per view and make the rest secondary, quiet or the single tertiary link.
-- **Do** take type sizes from the `--bv-fs-*` tokens, Lora at page, section or card size only.
-- **Do** give every interactive element at least 44px of height and the 3px rust focus ring.
-- **Do** choose cloth ink by the Measured Ink Rule.
-- **Do** pin sheet actions to the bottom on phones and clear the fixed nav and safe area.
+- **Do** take every colour from the tokens; the bookcloth hexes are the only fixed colours.
+- **Do** keep the cloth band to Home and My Books.
+- **Do** put every cover on paper or a sheet.
+- **Do** separate sections by tone (sheets), not outlines.
+- **Do** keep one primary button per view, as a pill.
+- **Do** use Caslon at 17px or larger, Source Sans for everything else.
+- **Do** give every control 44px or more and the rust focus ring.
 
 ### Don't:
-- **Don't** show a book as a blank tile, a letter tile or "cover unavailable" text.
-- **Don't** use bookcloth colours for buttons, banners or page backgrounds.
-- **Don't** add a second filled primary to a view.
-- **Don't** introduce one-off rem font sizes or a fourth Lora size.
-- **Don't** add bounce, confetti or animation that runs under reduced motion.
-- **Don't** use shadows on resting surfaces other than displayed covers, dialogs, sheets and toasts.
+- **Don't** put the cloth band on book pages, Discover, the reading page or Settings.
+- **Don't** place a cover, jacket or spine on the cloth.
+- **Don't** outline a section with a border.
+- **Don't** add eyebrow labels above headings.
+- **Don't** set Caslon below 17px or in bold.
+- **Don't** add streaks, counts at peaks, confetti or bounce.
 
-### Known drift (recorded, not part of the system)
-- **Legacy button classes.** Older screens outside the current UI layer still use `primary-button`, `reset-button` and `icon-button` (sign-in, password recovery, preferences, search bar, header, landing). New work uses only the `bv-button` variants.
-- **Pre-token type sizes.** The type-scale tokens are consumed only by the profile area so far. The base `h1` (2.75rem) and `h2` (1.8125rem), the landing hero heading (3.625rem) and many component sizes elsewhere are still one-off rem values.
-- **Eyebrow labels.** An uppercase rust eyebrow style exists and is used above the landing hero heading and as an optional page-heading slot. It is a carried defect, not a pattern to reuse.
-- **Literal light tints.** Spine and jacket highlights use the literal warm light `#fffdf5` and black rather than a token.
+### Migration notes (from the previous system)
+- Lora becomes Caslon for headings and titles; Lora is retired.
+- `panel`, `wash` and `hero` become `sheet`, `soft` and the band; `soft-green` is retired.
+- Button and chip radius moves from 6px and 24px to a full pill.
+- Hairline borders on cards, panels and the header are removed in favour of sheets.
+- The uppercase eyebrow style is removed.
