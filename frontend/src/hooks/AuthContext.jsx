@@ -7,6 +7,7 @@ import {
   registerUser,
 } from "../api/auth.js";
 import { clearBookCache, rememberSignedIn } from "../api/bookCache.js";
+import { startEarly } from "../api/earlyStart.js";
 import { clearRequestCache } from "../api/requestCache.js";
 
 const AuthContext = createContext(null);
@@ -40,6 +41,8 @@ export function AuthProvider({ children }) {
     setSessionError(null);
     const pending = refreshSession();
     startupRefresh.current = pending;
+    // A returning reader's page data starts now, together with the account check (api/earlyStart.js).
+    startEarly(version);
     return pending
       .then(() => {
         if (isCurrent()) {

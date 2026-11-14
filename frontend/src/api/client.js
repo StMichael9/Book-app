@@ -36,6 +36,15 @@ export async function checkService() {
 }
 let sessionChanges = 0;
 let sessionEpoch = 0;
+let speculativeCalls = 0;
+
+// Requests a returning reader's page starts together with the account check (api/earlyStart.js) may meet an expired session.
+// The account check itself decides what that means for the reader, so these do not announce the expiry a second time.
+// Call apiRequest synchronously inside `load`: that is where the marker is read.
+export function asSpeculative(load) {
+  speculativeCalls += 1;
+  try { return load(); } finally { speculativeCalls -= 1; }
+}
 
 export function refreshSession() {
   if (!refreshPromise) {
@@ -74,7 +83,7 @@ export async function withSessionChange(change) {
 
 export async function apiRequest(path, options = {}) {
   const epoch = sessionEpoch;
-  const { skipRefresh = false, responseType, ...requestOptions } = options;
+  const { skipRefresh = false, responseType, speculative = speculativeCalls > 0, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
   let response;
@@ -103,10 +112,10 @@ export async function apiRequest(path, options = {}) {
       // A network outage does not prove a session is invalid. Preserve the
       // account state and let the failed operation show its existing retry UI.
       if (error.status !== 401) throw error;
-      if (epoch === sessionEpoch && sessionChanges === 0) window.dispatchEvent(new Event("bookvane:session-expired"));
+      if (!speculative && epoch === sessionEpoch && sessionChanges === 0) window.dispatchEvent(new Event("bookvane:session-expired"));
     }
     if (refreshed && epoch === sessionEpoch && sessionChanges === 0) {
-      return apiRequest(path, { ...requestOptions, responseType, skipRefresh: true });
+      return apiRequest(path, { ...requestOptions, responseType, skipRefresh: true, speculative });
     }
   }
 

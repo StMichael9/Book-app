@@ -111,3 +111,74 @@ test("a failed shared request is forgotten so the next ask starts again", async 
   assert.equal(calls, 2);
   assert.deepEqual(cache.readRequestCache("book:9").data, { id: 9 });
 });
+
+test("an early answer is handed over once, then behaves like any cached answer", async () => {
+  const cache = await load();
+  await cache.startEarlyRequest("home:1:0", async () => ({ n: 1 }));
+  assert.deepEqual(cache.takeEarlyRequest("home:1:0").data, { n: 1 });
+  assert.equal(cache.takeEarlyRequest("home:1:0"), null); // the second read revalidates as usual
+  assert.deepEqual(cache.readRequestCache("home:1:0").data, { n: 1 }); // still shown at once as the older answer
+});
+
+test("only an early start marks an answer as early", async () => {
+  const cache = await load();
+  await cache.prefetchRequest("a", async () => 1);
+  assert.equal(cache.takeEarlyRequest("a"), null);
+  await cache.sharedRequest("b", async () => 2);
+  assert.equal(cache.takeEarlyRequest("b"), null);
+});
+
+test("an early answer that waited more than a minute is not handed over", async (t) => {
+  const cache = await load();
+  await cache.startEarlyRequest("k", async () => 1);
+  const base = Date.now();
+  t.mock.method(Date, "now", () => base + 1000 * 61);
+  assert.equal(cache.takeEarlyRequest("k"), null);
+});
+
+test("a failed early request stores nothing and is asked for again", async () => {
+  const cache = await load();
+  await cache.startEarlyRequest("k", async () => { throw Object.assign(new Error("no"), { status: 401 }); });
+  assert.equal(cache.readRequestCache("k"), null);
+  assert.equal(cache.takeEarlyRequest("k"), null);
+  assert.equal(cache.earlyAnswer("k"), undefined);
+  assert.equal(await cache.earlyOrRequest("k", async () => "again"), "again");
+});
+
+test("an early start does not repeat a request that is cached or in flight", async () => {
+  const cache = await load();
+  let calls = 0;
+  const first = cache.startEarlyRequest("k", async () => { calls += 1; return 1; });
+  assert.ok(cache.earlyAnswer("k")); // the request in flight
+  assert.equal(cache.startEarlyRequest("k", async () => { calls += 1; return 2; }), undefined);
+  await first;
+  assert.equal(cache.startEarlyRequest("k", async () => { calls += 1; return 3; }), undefined);
+  assert.equal(calls, 1);
+});
+
+test("earlyOrRequest joins the request in flight, then the early answer, and never asks twice", async () => {
+  const cache = await load();
+  let calls = 0;
+  const load1 = async () => { calls += 1; return calls; };
+  const started = cache.startEarlyRequest("k", load1);
+  assert.equal(await cache.earlyOrRequest("k", load1), 1); // joined while in flight
+  await started;
+  assert.equal(await cache.earlyOrRequest("k", load1), 1); // the early answer, once
+  assert.equal(await cache.earlyOrRequest("k", load1), 2); // then a fresh request
+  assert.equal(calls, 2);
+});
+
+test("clearing the cache drops an early answer, and an early request that finishes afterwards is not stored", async () => {
+  const cache = await load();
+  await cache.startEarlyRequest("kept", async () => 1);
+  let release;
+  const pending = cache.startEarlyRequest("late", () => new Promise(done => { release = done; }));
+  await Promise.resolve(); // the loader has started
+  cache.clearRequestCache(); // sign out, or another account signing in
+  assert.equal(cache.takeEarlyRequest("kept"), null);
+  assert.equal(cache.earlyAnswer("late"), undefined);
+  release("account A");
+  await pending;
+  assert.equal(cache.readRequestCache("late"), null);
+  assert.equal(cache.requestCacheSize(), 0);
+});
