@@ -101,7 +101,7 @@ const PAGES = {
     const want = [...document.querySelectorAll("button")].find(node => /Want to read/.test(node.textContent));
     return title && Boolean(want) && !want.disabled;
   } },
-  "/my-books/{entryId} (direct)": { url: "/my-books/104", isReady: () => [...document.querySelectorAll("[aria-label=\"My reading\"]")].some(node => node.getClientRects().length > 0) },
+  "/my-books/{entryId} (direct)": { url: "/my-books/104", isReady: () => [...document.querySelectorAll("input")].some(node => /^Page or %/.test(node.getAttribute("aria-label") || "") && node.getClientRects().length > 0) },
 };
 
 async function measure(page, app, target) {
