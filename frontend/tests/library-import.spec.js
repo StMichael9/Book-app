@@ -179,8 +179,8 @@ test("resumed decision check does not present an ordinal as checked-row progress
   await page.goto("/my-books/import");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Checking your updated decision", exact: true })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Checking matches…");
-  await expect(page.getByRole("status")).not.toContainText("10001");
+  await expect(page.locator("main").getByRole("status")).toContainText("Checking matches…");
+  await expect(page.locator("main").getByRole("status")).not.toContainText("10001");
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
   expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
 });
@@ -275,7 +275,7 @@ test("the working screen names the phase in plain words with N of M and a progre
   await expect(page.getByText(/You have an import.*waiting\./)).toBeVisible();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Finding your books", exact: true })).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("Found 50 of 200 books");
+  await expect(page.locator("main").getByRole("status")).toContainText("Found 50 of 200 books");
   await expect(page.getByRole("progressbar")).toBeVisible();
   await expect(page.getByText("You can pause and come back later")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Cancel import", exact: true })).toBeVisible();
@@ -458,7 +458,7 @@ test("the count advances with each analysis step, then reads Checking matches, a
   app.analyzeSteps = [{ phase: "analyzing", row_count: 250, analyze_cursor: 100 }, { phase: "analyzing", row_count: 250, analyze_cursor: 200 }, { phase: "analyzing", row_count: 250, analyze_cursor: 250 }, { phase: "grouping" }];
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
-  const status = page.getByRole("status");
+  const status = page.locator("main").getByRole("status");
   await expect(status).toContainText("Found 100 of 250 books");
   await expect(status).toContainText("Found 200 of 250 books");
   await expect(status).toContainText("Checking matches…");
@@ -595,7 +595,7 @@ test("a long file takes several advance calls, and the count follows each one", 
   app.analyzeSteps = [...steps, { phase: "preview_ready" }];
   await page.goto("/my-books/import");
   await page.getByLabel("Choose your export file", { exact: false }).setInputFiles(csv());
-  for (const cursor of [300, 1100, 1900]) await expect(page.getByRole("status")).toContainText(`Found ${cursor} of 2000 books`, { timeout: 15000 });
+  for (const cursor of [300, 1100, 1900]) await expect(page.locator("main").getByRole("status")).toContainText(`Found ${cursor} of 2000 books`, { timeout: 15000 });
   await expect(page.getByRole("heading", { name: "Ready to add your books", exact: true })).toBeVisible({ timeout: 15000 });
   expect(app.advanceCalls).toBe(7);
   await expect(page.locator(".bv-import-summary")).toContainText("2000 books in your file");

@@ -9,6 +9,7 @@ import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, Req
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
+import SearchSuggest from "./SearchSuggest.jsx";
 import { likelySignedIn } from "../../api/bookCache.js";
 import { checkService, isServiceDown } from "../../api/client.js";
 import { usePageWarmers } from "./pagePrefetch.js";
@@ -25,6 +26,7 @@ import ReadingDraftProvider from "../reading/ReadingDraftProvider.jsx";
 import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
+import "../../styles/ui-v2/search-suggest.css";
 import "../../styles/ui-v2/profile.css";
 
 const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");
@@ -61,7 +63,8 @@ function HeaderSearch() {
     event.preventDefault();
     const query = text.trim();
     if (query) navigate(`/browse?${new URLSearchParams({ q: query })}`);
-  }}><Search aria-hidden="true" /><input type="search" aria-label="Search books" placeholder="Search books" enterKeyHint="search" maxLength={200} value={text} onChange={event => setText(event.target.value)} /></form>;
+  }}><SearchSuggest value={text} onChange={setText} onSeeAll={() => { const query = text.trim(); if (query) navigate(`/browse?${new URLSearchParams({ q: query })}`); }}
+    inputProps={{ type: "search", "aria-label": "Search books", placeholder: "Search books", enterKeyHint: "search", maxLength: 200 }}><Search aria-hidden="true" /></SearchSuggest></form>;
 }
 
 // On a phone the top bar hides when you scroll down and returns when you scroll up. With reduced motion it stays put.
