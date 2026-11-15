@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
@@ -30,12 +32,48 @@ def _stage_mb(session: Session) -> float:
     return sum(sizes) / 1048576.0
 
 
-def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConfig, neon: Session | None = None) -> None:
-    """The guard measures the catalogue database (`neon`); staging size is measured on `session`, which holds the stage
-    tables. With one database they are the same session."""
-    total = float((neon or session).execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+class StorageGuard:
+    """The catalogue database's size, read at most once per `interval` seconds (T63).
+
+    The dump phases write only to the runner's staging database, so the catalogue database cannot grow while they run and a
+    reading a minute old is as good as one per batch. The merge, which does write to it, never uses this: it measures on its
+    own Neon session before and inside every batch, exactly as before."""
+
+    def __init__(self, neon_factory, interval: float = 60.0, clock=time.monotonic):
+        self.neon_factory, self.interval, self.clock = neon_factory, interval, clock
+        self._read_at: float | None = None
+        self._total = 0.0
+        self.readings = 0
+        self._stage_at: float | None = None
+        self._stage = 0.0
+
+    def total_mb(self) -> float:
+        now = self.clock()
+        if self._read_at is None or now - self._read_at >= self.interval:
+            with self.neon_factory() as session:
+                self._total = float(session.execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
+            self._read_at, self.readings = now, self.readings + 1
+        return self._total
+
+
+    def stage_mb(self, session: Session) -> float:
+        """The staging tables' size (a statistic, never a limit), measured at most once per interval."""
+        now = self.clock()
+        if self._stage_at is None or now - self._stage_at >= self.interval:
+            self._stage, self._stage_at = _stage_mb(session), now
+        return self._stage
+
+
+def _check_storage(session: Session, run: CatalogueImportRun, config: ImportConfig, neon: Session | None = None,
+                   guard: StorageGuard | None = None) -> None:
+    """The guard measures the catalogue database (`neon`, or the timed `guard` in the dump phases); staging size is measured
+    on `session`, which holds the stage tables. With one database they are the same session."""
+    if guard is not None:
+        total = guard.total_mb()
+    else:
+        total = float((neon or session).execute(text("SELECT pg_database_size(current_database()) / 1048576.0")).scalar_one())
     run.peak_database_mb = max(run.peak_database_mb or 0, total)
-    run.peak_staging_mb = max(run.peak_staging_mb or 0, _stage_mb(session))
+    run.peak_staging_mb = max(run.peak_staging_mb or 0, guard.stage_mb(session) if guard is not None else _stage_mb(session))
     if total >= config.max_database_mb:
         raise CapacityPause(f"Database reached {total:.1f} MiB, guard is {config.max_database_mb} MiB")
     if config.production_size_mb is not None and total + config.production_size_mb > config.max_project_mb:
