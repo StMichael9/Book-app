@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "luci
 import { getBooks, getBookById, getMoreBooks, resolveWork } from "../../api/books.js";
 import { ManualBookLink } from "../reading/ExtendedCatalogue.jsx";
 import WorkCard from "./WorkCard.jsx";
+import SearchSuggest from "./SearchSuggest.jsx";
 import { mergeResults, normalTitle, rankAll } from "./searchMerge.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import SaveContinuation from "./SaveContinuation.jsx";
@@ -197,7 +198,9 @@ export function BrowsePage() {
     <div className="bv-page-heading"><h1 id="bv-main-title">Find your next chapter.</h1><p className="bv-muted">Search by title or author, or start with a genre you love.</p></div>
     <div className="bv-search-zone"><form className="bv-search-form" onSubmit={applySearch} role="search">
       <label className="bv-sr-only" htmlFor="bv-search-mode">Search by</label><select id="bv-search-mode" value={mode} onChange={(event) => setMode(event.target.value)}><option value="book">Title</option><option value="author">Author</option></select>
-      <label className="bv-sr-only" htmlFor="bv-search-query">{mode === "author" ? "Search authors" : "Search book titles"}</label><input id="bv-search-query" type="search" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={mode === "author" ? "Find an author" : "Find a book"} />
+      <label className="bv-sr-only" htmlFor="bv-search-query">{mode === "author" ? "Search authors" : "Search book titles"}</label>{mode === "book"
+        ? <SearchSuggest value={draft} onChange={setDraft} onSeeAll={() => applySearch({ preventDefault() {} })} inputProps={{ id: "bv-search-query", type: "search", placeholder: "Find a book" }} />
+        : <input id="bv-search-query" type="search" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Find an author" />}
       <Button type="submit" aria-label="Search"><Search aria-hidden="true" /><span>Search</span></Button>
     </form><Button variant="secondary" className="bv-filter-trigger" onClick={() => setFilterOpen(true)} aria-haspopup="dialog" aria-label={`Filters${tags.length + Number(exclude) + Number(Boolean(shelf)) ? `, ${tags.length + Number(exclude) + Number(Boolean(shelf))} active` : ""}`}><SlidersHorizontal aria-hidden="true" /><span>Filters</span></Button></div>
     <GenrePicker compact scrollRow includeAny anyLabel="All genres" label="Browse genres" className="bv-chip-row" value={tags.length === 1 ? tags[0] : ""} onChange={key => update(next => { next.delete("tag"); if (key) next.append("tag", key); })} />

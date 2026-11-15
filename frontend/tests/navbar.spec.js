@@ -120,7 +120,7 @@ test("with reduced motion the phone top bar does not hide", async ({ page, app: 
 test("header search goes to Discover's search on Enter, and an empty Enter does nothing", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/my-books");
-  const search = page.getByRole("searchbox", { name: "Search books" });
+  const search = page.getByRole("combobox", { name: "Search books" });
   await expect(search).toHaveAttribute("placeholder", "Search books");
   // It sits on the right, before the avatar.
   const box = await search.boundingBox(), avatar = await page.getByRole("link", { name: "Your profile", exact: true }).boundingBox();
@@ -132,14 +132,14 @@ test("header search goes to Discover's search on Enter, and an empty Enter does 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/browse\?q=dune(\+|%20)messiah$/);
   // Discover has its own search box, so the header one is left out there.
-  await expect(page.getByRole("searchbox", { name: "Search books" })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Search books" })).toHaveCount(0);
 });
 
 test("the header search is not shown on a phone", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/browse");
   await expect(page.locator("#bv-main")).toBeVisible();
-  await expect(page.getByRole("searchbox", { name: "Search books" })).toBeHidden();
+  await expect(page.getByRole("combobox", { name: "Search books" })).toBeHidden();
 });
 
 test("the avatar is an empty circle until the profile loads, then the initial", async ({ page, app }) => {

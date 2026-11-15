@@ -93,7 +93,8 @@ export async function withSessionChange(change) {
 
 export async function apiRequest(path, options = {}) {
   const epoch = sessionEpoch;
-  const { skipRefresh = false, responseType, speculative = speculativeCalls > 0 || speculativeWindows > 0, ...requestOptions } = options;
+  // `quiet`: a background request (search suggestions) that must neither raise nor clear the "trouble on our end" banner.
+  const { skipRefresh = false, responseType, quiet = false, speculative = speculativeCalls > 0 || speculativeWindows > 0, ...requestOptions } = options;
   const url = `${API_BASE_URL}${path}`;
 
   let response;
@@ -108,10 +109,10 @@ export async function apiRequest(path, options = {}) {
     });
   } catch (error) {
     // Render's own 502 page carries no CORS headers, so an outage reaches the browser as a network error.
-    if (error.name !== "AbortError") setServiceDown(true);
+    if (error.name !== "AbortError" && !quiet) setServiceDown(true);
     throw error;
   }
-  setServiceDown([502, 503, 504].includes(response.status));
+  if (!quiet) setServiceDown([502, 503, 504].includes(response.status));
 
   if (response.status === 401 && !skipRefresh && path !== "/auth/refresh" && sessionChanges === 0 && epoch === sessionEpoch) {
     let refreshed = false;
@@ -125,7 +126,7 @@ export async function apiRequest(path, options = {}) {
       if (!speculative && epoch === sessionEpoch && sessionChanges === 0) window.dispatchEvent(new Event("bookvane:session-expired"));
     }
     if (refreshed && epoch === sessionEpoch && sessionChanges === 0) {
-      return apiRequest(path, { ...requestOptions, responseType, skipRefresh: true, speculative });
+      return apiRequest(path, { ...requestOptions, responseType, quiet, skipRefresh: true, speculative });
     }
   }
 
