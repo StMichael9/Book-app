@@ -1,0 +1,23 @@
+/* Search suggestions (SearchSuggest.jsx): a raised sheet under the search box that overlays the page. Colours, fonts and
+   sizes come from tokens only, so the premium rework restyles it by changing the tokens. */
+.bv-root .bv-search-form { position: relative; }
+.bv-root .bv-suggest { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0; background: var(--bv-panel); color: var(--bv-ink); border-radius: 16px; overflow: hidden;
+  box-shadow: var(--bv-shadow), 0 0 0 1px var(--bv-line); animation: bv-suggest-in 140ms ease-out; }
+.bv-root .bv-header-search .bv-suggest { left: auto; right: 0; width: 420px; max-width: calc(100vw - 32px); }
+.bv-root .bv-suggest ul { list-style: none; margin: 0; padding: 0; }
+.bv-root .bv-suggest-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; cursor: pointer; }
+.bv-root .bv-suggest-row.is-active { background: var(--bv-soft-green); outline: 3px solid var(--bv-rust); outline-offset: -3px; }
+@media (hover: hover) { .bv-root .bv-suggest-row:hover { background: var(--bv-soft-green); } }
+.bv-root .bv-suggest-cover { width: 32px; flex: none; }
+.bv-root .bv-suggest-cover .bv-cover { box-shadow: none; }
+.bv-root .bv-suggest-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.bv-root .bv-suggest-title { font: 500 var(--bv-fs-card)/1.25 var(--bv-display); overflow-wrap: anywhere; }
+.bv-root .bv-suggest-match { text-decoration: underline; text-decoration-color: var(--bv-green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.bv-root .bv-suggest-meta { font-size: var(--bv-fs-helper); line-height: 1.45; color: var(--bv-muted); }
+.bv-root .bv-suggest-all { border-top: 1px solid var(--bv-line); min-height: 48px; }
+.bv-root .bv-suggest-all-text { color: var(--bv-green); font-weight: 600; overflow-wrap: anywhere; }
+.bv-root .bv-suggest-hint { color: var(--bv-muted); font-size: var(--bv-fs-helper); flex: none; }
+.bv-root .bv-suggest-empty { margin: 0; padding: 16px; color: var(--bv-muted); overflow-wrap: anywhere; }
+@media (max-width: 900px), (hover: none) { .bv-root .bv-suggest-hint { display: none; } }
+@keyframes bv-suggest-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bv-root .bv-suggest { animation: none; } }
