@@ -190,6 +190,27 @@ test.describe("with SEARCH_SUGGEST on", () => {
     await expect(page).toHaveURL(/\/browse\?q=boom$/);
   });
 
+  test("a failing suggestion service (503, or no network) is silent: no banner, no list, Enter still searches", async ({ page, app }) => {
+    app.suggest = q => (q === "down" ? { status: 503 } : null);
+    await visit(page, "/book/9001");
+    const input = header(page);
+    await typeSlowly(input, "down");
+    await expect.poll(() => app.calls.some(call => call.q === "down")).toBe(true);
+    await sleep(300);
+    await expect(list(page)).toHaveCount(0);
+    await expect(page.getByText(/trouble on our end/i)).toHaveCount(0);
+    await input.press("Enter");
+    await expect(page).toHaveURL(/\/browse\?q=down$/);
+    await visit(page, "/book/9001");
+    await page.route("**/test-api/autocomplete/books*", route => route.abort());
+    await typeSlowly(header(page), "gone");
+    await sleep(500);
+    await expect(list(page)).toHaveCount(0);
+    await expect(page.getByText(/trouble on our end/i)).toHaveCount(0);
+    await header(page).press("Enter");
+    await expect(page).toHaveURL(/\/browse\?q=gone$/);
+  });
+
   test("the live region announces the count", async ({ page, app: _app }) => {
     await visit(page, "/book/9001");
     await typeSlowly(header(page), "dune");
