@@ -3,24 +3,29 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { errorText } from "./data.js";
 import { ReaderContext } from "./readerState.js";
-
-function initialTheme() {
-  // The inline bootstrap applies the preference before CSS/React can paint.
-  const bootstrapped = document.documentElement.getAttribute("data-theme");
-  if (bootstrapped === "light" || bootstrapped === "dark") return bootstrapped;
-  try {
-    const stored = localStorage.getItem("bookvane-theme");
-    if (stored === "light" || stored === "dark") return stored;
-    const legacy = localStorage.getItem("shelfbound-theme");
-    if (legacy === "light" || legacy === "dark") return legacy;
-  } catch { /* The interface also works when storage is unavailable. */ }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
+import { likelySignedIn } from "../../api/bookCache.js";
+import { applyTheme, readChoice, storeChoice, systemTheme } from "./theme.js";
 
 export function ReaderProvider({ children }) {
   const auth = useAuth();
   const library = useUserBooks();
-  const [theme, setTheme] = useState(initialTheme);
+  // The reader's choice (Match device, Light or Dark) and what the device says now. A guest always matches the device: the choice
+  // is a signed-in setting (Settings needs an account), and the inline bootstrap makes the same call from the sign-in hint.
+  const [themeChoice, setThemeChoice] = useState(readChoice);
+  const [system, setSystem] = useState(systemTheme);
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!query) return undefined;
+    const update = () => setSystem(query.matches ? "dark" : "light");
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const followsChoice = auth.isAuthenticated || (auth.isLoading && likelySignedIn());
+  const theme = followsChoice && themeChoice !== "device" ? themeChoice : system;
+  const chooseTheme = useCallback(choice => { setThemeChoice(choice); storeChoice(choice); }, []);
+  // Older callers flip between Light and Dark; that is an explicit choice too.
+  const setTheme = useCallback(next => chooseTheme(typeof next === "function" ? next(theme) : next), [chooseTheme, theme]);
   const [gate, setGate] = useState(null);
   const [message, setMessage] = useState("");
   const [busyIds, setBusyIds] = useState([]);
@@ -48,11 +53,8 @@ export function ReaderProvider({ children }) {
   }
   const libraryReady = auth.isAuthenticated && readiness.authenticated === auth.isAuthenticated && readiness.generation === auth.sessionGeneration && readiness.ready;
 
-  useLayoutEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.style.colorScheme = theme;
-    try { localStorage.setItem("bookvane-theme", theme); } catch { /* Optional persistence. */ }
-  }, [theme]);
+  // Applying the theme never writes to storage: only chooseTheme does.
+  useLayoutEffect(() => { applyTheme(theme); }, [theme]);
 
   // Wait until the shared provider has started this session's library load.
   // Its previous anonymous loading=false value must never enable a write.
@@ -107,7 +109,7 @@ export function ReaderProvider({ children }) {
   }
 
   return <ReaderContext.Provider value={{
-    theme, setTheme, gate, setGate, message, announce, saveBook, lastSave, quietToast, setQuietToast, busyIds, saveErrors,
+    theme, themeChoice, chooseTheme, setTheme, gate, setGate, message, announce, saveBook, lastSave, quietToast, setQuietToast, busyIds, saveErrors,
     libraryReady, preferencesVersion,
     // A completed write still invalidates discovery after leaving Preferences,
     // but a callback captured by a departed account cannot publish to its successor.

@@ -8,6 +8,7 @@ export async function shootMatrix(page, name, open) {
   const dir = `../.bv-shots/foundations/${process.env.FOUNDATIONS_SHOTS}`;
   mkdirSync(dir, { recursive: true });
   for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme }); // guests always match the device
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     for (const [width, height] of [[390, 844], [1440, 1000]]) {
       await page.setViewportSize({ width, height });

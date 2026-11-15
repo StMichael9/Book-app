@@ -2,14 +2,14 @@ import { test, expect } from "@playwright/test";
 
 // Local browser fixtures only. First-paint assertions deliberately hold the
 // application module; these are not hosted TLS or physical-device acceptance.
+// A guest always matches the device, whatever an earlier visit saved, and loading the page never writes a theme.
 for (const scenario of [
-  { name: "current preference wins", current: "dark", legacy: "light", system: "light", expected: "dark" },
-  { name: "current light wins", current: "light", legacy: "dark", system: "dark", expected: "light" },
-  { name: "legacy migrates", legacy: "dark", system: "light", expected: "dark" },
-  { name: "invalid current falls back to legacy", current: "invalid", legacy: "light", system: "dark", expected: "light" },
-  { name: "invalid preferences use system", current: "invalid", legacy: "invalid", system: "dark", expected: "dark" },
-  { name: "blocked reads use system", blockedRead: true, system: "dark", expected: "dark" },
-  { name: "blocked writes preserve legacy choice", legacy: "dark", blockedWrite: true, system: "light", expected: "dark" },
+  { name: "a dark device", system: "dark", expected: "dark" },
+  { name: "a light device", system: "light", expected: "light" },
+  { name: "an old saved choice does not move a guest", current: "dark", system: "light", expected: "light" },
+  { name: "an old legacy value does not move a guest", legacy: "dark", system: "light", expected: "light" },
+  { name: "blocked reads use the device", blockedRead: true, system: "dark", expected: "dark" },
+  { name: "blocked writes still follow the device", legacy: "dark", blockedWrite: true, system: "light", expected: "light" },
 ]) {
   test(`M6 theme before and after React: ${scenario.name}`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scenario.system });
@@ -34,28 +34,5 @@ for (const scenario of [
     } finally { releaseModule(); }
     await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();
     await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", scenario.expected);
-    if (!scenario.blockedRead && !scenario.blockedWrite) {
-      expect(await page.evaluate(() => localStorage.getItem("bookvane-theme"))).toBe(scenario.expected);
-    }
   });
 }
-
-test("M6 saved theme switches and reloads without preference reversal", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.route("**/test-api/**", route => route.fulfill({ status: 401, json: {} }));
-  // The switch lives in Settings; a saved choice is what the app reads. Start from a saved dark choice.
-  await page.addInitScript(() => { if (!sessionStorage.getItem("m6-seeded")) { sessionStorage.setItem("m6-seeded", "1"); localStorage.setItem("bookvane-theme", "dark"); } });
-  await page.goto("/login");
-  await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(30, 29, 27)");
-  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(30, 29, 27)");
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
-  await page.evaluate(() => localStorage.setItem("bookvane-theme", "light"));
-  await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(250, 248, 242)");
-  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
-});

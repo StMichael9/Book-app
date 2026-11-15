@@ -109,7 +109,8 @@ def test_like_wildcards_in_a_book_query_are_literal(client, make_book):
 def test_like_wildcards_in_an_author_query_are_literal(client, make_book, db_session, app_modules):
     models = app_modules["models"]
     for title, name in (("Underscore", "A_B Writer"), ("Plain", "AxB Writer"), ("Percent", "100% Writer"), ("Slash", "Back\\slash Writer")):
-        make_book(title).authors.append(models.Author(name=name))
+        book = make_book(title)          # keep the book referenced: the session holds objects weakly
+        book.authors.append(models.Author(name=name))
     db_session.commit()
     assert titles(client.get("/books", params={"author": "A_B"})) == ["Underscore"]
     assert titles(client.get("/books", params={"author": "100%"})) == ["Percent"]

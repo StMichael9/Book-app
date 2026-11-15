@@ -202,6 +202,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     { entry: app.entries.get(102), attempt: { ...app.attempt, progress_value: null } },
   ];
   app.readingCount = 8; app.pausedCount = 2;
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -423,6 +424,7 @@ test("M3 late download never leaves a departed account", async ({ page, app }) =
 for (const theme of ["light", "dark"]) {
   test(`library cards display supplied active/latest states for public/private entries in ${theme}`, async ({ page, app }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     app.entries = new Map([makeEntry(101, "reading"), makeEntry(102, "paused"), makeEntry(103, "finished"),
       makeEntry(104, "dnf", true), makeEntry(105, null)].map(entry => [entry.id, entry]));
@@ -656,6 +658,7 @@ const pageBox = page => page.getByRole("textbox", { name: /^Page or %/ });
 
 for (const theme of ["light", "dark"]) test(`the reading page is book-first and fits every width; ${theme}`, async ({ page, app }) => {
   app.dataControls = true;
+  await page.emulateMedia({ colorScheme: theme });
   await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });

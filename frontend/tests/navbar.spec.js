@@ -77,7 +77,7 @@ test("a guest keeps today's links, and nobody sees a Preferences link", async ({
   await expect(page.getByRole("link", { name: "Preferences" })).toHaveCount(0);
 });
 
-test("there is no theme button in the header on desktop or on a phone, and Settings keeps its switch", async ({ page, app: _app }) => {
+test("there is no theme button in the header on desktop or on a phone, and Settings keeps the theme choice", async ({ page, app: _app }) => {
   for (const [width, height] of [[1440, 900], [375, 812]]) {
     await page.setViewportSize({ width, height });
     await page.goto("/browse");
@@ -85,7 +85,7 @@ test("there is no theme button in the header on desktop or on a phone, and Setti
     await expect(page.getByRole("button", { name: /Use (dark|light) theme/ })).toHaveCount(0);
   }
   await page.goto("/settings");
-  await expect(page.getByRole("button", { name: "Switch theme" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Match device" })).toBeVisible();
 });
 
 test("on a phone the top bar is a slim logo bar that hides on scroll down and returns on scroll up", async ({ page, app: _app }) => {
