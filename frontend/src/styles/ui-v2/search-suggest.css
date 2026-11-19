@@ -1,17 +1,18 @@
 /* Search suggestions (SearchSuggest.jsx): a raised sheet under the search box that overlays the page. Colours, fonts and
    sizes come from tokens only, so the premium rework restyles it by changing the tokens. */
 .bv-root .bv-search-form { position: relative; }
-.bv-root .bv-suggest { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0; background: var(--bv-panel); color: var(--bv-ink); border-radius: 16px; overflow: hidden;
-  box-shadow: var(--bv-shadow), 0 0 0 1px var(--bv-line); animation: bv-suggest-in 140ms ease-out; }
+.bv-root .bv-suggest { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0; background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-sheet); overflow: hidden;
+  box-shadow: var(--bv-lift); animation: bv-suggest-in 140ms ease-out; }
 .bv-root .bv-header-search .bv-suggest { left: auto; right: 0; width: 420px; max-width: calc(100vw - 32px); }
 .bv-root .bv-suggest ul { list-style: none; margin: 0; padding: 0; }
 .bv-root .bv-suggest-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; cursor: pointer; }
-.bv-root .bv-suggest-row.is-active { background: var(--bv-soft-green); outline: 3px solid var(--bv-rust); outline-offset: -3px; }
-@media (hover: hover) { .bv-root .bv-suggest-row:hover { background: var(--bv-soft-green); } }
+.bv-root .bv-suggest-row.is-active { background: var(--bv-soft); outline: 3px solid var(--bv-rust); outline-offset: -3px; }
+@media (hover: hover) { .bv-root .bv-suggest-row:hover { background: var(--bv-soft); } }
 .bv-root .bv-suggest-cover { width: 32px; flex: none; }
-.bv-root .bv-suggest-cover .bv-cover { box-shadow: none; }
+/* A cover on the sheet keeps a thin edge, so a dark jacket never melts into the dark sheet. */
+.bv-root .bv-suggest-cover .bv-cover { box-shadow: 0 0 0 1px var(--bv-control); }
 .bv-root .bv-suggest-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.bv-root .bv-suggest-title { font: 500 var(--bv-fs-card)/1.25 var(--bv-display); overflow-wrap: anywhere; }
+.bv-root .bv-suggest-title { font: 400 var(--bv-fs-title)/1.25 var(--bv-display); letter-spacing: -0.01em; font-synthesis: none; overflow-wrap: anywhere; }
 .bv-root .bv-suggest-match { text-decoration: underline; text-decoration-color: var(--bv-green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .bv-root .bv-suggest-meta { font-size: var(--bv-fs-helper); line-height: 1.45; color: var(--bv-muted); }
 .bv-root .bv-suggest-all { border-top: 1px solid var(--bv-line); min-height: 48px; }

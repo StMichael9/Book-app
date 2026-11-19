@@ -52,8 +52,8 @@ export function WelcomePage() {
   return <>
     <section className="bv-container bv-hero">
       <div>
-        <p className="bv-eyebrow">A little space for your reading life</p>
         <h1>Your personal<br /><em>reading home.</em></h1>
+        <p className="bv-hero-line">A little space for your reading life</p>
         <p className="bv-lead bv-muted">Discover books, keep your library together, and track what you’re reading. At your own pace.</p>
         <div className="bv-hero-actions"><ActionLink to="/browse">Explore books <ArrowRight aria-hidden="true" /></ActionLink>
           <TextLink to={auth.isAuthenticated ? "/my-books" : "/register?src=landing"}>{auth.isAuthenticated ? "Return to your library" : "Create your library"}</TextLink></div>
