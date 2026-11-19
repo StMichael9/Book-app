@@ -61,10 +61,12 @@ def test_a_fiction_book_needs_a_strong_exact_alias_for_a_nonfiction_genre():
     assert genres(["Fiction", "Business strategy", "Management techniques"]) == []   # two partial hits are not enough in a novel
     assert genres(["Business strategy", "Management techniques"]) == ["business_money"]
     assert genres(["Fiction", "Travel", "Railroad travel"]) == []
-    assert genres(["Fiction", "Travel writing"]) == ["travel"]
-    assert genres(["Fiction", "Economics"]) == ["business_money"]
+    assert genres(["Fiction", "Travel writing"]) == []                                       # T64: one alias is a theme tag
+    assert genres(["Fiction", "Travel writing", "Voyages and travels"]) == ["travel"]         # two different strong subjects are not
+    assert genres(["Fiction", "Economics"]) == []                                              # T64: one alias on a novel
+    assert genres(["Fiction", "Economics", "Business enterprises"]) == ["business_money"]     # two different subjects
     assert genres(["Non-fiction", "Business strategy", "Management techniques"]) == ["business_money"]  # not fiction
-    assert genres(["Fantasy fiction", "History"]) == ["fantasy", "history"]          # an exact alias still counts
+    assert genres(["Fantasy fiction", "History"]) == ["fantasy"]                              # T64: one alias on a novel is a theme tag
     assert genres(["Fantasy fiction", "Ancient Rome", "Medieval empires"]) == ["fantasy"]
 
 

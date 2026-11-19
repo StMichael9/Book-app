@@ -171,7 +171,7 @@ PARTIAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "horror": ("horror", "ghost", "vampire", "haunted", "zombie", "occult", "gothic", "supernatural", "monster"),
     "romance": ("romance", "love stories", "love story", "man woman relationships", "dating"),
     "historical_fiction": ("historical fiction", "history fiction", "war fiction"),
-    "literary_fiction": ("literary", "psychological fiction", "family life fiction", "domestic fiction"),
+    "literary_fiction": ("literary fiction", "psychological fiction", "family life fiction", "domestic fiction"),
     "classics": ("classic", "19th century fiction", "early modern"),
     "young_adult": ("young adult", "teenage", "teenager", "teen", "high school"),
     "childrens": ("children", "juvenile", "picture book", "nursery"),
@@ -203,7 +203,21 @@ assert set(PARTIAL_KEYWORDS) == set(GENRE_KEYS)
 
 # Bare subjects that Open Library users add to almost anything (T57): together they count as at most ONE partial hit for a genre,
 # never as an exact alias, and never carry a genre without another, non-weak hit. Strong forms ("travel writing", "humorous stories", "picture books"...) stay exact aliases.
-WEAK_SUBJECTS = frozenset({"travel", "humor", "humour", "juvenile", "juvenile fiction"})
+WEAK_SUBJECTS = frozenset({
+    "travel", "humor", "humour", "juvenile", "juvenile fiction",
+    # T64: words that Open Library users attach to a book for one edition's sake, or that name a theme rather than a genre
+    "monsters", "ghosts", "magic", "supernatural", "technology", "animals", "ecology", "superheroes",
+    "adventure and adventurers", "psychological fiction", "fiction, psychological"})
+# T64: a subject that merely LOOKS like a genre keyword. "Mysteries and miracle plays" is medieval drama, not crime.
+EXCLUDED_SUBJECTS: dict[str, re.Pattern] = {
+    "mystery_crime": re.compile(r"\b(?:miracle|mystery|mysteries|morality)\b.*\bplays?\b|\bplays?\b.*\b(?:miracle|mystery|mysteries)\b"),
+}
+# T64: genres that tell two different stories when both turn up. The one backed by at least RIVAL_STRONG subjects wins over
+# the one backed by at most one (a fantasy novel with a single stray "Science Fiction" subject is not science fiction).
+RIVALS = (("fantasy", "science_fiction"),)
+RIVAL_STRONG = 3
+# T64: graphic novels are a format: they need a strong format subject ("Graphic novels", "Comics", "Manga"), never keywords alone.
+FORMAT_GENRES = frozenset({"graphic_novels"})
 # Words that mark a book as fiction. A nonfiction genre then needs a strong exact alias behind it, not only partial hits.
 FICTION_WORDS = frozenset({"fiction", "novel", "novels", "novella", "novellas", "stories"})
 GUARD_EXEMPT = frozenset({"graphic_novels"})  # listed under nonfiction for the picker, but its books are often fiction
@@ -274,26 +288,48 @@ def _is_fiction(key: str) -> bool:
     return "graphic novel" not in key and "bible" not in key and any(word in FICTION_WORDS for word in key.split())
 
 
+_WEAK_TAIL = re.compile(r"(?:,|\s)\s*(?:fiction|juvenile fiction|juvenile literature)$")
+
+
+@lru_cache(maxsize=300_000)
+def _is_weak(key: str) -> bool:
+    """A weak subject, or the same word with a form tail ("Monsters, fiction", "Animals, juvenile literature")."""
+    return key in WEAK_SUBJECTS or _WEAK_TAIL.sub("", key) in WEAK_SUBJECTS
+
+
+def _excluded(genre: str, key: str) -> bool:
+    pattern = EXCLUDED_SUBJECTS.get(genre)
+    return bool(pattern and pattern.search(key))
+
+
 def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list[str]:
     """The genres of one book from its Open Library subjects: a genre needs one strong exact alias or two partial hits
     (whole words only). Bare noisy subjects (WEAK_SUBJECTS) add at most one hit per genre between them and never carry a genre
-    alone: it also needs one non-weak partial hit. On a fiction book a nonfiction genre needs a strong exact alias, partial
-    hits are not enough. Best-supported first (an exact alias counts double), at most three. A custom `mapping` (tests,
-    reviewed overrides) is exact-only."""
+    alone: it also needs one non-weak partial hit. A subject that is itself about fiction ("Fiction, science fiction, general")
+    never counts as a partial hit for a nonfiction genre, and on a fiction book a nonfiction genre needs a strong exact alias
+    and a second, different supporting subject (a lone "Politics" or "Voyages and Travels" on a novel is a theme tag). A format genre (graphic novels) needs a strong exact alias. Two rival genres
+    (fantasy / science fiction): the one with one lone subject loses to one with three or more. Best-supported first (an exact
+    alias counts double), at most three. A custom `mapping` (tests, reviewed overrides) is exact-only."""
     exact_map = STRONG_MAP if mapping is None else mapping
     keys = list(dict.fromkeys(_subject_key(item) for item in subjects or [] if isinstance(item, str)))
     score: dict[str, int] = {}
     exact: set[str] = set()
+    support: dict[str, set] = {}
     for key in keys:
-        if key in exact_map:
-            score[exact_map[key]] = score.get(exact_map[key], 0) + 2
-            exact.add(exact_map[key])
+        genre = exact_map.get(key)
+        if genre and not _excluded(genre, key):
+            score[genre] = score.get(genre, 0) + 2
+            exact.add(genre)
+            support.setdefault(genre, set()).add(key)
     if mapping is None:
         strong: dict[str, set] = {}
         weak_genres: set[str] = set()
         for key in keys:
             for genre in _partial_genres(key):
-                if key in WEAK_SUBJECTS:
+                if _excluded(genre, key) or (genre in _NONFICTION and _is_fiction(key)):
+                    continue
+                support.setdefault(genre, set()).add(key)
+                if _is_weak(key):
                     weak_genres.add(genre)
                 else:
                     strong.setdefault(genre, set()).add(key)
@@ -301,10 +337,18 @@ def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list
             count = len(hits) + (1 if genre in weak_genres else 0)  # all weak subjects together are one hit
             if count >= 2:
                 score[genre] = score.get(genre, 0) + count
+        for genre in FORMAT_GENRES:
+            if genre in score and genre not in exact:
+                del score[genre]
         if any(_is_fiction(key) for key in keys):
             for genre in list(score):
-                if genre in _NONFICTION and genre not in exact:
+                if genre in _NONFICTION and (genre not in exact or len(support.get(genre, ())) < 2):
                     del score[genre]
+        for first, second in RIVALS:
+            for strong_side, weak_side in ((first, second), (second, first)):
+                if (strong_side in score and weak_side in score and len(support.get(strong_side, ())) >= RIVAL_STRONG
+                        and len(support.get(weak_side, ())) <= 1):
+                    del score[weak_side]
     order = {key: index for index, key in enumerate(GENRE_KEYS)}
     return [genre for genre, _ in sorted(score.items(), key=lambda item: (-item[1], order.get(item[0], 99)))][:MAX_GENRES_PER_BOOK]
 
