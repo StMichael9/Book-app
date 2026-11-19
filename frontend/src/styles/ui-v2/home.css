@@ -27,7 +27,7 @@
 .bv-root .bv-next-card h3 a:hover { text-decoration: underline; }
 .bv-root .bv-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 176px)); gap: 20px 24px; }
 .bv-root .bv-next-cover { position: relative; }
-.bv-root .bv-next-card h3 { margin: 10px 0 0; font: 600 var(--bv-fs-body)/1.25 var(--bv-body); }
+.bv-root .bv-next-card h3 { margin: 10px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 .bv-root .bv-next-label { margin: 6px 0 10px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 600; }
 .bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; }
