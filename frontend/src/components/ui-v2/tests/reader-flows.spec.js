@@ -113,22 +113,23 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
     for (const pair of pairs) expect(pair.ratio, `${property}: ${pair.label}`).toBeGreaterThanOrEqual(minimum);
   }
   await page.goto("/"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(30, 29, 27)");
-  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(235, 232, 225)");
-  await expect(page.locator(".bv-library-banner")).toHaveCSS("background-color", "rgb(38, 37, 35)");
+  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(22, 19, 15)");
+  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(240, 233, 220)");
+  await expect(page.locator(".bv-library-banner")).toHaveCSS("background-color", "rgb(47, 42, 35)");
   await checkContrast(".bv-lead, .bv-help, .bv-genre-card, .bv-genre-card > span:last-child, .bv-button, .bv-text-link, .bv-library-banner p");
   const explore = page.getByRole("link", { name: "Explore books", exact: true });
-  await expect(explore).toHaveCSS("background-color", "rgb(169, 201, 179)");
-  await expect(explore).toHaveCSS("color", "rgb(30, 29, 27)");
+  await expect(explore).toHaveCSS("background-color", "rgb(185, 211, 191)");
+  await expect(explore).toHaveCSS("color", "rgb(20, 32, 26)");
   await explore.hover(); await checkContrast(".bv-hero-actions .bv-button");
   await page.keyboard.press("Tab"); await explore.focus();
   await expect(explore).toHaveCSS("outline-color", "rgb(217, 130, 108)");
   await checkContrast(".bv-hero-actions .bv-button", "outlineColor", 3);
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await expect(page.getByRole("dialog")).toHaveCSS("background-color", "rgb(38, 37, 35)");
+  await expect(page.getByRole("dialog")).toHaveCSS("background-color", "rgb(47, 42, 35)");
   await checkContrast(".bv-dialog p, .bv-dialog .bv-button, .bv-genre-pill span, .bv-dialog input:not([type=checkbox])");
-  await checkContrast(".bv-genre-pill span, .bv-dialog input:not([type=checkbox])", "borderTopColor", 3);
+    // Chips are soft-filled pills with no stroke (DESIGN.md): the label on the fill carries the contrast, in both states.
+  await checkContrast(".bv-genre-pill span", "color", 4.5);
   await page.keyboard.press("Escape");
   app.authenticated = false;
   await page.goto("/login"); await expect(page.getByLabel("Email address", { exact: true })).toBeVisible();
@@ -139,8 +140,8 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   app.mutationFails = true; await page.getByRole("button", { name: "Add Pride and Prejudice to Owned" }).click();
   await expect(page.getByRole("alert")).toBeVisible(); await checkContrast(".bv-field-error, .bv-button--saved, .bv-help");
   await page.goto("/settings"); await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Light" }).check({ force: true });
-  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(250, 248, 242)");
-  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(32, 46, 40)");
+  await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(243, 238, 227)");
+  await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(31, 42, 36)");
 });
 
 test("anonymous save survives registration and resumes exactly once", async ({ page, app }) => {
