@@ -117,13 +117,13 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(240, 233, 220)");
   await expect(page.locator(".bv-landing-shelf")).toHaveCSS("background-color", "rgb(47, 42, 35)");
   await checkContrast(".bv-landing-lead, .bv-landing-free, .bv-button, .bv-text-link, .bv-landing-way p");
-  // The landing's primary door is the normal green pill on paper, with the rust focus ring.
+  // The landing's primary door is the normal green pill on paper, with the green focus ring.
   const explore = page.getByRole("link", { name: "Explore books", exact: true });
   await expect(explore).toHaveCSS("background-color", "rgb(185, 211, 191)");
   await expect(explore).toHaveCSS("color", "rgb(20, 32, 26)");
   await explore.hover(); await checkContrast(".bv-landing-doors .bv-button");
   await page.keyboard.press("Tab"); await explore.focus();
-  await expect(explore).toHaveCSS("outline-color", "rgb(217, 130, 108)");
+  await expect(explore).toHaveCSS("outline-color", "rgb(185, 211, 191)");
   await checkContrast(".bv-landing-doors .bv-button", "outlineColor", 3);
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
