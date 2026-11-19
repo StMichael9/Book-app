@@ -34,7 +34,11 @@ def assert_open_library_only(engine) -> None:
 
 def open_stage_engine(config):
     """Connect to the stage database and make sure its tables exist (a fresh runner starts empty)."""
-    engine = create_engine(config.stage_database_url, pool_pre_ping=True)
+    return open_stage_engine_for(config.stage_database_url)
+
+
+def open_stage_engine_for(url: str):
+    engine = create_engine(url, pool_pre_ping=True)
     assert_open_library_only(engine)
     Base.metadata.create_all(engine, tables=[model.__table__ for model in STAGE_MODELS])
     assert_open_library_only(engine)

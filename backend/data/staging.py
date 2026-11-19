@@ -57,7 +57,23 @@ def _resolve_aliases(session: Session, keys: set[str]) -> dict[str, str | None]:
     return resolved
 
 
-def _existing_book_aliases(session: Session, canonical_keys: set[str], neon: Session | None = None) -> dict[str, str]:
+class CatalogueView:
+    """The catalogue's book keys and legacy titles, read once per works phase (T63), so the works batches never ask Neon.
+    Books are added only by the merge, which comes after the works phase, so a snapshot taken at the start is exact."""
+
+    def __init__(self, source_ids: set[str], legacy_titles: set[str]):
+        self.source_ids, self.legacy_titles = source_ids, legacy_titles
+
+    @classmethod
+    def load(cls, neon_factory) -> "CatalogueView":
+        with neon_factory() as session:
+            keys = set(session.execute(select(Book.source_id).where(Book.source_id.is_not(None))).scalars())
+            titles = set(session.execute(select(Book.title).where(Book.source_id.is_(None))).scalars())
+        return cls(keys, titles)
+
+
+def _existing_book_aliases(session: Session, canonical_keys: set[str], neon: Session | None = None,
+                           held: set[str] | None = None) -> dict[str, str]:
     """Find existing Book IDs behind even multi-hop redirects, without scanning all books.
 
     The redirect chains are read from `session` (the staging database); which of the old keys are books we hold is read from
@@ -79,7 +95,8 @@ def _existing_book_aliases(session: Session, canonical_keys: set[str], neon: Ses
     """), {"keys": list(canonical_keys)}).all()
     if not rows:
         return {}
-    held = set((neon or session).execute(select(Book.source_id).where(Book.source_id.in_({old for old, _ in rows}))).scalars())
+    if held is None:
+        held = set((neon or session).execute(select(Book.source_id).where(Book.source_id.in_({old for old, _ in rows}))).scalars())
     return {old: target for old, target in rows if old in held}
 
 
@@ -182,11 +199,44 @@ def _compact_aliases(session: Session, run: CatalogueImportRun, *, include_short
     }
 
 
+def _popular_or_held(session: Session, run: CatalogueImportRun, records: list[dict], popular, neon, view) -> list[dict]:
+    """The records worth normalising in a popular run: those whose (redirect-resolved) key is on the popularity allowlist, or
+    that the catalogue already holds directly or behind a redirect. Exactly the set the full filter below would keep."""
+    pairs = [(key, record) for record in records if (key := clean.work_key(record.get("key")))]
+    if not pairs:
+        return []
+    raw = {key for key, _ in pairs}
+    store = popular if hasattr(popular, "scores") else active_store(run.id)
+    if store is None:
+        raise RuntimeError("Popularity file is missing for this run")
+    aliases = _resolve_aliases(session, raw)
+    canonical = {value for value in aliases.values() if value}
+    scored = store.scores(set(aliases) | canonical)
+    if view is not None:
+        held = view.source_ids
+        old_aliases = _existing_book_aliases(session, canonical, neon, held=held)
+    else:
+        catalogue = neon if neon is not None else session
+        held = set(catalogue.execute(select(Book.source_id).where(Book.source_id.in_(raw | canonical))).scalars())
+        old_aliases = _existing_book_aliases(session, canonical, neon)
+        held |= set(catalogue.execute(select(Book.source_id).where(Book.source_id.in_(set(old_aliases)))).scalars()) if old_aliases else set()
+    forced = {key for key in canonical if key in held} | {target for old, target in old_aliases.items() if old in held}
+    return [record for key, record in pairs
+            if aliases[key] and (key in scored or aliases[key] in scored or aliases[key] in forced or key in held)]
+
+
 def _write_works(session: Session, run: CatalogueImportRun, records: list[dict], popular: bool = False,
-                 neon: Session | None = None) -> None:
+                 neon: Session | None = None, view: "CatalogueView | None" = None) -> None:
     kept = [record for record in records if not (popular and is_derivative(record))]
+    prefiltered = 0
+    if popular:
+        # Of the 40 million works only the popularity allowlist and the books we already hold can be staged (everything else is
+        # dropped below), so decide that from the keys alone and normalise just those few.
+        before = len(kept)
+        kept = _popular_or_held(session, run, kept, popular, neon, view)
+        prefiltered = before - len(kept)
     normalized = [item for record in kept if (item := clean.normalize_work(record))]
-    _count_skipped(run, "works", len(records) - len(normalized))
+    _count_skipped(run, "works", len(records) - prefiltered - len(normalized))
     if not normalized:
         return
     aliases = _resolve_aliases(session, {item["source_id"] for item in normalized})
@@ -225,11 +275,14 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
                                  for tag in previous.tags + item["tags"]}.values())
             item["quality"] = max(previous.quality, item["quality"])
     catalogue = neon if neon is not None else session
-    old_aliases = _existing_book_aliases(session, set(works), neon)
+    old_aliases = _existing_book_aliases(session, set(works), neon, held=view.source_ids if view is not None else None)
     old_keys = set(old_aliases)
-    existing_ids = set(catalogue.execute(select(Book.source_id).where(
-        Book.source_id.in_(set(works) | old_keys)
-    )).scalars())
+    if view is not None:
+        existing_ids = (set(works) | old_keys) & view.source_ids
+    else:
+        existing_ids = set(catalogue.execute(select(Book.source_id).where(
+            Book.source_id.in_(set(works) | old_keys)
+        )).scalars())
     forced_keys = set(works) & existing_ids
     for old_key in old_keys & existing_ids:
         canonical = old_aliases.get(old_key)
@@ -250,7 +303,11 @@ def _write_works(session: Session, run: CatalogueImportRun, records: list[dict],
             session.execute(insert(CatalogueStagePopularity).values([
                 {"run_id": run.id, "source_id": key, "score": score} for key, score in points.items()
             ]).on_conflict_do_nothing())
-    legacy_titles = set(catalogue.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_({w["title"] for w in works.values()}))).scalars())
+    wanted_titles = {w["title"] for w in works.values()}
+    if view is not None:
+        legacy_titles = wanted_titles & view.legacy_titles
+    else:
+        legacy_titles = set(catalogue.execute(select(Book.title).where(Book.source_id.is_(None), Book.title.in_(wanted_titles))).scalars())
     values = [{"run_id": run.id, "source_id": key, "title": work["title"],
                "description": None, "published_year": work["published_year"],
                "cover_image_url": work["cover_image_url"], "tags": work["tags"],
@@ -488,16 +545,20 @@ def _write_editions(session: Session, run: CatalogueImportRun, records: list[dic
 
 
 def _write_hydrate(session: Session, run: CatalogueImportRun, records: list[dict]) -> None:
-    works = {item["source_id"]: item for record in records if (item := clean.normalize_work(record))}
-    if not works:
+    # Only a few thousand of the 40 million works are selected: find those from the keys alone, then normalise just them.
+    raw_keys = {key for record in records if (key := clean.work_key(record.get("key")))}
+    if not raw_keys:
         return
-    aliases = _resolve_aliases(session, set(works))
-    canonical = {aliases[key]: work for key, work in works.items() if aliases[key]}
+    aliases = _resolve_aliases(session, raw_keys)
     eligible = set(session.execute(select(CatalogueStageWork.source_id).where(
         CatalogueStageWork.run_id == run.id,
-        CatalogueStageWork.source_id.in_(canonical),
+        CatalogueStageWork.source_id.in_({value for value in aliases.values() if value}),
         or_(CatalogueStageWork.selected, CatalogueStageWork.forced),
     )).scalars())
+    wanted = {raw for raw, canonical_key in aliases.items() if canonical_key in eligible}
+    works = {item["source_id"]: item for record in records
+             if clean.work_key(record.get("key")) in wanted and (item := clean.normalize_work(record))}
+    canonical = {aliases[key]: work for key, work in works.items() if aliases[key]}
     if eligible:
         session.execute(update(CatalogueStageWork), [
             {"run_id": run.id, "source_id": key, "description": canonical[key]["description"],

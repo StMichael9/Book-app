@@ -11,6 +11,7 @@ and a fiction book needs a strong exact alias behind a nonfiction genre (T57).
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 # key (the tag name), label, group
 GENRES: tuple[tuple[str, str, str], ...] = (
@@ -239,6 +240,7 @@ OLD_TAGS: dict[str, str | None] = {
 }
 
 
+@lru_cache(maxsize=300_000)
 def _subject_key(value: str) -> str:
     return re.sub(r"[\s_-]+", " ", value.casefold()).strip()
 
@@ -259,6 +261,14 @@ STRONG_MAP = {key: genre for key, genre in SUBJECT_MAP.items() if key not in WEA
 _NONFICTION = {key for key, _, group in GENRES if group == "nonfiction"} - GUARD_EXEMPT
 
 
+@lru_cache(maxsize=300_000)
+def _partial_genres(key: str) -> tuple[str, ...]:
+    """The genres whose keywords occur as whole words in one normalised subject. The same few hundred thousand subjects recur
+    across millions of works in the Open Library dump, so each is classified once."""
+    return tuple(genre for genre, pattern in _PARTIAL.items() if pattern.search(key))
+
+
+@lru_cache(maxsize=300_000)
 def _is_fiction(key: str) -> bool:
     key = re.sub(r"\bnon fiction\b", " ", key)
     return "graphic novel" not in key and "bible" not in key and any(word in FICTION_WORDS for word in key.split())
@@ -282,12 +292,11 @@ def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list
         strong: dict[str, set] = {}
         weak_genres: set[str] = set()
         for key in keys:
-            for genre, pattern in _PARTIAL.items():
-                if pattern.search(key):
-                    if key in WEAK_SUBJECTS:
-                        weak_genres.add(genre)
-                    else:
-                        strong.setdefault(genre, set()).add(key)
+            for genre in _partial_genres(key):
+                if key in WEAK_SUBJECTS:
+                    weak_genres.add(genre)
+                else:
+                    strong.setdefault(genre, set()).add(key)
         for genre, hits in strong.items():
             count = len(hits) + (1 if genre in weak_genres else 0)  # all weak subjects together are one hit
             if count >= 2:

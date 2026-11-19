@@ -26,13 +26,13 @@ from data.aliases import relevant_delete_keys, run_redirects
 from data.popularity import active_store, ensure_store, run_popularity
 from data.preview import dry_run_report
 from data.reporting import (
-    CapacityPause, _build_report, _check_storage, _count_skipped, _issue,
+    CapacityPause, StorageGuard, _build_report, _check_storage, _count_skipped, _issue,
     _record_phase_size, _release_staging, _stage_mb,
 )
 from data.selection import _backfill_authors, _select_works
 from data.sources import resolve_snapshot
 from data.staging import (
-    _compact_aliases, _prune_candidates, _write_aliases, _write_authors, _write_editions,
+    CatalogueView, _compact_aliases, _prune_candidates, _write_aliases, _write_authors, _write_editions,
     _write_hydrate, _write_works, select_useful_editions,
 )
 from models import Book, CatalogueImportRun
@@ -89,11 +89,11 @@ _DELETE_KEEP: dict[str, set[str]] = {}  # per run: deletions worth writing, comp
 
 
 def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch: list[clean.DumpRow],
-                      neon: Session | None = None) -> None:
+                      neon: Session | None = None, view=None, guard=None) -> None:
     run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
     if run.phase != phase:
         raise RuntimeError("Import phase changed while processing")
-    _check(session, run, config, neon)
+    _check(session, run, config, neon, guard)
     records = [row.record for row in batch if row.record is not None]
     popular = {"popular": active_store(config.run_id) or True} if config.popular else {}
     malformed = [row for row in batch if row.error]
@@ -106,7 +106,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         keep = {"keep": _DELETE_KEEP[config.run_id]} if phase == "deletes" and config.popular else {}
         _write_aliases(session, run, records, phase, **keep)
     elif phase == "works":
-        _write_works(session, run, records, **_with(neon), **popular)
+        _write_works(session, run, records, **_with(neon), view=view, **popular)
         boundary = config.batch_size * 100
         if batch[0].line_number // boundary != batch[-1].line_number // boundary:
             _prune_candidates(session, run, config)
@@ -116,7 +116,7 @@ def _write_dump_batch(session: Session, config: ImportConfig, phase: str, batch:
         _write_editions(session, run, records, **popular)
     elif phase == "hydrate":
         _write_hydrate(session, run, records)
-    _check(session, run, config, neon)
+    _check(session, run, config, neon, guard)
     run.checkpoint_line = batch[-1].line_number
     log.info("%s line=%d selected=%d db_peak=%.1f MiB", phase, run.checkpoint_line,
              run.selected_count, run.peak_database_mb)
@@ -127,8 +127,10 @@ def _with(neon):
     return {} if neon is None else {"neon": neon}
 
 
-def _check(session, run, config, neon):
-    if neon is None:
+def _check(session, run, config, neon, guard=None):
+    if guard is not None:
+        _check_storage(session, run, config, guard=guard)
+    elif neon is None:
         _check_storage(session, run, config)
     else:
         _check_storage(session, run, config, neon)
@@ -147,11 +149,25 @@ def _both(factory: sessionmaker, neon_factory: sessionmaker | None):
         yield session, neon
 
 
+def _write_stage_batch(factory, neon_factory, config, phase, batch, view, guard) -> None:
+    """One dump batch. Separate catalogue database: staging session only; single database: the old joined session."""
+    if neon_factory is None:
+        with factory.begin() as session:
+            _write_dump_batch(session, config, phase, batch)
+    else:
+        with factory.begin() as session:
+            _write_dump_batch(session, config, phase, batch, view=view, guard=guard)
+
+
 def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: str,
                   following: str, deadline: float | None = None, heartbeat=None,
                   neon_factory: sessionmaker | None = None) -> bool:
     kind = "works" if phase == "hydrate" else phase
     expected = (config.source_manifest.get("files") or {}).get(kind)
+    # With a separate catalogue database (the runner-local staging layout) a dump phase never opens a catalogue transaction
+    # per batch: the storage guard reads its size on a timer, and the works phase reads what the catalogue holds once.
+    guard = StorageGuard(neon_factory) if neon_factory is not None else None
+    view = CatalogueView.load(neon_factory) if neon_factory is not None and phase == "works" else None
     for attempt in range(1, 4):
         with factory() as session:
             start = session.get(CatalogueImportRun, config.run_id).checkpoint_line
@@ -174,17 +190,15 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                 batch.append(row)
                 batch_bytes += row.byte_size
                 if len(batch) >= config.batch_size or batch_bytes >= 8_000_000:
-                    check_progress(force=True)
-                    with _both(factory, neon_factory) as (session, neon):
-                        _write_dump_batch(session, config, phase, batch, **_with(neon))
+                    check_progress()
+                    _write_stage_batch(factory, neon_factory, config, phase, batch, view, guard)
                     batch.clear()
                     batch_bytes = 0
                     if deadline is not None and time.monotonic() >= deadline:
                         return False
             if batch:
                 check_progress(force=True)
-                with _both(factory, neon_factory) as (session, neon):
-                    _write_dump_batch(session, config, phase, batch, **_with(neon))
+                _write_stage_batch(factory, neon_factory, config, phase, batch, view, guard)
             with _both(factory, neon_factory) as (session, neon):
                 run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
                 if phase == "works":
@@ -390,31 +404,59 @@ def _config_for_command(args, database_url: str, user_agent: str) -> ImportConfi
         max_project_mb=getattr(args, "max_project_mb", None) or 750)
 
 
+def _run_summary(run: CatalogueImportRun) -> dict:
+    """Copy the values a resume needs before the session closes; never rediscover on resume."""
+    return {
+        "snapshot_id": run.snapshot_id,
+        "manifest": run.source_manifest or {},
+        "weights": run.category_weights or {},
+        "target": run.target_books,
+        "guard": run.max_database_mb,
+        "phase": run.phase,
+        "urls": {kind: getattr(run, f"{kind}_url") for kind in ("works", "authors", "editions", "redirects", "deletes")},
+        "popularity": {kind: ((run.source_manifest or {}).get("files") or {}).get(kind, {}).get("url")
+                       for kind in ("ratings", "reading-log")},
+    }
+
+
+def _stored_run(run_id: str, database_url: str | None = None) -> dict | None:
+    """The run row a resume pins itself to. With the runner-local staging database (CATALOGUE_STAGE_DATABASE_URL, the T48
+    layout) the run lives there, restored from the previous segment's artifact; only a run that predates that layout is
+    still in the catalogue database, so that is the fallback."""
+    stage_url = os.getenv("CATALOGUE_STAGE_DATABASE_URL")
+    database_url = database_url or os.getenv("CATALOGUE_DATABASE_URL")
+    found = None
+    if stage_url:
+        from data.stage_db import open_stage_engine_for
+        engine = open_stage_engine_for(stage_url)
+        try:
+            with Session(engine) as session:
+                run = session.get(CatalogueImportRun, run_id)
+                found = _run_summary(run) if run else None
+        finally:
+            engine.dispose()
+        if found:
+            return found
+    if database_url:
+        engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            with Session(engine) as session:
+                run = session.get(CatalogueImportRun, run_id)
+                found = _run_summary(run) if run else None
+        finally:
+            engine.dispose()
+        if found and stage_url:
+            log.warning("Run %s is in the catalogue database, not in the staging database: a run from before the "
+                        "runner-local staging layout. Its pinned inputs are used, its phases restart in staging.", run_id)
+    return found
+
+
 def _pinned_config_for_command(args, database_url: str, user_agent: str) -> ImportConfig:
     """Resume exclusively from PostgreSQL; discover metadata only for new runs."""
     validate_database_target(database_url, args.mode)
     existing = None
     if args.run_id:
-        engine = create_engine(database_url, pool_pre_ping=True)
-        try:
-            with Session(engine) as session:
-                existing = session.get(CatalogueImportRun, args.run_id)
-                if existing:
-                    # Copy values before the session closes; never rediscover on resume.
-                    existing = {
-                        "snapshot_id": existing.snapshot_id,
-                        "manifest": existing.source_manifest or {},
-                        "weights": existing.category_weights or {},
-                        "target": existing.target_books,
-                        "guard": existing.max_database_mb,
-                        "phase": existing.phase,
-                        "urls": {kind: getattr(existing, f"{kind}_url") for kind in
-                                 ("works", "authors", "editions", "redirects", "deletes")},
-                        "popularity": {kind: ((existing.source_manifest or {}).get("files") or {}).get(
-                            kind, {}).get("url") for kind in ("ratings", "reading-log")},
-                    }
-        finally:
-            engine.dispose()
+        existing = _stored_run(args.run_id, database_url)
     if existing:
         if args.snapshot not in ("auto", (existing["manifest"] or {}).get("date")):
             raise ValueError("Resume cannot switch the pinned snapshot")
