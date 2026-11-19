@@ -277,7 +277,7 @@ test.describe("with SEARCH_SUGGEST on", () => {
     await typeSlowly(header(page), "dune");
     await expect(list(page)).toBeVisible();
     const colours = await page.locator(".bv-suggest").evaluate(node => { const style = getComputedStyle(node); return { background: style.backgroundColor, color: style.color }; });
-    expect(colours.background).toBe("rgb(38, 37, 35)");
-    expect(colours.color).toBe("rgb(235, 232, 225)");
+    expect(colours.background).toBe("rgb(59, 53, 44)");
+    expect(colours.color).toBe("rgb(240, 233, 220)");
   });
 });

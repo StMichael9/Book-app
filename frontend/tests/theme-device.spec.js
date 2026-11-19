@@ -63,7 +63,7 @@ test("the theme is right before the app mounts, with no flash", async ({ page, a
     await page.goto("/browse", { waitUntil: "commit" });
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
     expect(await page.evaluate(() => document.getElementById("root").childElementCount)).toBe(0);
-    expect(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').getAttribute("content"))).toBe("#1e1d1b");
+    expect(await page.evaluate(() => document.querySelector('meta[name="theme-color"]').getAttribute("content"))).toBe("#16130f");
   } finally { release(); }
   await expect(page.locator(".bv-root")).toHaveAttribute("data-theme", "dark");
 });
@@ -168,7 +168,7 @@ test("the browser colour follows the shown theme", async ({ page, app: _app }) =
   await page.goto("/browse");
   await expect(page.locator("#bv-main")).toBeVisible();
   const color = () => page.evaluate(() => document.querySelector('meta[name="theme-color"]').getAttribute("content"));
-  expect(await color()).toBe("#faf8f2");
+  expect(await color()).toBe("#f3eee3");
   await page.emulateMedia({ colorScheme: "dark" });
-  await expect.poll(color).toBe("#1e1d1b");
+  await expect.poll(color).toBe("#16130f");
 });

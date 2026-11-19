@@ -4,7 +4,7 @@ export const THEME_KEY = "bookvane-theme";
 export const MIGRATED_KEY = "bookvane-theme-migrated";
 const LEGACY_KEY = "shelfbound-theme";
 // The browser's own colour (address bar, status bar) follows the shown theme: the page background of each.
-export const THEME_COLOR = { light: "#faf8f2", dark: "#1e1d1b" };
+export const THEME_COLOR = { light: "#f3eee3", dark: "#16130f" };
 
 const valid = value => value === "light" || value === "dark";
 

@@ -2,7 +2,7 @@
 .bv-root .bv-reading-workspace.bv-editorial-workspace { max-width: 1240px; }
 .bv-root .bv-workspace-layout { display: grid; grid-template-columns: minmax(0, 1fr) 326px; gap: 24px; align-items: start; padding-bottom: 32px; }
 .bv-root .bv-workspace-book { grid-column: 1; grid-row: 1; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 26px; }
-.bv-root :is(.bv-workspace-book, .bv-workspace-progress) { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; min-width: 0; }
+.bv-root :is(.bv-workspace-book, .bv-workspace-progress) { background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); padding: 24px; min-width: 0; box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-workspace-cover .bv-cover { box-shadow: var(--bv-shadow); }
 /* The preview of a book opened from a list joins the workspace grid as if it had no wrapper. */
 .bv-root .bv-workspace-seed { display: contents; }
@@ -13,11 +13,11 @@
 .bv-root .bv-workspace-progress { grid-column: 2; grid-row: 1 / span 2; }
 .bv-root .bv-workspace-progress-heading { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .bv-root .bv-workspace-progress-heading h2 { font-size: var(--bv-fs-section); margin: 0; }
-.bv-root .bv-reading-state-pill { margin: 0; padding: 6px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft-green); font: 600 var(--bv-fs-helper)/1.4 var(--bv-body); }
+.bv-root .bv-reading-state-pill { margin: 0; padding: 6px 12px; border-radius: 20px; color: var(--bv-green); background: var(--bv-soft); font: 600 var(--bv-fs-helper)/1.4 var(--bv-body); }
 .bv-root .bv-workspace-progress-value { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; font-size: var(--bv-fs-body); }
 .bv-root .bv-workspace-progress-value p { margin-bottom: 10px; }
-.bv-root .bv-workspace-progress progress { display: block; width: 100%; height: 8px; margin-bottom: 20px; border: 0; border-radius: 8px; overflow: hidden; background: var(--bv-wash); color: var(--bv-green); accent-color: var(--bv-green); }
-.bv-root .bv-workspace-progress progress::-webkit-progress-bar { background: var(--bv-wash); }
+.bv-root .bv-workspace-progress progress { display: block; width: 100%; height: 8px; margin-bottom: 20px; border: 0; border-radius: 8px; overflow: hidden; background: var(--bv-soft); color: var(--bv-green); accent-color: var(--bv-green); }
+.bv-root .bv-workspace-progress progress::-webkit-progress-bar { background: var(--bv-soft); }
 .bv-root .bv-workspace-progress progress::-webkit-progress-value { background: var(--bv-green); }
 .bv-root .bv-workspace-progress progress::-moz-progress-bar { background: var(--bv-green); }
 .bv-root .bv-workspace-primary-actions { display: flex; flex-direction: column; gap: 12px; }
@@ -25,7 +25,7 @@
 .bv-root .bv-workspace-state-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bv-root .bv-workspace-state-actions .bv-button { padding: 10px 9px; font-size: var(--bv-fs-body); }
 .bv-root .bv-workspace-dates { border-top: 1px solid var(--bv-line); color: var(--bv-muted); padding-top: 16px; margin: 20px 0 0; font-size: var(--bv-fs-helper); }
-.bv-root .bv-workspace-about h3 { font: 500 var(--bv-fs-card)/1.3 var(--bv-display); margin-bottom: 10px; }
+.bv-root .bv-workspace-about h3 { font: 400 var(--bv-fs-card)/1.3 var(--bv-display); margin-bottom: 10px; }
 /* Subjects here are descriptive, not filters, so they read as text rather than chips. */
 .bv-root .bv-workspace-about .bv-book-subjects { margin-bottom: 6px; color: var(--bv-green); font-size: var(--bv-fs-helper); font-weight: 600; }
 .bv-root .bv-reading-synopsis { line-height: 1.7; color: var(--bv-muted); }
@@ -38,7 +38,7 @@
 .bv-root :is(.bv-progress-settings, .bv-note-options) input, .bv-root .bv-note-options select { width: 100%; }
 .bv-root .bv-reading-library .bv-filter-groups { align-items: center; gap: 12px; }
 /* "More filters" reads as a control in the same family as the filter pills, not a bare browser triangle. */
-.bv-root .bv-library-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1px solid var(--bv-line); border-radius: 6px; font-weight: 600; font-size: var(--bv-fs-body); }
+.bv-root .bv-library-more > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; min-height: 44px; padding: 8px 14px; border: 1.5px solid var(--bv-control); border-radius: var(--bv-radius-pill); font-weight: 600; font-size: var(--bv-fs-body); }
 .bv-root .bv-library-more > summary::-webkit-details-marker { display: none; }
 .bv-root .bv-library-more > summary svg { width: 16px; height: 16px; transition: transform 150ms ease-out; }
 .bv-root .bv-library-more[open] > summary svg { transform: rotate(180deg); }
@@ -57,14 +57,14 @@
 .bv-root .bv-workspace-stop { margin-bottom: 20px; }
 .bv-root .bv-workspace-stop .bv-help { margin-bottom: 0; }
 .bv-root .bv-workspace-imported .bv-section { padding: 0; }
-.bv-root .bv-workspace-editor { grid-column: 1; grid-row: 3; min-width: 0; padding: 24px; border: 1px solid var(--bv-control); border-radius: 8px; background: var(--bv-panel); }
+.bv-root .bv-workspace-editor { grid-column: 1; grid-row: 3; min-width: 0; padding: 24px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); }
 .bv-root .bv-workspace-editor .bv-reading-form { margin-top: 0; max-width: none; }
 .bv-root .bv-workspace-editor .bv-reading-form fieldset { padding: 0; border: 0; }
 .bv-root .bv-workspace-editor :is(input, select, textarea) { max-width: 100%; min-width: 0; }
 .bv-root .bv-workspace-layout > :is(.bv-workspace-next, .bv-workspace-next-full) { grid-column: 2; grid-row: 3 / span 2; padding: 24px 0 0; margin: 0; border-top: 1px solid var(--bv-line); min-width: 0; }
 .bv-root .bv-workspace-next h2 { font-size: var(--bv-fs-section); }
-.bv-root .bv-workspace-next-book { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 16px; border: 1px solid var(--bv-line); border-radius: 8px; background: var(--bv-panel); }
-.bv-root .bv-workspace-next-book h3 { font: 500 var(--bv-fs-card)/1.3 var(--bv-display); margin: 0 0 6px; }
+.bv-root .bv-workspace-next-book { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 16px; border-radius: var(--bv-radius-sheet); background: var(--bv-sheet); box-shadow: var(--bv-shadow-sheet); }
+.bv-root .bv-workspace-next-book h3 { font: 400 var(--bv-fs-card)/1.3 var(--bv-display); margin: 0 0 6px; }
 .bv-root .bv-workspace-next-book .bv-author { font-size: var(--bv-fs-helper); margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-help { margin-bottom: 8px; }
 .bv-root .bv-workspace-next-book .bv-text-link { font-size: var(--bv-fs-helper); }
