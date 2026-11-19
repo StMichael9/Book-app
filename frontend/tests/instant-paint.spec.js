@@ -87,7 +87,7 @@ test("a reader who was signed in last time still waits for the account check ins
   const release = holdRefresh(app);
   await page.goto("/");
   await expect(page.getByText("Opening Bookvane…")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Bring your Goodreads shelves home.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toHaveCount(0);
   release();
   await expect(heroLink(page, "Live One 1")).toBeVisible();
 });
@@ -99,13 +99,14 @@ test("Discover's plain first page also paints before the account check returns",
   release();
 });
 
-test("hero snapshot covers use the self-hosted files and only the three hero covers are high priority", async ({ page, app }) => {
+test("hero snapshot covers use the self-hosted files and only the first hero cover is high priority", async ({ page, app }) => {
   const release = holdRefresh(app);
   await page.goto("/");
-  for (const book of heroSnapshot) {
+  for (const [index, book] of heroSnapshot.entries()) {
     const image = heroLink(page, book.title).locator("img");
     await expect(image).toHaveAttribute("src", `/covers/snapshot/${book.id}.webp`);
-    await expect(image).toHaveAttribute("fetchpriority", "high");
+    // The first cover is the largest paint, so it alone is high priority; the other two are still eager.
+    if (index === 0) await expect(image).toHaveAttribute("fetchpriority", "high"); else await expect(image).not.toHaveAttribute("fetchpriority", "high");
     await expect(image).toHaveAttribute("loading", "eager");
   }
   const rowImages = page.locator(".bv-book-card img");

@@ -1,56 +1,72 @@
-/* The signed-out landing page, direction E: one cloth band holds the header, the promise and the one action; a paper sheet rests on its
-   lower edge. The band is still: cloth never animates. Colours come from the band tokens only. */
-.bv-root .bv-header--band { background: var(--bv-band); color: var(--bv-on-band); }
-.bv-root .bv-header--band .bv-brand { color: var(--bv-on-band); }
-.bv-root .bv-header--band .bv-desktop-nav a { color: var(--bv-band-muted); }
-.bv-root .bv-header--band .bv-desktop-nav .bv-active { color: var(--bv-on-band); border-color: var(--bv-on-band); }
-.bv-root .bv-header--band .bv-text-link { color: var(--bv-on-band); }
-/* Join free on the band: an ivory-at-12% pill with on-band text. */
-.bv-root .bv-header--band .bv-button--secondary, .bv-root .bv-header--band .bv-button--quiet { background: color-mix(in srgb, var(--bv-on-band) 12%, transparent); color: var(--bv-on-band); border-color: transparent; }
-@media (hover: hover) { .bv-root .bv-header--band .bv-button--secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--bv-on-band) 20%, transparent); } }
-/* Rust does not reach 3:1 on the band, so every focus ring on the band is the on-band ink. */
-.bv-root :is(.bv-header--band, .bv-landing-band) :is(a, button, input):focus-visible { outline-color: var(--bv-on-band); }
+/* The signed-out landing page, direction E, "Paper top": header and promise on paper; a sheet of live covers on the right; the picks; two
+   ways to begin; the privacy promises. No cloth on this page. Colours, fonts and sizes come from tokens only. */
+.bv-root .bv-landing-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 56px; align-items: center; padding-top: 40px; padding-bottom: 0; }
+.bv-root .bv-landing-copy { min-width: 0; }
+.bv-root .bv-landing-copy h1 { font-size: var(--bv-fs-display); line-height: 1.06; margin-bottom: 0; }
+.bv-root .bv-landing-lead { color: var(--bv-muted); font-size: 1.1875rem; line-height: 1.5; max-width: 35rem; margin: 16px 0 0; }
+.bv-root .bv-landing-doors { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 28px; }
+.bv-root .bv-landing-free { color: var(--bv-muted); font-size: 0.9375rem; margin: 14px 0 0; }
 
-.bv-root .bv-landing-band { background: var(--bv-band); color: var(--bv-on-band); }
-.bv-root .bv-landing-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 48px; align-items: end; padding-top: 32px; padding-bottom: 0; }
-.bv-root .bv-landing-copy { padding-bottom: 56px; min-width: 0; }
-.bv-root .bv-landing-copy h1 { font-size: var(--bv-fs-display); line-height: 1.05; margin-bottom: 16px; color: var(--bv-on-band); }
-.bv-root .bv-landing-copy .bv-landing-lead { color: var(--bv-band-muted); font-size: 1.125rem; line-height: 1.5; max-width: 30rem; margin: 0 0 24px; }
-.bv-root .bv-landing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
-/* The one filled action on the band: ivory fill, band-green label. */
-.bv-root .bv-landing-actions .bv-button--primary { background: var(--bv-on-band); color: var(--bv-band); }
-@media (hover: hover) { .bv-root .bv-landing-actions .bv-button--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--bv-on-band), #000 6%); } }
-.bv-root .bv-landing-actions .bv-button--primary:active:not(:disabled) { background: color-mix(in srgb, var(--bv-on-band), #000 12%); }
-.bv-root .bv-landing-actions .bv-text-link { color: var(--bv-on-band); }
+/* The cover sheet: the three live covers stand on paper, on a soft ledge, with a quiet "reading" pill below. Fully inside the hero. */
+.bv-root .bv-landing-shelf { background: var(--bv-sheet); color: var(--bv-ink); border-radius: 20px; box-shadow: var(--bv-shadow-sheet); padding: 36px 32px 0; min-width: 0; overflow: hidden; }
+.bv-root .bv-landing-covers { display: flex; align-items: flex-end; justify-content: center; gap: 16px; }
+.bv-root .bv-landing-covers > a, .bv-root .bv-landing-covers > .bv-skeleton { width: 28%; max-width: 112px; min-width: 0; border-radius: 3px; }
+.bv-root .bv-landing-covers > :nth-child(2) { width: 32%; max-width: 128px; }
+.bv-root .bv-landing-covers .bv-hero-placeholder { width: 100%; max-width: none; }
+.bv-root .bv-landing-ledge { height: 10px; margin: 0 -32px; background: var(--bv-soft); border-top: 1px solid var(--bv-line); }
+.bv-root .bv-landing-cap { display: flex; justify-content: center; padding: 14px 0 18px; }
+.bv-root .bv-landing-pill { display: inline-flex; align-items: center; gap: 8px; background: var(--bv-soft); border-radius: var(--bv-radius-pill); padding: 4px 14px; font-size: var(--bv-fs-helper); font-weight: 600; }
+.bv-root .bv-landing-pill i { display: inline-block; width: 48px; height: 6px; border-radius: var(--bv-radius-pill); background: var(--bv-line); overflow: hidden; }
+.bv-root .bv-landing-pill i::before { content: ""; display: block; width: 38%; height: 100%; background: var(--bv-green); }
 
-/* The shelf of live covers on a paper sheet, hanging below the band's lower edge. The covers stand on the sheet, never on the cloth. */
-.bv-root .bv-landing-shelf { position: relative; z-index: 2; align-self: end; margin-bottom: -96px; padding: 28px 28px 0; background: var(--bv-sheet); border-radius: 20px; box-shadow: var(--bv-lift); min-width: 0; overflow: hidden; }
-.bv-root .bv-landing-covers { display: flex; align-items: flex-end; justify-content: center; gap: 14px; }
-.bv-root .bv-landing-covers > a, .bv-root .bv-landing-covers > .bv-skeleton { width: 29%; min-width: 0; border-radius: 3px; }
-.bv-root .bv-landing-covers > :nth-child(2) { width: 34%; }
-.bv-root .bv-landing-covers .bv-hero-placeholder { width: 100%; }
-.bv-root .bv-landing-ledge { height: 14px; margin: 0 -28px; background: var(--bv-soft); }
-/* The sections after the band start below the sheet's overhang. */
-.bv-root .bv-landing-band + .bv-section { padding-top: 128px; padding-bottom: 12px; }
+/* Open a new chapter: titles in Caslon, 12px under the cover; the genre links are soft pill chips (40px drawn inside a 44px hit area). */
+.bv-root .bv-landing-hero + .bv-section { padding-top: 72px; }
+.bv-root .bv-landing-open .bv-book-card h3 { margin-top: 12px; }
+.bv-root .bv-landing-open .bv-section-heading .bv-text-link { white-space: normal; }
+.bv-root .bv-landing-subjects { gap: 8px; margin-top: 20px; }
+.bv-root .bv-landing-subjects a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; text-decoration: none; }
+
+/* Two ways to begin: two paper sheets. */
+.bv-root .bv-landing-ways { padding-top: 72px; }
+.bv-root .bv-landing-way-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
+.bv-root .bv-landing-way { display: flex; flex-direction: column; gap: 14px; padding: 28px; background: var(--bv-sheet); border-radius: 20px; box-shadow: var(--bv-shadow-sheet); min-width: 0; }
+.bv-root .bv-landing-way h3 { font: 400 1.625rem/1.15 var(--bv-display); letter-spacing: -0.01em; margin: 0; font-synthesis: none; text-wrap: balance; }
+.bv-root .bv-landing-way p { margin: 0; }
+.bv-root .bv-landing-way ol { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; }
+.bv-root .bv-landing-way ol li::marker { color: var(--bv-muted); }
+.bv-root .bv-landing-way .bv-landing-small { color: var(--bv-muted); font-size: 0.9375rem; }
+.bv-root .bv-landing-way .bv-button { align-self: flex-start; margin-top: auto; }
+.bv-root .bv-landing-example { display: flex; align-items: center; gap: 12px; background: var(--bv-paper); border-radius: 12px; padding: 8px 12px; }
+.bv-root .bv-landing-example-cover { width: 32px; flex: none; }
+.bv-root .bv-landing-example-cover .bv-cover { box-shadow: none; }
+.bv-root .bv-landing-example p { font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; }
+.bv-root .bv-landing-example u { text-decoration-color: var(--bv-green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.bv-root .bv-landing-example small { display: block; color: var(--bv-muted); font: 400 var(--bv-fs-helper)/1.4 var(--bv-body); }
+
+/* Private by default: four short promises. */
+.bv-root .bv-landing-private { padding-top: 72px; padding-bottom: 8px; }
+.bv-root .bv-landing-promises { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.bv-root .bv-landing-promises li { border-top: 1px solid var(--bv-line); padding-top: 12px; }
+.bv-root .bv-landing-promises b { display: block; font-weight: 600; }
+.bv-root .bv-landing-promises span { color: var(--bv-muted); font-size: 0.9375rem; }
+.bv-root .bv-landing-promises a { color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 860px) {
-  .bv-root .bv-landing-hero { grid-template-columns: 1fr; gap: 24px; padding-top: 20px; }
-  .bv-root .bv-landing-copy { padding-bottom: 0; }
-  .bv-root .bv-landing-shelf { margin-bottom: -72px; }
-  .bv-root .bv-landing-band + .bv-section { padding-top: 96px; }
+  .bv-root .bv-landing-hero { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 24px; }
+  .bv-root .bv-landing-shelf { padding: 20px 20px 0; }
+  .bv-root .bv-landing-covers { gap: 12px; }
+  .bv-root .bv-landing-ledge { margin: 0 -20px; }
 }
-/* On a phone the row shows four books, so no lone cover sits in a row of its own. */
-@media (max-width: 700px) { .bv-root .bv-landing-band ~ .bv-section .bv-book-grid > :nth-child(5) { display: none; } }
-.bv-root .bv-landing-copy .bv-landing-help { color: var(--bv-band-muted); font-size: var(--bv-fs-helper); margin: 20px 0 0; }
-.bv-root .bv-landing-note { padding-bottom: 8px; }
-.bv-root .bv-landing-note h2 { font-size: 1.375rem; line-height: 1.2; margin-bottom: 6px; }
-.bv-root .bv-landing-note p { max-width: 40rem; margin: 0 0 8px; }
-/* At doubled text the "See all" link beside the first section heading wraps instead of pushing the page sideways. */
-.bv-root .bv-landing-band ~ .bv-section .bv-section-heading .bv-text-link { white-space: normal; }
-
-/* The closing invitation is a paper sheet, not a green card: cloth is never a card or a banner. */
-.bv-root .bv-library-banner { background: var(--bv-sheet); color: var(--bv-ink); border-radius: var(--bv-radius-sheet); box-shadow: var(--bv-shadow-sheet); }
-.bv-root .bv-library-banner .bv-button { background: var(--bv-green); color: var(--bv-on-green); }
-/* The genre links under the row are soft pill chips (40px drawn inside a 44px hit area). */
-.bv-root .bv-landing-subjects { gap: 8px; }
-.bv-root .bv-landing-subjects a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; text-decoration: none; }
+@media (max-width: 700px) {
+  .bv-root .bv-landing-copy h1 { font-size: 2.25rem; }
+  .bv-root .bv-landing-lead { font-size: 1.0625rem; }
+  .bv-root .bv-landing-doors > .bv-button { flex: 1 1 100%; }
+  .bv-root .bv-landing-hero + .bv-section, .bv-root .bv-landing-ways, .bv-root .bv-landing-private { padding-top: 56px; }
+  /* Four picks in a 2x2 grid, so no lone cover sits in a row of its own. */
+  .bv-root .bv-landing-open .bv-book-grid > :nth-child(5) { display: none; }
+  .bv-root .bv-landing-way-grid { grid-template-columns: minmax(0, 1fr); }
+  .bv-root .bv-landing-way { padding: 22px; }
+  .bv-root .bv-landing-way .bv-button { align-self: stretch; }
+  .bv-root .bv-landing-promises { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 360px) { .bv-root .bv-landing-promises { grid-template-columns: minmax(0, 1fr); } }

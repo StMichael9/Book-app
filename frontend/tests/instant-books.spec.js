@@ -88,7 +88,7 @@ test("snapshot books stay and the page works when the API fails", async ({ page,
   await page.goto("/");
   await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
   await expect(page.getByText("The books are taking a moment.")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Explore books" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Start with one book" }).first()).toBeVisible();
 });
 
 test("a return visit shows the cached books instantly, then live data replaces them", async ({ page, app }) => {

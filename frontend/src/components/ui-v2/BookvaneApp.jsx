@@ -106,8 +106,6 @@ function Header() {
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
-  // A signed-out visitor sees the header inside the landing's cloth band. A returning reader is about to be sent Home, so no band for them.
-  const bandHeader = publicLanding && !auth.sessionError && !(auth.isLoading && likelySignedIn());
   const mobileNav = useRef(null);
   useLayoutEffect(() => {
     const nav = mobileNav.current, root = nav?.closest(".bv-root");
@@ -124,7 +122,7 @@ function Header() {
     measure();
     return () => { active = false; observer.disconnect(); root.style.removeProperty("--bv-mobile-nav-clearance"); };
   }, [publicLanding]);
-  return <><header className={`bv-header${bandHeader ? " bv-header--band" : ""}${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
+  return <><header className={`bv-header${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}</nav>
     <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}
       {!authScreen && (auth.isLoading && auth.sessionError ? <span className="bv-header-check" role="status">Account unavailable</span> : signedIn ? <Link className="bv-header-avatar" to="/profile" aria-label="Your profile"><HeaderAvatar /></Link> : auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : <><TextLink to="/login">Sign in</TextLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
