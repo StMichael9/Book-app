@@ -122,7 +122,7 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await expect(explore).toHaveCSS("color", "rgb(20, 32, 26)");
   await explore.hover(); await checkContrast(".bv-hero-actions .bv-button");
   await page.keyboard.press("Tab"); await explore.focus();
-  await expect(explore).toHaveCSS("outline-color", "rgb(217, 130, 108)");
+  await expect(explore).toHaveCSS("outline-color", "rgb(185, 211, 191)");
   await checkContrast(".bv-hero-actions .bv-button", "outlineColor", 3);
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await page.getByRole("button", { name: "Filters", exact: true }).click();

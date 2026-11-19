@@ -3,7 +3,7 @@
 .bv-root .bv-profile { max-width: 640px; margin: 16px auto 48px; }
 .bv-root .bv-profile h1 { font-size: var(--bv-fs-page); margin: 0; overflow-wrap: anywhere; }
 .bv-root .bv-profile h2, .bv-root .bv-profile-sheet h2 { font-size: var(--bv-fs-section); margin: 0; }
-.bv-root .bv-profile-sheet h2:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-root .bv-profile-sheet h2:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 4px; }
 
 /* The tertiary link style is shared (bookvane.css); text-style buttons just drop their padding. */
 .bv-root .bv-link-button { padding-inline: 0; font-size: var(--bv-fs-body); white-space: nowrap; }
@@ -132,7 +132,7 @@
 .bv-root .bv-pick { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); cursor: pointer; }
 .bv-root .bv-pick input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .bv-root .bv-pick:has(input:checked) { border-color: var(--bv-green); box-shadow: inset 0 0 0 2px var(--bv-green); }
-.bv-root .bv-pick:has(input:focus-visible) { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
+.bv-root .bv-pick:has(input:focus-visible) { outline: 3px solid var(--bv-green); outline-offset: 2px; }
 .bv-root .bv-pick > span svg { width: 22px; height: 22px; }
 .bv-root .bv-pick--colour { justify-content: flex-start; padding: 6px 10px; }
 .bv-root .bv-pick--colour span { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: var(--bv-pick-ink, var(--bv-cloth-ink-light)); }
@@ -169,11 +169,11 @@
 .bv-root .bv-profile-tab:hover { background-color: color-mix(in srgb, var(--bv-soft), var(--bv-ink) 6%); }
 .bv-root .bv-profile-tab.is-selected { background-color: var(--bv-green); color: var(--bv-on-green); }
 /* In dark the selected tab is lifted above the track (the panel colour would sink below it). */
-.bv-root .bv-profile-tab:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 2px; }
+.bv-root .bv-profile-tab:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
 .bv-root .bv-profile-tab-panel { padding-top: 20px; }
 .bv-root .bv-profile-tab-panel.is-settling { animation: bv-panel-in 160ms ease-out both; }
 @keyframes bv-panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.bv-root .bv-profile-tab-panel:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-root .bv-profile-tab-panel:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 4px; }
 
 /* Overview: three big figures in Caslon, each with a small label, then up to three list rows. */
 .bv-root .bv-figures { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 8px 0 0; }
@@ -212,7 +212,7 @@
 /* The compact year card: the count and a small month shelf. On the reader's own pages the whole card is one link. */
 .bv-root .bv-year-card { display: block; margin: 0 0 24px; padding: 16px 20px; border-radius: var(--bv-radius-sheet); background: var(--bv-sheet); color: inherit; text-decoration: none; box-shadow: var(--bv-shadow-sheet); }
 .bv-root a.bv-year-card--link:hover { border-color: var(--bv-green); }
-.bv-root a.bv-year-card--link:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
+.bv-root a.bv-year-card--link:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 3px; }
 .bv-root .bv-year-card .bv-year-card-line { margin: 0 0 4px; font-weight: 600; }
 .bv-root .bv-year-card .bv-profile-year { margin: 0; }
 .bv-root .bv-year-card .bv-shelf { height: 56px; margin-top: calc(var(--bv-fs-helper) + 4px); }
