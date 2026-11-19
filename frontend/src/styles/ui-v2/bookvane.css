@@ -107,6 +107,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-button--quiet:active:not(:disabled), .bv-root .bv-button--saved:active:not(:disabled) { background: color-mix(in srgb, var(--bv-soft), #000 8%); }
 .bv-root .bv-button--secondary:active:not(:disabled) { background: color-mix(in srgb, var(--bv-soft), #000 8%); }
 .bv-root .bv-button--danger:active:not(:disabled) { background: color-mix(in srgb, var(--bv-danger), #000 8%); }
+/* A text button inside a sentence (the page total, Undo) is a plain underlined link: no fill, no pill. Its 44px hit area stays. */
+.bv-root .bv-button.bv-inline-action, .bv-root .bv-button.bv-inline-action:is(:hover, :active):not(:disabled) { background: transparent; border-color: transparent; border-radius: 0; }
 .bv-root .bv-full-width { width: 100%; }
 .bv-root .bv-icon-button { min-width: 44px; min-height: 44px; padding: 10px; flex-shrink: 0; }
 /* The one tertiary link: green, 600 weight, underlined with a 3px offset, at least 44px tall. Text-style buttons share it. */
@@ -233,7 +235,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-detail-body h1 { font-size: var(--bv-fs-page); margin: 12px 0; overflow-wrap: anywhere; }
 .bv-root .bv-detail-author { font-size: 1.375rem; color: var(--bv-muted); margin-bottom: 18px; }
 .bv-root .bv-book-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.bv-root .bv-book-tags a { font-size: var(--bv-fs-helper); background: var(--bv-soft); border-radius: 4px; padding: 10px 12px; min-height: 44px; display: inline-flex; align-items: center; }
+.bv-root .bv-book-tags a { font-size: var(--bv-fs-helper); font-weight: 600; background: var(--bv-soft); border-radius: var(--bv-radius-pill); padding: 10px 16px; min-height: 44px; display: inline-flex; align-items: center; }
 .bv-root .bv-book-metadata { display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--bv-line); padding-bottom: 22px; margin: 16px 0 24px; font-size: var(--bv-fs-body); }
 .bv-root .bv-book-metadata div { display: flex; align-items: baseline; gap: 8px; }
 .bv-root .bv-book-metadata dt { color: var(--bv-muted); }
@@ -429,7 +431,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-detail-body { padding-top: 0; }
   .bv-root .bv-detail-body h1 { font-size: var(--bv-fs-page); margin: 8px 0 12px; }
   .bv-root .bv-detail-author { font-size: var(--bv-fs-title); margin-bottom: 15px; }
-  .bv-root .bv-book-tags a { padding: 8px 10px; }
+  .bv-root .bv-book-tags a { padding: 8px 14px; }
   .bv-root .bv-book-metadata { font-size: var(--bv-fs-helper); padding-bottom: 18px; margin-bottom: 18px; }
   .bv-root .bv-description { margin-top: 24px; }
   .bv-root .bv-description h2 { font-size: var(--bv-fs-section); }
