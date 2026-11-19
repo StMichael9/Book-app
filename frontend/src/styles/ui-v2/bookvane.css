@@ -166,6 +166,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-library-banner h2 { color: inherit; margin-bottom: 8px; }
 .bv-root .bv-library-banner p { max-width: 660px; margin: 0; }
 .bv-root .bv-library-banner .bv-button { background: var(--bv-on-green); color: var(--bv-green); flex-shrink: 0; }
+/* A green ring vanishes on a green surface (WCAG 2.4.7), so controls inside one use the on-green ring. In dark the banner is a charcoal sheet,
+   where the default green ring is already the right one. The skip link is green itself, so its ring sits inside its own edge. */
+.bv-root:not([data-theme="dark"]) .bv-library-banner :is(a, button, input, select, summary):focus-visible { outline-color: var(--bv-on-green); }
+.bv-root .bv-band :is(a, button, input, select, summary):focus-visible { outline-color: var(--bv-on-band); }
+.bv-root .bv-skip:focus-visible { outline-color: var(--bv-on-green); outline-offset: -4px; }
 
 .bv-root .bv-page-heading { padding: 36px 0 22px; }
 .bv-root .bv-page-heading h1 { margin-bottom: 8px; }
