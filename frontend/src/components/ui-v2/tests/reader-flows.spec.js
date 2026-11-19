@@ -404,24 +404,27 @@ test("minimalist landing retains existing legacy fallback and scoped catalogue r
   // The committed book snapshot keeps the page populated when the catalogue request fails, so there is no error panel.
   await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toHaveCount(0);
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await expect(page.getByRole("heading", { level: 3, name: books[0].title, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Return to your library", exact: true })).toHaveAttribute("href", "/my-books");
   await expect(page.getByRole("link", { name: "Explore books", exact: true })).toBeVisible();
   app.catalogueFails = false;
   await page.reload();
-  await expect(page.getByRole("heading", { level: 3, name: books[0].title, exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true })).toBeVisible();
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
 });
 
-test("landing prefers covered, plain-English titles in its row of books", async ({ page, app }) => {
+test("landing prefers covered, plain-English titles and never repeats hero books in the row", async ({ page, app }) => {
   const odd = ["Ὀδύσσεια", "Hrabě Monte Cristo"];
   app.catalogue = Array.from({ length: 10 }, (_, i) => ({ ...books[i % 5], id: i + 1, title: odd[i] || `Plain title ${i + 1}`, cover_image_url: i === 9 ? null : `/test-cover/${i + 1}.jpg` }));
   await page.goto("/");
+  await expect(page.locator(".bv-landing-covers a")).toHaveCount(3);
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  await expect(page.locator(".bv-landing-band .bv-cover").first()).toBeVisible(); // the sample sheet's own jacket
+  const hero = await page.locator(".bv-landing-covers a").evaluateAll(links => links.map(link => link.getAttribute("aria-label")));
   const row = await page.locator(".bv-book-card h3").allTextContents();
-  expect(row).toEqual(["Plain title 3", "Plain title 4", "Plain title 5", "Plain title 6", "Plain title 7"]);
-  for (const title of odd) expect(row).not.toContain(title);
+  expect(hero).toEqual(["Explore Plain title 3", "Explore Plain title 4", "Explore Plain title 5"]);
+  expect(row).toHaveLength(5);
+  for (const title of row) expect(hero).not.toContain(`Explore ${title}`);
+  for (const title of odd) expect(hero).not.toContain(`Explore ${title}`);
 });
 
 // A larger browser default font size (not page zoom) reaches the root as a larger rem.

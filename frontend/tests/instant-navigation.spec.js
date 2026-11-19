@@ -95,7 +95,7 @@ test("no empty page on first load", async ({ page }) => {
 
 test("landing to Discover to a book and back never shows an empty page, and a visible cover never shows its jacket with it", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 3, name: "Nav Book 1", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Explore Nav Book 1" })).toBeVisible();
   await reset(page);
   await page.getByRole("link", { name: "Explore books", exact: true }).first().click();
   await expect(card(page)).toBeVisible();

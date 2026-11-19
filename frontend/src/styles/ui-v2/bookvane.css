@@ -153,13 +153,10 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-genre-card:hover { border-color: var(--bv-green); }
 .bv-root .bv-genre-card > span:first-child { font: 400 1.375rem/1.2 var(--bv-display); }
 .bv-root .bv-genre-card > span:last-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
-.bv-root .bv-library-banner { background: var(--bv-green); color: var(--bv-on-green); border-radius: 8px; padding: 32px 36px; display: flex; justify-content: space-between; align-items: center; gap: 24px; margin: 12px 0 40px; }
-/* Large dark surfaces stay charcoal; sage is reserved for useful actions. */
-.bv-root[data-theme="dark"] .bv-library-banner { background: var(--bv-sheet); color: var(--bv-ink); box-shadow: var(--bv-shadow-sheet); }
-.bv-root[data-theme="dark"] .bv-library-banner .bv-button { background: var(--bv-green); color: var(--bv-on-green); }
+.bv-root .bv-library-banner { border-radius: var(--bv-radius-sheet); padding: 32px 36px; display: flex; justify-content: space-between; align-items: center; gap: 24px; margin: 12px 0 40px; }
 .bv-root .bv-library-banner h2 { color: inherit; margin-bottom: 8px; }
 .bv-root .bv-library-banner p { max-width: 660px; margin: 0; }
-.bv-root .bv-library-banner .bv-button { background: var(--bv-on-green); color: var(--bv-green); flex-shrink: 0; }
+.bv-root .bv-library-banner .bv-button { flex-shrink: 0; }
 
 .bv-root .bv-page-heading { padding: 36px 0 22px; }
 .bv-root .bv-page-heading h1 { margin-bottom: 8px; }
