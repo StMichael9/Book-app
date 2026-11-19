@@ -272,9 +272,9 @@ def test_batch_failure_rolls_back_checkpoint_and_replays(import_env, monkeypatch
     original = importer._write_works
     failed = False
 
-    def fail_after_write(session, run, rows):
+    def fail_after_write(session, run, rows, **options):
         nonlocal failed
-        original(session, run, rows)
+        original(session, run, rows, **options)
         if not failed:
             failed = True
             raise RuntimeError("failed before commit")
@@ -835,9 +835,9 @@ def test_database_disconnect_rolls_back_batch_and_reacquires_lock(import_env, mo
     original = importer._write_works
     interrupted = False
 
-    def drop_connection_after_write(session, run, rows):
+    def drop_connection_after_write(session, run, rows, **options):
         nonlocal interrupted
-        original(session, run, rows)
+        original(session, run, rows, **options)
         if not interrupted:
             interrupted = True
             raise OperationalError("batch write", None, Exception("server closed connection"),
