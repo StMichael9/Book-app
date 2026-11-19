@@ -595,7 +595,7 @@ test("the public page has the same header and tabs, third-person figures, public
   await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
 });
 
-test("the selected tab is lifted above the track in dark and light, with readable text, and the three tabs are equal segments", async ({ page, app: _app }) => {
+test("the selected tab is lifted above the track in dark and light, with readable text, and the tabs are pills", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   const channels = colour => colour.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => colour.startsWith("color(") ? value * 255 : value);
   const luminance = colour => { const [r, g, b] = channels(colour).map(value => { const v = value / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -609,8 +609,6 @@ test("the selected tab is lifted above the track in dark and light, with readabl
     const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
     expect(ratio(luminance(text), luminance(tab))).toBeGreaterThanOrEqual(4.5);
   }
-  const widths = await page.getByRole("tab").evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().width)));
-  expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
   for (const tab of await page.getByRole("tab").all()) expect((await tab.boundingBox()).height).toBeLessThan(80);
@@ -623,7 +621,7 @@ test("the Overview has one rule above the account rows, list names use the card 
   await expect(row).toHaveCSS("border-bottom-width", "0px");
   const name = row.locator("strong");
   await expect(name).toHaveCSS("font-size", "17px");
-  await expect(name).toHaveCSS("font-family", /Bookvane Lora/);
+  await expect(name).toHaveCSS("font-family", /Bookvane Caslon/);
   const pill = page.locator(".bv-visibility");
   await expect(pill).toHaveCSS("padding-left", "16px");
   await expect(pill).toHaveCSS("padding-right", "16px");
@@ -697,10 +695,10 @@ test("the Settings link sits on the 20px gutter, and tertiary links do too", asy
   expect(Math.round((await page.getByRole("button", { name: "Rename or delete" }).boundingBox()).x)).toBe(20);
 });
 
-test("on a wide screen the header, tabs and panels share one 720px column with the same left edge, the shelf is 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
+test("on a wide screen the header, tabs and panels share one 680px column with the same left edge, the shelf is 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/profile");
-  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(720);
+  expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(680);
   const edge = async locator => Math.round((await locator.first().boundingBox()).x);
   const tabsEdge = await edge(page.getByRole("tablist"));
   expect(await edge(page.getByRole("link", { name: /^Your 2026:/ }))).toBe(tabsEdge);

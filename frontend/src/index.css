@@ -6,6 +6,6 @@
 @import "./styles/base.css";
 
 /* Match the document canvas to Bookvane before and after the app paints. */
-html[data-theme] { --bv-canvas: #faf8f2; background: var(--bv-canvas); }
-html[data-theme="dark"] { --bv-canvas: #1e1d1b; }
+html[data-theme] { --bv-canvas: #f3eee3; background: var(--bv-canvas); }
+html[data-theme="dark"] { --bv-canvas: #16130f; }
 html[data-theme] body, html[data-theme] #root { background: var(--bv-canvas); }

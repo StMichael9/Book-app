@@ -649,7 +649,7 @@ test("foundations screenshots: My Books, workspace, home", async ({ page, app })
   app.currentReads = [{ entry: app.entries.get(101), attempt: app.attempt }];
   await shootMatrix(page, "my-books", async () => { await page.goto("/my-books"); await expect(page.getByRole("link", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
   await shootMatrix(page, "workspace", async () => { await page.goto("/my-books/101"); await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
-  await shootMatrix(page, "home", async () => { await page.goto("/home"); await expect(page.getByRole("link", { name: "Continue your reading: Reading fixture 101", exact: true })).toBeVisible(); });
+  await shootMatrix(page, "home", async () => { await page.goto("/home"); await expect(page.getByRole("textbox", { name: "Page or % for Reading fixture 101" })).toBeVisible(); });
 });
 
 // The reading page, Direction D: what is kept from the old workspace tests, in the new layout. The page's box, finished prompt,

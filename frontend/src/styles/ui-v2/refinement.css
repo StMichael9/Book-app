@@ -19,7 +19,7 @@
 .bv-root .bv-reading-form :is(input, select, textarea) { width: 100%; min-width: 0; }
 .bv-root .bv-reading-form input[type=checkbox] { width: auto; }
 .bv-root .bv-editorial-workspace .bv-reading-draft h2:focus { outline-offset: 5px; }
-.bv-root .bv-import-confirm { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 24px; }
+.bv-root .bv-import-confirm { background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); padding: 24px; box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-import-page .bv-section { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-landing-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
 /* Benefit titles sit below the section heading in the type scale, so the section has an anchor. */
@@ -27,7 +27,7 @@
 .bv-root .bv-landing-benefits p { color: var(--bv-muted); margin-bottom: 0; max-width: 36rem; }
 .bv-root .bv-landing-story { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-landing-loading { padding-block: 36px; }
-.bv-root .bv-hero .bv-eyebrow { max-width: 32ch; }
+.bv-root .bv-hero .bv-hero-line { max-width: 32ch; }
 .bv-root .bv-library-facets { gap: 8px; }
 .bv-root .bv-library-search-row input { min-width: 0; }
 @media (hover: hover) and (pointer: fine) {
@@ -56,7 +56,7 @@
 /* Allow text enlargement to wrap chrome instead of pushing it off screen. */
 .bv-root .bv-footer-inner { flex-wrap: wrap; row-gap: 16px; }
 .bv-root .bv-header-inner { flex-wrap: wrap; row-gap: 8px; padding-block: 12px; }
-.bv-root :is(.bv-field, .bv-why, .bv-import-page) textarea { width: 100%; min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-panel); border: 1px solid var(--bv-control); border-radius: 6px; }
+.bv-root :is(.bv-field, .bv-why, .bv-import-page) textarea { width: 100%; min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-raised); border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); }
 .bv-root .bv-field textarea:focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 3px; }
 @media (max-width: 700px) {
   .bv-root .bv-detail-art .bv-detail-cover-placeholder { width: 158px; margin-inline: auto; }
@@ -93,7 +93,7 @@
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
   /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
   .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
-  .bv-root .bv-hero .bv-eyebrow { max-width: none; letter-spacing: 1.2px; }
+  .bv-root .bv-hero .bv-hero-line { max-width: none; }
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }
@@ -103,10 +103,10 @@
 .bv-root :is(.bv-detail-body, .bv-workspace-identity) h1:has(+ .bv-english-title) { margin-bottom: 4px; }
 /* My Data: each download is its own small block, so the two formats read as a choice. */
 .bv-root .bv-data-download { padding-block: 16px; border-top: 1px solid var(--bv-line); }
-.bv-root .bv-data-download h3 { font: 500 var(--bv-fs-card)/1.3 var(--bv-display); margin-bottom: 8px; }
+.bv-root .bv-data-download h3 { font: 400 var(--bv-fs-card)/1.3 var(--bv-display); margin-bottom: 8px; }
 .bv-root .bv-data-download [role="status"], .bv-root .bv-data-download [role="alert"] { margin-top: 12px; }
 /* Guest no-results panel and the quiet Get a copy link. */
-.bv-root .bv-guest-noresults { margin-top: 20px; padding: 16px 18px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); text-align: left; }
+.bv-root .bv-guest-noresults { margin-top: 20px; padding: 16px 18px; border-radius: var(--bv-radius-sheet); background: var(--bv-soft); text-align: left; }
 .bv-root .bv-guest-noresults p { margin: 0 0 12px; }
 .bv-root .bv-get-copy-quiet { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 10px 0 0; font-size: var(--bv-fs-helper); }
 .bv-root .bv-get-copy-quiet a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--bv-muted); text-decoration: underline; text-underline-offset: 3px; }
@@ -125,24 +125,24 @@
 .bv-root .bv-first-run-paths { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 28px; }
 .bv-root .bv-first-run-done { margin-top: 28px; }
 .bv-root .bv-first-run h2 { margin-bottom: 14px; }
-.bv-root .bv-first-run-done { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 18px; border: 1px solid var(--bv-line); border-radius: 6px; background: var(--bv-soft-green); }
+.bv-root .bv-first-run-done { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 18px; border-radius: var(--bv-radius-sheet); background: var(--bv-soft); }
 .bv-root .bv-service-notice strong { display: block; margin-bottom: 4px; }
 
 /* Settings → Theme: Match device, Light, Dark. A native radio group, so the arrow keys move between the three. */
 .bv-root .bv-theme-row { flex-wrap: wrap; }
-.bv-root .bv-theme-choice { display: flex; border: 1px solid var(--bv-control); border-radius: 8px; overflow: hidden; background: var(--bv-panel); }
+.bv-root .bv-theme-choice { display: flex; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); overflow: hidden; background: var(--bv-raised); }
 .bv-root .bv-theme-choice label { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 16px; cursor: pointer; color: var(--bv-ink); font-weight: 600; }
 .bv-root .bv-theme-choice label + label { border-left: 1px solid var(--bv-line); }
 .bv-root .bv-theme-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .bv-root .bv-theme-choice span { color: inherit; font-size: var(--bv-fs-body); }
-.bv-root .bv-theme-choice label:has(input:checked) { background: var(--bv-soft-green); color: var(--bv-green); }
+.bv-root .bv-theme-choice label:has(input:checked) { background: var(--bv-soft); color: var(--bv-green); }
 .bv-root .bv-theme-choice label:has(input:focus-visible) { outline: 3px solid var(--bv-rust); outline-offset: -3px; }
 /* Header: search (desktop), the empty avatar circle, and the slim phone bar that hides on scroll. */
 .bv-root .bv-header-search { display: none; position: relative; align-items: center; }
 .bv-root .bv-header-search svg { position: absolute; left: 13px; width: 18px; height: 18px; color: var(--bv-muted); pointer-events: none; }
-.bv-root .bv-header-search input { width: 240px; min-height: 44px; padding: 9px 14px 9px 38px; border: 1px solid var(--bv-control); border-radius: 22px; background: var(--bv-panel); color: var(--bv-ink); font-size: var(--bv-fs-body); }
+.bv-root .bv-header-search input { width: 240px; min-height: 44px; padding: 9px 14px 9px 38px; border: 0; border-radius: var(--bv-radius-pill); background: var(--bv-soft); color: var(--bv-ink); font-size: var(--bv-fs-body); }
 @media (min-width: 901px) { .bv-root .bv-header-search { display: flex; } }
-.bv-root .bv-header-avatar .bv-avatar--empty { background: var(--bv-wash); border: 1px solid var(--bv-line); }
+.bv-root .bv-header-avatar .bv-avatar--empty { background: var(--bv-soft); border: 1px solid var(--bv-line); }
 @media (max-width: 700px) {
   .bv-root .bv-header { position: sticky; top: 0; z-index: 11; padding-top: env(safe-area-inset-top); transition: transform 180ms ease-out; }
   .bv-root .bv-header.is-hidden { transform: translateY(-100%); }

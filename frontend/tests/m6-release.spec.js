@@ -29,7 +29,7 @@ for (const scenario of [
       await expect(page.locator("html")).toHaveAttribute("data-theme", scenario.expected);
       await expect(page).toHaveTitle("Bookvane · Your personal reading home");
       expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe(scenario.expected);
-      await expect(page.locator("body")).toHaveCSS("background-color", scenario.expected === "dark" ? "rgb(30, 29, 27)" : "rgb(250, 248, 242)");
+      await expect(page.locator("body")).toHaveCSS("background-color", scenario.expected === "dark" ? "rgb(22, 19, 15)" : "rgb(243, 238, 227)");
       expect(await page.getByRole("heading", { name: "Welcome back." }).count()).toBe(0);
     } finally { releaseModule(); }
     await expect(page.getByRole("heading", { name: "Welcome back.", exact: true })).toBeVisible();

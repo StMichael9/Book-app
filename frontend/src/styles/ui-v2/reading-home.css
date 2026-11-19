@@ -3,7 +3,7 @@
 .bv-root .bv-home-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .bv-root .bv-home-heading > .bv-button { flex-shrink: 0; }
 .bv-root .bv-home-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; align-items: start; margin: 16px 0 40px; }
-.bv-root .bv-reading-desk { background: var(--bv-panel); border: 1px solid var(--bv-line); border-radius: 8px; padding: 0 28px; min-width: 0; }
+.bv-root .bv-reading-desk { background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); padding: 0 28px; min-width: 0; box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-reading-desk:only-child { grid-column: 1 / -1; }
 .bv-root .bv-reading-home .bv-current-grid { grid-template-columns: 1fr; gap: 0; }
 .bv-root .bv-reading-home .bv-current-book > a { flex-basis: 96px; }
@@ -37,7 +37,7 @@
 .bv-root .bv-current-book .bv-author { margin: 0 0 12px; }
 .bv-root .bv-reading-progress { font-weight: 600; margin-bottom: 12px; }
 .bv-root .bv-home-support { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 12px 0 32px; }
-.bv-root .bv-home-start { padding: 28px; border: 1px solid var(--bv-line); border-radius: 8px; background: var(--bv-panel); margin-top: 20px; }
+.bv-root .bv-home-start { padding: 28px; border-radius: var(--bv-radius-sheet); background: var(--bv-sheet); margin-top: 20px; box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-home-start p { max-width: 42rem; }
 .bv-root .bv-personal-book-state { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-personal-book-state strong { color: var(--bv-green); font-weight: 600; }

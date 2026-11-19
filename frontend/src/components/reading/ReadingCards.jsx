@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ActionLink, BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
+import { BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import { trackEvent } from "../ui-v2/events.js";
 import BookMenu from "./BookMenu.jsx";
@@ -17,23 +17,6 @@ export function SlowReadingNotice({ loading }) {
     return () => { clearTimeout(timer); setSlow(false); };
   }, [loading]);
   return loading && slow ? <p className="bv-notice" role="status">This is taking longer than usual. Your saved books haven’t changed. You can keep this page open or return to it later.</p> : null;
-}
-
-export function CurrentReadingCard({ entry, attempt }) {
-  const book = entryBook(entry);
-  const progress = attempt.progress_value == null ? null : attempt.progress_unit === "percent"
-    ? `${attempt.progress_value}%` : `Page ${attempt.progress_value}${attempt.total_pages ? ` of ${attempt.total_pages}` : ""}`;
-  const progressMax = attempt.progress_unit === "percent" ? 100 : attempt.total_pages;
-  return <article className="bv-current-book">
-    <Link to={`/my-books/${entry.id}`} state={{ entry }} tabIndex={-1} aria-hidden="true"><BookCover book={book} priority /></Link>
-    <div><p className="bv-reading-state">Reading{!entry.book ? " · Private book" : ""}</p>
-      <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
-      <p className="bv-author">{authorLabel(book)}</p>
-      {progress && <p className="bv-reading-progress">{progress}</p>}
-      {progress && progressMax > 0 && attempt.progress_value >= 0 && attempt.progress_value <= progressMax && <progress className="bv-reading-meter" value={attempt.progress_value} max={progressMax} aria-label={`Reading progress for ${book.title}`} />}
-      <ActionLink to={`/my-books/${entry.id}`} state={{ entry }} aria-label={`Continue your reading: ${book.title}`}>Continue reading</ActionLink>
-    </div>
-  </article>;
 }
 
 // Plain text wraps between words, so a separator never starts a line on narrow cards.
