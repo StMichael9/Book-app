@@ -78,6 +78,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       // An older service has no reading library: the requests a returning reader's page starts early (api/earlyStart.js) are simply refused.
       if (path === "/me/library" || path === "/me/library/lookup" || path === "/me/home" || /^\/me\/library\/\d+\/reading$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
+      if (path === "/autocomplete/books") return reply(200, []); // search suggestions as a reader types
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, {}, { batch: false });
