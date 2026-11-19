@@ -13,7 +13,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
-import { authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, useRequest } from "./data.js";
+import { authorLabel, bookSummary, catalogueResponse, errorText, firstImpressionOrder, formatYear, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
@@ -24,11 +24,9 @@ import { ActionLink, BookCard, BookCover, BookGrid, BookSkeletons, Button, Empty
 import { useParams } from "react-router-dom";
 
 // Landing books are chosen by rule, not ID, so every environment's catalogue works:
-// covered books with plain English-alphabet titles first, never repeating hero and row.
+// covered books with plain English-alphabet titles first. The band shows the product (a sample sheet), not covers, so the row takes the first five.
 function landingSelection(items) {
-  const ordered = firstImpressionOrder(items);
-  // A very small catalogue can't fill both without repeating; then the row shows the first five.
-  return { hero: ordered.slice(0, 3), row: ordered.length >= 8 ? ordered.slice(3, 8) : ordered.slice(0, 5) };
+  return { row: firstImpressionOrder(items).slice(0, 5) };
 }
 
 function GuestNoResults({ search }) {
@@ -38,6 +36,18 @@ function GuestNoResults({ search }) {
       <ActionLink variant="secondary" to={`/login?${new URLSearchParams({ returnTo: `/browse?${search}` })}`}>Sign in</ActionLink></div></div>;
 }
 
+// Every reader-facing word on the landing's band, in one place so the copy can be swapped without touching the layout. The sample sheet
+// is a picture of the product (it is hidden from assistive technology); its words are sample data.
+const LANDING_COPY = {
+  heading: "Bring your Goodreads shelves home.",
+  line: "Your shelves, reading dates and notes, in one private place only you can see.",
+  import: "Import my library", explore: "Explore books",
+  library: "Return to your library", helpSignedIn: "Your books are right where you left them.",
+  noteHeading: "Private by default.", note: "No feed, no public ratings. Bookvane never asks for your Goodreads login.",
+  tagline: "A little space for your reading life",
+  sample: { title: "A Christmas Carol", author: "Charles Dickens", progress: "Page 41 of 108", log: "Log progress", finished: "Finished" },
+};
+
 export function WelcomePage() {
   const auth = useAuth();
   // Personalized catalogue ordering and in-flight requests belong to one
@@ -46,26 +56,30 @@ export function WelcomePage() {
   const live = useRequest(async () => catalogueResponse(await getBooks({ size: 30, sort: "popular", cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
   const books = useInstantBooks({ view: "landing", eligible: true, auth, live });
   const items = books.data?.items || [];
-  const { hero: heroBooks, row: rowBooks } = landingSelection(items);
+  const { row: rowBooks } = landingSelection(items);
   const { genres: allGenres, labelFor } = useGenres();
   const subjects = (allGenres || []).slice(0, 4).map(genre => genre.key);
   return <>
-    <section className="bv-container bv-hero">
-      <div>
-        <h1>Your personal<br /><em>reading home.</em></h1>
-        <p className="bv-hero-line">A little space for your reading life</p>
-        <p className="bv-lead bv-muted">Discover books, keep your library together, and track what you’re reading. At your own pace.</p>
-        <div className="bv-hero-actions"><ActionLink to="/browse">Explore books <ArrowRight aria-hidden="true" /></ActionLink>
-          <TextLink to={auth.isAuthenticated ? "/my-books" : "/register?src=landing"}>{auth.isAuthenticated ? "Return to your library" : "Create your library"}</TextLink></div>
-        <p className="bv-help">{!auth.isAuthenticated ? "Free. Private. No account needed to explore." : "Your books are right where you left them."}</p>
-      </div>
-      <div className="bv-hero-display">
-        <div className="bv-hero-covers">{books.loading ? Array.from({ length: 3 }, (_, i) => <div key={i} className="bv-skeleton bv-skeleton--cover" aria-hidden="true" />) :
-          heroBooks.length ? heroBooks.map((book) => <Link key={book.id} to={`/book/${book.id}`} state={{ book: bookSummary(book) }} onPointerEnter={() => prefetchBook(book.id)} onTouchStart={() => prefetchBook(book.id)} aria-label={`Explore ${book.title}`}><BookCover book={book} hero /></Link>) :
-            <div className="bv-hero-placeholder"><BookOpen aria-hidden="true" /><p>Explore the catalogue to find your next book.</p></div>}
-        </div><div className="bv-shelf-rule" />
+    <section className="bv-landing-band" aria-label="Welcome">
+      <div className="bv-container bv-landing-hero">
+        <div className="bv-landing-copy">
+          <h1>{LANDING_COPY.heading}</h1>
+          <p className="bv-landing-lead">{LANDING_COPY.line}</p>
+          {auth.isAuthenticated
+            ? <div className="bv-landing-actions"><ActionLink to="/browse">{LANDING_COPY.explore} <ArrowRight aria-hidden="true" /></ActionLink><TextLink to="/my-books">{LANDING_COPY.library}</TextLink></div>
+            /* Signed out, the import needs an account: sign-up first, then straight to the import. */
+            : <div className="bv-landing-actions"><ActionLink to={`/register?${new URLSearchParams({ src: "landing", returnTo: "/my-books/import" })}`}>{LANDING_COPY.import}</ActionLink><TextLink to="/browse">{LANDING_COPY.explore}</TextLink></div>}
+          {auth.isAuthenticated && <p className="bv-landing-help">{LANDING_COPY.helpSignedIn}</p>}
+        </div>
+        <div className="bv-landing-sheet" aria-hidden="true">
+          <div className="bv-landing-cover"><BookCover book={{ title: LANDING_COPY.sample.title, authors: [{ name: LANDING_COPY.sample.author }], cover_image_url: null }} decorative /></div>
+          <div className="bv-landing-sheet-body"><h2>{LANDING_COPY.sample.title}</h2><p>{LANDING_COPY.sample.author}</p>
+            <div className="bv-landing-bar"><i /></div><p>{LANDING_COPY.sample.progress}</p>
+            <div className="bv-landing-sheet-actions"><span>{LANDING_COPY.sample.log}</span><span>{LANDING_COPY.sample.finished}</span></div></div>
+        </div>
       </div>
     </section>
+    <section className="bv-container bv-section bv-landing-note" aria-label="Privacy"><h2>{LANDING_COPY.noteHeading}</h2><p className="bv-muted">{LANDING_COPY.note}</p><p className="bv-muted">{LANDING_COPY.tagline}</p></section>
     <section className="bv-container bv-section"><SectionHeading title="Open a new chapter" to="/browse">A few books to spark your curiosity.</SectionHeading>
       {books.loading ? <BookSkeletons /> : books.error ? <EmptyState error icon={BookOpen} title="The books are taking a moment." action={<Button onClick={books.retry}>Try again</Button>}>We couldn’t load the catalogue. You can try again or continue to discovery.</EmptyState> : rowBooks.length ? <BookGrid books={rowBooks} preview /> : <EmptyState title="More stories are on their way." action={<ActionLink to="/browse">Explore books</ActionLink>}>Try discovery to see what’s available.</EmptyState>}
       <nav className="bv-landing-subjects" aria-label="Explore by genre">{subjects.map(subject => <TextLink key={subject} to={`/browse?tag=${subject}`}>{labelFor(subject)}</TextLink>)}</nav>

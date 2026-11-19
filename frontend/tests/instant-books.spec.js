@@ -52,7 +52,8 @@ const test = base.extend({
 });
 
 const hold = app => { let release; app.holdBooks = new Promise(done => { release = () => { app.holdBooks = null; done(); }; }); return release; };
-const heroLink = (page, title) => page.getByRole("link", { name: `Explore ${title}`, exact: true });
+// The landing's row of books (the band shows the product, not covers): a book is its card title.
+const heroLink = (page, title) => page.getByRole("heading", { level: 3, name: title, exact: true });
 const cardTitle = (page, title) => page.getByRole("heading", { level: 3, name: title, exact: true });
 const stored = page => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])));
 const cacheKeys = async page => Object.keys(await stored(page)).filter(key => key.startsWith("bookvane:books:"));
@@ -201,7 +202,7 @@ test("an oversized response is shown but never stored", async ({ page, app }) =>
   app.titleSize = 9000;
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Explore Live One 1/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: /^Live One 1/ })).toBeVisible();
   expect(await cacheKeys(page)).toEqual([]);
 });
 
