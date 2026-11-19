@@ -62,6 +62,9 @@ jobs:
   import:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    permissions:
+      contents: read
+      actions: read
     environment: ${{ inputs.target_env || github.event.client_payload.target_env || 'catalogue-production' }}
     if: ${{ github.event_name != 'schedule' || vars.CATALOGUE_NIGHTLY == 'on' }}
     # The importer's scratch tables live in this runner-local Postgres, never in the catalogue database. Between segments of
@@ -98,6 +101,7 @@ jobs:
       INPUT_DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}
       INPUT_RESUME_RUN_ID: ${{ inputs.resume_run_id }}
       INPUT_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
+      INPUT_SOURCE_RUN_ID: ${{ github.event.client_payload.source_run_id }}
       INPUT_SNAPSHOT: ${{ inputs.snapshot || 'auto' }}
       INPUT_TARGET_BOOKS: ${{ inputs.target_books }}
       INPUT_PRODUCTION_SIZE_MB: ${{ inputs.production_size_mb || '250' }}
@@ -138,31 +142,61 @@ jobs:
       - run: python -m pip install -r requirements.txt
       # Migrations remain a separate reviewed deployment action. The importer
       # must never migrate the production application database implicitly.
-      # The popularity file is runner-local scratch; carry it between segments. If it is missing the importer
-      # rebuilds it from the dumps, so a failed download is not an error.
+      # A continuation is a NEW workflow run, and download-artifact only reads the current run unless it is told which run to
+      # read from. The dispatch carries the previous run's id (source_run_id); a manual resume looks the newest artifact up.
+      # Both artifacts are required: a continuation that cannot restore its staging tables would start from nothing, so it
+      # stops here with a clear message instead of failing later with "run does not exist".
+      - name: Find the previous segment's artifacts
+        id: previous
+        if: ${{ steps.source.outputs.run_id != '' }}
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMPORT_RUN_ID: ${{ steps.source.outputs.run_id }}
+        run: |
+          stage="catalogue-stage-$IMPORT_RUN_ID"
+          state="catalogue-state-$IMPORT_RUN_ID"
+          find_artifact() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=$1&per_page=10" \
+              --jq '[.artifacts[] | select(.expired == false)] | sort_by(.created_at) | last | .workflow_run.id // empty'
+          }
+          stage_run="$INPUT_SOURCE_RUN_ID"
+          [[ "$stage_run" =~ ^[0-9]{1,20}$ ]] || stage_run="$(find_artifact "$stage")"
+          state_run="$INPUT_SOURCE_RUN_ID"
+          [[ "$state_run" =~ ^[0-9]{1,20}$ ]] || state_run="$(find_artifact "$state")"
+          if [[ -z "$stage_run" || -z "$state_run" ]]; then
+            echo "::error::Cannot continue import run $IMPORT_RUN_ID: no unexpired '$stage' / '$state' artifact was found. Artifacts are kept for 3 days; a continuation needs the previous segment's staging tables and popularity file."
+            exit 1
+          fi
+          echo "stage_run_id=$stage_run" >> "$GITHUB_OUTPUT"
+          echo "state_run_id=$state_run" >> "$GITHUB_OUTPUT"
       - name: Restore the popularity file
         if: ${{ steps.source.outputs.run_id != '' }}
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: catalogue-state-${{ steps.source.outputs.run_id }}
           path: ${{ runner.temp }}/catalogue-state
+          run-id: ${{ steps.previous.outputs.state_run_id }}
+          github-token: ${{ github.token }}
       - name: Restore the staging tables from the previous segment
         if: ${{ steps.source.outputs.run_id != '' }}
-        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: catalogue-stage-${{ steps.source.outputs.run_id }}
           path: ${{ runner.temp }}/catalogue-stage
+          run-id: ${{ steps.previous.outputs.stage_run_id }}
+          github-token: ${{ github.token }}
       - name: Load the restored staging tables into the runner database
         if: ${{ steps.source.outputs.run_id != '' }}
         working-directory: .
         run: |
-          if [[ -f "$RUNNER_TEMP/catalogue-stage/stage.dump" ]]; then
-            id=$(docker ps -q --filter ancestor=postgres:16 | head -1)
-            docker exec -i "$id" pg_restore -U postgres -d stage --no-owner < "$RUNNER_TEMP/catalogue-stage/stage.dump"
-            echo "Restored staging tables from the previous segment"
+          if [[ ! -f "$RUNNER_TEMP/catalogue-stage/stage.dump" ]]; then
+            echo "::error::The staging artifact was downloaded but holds no stage.dump"
+            exit 1
           fi
+          id=$(docker ps -q --filter ancestor=postgres:16 | head -1)
+          docker exec -i "$id" pg_restore -U postgres -d stage --no-owner < "$RUNNER_TEMP/catalogue-stage/stage.dump"
+          echo "Restored staging tables from the previous segment"
       - name: Run or resume the checkpointed import
         id: ingest
         env:
@@ -252,12 +286,13 @@ jobs:
       SOURCE_SHA: ${{ needs.import.outputs.source_sha }}
       TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env || 'catalogue-production' }}
       DRY_RUN: ${{ needs.import.outputs.dry_run }}
+      THIS_RUN_ID: ${{ github.run_id }}
     steps:
       - name: Dispatch the next checkpointed segment
         run: |
           payload=$(jq -n --arg run_id "$RUN_ID" --arg source_sha "$SOURCE_SHA" --arg target_env "$TARGET_ENV" \
-            --arg dry_run "$DRY_RUN" \
-            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha, target_env:$target_env, dry_run:$dry_run}}')
+            --arg dry_run "$DRY_RUN" --arg source_run_id "$THIS_RUN_ID" \
+            '{event_type:"bookvane-catalogue-continue", client_payload:{run_id:$run_id, source_sha:$source_sha, target_env:$target_env, dry_run:$dry_run, source_run_id:$source_run_id}}')
           curl --fail-with-body --retry 3 --retry-delay 3 \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer $GH_TOKEN" \
