@@ -59,7 +59,7 @@
 .bv-root .bv-choice-grid .bv-book-card { padding-top: 20px; }
 .bv-root .bv-choice-grid .bv-book-card h3 { margin-top: 16px; }
 .bv-root .bv-choice-grid .bv-book-card > .bv-text-link { display: block; margin-top: 16px; }
-.bv-root :is(textarea, summary):focus-visible { outline: 3px solid var(--bv-rust); outline-offset: 4px; }
+.bv-root :is(textarea, summary):focus-visible { outline: 3px solid var(--bv-green); outline-offset: 4px; }
 @media (max-width: 1050px) {
   .bv-root .bv-current-grid { grid-template-columns: 1fr; }
   .bv-root .bv-home-layout { grid-template-columns: 1fr; gap: 12px; }
