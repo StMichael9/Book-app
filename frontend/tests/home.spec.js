@@ -583,7 +583,7 @@ for (const theme of ["light", "dark"]) for (const width of [390, 1440]) test(`sh
 test("Back on a book page returns to the page before it, and a direct link falls back to Discover", async ({ page, app: _app }) => {
   await page.goto("/home");
   await page.getByRole("link", { name: "Piranesi", exact: true }).click();
-  await page.getByText("About this book · Manage").click();
+  await page.getByText("About this book", { exact: true }).click();
   await page.getByRole("link", { name: "Full book details" }).click();
   await expect(page).toHaveURL(/\/book\/\d+/);
   await page.getByRole("link", { name: "Back", exact: true }).click();

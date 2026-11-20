@@ -200,7 +200,7 @@ test("a private book without a description shows no description line, and one wi
   await expect(page.getByRole("heading", { name: "About this book" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
   await page.goto("/my-books/301");
-  await page.getByText("About this book · Manage").click();
+  await page.getByText("About this book", { exact: true }).click();
   await expect(page.getByText("Filled in by the server.")).toBeVisible();
   await expect(page.getByRole("button", { name: /description/i })).toHaveCount(0);
   expect(patches(app)).toHaveLength(0);
@@ -317,7 +317,7 @@ test("a private entry shows a Google description in full with the credit on its 
   app.entries.set(300, privateEntry());
   app.descriptions["entry:300"] = google;
   await page.goto("/my-books/300");
-  await page.getByText("About this book · Manage").click();
+  await page.getByText("About this book", { exact: true }).click();
   await expect(page.getByText("The very last words.")).toBeVisible();
   await expect(page.getByRole("button", { name: /show more/i })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Description from Google Books (opens in a new tab)" })).toHaveAttribute("href", "https://books.google.com/books?id=abc123");

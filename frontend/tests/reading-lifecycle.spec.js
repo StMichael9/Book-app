@@ -665,7 +665,7 @@ for (const theme of ["light", "dark"]) test(`the reading page is book-first and 
     await page.goto("/my-books/101");
     await expect(page.getByRole("heading", { name: "Reading fixture 101", level: 1 })).toBeVisible();
     await expect(pageBox(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save page", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause reading", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Finish book", exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Your reading", exact: true })).toBeVisible();
@@ -688,13 +688,13 @@ test("the reading page stays usable when book details fail, and a typed value su
   await expect(pageBox(page)).toHaveValue("25%");
 });
 
-test("a paused reading offers Resume then Finish, in that keyboard order", async ({ page, app }) => {
+test("a paused reading offers Finish then Resume, in that keyboard order", async ({ page, app }) => {
   app.attempt.state = "paused"; app.entries.get(101).reading_state = "paused";
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/my-books/101");
   await expect(page.getByRole("button", { name: "Resume reading", exact: true })).toBeEnabled();
   await page.getByRole("link", { name: "Back to My Books", exact: true }).focus();
-  for (const [role, name] of [["button", "More actions for Reading fixture 101"], ["button", "Edit the page total, 200 pages"], ["textbox", "Page or % for Reading fixture 101"], ["button", "Save"], ["textbox", "Add a thought"], ["button", "Resume reading"], ["button", "Finish book"]]) {
+  for (const [role, name] of [["button", "More actions for Reading fixture 101"], ["textbox", "Page or % for Reading fixture 101"], ["button", "Save page"], ["button", "Finish book"], ["button", "Resume reading"], ["textbox", "Write a thought about this book"]]) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole(role, { name, exact: true })).toBeFocused();
   }
@@ -705,12 +705,14 @@ test("while changes are paused the page can be read, and nothing on it writes", 
   await page.goto("/my-books/101");
   await expect(page.getByRole("heading", { name: "Reading fixture 101", level: 1 })).toBeVisible();
   await expect(pageBox(page)).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save page", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Pause reading" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Finish book" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^More actions for/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Edit:/ })).toHaveCount(0);
-  await expect(page.locator(".bv-journal")).toContainText("A kept thought.");
+  await expect(page.getByRole("button", { name: /^Edit note:/ })).toHaveCount(0);
+  await expect(page.locator(".bv-notes")).toContainText("A kept thought.");
+  await expect(page.getByRole("textbox", { name: "Write a thought about this book" })).toBeDisabled();
   expect(app.requests.filter(r => r.method === "PATCH")).toHaveLength(0);
 });
 
@@ -728,25 +730,25 @@ test("a failed shelf toggle in the menu shows an error and leaves the shelf as i
   expect(app.requests.filter(r => r.method === "PATCH" && r.path === "/me/library/101").at(-1).body).toMatchObject({ is_wanted: true, expected_version: 2 });
 });
 
-test("a thought renders as plain text, edits in place from the journal and keeps a failed draft", async ({ page, app }) => {
+test("a thought renders as plain text, edits in place from its card and keeps a failed draft", async ({ page, app }) => {
   const thought = '<img src=x onerror="window.noteExecuted=true"> My memory 読書';
   await page.goto("/my-books/101");
-  await page.getByRole("textbox", { name: "Add a thought" }).fill(thought);
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator(".bv-journal")).toContainText(thought);
+  await page.getByRole("textbox", { name: "Write a thought about this book" }).fill(thought);
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await expect(page.locator(".bv-note-card")).toContainText(thought);
   expect(await page.evaluate(() => window.noteExecuted)).toBeUndefined();
   expect(app.attempt.note).toBe(thought);
-  await page.getByRole("button", { name: /^Edit: <img/ }).click();
-  const field = page.getByLabel("Note (optional)", { exact: true });
+  await page.getByRole("button", { name: /^Edit note: <img/ }).click();
+  const field = page.getByLabel("Edit note", { exact: true });
   await expect(field).toHaveValue(thought);
   await field.fill("A changed thought");
   app.contextFails = true;
-  await page.locator(".bv-journal").getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Your draft is still here");
+  await page.locator(".bv-note-card").getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator(".bv-note-card").getByRole("alert")).toBeVisible();
   await expect(field).toHaveValue("A changed thought");
   app.contextFails = false;
-  await page.locator(".bv-journal").getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator(".bv-journal")).toContainText("A changed thought");
+  await page.locator(".bv-note-card").getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator(".bv-note-card")).toContainText("A changed thought");
   expect(app.attempt.note).toBe("A changed thought");
 });
 
@@ -755,7 +757,7 @@ test("the save reason is a journal line and edits in place, apart from the readi
   app.entries.get(101).save_note = "A friend's tip";
   await page.goto("/my-books/101");
   await expect(page.locator(".bv-journal")).toContainText("Saved it: A friend's tip");
-  await expect(page.locator(".bv-journal")).toContainText("A separate reading note");
+  await expect(page.locator(".bv-notes")).toContainText("A separate reading note");
   await page.getByRole("button", { name: /^Edit: Saved it:/ }).click();
   const field = page.getByLabel("Save reason (optional)", { exact: true });
   await expect(field).toHaveAttribute("maxlength", "500");
@@ -803,14 +805,14 @@ test("a late workspace response cannot render after the account has left", async
 test("a different login on the same entry starts with an empty box and thought, never the last reader's text", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await pageBox(page).fill("33%");
-  await page.getByRole("textbox", { name: "Add a thought" }).fill("Account A only");
+  await page.getByRole("textbox", { name: "Write a thought about this book" }).fill("Account A only");
   await departed(page, app);
   await page.getByLabel("Email address", { exact: true }).fill("account-b@example.test");
   await page.getByLabel("Password", { exact: true }).fill("SyntheticPassword123");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(pageBox(page)).toBeVisible();
   await expect(pageBox(page)).toHaveValue("");
-  await expect(page.getByRole("textbox", { name: "Add a thought" })).toHaveValue("");
+  await expect(page.getByRole("textbox", { name: "Write a thought about this book" })).toHaveValue("");
   expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(0);
 });
 
@@ -855,7 +857,7 @@ test("a pending progress save stays visible, and a saved one does not wait for t
   try {
     await page.goto("/my-books/101");
     await pageBox(page).fill("50%");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Save page", exact: true }).click();
     // While the save is pending nothing is hidden or lost, and Pause and Finish stay available.
     await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
     await expect(pageBox(page)).toHaveValue("50%");
@@ -863,7 +865,7 @@ test("a pending progress save stays visible, and a saved one does not wait for t
     expect(app.attempt.progress_value).toBe(40);
     app.holdWorkspace = new Promise(done => { releaseWorkspace = done; });
     releaseSave();
-    await expect(page.getByText("Saved. 50%, about page 100.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Saved 50%" })).toBeVisible();
     await expect(pageBox(page)).toHaveValue("");
     expect(app.requests.filter(item => item.method === "PATCH")).toHaveLength(1);
     releaseWorkspace();
@@ -873,9 +875,9 @@ test("a pending progress save stays visible, and a saved one does not wait for t
 });
 
 test("Finish moves focus to the finish moment and it stays there", async ({ page, app }) => {
-  app.attempt.note = "A thought to edit";
+  app.attempt.started_on = "2026-11-10";
   await page.goto("/my-books/101");
-  await page.getByRole("button", { name: /^Edit: A thought to edit/ }).click();
+  await page.getByRole("button", { name: /^Edit: Started/ }).click();
   // Hold animation frames so an older editor-close callback becomes runnable only after Finish: the valid adverse ordering.
   await page.evaluate(() => {
     window.closeFrames = [];
@@ -898,7 +900,7 @@ test("Finish moves focus to the finish moment and it stays there", async ({ page
 test("Yes, finished from the box also moves focus to the finish moment", async ({ page, app: _app }) => {
   await page.goto("/my-books/101");
   await pageBox(page).fill("100%");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
   const saved = page.getByRole("heading", { name: /^You finished / });
   await expect(saved).toBeFocused();
