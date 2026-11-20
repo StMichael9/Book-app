@@ -66,8 +66,8 @@
 
 @media (max-width: 900px) {
   .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); }
-  .bv-root .bv-next-row { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 42%; gap: 14px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
-  .bv-root .bv-next-row::-webkit-scrollbar { display: none; }
+  /* Up next on a phone: a 2-column grid of covers (a fifth sits alone in the left column); nothing scrolls sideways. */
+  .bv-root .bv-next-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
   .bv-root .bv-glance { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); justify-content: start; gap: 24px; }
 }
@@ -90,15 +90,10 @@
 .bv-root .bv-adjust-actions .bv-button[type="submit"] { flex: none; }
 
 @media (max-width: 700px) {
-  /* Pills: one row that scrolls sideways, with the same edge fade as the next row. */
-  .bv-root .bv-pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -20px; padding-inline: 20px; mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
-  .bv-root .bv-pills::-webkit-scrollbar { display: none; }
-  .bv-root .bv-pill { flex: none; white-space: nowrap; }
-  /* Cards: one compact row per book, a 64px cover on the left. */
-  .bv-root .bv-picks { grid-template-columns: minmax(0, 1fr); gap: 16px; }
-  .bv-root .bv-picks .bv-next-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: start; }
-  .bv-root .bv-picks .bv-next-body .bv-button { align-self: flex-start; width: auto; min-width: 96px; margin-top: 8px; }
-  .bv-root .bv-picks .bv-next-card h3 { margin-top: 0; }
+  /* Filter pills wrap onto more lines. Picks use the same 2-column cover grid as Up next; the button fills its column. */
+  .bv-root .bv-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
+  .bv-root .bv-pill { white-space: nowrap; }
+  .bv-root .bv-picks .bv-next-body .bv-button { align-self: stretch; width: 100%; }
 }
 
 /* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */
@@ -115,7 +110,7 @@
 .bv-root .bv-choice span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; }
 .bv-root .bv-choice input:checked + span { background-color: var(--bv-green); color: var(--bv-on-green); }
 .bv-root .bv-choice input:focus-visible + span { outline: 3px solid var(--bv-green); outline-offset: 2px; }
-@media (max-width: 700px) { .bv-root .bv-results { min-height: 520px; } }
+@media (max-width: 700px) { .bv-root .bv-results { min-height: 640px; } }
 /* A one-line "nothing matches" or error message needs no reserved card row. */
 .bv-root .bv-results.bv-results--quiet { min-height: 0; }
 

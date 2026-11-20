@@ -272,6 +272,33 @@ test("on a phone Home shows the first book and a Show link for the rest", async 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+// Home on a phone: Up next and the picks are 2-column cover grids, the filter pills wrap, and nothing scrolls sideways.
+for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} Up next and the picks are 2-column grids with nothing sideways`, async ({ page, app }) => {
+  app.pins = [pin(1), pin(2), pin(3), pin(4)];
+  await page.setViewportSize({ width, height: 844 });
+  await page.goto("/home");
+  if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await page.getByRole("button", { name: "Something short" }).click();
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  const grids = await page.evaluate(() => [".bv-next-row", ".bv-picks"].map(selector => {
+    const grid = document.querySelector(selector), box = grid.getBoundingClientRect();
+    const cards = [...grid.querySelectorAll(".bv-next-card")].map(card => { const r = card.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, overflow: card.scrollWidth > card.clientWidth + 1 }; });
+    return { selector, columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length, overflowX: getComputedStyle(grid).overflowX, mask: getComputedStyle(grid).maskImage, scrolls: grid.scrollWidth > grid.clientWidth + 1, cards, inside: cards.every(c => c.left >= 0 && c.right <= innerWidth), sideways: cards.some(c => c.overflow), left: box.left };
+  }));
+  for (const grid of grids) {
+    expect(grid.columns, grid.selector).toBe(2);
+    expect(grid.overflowX, grid.selector).toBe("visible");
+    expect(grid.mask, grid.selector).toBe("none");
+    expect(grid.scrolls, grid.selector).toBe(false);
+    expect(grid.inside, grid.selector).toBe(true);
+    expect(grid.sideways, grid.selector).toBe(false);
+    expect(new Set(grid.cards.map(c => Math.round(c.left))).size, grid.selector).toBe(2);
+  }
+  const pills = await page.evaluate(() => { const row = document.querySelector(".bv-pills"); return { wraps: getComputedStyle(row).flexWrap === "wrap", overflowX: getComputedStyle(row).overflowX, scrolls: row.scrollWidth > row.clientWidth + 1 }; });
+  expect(pills).toEqual({ wraps: true, overflowX: "visible", scrolls: false });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
 test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
   app.pins = [];
   await page.goto("/book/1");
