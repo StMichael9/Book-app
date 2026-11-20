@@ -227,3 +227,7 @@
 .bv-root .bv-profile-pill svg { width: 16px; height: 16px; }
 /* The Undo link on the ink toast keeps the toast's paper ink. */
 .bv-root .bv-undo-toast .bv-button.bv-inline-action { color: var(--bv-paper); font-weight: 700; }
+
+/* The header block and the first section are a normal section apart: 40px on desktop, 32px on a phone. */
+.bv-root .bv-profile-top + .bv-profile-lists, .bv-root .bv-profile-top + .bv-muted { margin-top: 40px; }
+@media (max-width: 700px) { .bv-root .bv-profile-top + .bv-profile-lists, .bv-root .bv-profile-top + .bv-muted { margin-top: 32px; } }

@@ -316,18 +316,22 @@ export function PublicProfilePage({ handle: given, notFound }) {
   if (!load.data) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening profile…</p></div></section>;
   const page = load.data, own = profile?.handle === handle;
   const listLink = item => `/u/${handle}/lists/${item.id}`;
+  // The year chart shows only once three books are finished this year (the same rule as Home and the owner's profile). Without it
+  // the Overview would hold nothing but lists, so there are no tabs: the lists show directly. With it, the Overview and Lists tabs stay.
+  const chart = hasYearChart(page.stats);
+  const listCards = page.lists.length > 0
+    ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
+      <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
+    : <p className="bv-muted">No public lists yet.</p>;
   return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
     <div className="bv-profile-top">
       <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
-      <TabBar value={tab} onChange={setTab} />
+      {chart && <TabBar value={tab} onChange={setTab} />}
     </div>
-    <TabPanel key={tab} value={tab} settle={switched}>
+    {chart ? <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <><YearCard stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
-      {tab === "lists" && (page.lists.length > 0
-        ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
-          <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
-        : <p className="bv-muted">No public lists yet.</p>)}
-    </TabPanel>
+      {tab === "lists" && listCards}
+    </TabPanel> : listCards}
     <GuestLine />
   </div></section>;
 }

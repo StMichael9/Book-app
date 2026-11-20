@@ -56,10 +56,10 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root :is(a, button, summary, input, select):focus-visible { outline: 3px solid var(--bv-green); outline-offset: 4px; }
 /* Text fields draw no ring: on focus the 1px stroke becomes a 2px green border (the second pixel is an inset shadow, so nothing shifts). Checkboxes,
    radios, files and buttons keep the keyboard ring above. A mouse click on a button or link shows nothing: only :focus-visible draws a ring. */
-.bv-root :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="button"], [type="submit"], [type="range"]), textarea, select):is(:focus, :focus-visible) { outline: none; border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
+.bv-root.bv-root :is(input:not([type="checkbox"], [type="radio"], [type="file"], [type="button"], [type="submit"], [type="range"]), textarea, select):is(:focus, :focus-visible) { outline: none; border-color: var(--bv-green); box-shadow: inset 0 0 0 1px var(--bv-green); }
 /* Fields inside a soft pill (the search fields) have no stroke of their own: the pill takes the 2px green border. */
-.bv-root .bv-search-form :is(input, select):is(:focus, :focus-visible) { box-shadow: none; }
-.bv-root .bv-search-form:focus-within, .bv-root .bv-header-search input:is(:focus, :focus-visible) { box-shadow: inset 0 0 0 2px var(--bv-green); }
+.bv-root.bv-root .bv-search-form :is(input, select):is(:focus, :focus-visible) { box-shadow: none; border-color: transparent; }
+.bv-root .bv-search-form:focus-within, .bv-root.bv-root .bv-header-search input:is(:focus, :focus-visible) { box-shadow: inset 0 0 0 2px var(--bv-green); }
 .bv-root :is(h1, h2, main)[tabindex="-1"]:focus { outline: none; }
 .bv-root input:disabled { cursor: not-allowed; opacity: .68; }
 .bv-root button:disabled { cursor: not-allowed; }

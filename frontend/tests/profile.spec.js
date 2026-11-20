@@ -554,11 +554,12 @@ test("the Account rows stay at the bottom", async ({ page, app: _app }) => {
   }
 });
 
-test("the public page has the same header and tabs, third-person figures, public lists only and the guest line last", async ({ page, app }) => {
+test("the public page: with a year chart (3+ finished) it has the tabs, third-person figures, public lists only and the guest line last; without one there are no tabs and no empty chart", async ({ page, app }) => {
   app.guest = true;
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] });
   await page.goto("/u/ada");
   await expect(page.getByRole("tab")).toHaveText(["Overview", "Lists"]);
-  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.locator(".bv-year-card")).toContainText("5 books finished in 2026");
   await expect(page.locator(".bv-year-card")).not.toHaveAttribute("href", /.*/);
   await expect(page.locator(".bv-visibility")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit profile" })).toHaveCount(0);
@@ -568,13 +569,21 @@ test("the public page has the same header and tabs, third-person figures, public
   await expect(page.locator(".bv-list-card")).toHaveCount(1);
   const last = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.at(-1).className);
   expect(last).toContain("bv-profile-join");
-  app.publicProfile.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
-  await page.goto("/u/ada");
-  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
+  // Under three finished books: no tabs, no chart, no empty line; the lists show directly.
+  for (const finished of [0, 1, 2]) {
+    app.publicProfile.stats = stats({ books_finished: finished, pages_read: 300 * finished, by_month: month(finished), biggest_month: finished ? 1 : null, top_genres: [] });
+    await page.goto("/u/ada");
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.locator(".bv-year-card, .bv-shelf")).toHaveCount(0);
+    await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
+    await expect(page.getByText("It starts with their first finished book.")).toHaveCount(0);
+    await expect(page.locator(".bv-list-card")).toHaveCount(1);
+  }
 });
 
 test("the selected tab is lifted above the track in dark and light, with readable text, and the tabs are pills", async ({ page, app }) => {
   app.guest = true; // the owner's profile has no tabs; the public profile keeps its pill tabs
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] }); // the public tabs show once the year chart does
   await page.setViewportSize({ width: 390, height: 800 });
   const channels = colour => colour.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => colour.startsWith("color(") ? value * 255 : value);
   const luminance = colour => { const [r, g, b] = channels(colour).map(value => { const v = value / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -609,6 +618,7 @@ test("list names use the card title style, the privacy pill has equal 16px paddi
 
 test("a tab switch settles the incoming panel in 160ms, never on the first paint, and not under reduced motion", async ({ page, app }) => {
   app.guest = true; // tabs live on the public profile
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] }); // the public tabs show once the year chart does
   for (const path of ["/u/ada", "/u/ada?tab=lists"]) {
     await page.goto(path);
     await expect(page.getByRole("tabpanel")).toBeVisible();
@@ -839,7 +849,7 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
   await expect(page.getByText("@ada · Reading since 2025")).toBeVisible();
   await expect(page.getByText("Quiet reader.")).toBeVisible();
-  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.locator(".bv-year-card")).toHaveCount(0); // two finished books: no chart, no empty line
   await expect(page.getByText("Books finished", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Shared list/ })).toHaveAttribute("href", "/u/ada/lists/3");
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "96px");
