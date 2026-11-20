@@ -32,7 +32,7 @@
 .bv-root .bv-landing-way { display: flex; flex-direction: column; gap: 14px; padding: 28px; background: var(--bv-sheet); border-radius: 20px; box-shadow: var(--bv-shadow-sheet); min-width: 0; }
 .bv-root .bv-landing-way h3 { font: 400 1.625rem/1.15 var(--bv-display); letter-spacing: -0.01em; margin: 0; font-synthesis: none; text-wrap: balance; }
 .bv-root .bv-landing-way p { margin: 0; }
-.bv-root .bv-landing-way ol { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; }
+.bv-root .bv-landing-way ol { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; list-style: decimal; }
 .bv-root .bv-landing-way ol li::marker { color: var(--bv-muted); }
 .bv-root .bv-landing-way .bv-landing-small { color: var(--bv-muted); font-size: 0.9375rem; }
 .bv-root .bv-landing-way .bv-button { align-self: flex-start; margin-top: auto; }
