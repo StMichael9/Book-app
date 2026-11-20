@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { BookCover, Button, NativeDialog } from "../../ui-v2/primitives.jsx";
 import { acceptScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
@@ -61,6 +61,14 @@ function useCamera(enabled, onCode) {
   return { video, camera };
 }
 
+// What the card over the camera says about the latest scan. The words are the list's own, so the card and the row never disagree.
+function cardFor(row, count) {
+  const looking = row.state === "looking" || row.state === "waiting";
+  const title = row.title || (looking ? row.isbn : `ISBN ${row.isbn}`);
+  const line = looking ? "Looking up…" : row.state === "on_shelf" ? "Already on your shelf" : row.state === "failed" ? "Couldn’t look this up." : `Added · ${count} scanned`;
+  return { title, line, settled: !looking };
+}
+
 function Row({ row, onRemove, onRetry }) {
   const looking = row.state === "looking" || row.state === "waiting";
   const title = row.title || (looking ? row.isbn : `ISBN ${row.isbn}`);
@@ -82,11 +90,29 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   const list = useScanList();
   const guard = useRef(createRepeatGuard()), seeded = useRef(false);
   const [owned, setOwned] = useState(true), [typed, setTyped] = useState(""), [typedError, setTypedError] = useState(""), [saving, setSaving] = useState(false), [saveError, setSaveError] = useState("");
+  // The latest accepted scan: a tick on the aiming box for 0.6 s, and a card over the camera until 3 s after its answer (or the next scan).
+  const [latest, setLatest] = useState(null), [flash, setFlash] = useState(0), [cardOpen, setCardOpen] = useState(false), scanId = useRef(0);
   const accept = code => {
     if (!acceptScan(code) || !guard.current(code)) return;
     try { navigator.vibrate?.(30); } catch { /* not every device can */ }
     list.add(code);
+    scanId.current += 1;
+    setLatest({ isbn: code, id: scanId.current }); setFlash(scanId.current); setCardOpen(true);
   };
+  useEffect(() => {
+    if (!flash) return undefined;
+    const timer = setTimeout(() => setFlash(0), 600);
+    return () => clearTimeout(timer);
+  }, [flash]);
+  const latestRow = latest ? list.rows.find(row => row.isbn === latest.isbn) : null;
+  const card = latestRow ? cardFor(latestRow, list.rows.length) : null;
+  const cardSettled = Boolean(card?.settled);
+  useEffect(() => {
+    if (!latest || !cardSettled) return undefined;
+    const timer = setTimeout(() => setCardOpen(false), 3000);
+    return () => clearTimeout(timer);
+  }, [latest, cardSettled]);
+  const showCard = Boolean(cardOpen && card);
   const { video, camera } = useCamera(open && wantCamera, accept);
   useEffect(() => {
     if (seeded.current) return;
@@ -117,10 +143,16 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   return <NativeDialog open={open} onClose={() => { if (!saving) onClose(); }} title="Scan books" className="bv-scan-sheet">
     <div className="bv-scan-body">
       <div className="bv-scan-top">
-      {wantCamera && <div className={`bv-scan-camera is-${camera}`}>
+      {wantCamera && <div className={`bv-scan-camera is-${camera}${flash ? " is-flash" : ""}${showCard ? " has-card" : ""}`}>
         <video ref={video} muted playsInline aria-hidden="true" />
-        {camera !== "refused" && camera !== "none" && <p className="bv-scan-hint">Point at the barcode on the back</p>}
+        <div className="bv-scan-aim" aria-hidden="true"><span className="bv-scan-tick"><Check /></span></div>
+        {camera !== "refused" && camera !== "none" && <p className="bv-scan-hint">Fit the barcode in the box</p>}
+        <div className={`bv-scan-card${showCard ? " is-open" : ""}`} aria-hidden="true">
+          <div className="bv-scan-cover">{latestRow?.title ? <BookCover book={{ title: latestRow.title, cover_image_url: latestRow.cover, authors: [] }} size="small" decorative /> : <span className="bv-scan-cover-blank" />}</div>
+          <div className="bv-scan-text"><p className="bv-scan-title">{card?.title}</p><p className="bv-scan-state">{card?.line}</p></div>
+        </div>
       </div>}
+      <p className="bv-sr-only" role="status" aria-live="polite">{showCard && card?.settled ? `${card.title}. ${card.line}` : ""}</p>
       {wantCamera && refusedLine && <p className="bv-scan-notice" role="status">Camera’s off. Type the ISBN instead.</p>}
       <form className="bv-scan-type" onSubmit={submitTyped} noValidate>
         <label htmlFor="bv-scan-isbn">Type an ISBN</label>
