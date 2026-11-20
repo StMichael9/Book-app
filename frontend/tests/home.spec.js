@@ -231,13 +231,35 @@ test("the year is one compact card: the count and the month shelf, all one link 
   await expect(card).not.toContainText("7,840");
 });
 
-test("with nothing finished the card is the one empty-year sentence, never zeros, and still links", async ({ page, app }) => {
-  app.stats = { year: 2026, books_finished: 0, pages_read: 0, median_days: null, biggest_month: null, by_month: new Array(12).fill(0), top_genres: [] };
+test("the year card is hidden until three books are finished this year: nothing at all under that", async ({ page, app }) => {
+  for (const finished of [0, 1, 2]) {
+    app.stats = { year: 2026, books_finished: finished, pages_read: 300 * finished, median_days: null, biggest_month: finished ? 1 : null, by_month: Array.from({ length: 12 }, (_, index) => (index === 0 ? finished : 0)), top_genres: [] };
+    await page.goto("/home");
+    await expect(page.getByRole("heading", { name: "Up next" })).toBeVisible();
+    await expect(page.locator(".bv-year-glance, .bv-year-card, .bv-shelf")).toHaveCount(0);
+    await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
+  }
+  app.stats = { year: 2026, books_finished: 3, pages_read: 900, median_days: 9, biggest_month: 1, by_month: Array.from({ length: 12 }, (_, index) => (index === 0 ? 3 : 0)), top_genres: [] };
   await page.goto("/home");
-  const card = page.getByRole("link", { name: /^Your 2026:/ });
-  await expect(card).toContainText("Finish a book this year and it’ll show up here.");
-  await expect(card).toHaveAttribute("href", "/reading-life");
-  await expect(card.locator(".bv-year-card-line")).not.toContainText(/(?<!\d)0(?!\d)/);
+  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("3 books finished in 2026");
+});
+
+test("Up next covers fill their frame: the image box equals the 2:3 frame, whatever the picture's proportions", async ({ page, app }) => {
+  // A wide picture in a 2:3 frame is what used to leave soft bars above and below.
+  for (const entry of app.entries) entry.book.cover_image_url = "/test-cover/wide.gif";
+  await page.route("**/test-cover/*", route => route.fulfill({ status: 200, contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") }));
+  await page.goto("/home");
+  const covers = page.locator(".bv-next-cover .bv-cover");
+  await expect(covers.first()).toBeVisible();
+  await expect(covers.first().locator("img")).toBeVisible();
+  for (const frame of await covers.all()) {
+    const image = frame.locator("img");
+    expect(await image.count()).toBeGreaterThan(0);
+    await expect(image).toHaveCSS("object-fit", "cover");
+    const f = await frame.boundingBox(), i = await image.boundingBox();
+    expect(Math.abs(f.width - i.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(f.height - i.height)).toBeLessThanOrEqual(1);
+  }
 });
 
 test("on a phone Home shows the first book and a Show link for the rest", async ({ page, app: _app }) => {

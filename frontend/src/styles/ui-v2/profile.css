@@ -220,3 +220,14 @@
 .bv-root .bv-year-card .bv-year-card-line { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .bv-root .bv-year-chevron { color: var(--bv-muted); font-size: 1.5rem; line-height: 1; }
 .bv-root a.bv-year-card--link:hover .bv-year-chevron { color: var(--bv-green); }
+
+/* The privacy pill and Edit profile share one centred row; on a phone they wrap to two. Edit profile and New list are outline pills. */
+.bv-root .bv-profile-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; max-width: 100%; }
+.bv-root .bv-profile-pill { white-space: nowrap; }
+.bv-root .bv-profile-pill svg { width: 16px; height: 16px; }
+/* The Undo link on the ink toast keeps the toast's paper ink. */
+.bv-root .bv-undo-toast .bv-button.bv-inline-action { color: var(--bv-paper); font-weight: 700; }
+
+/* The header block and the first section are a normal section apart: 40px on desktop, 32px on a phone. */
+.bv-root .bv-profile-top + .bv-profile-lists, .bv-root .bv-profile-top + .bv-muted { margin-top: 40px; }
+@media (max-width: 700px) { .bv-root .bv-profile-top + .bv-profile-lists, .bv-root .bv-profile-top + .bv-muted { margin-top: 32px; } }

@@ -326,7 +326,7 @@ test("the You tab is active on /profile, a list and /account, and never on a pub
   expect(app.errors).toEqual([]);
 });
 
-test("the year card reads right for plural, one book and an empty year, and is one link to the reading life", async ({ page, app }) => {
+test("the year card reads right, is one link to the reading life, and is hidden until three books are finished this year", async ({ page, app }) => {
   await page.goto("/profile");
   const card = page.getByRole("link", { name: /^Your 2026:/ });
   await expect(card).toHaveAttribute("href", "/reading-life");
@@ -337,16 +337,18 @@ test("the year card reads right for plural, one book and an empty year, and is o
   await expect(page.locator(".bv-shelf")).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator(".bv-shelf-months .is-top")).toHaveText("J");
   await expect(page.getByText("July: 6")).toBeAttached();
-  app.stats = stats({ books_finished: 1, pages_read: 320, by_month: month(1), biggest_month: 1, top_genres: [] });
+  // Under three finished books, nothing at all: no card, no axis, no placeholder sentence.
+  for (const finished of [0, 1, 2]) {
+    app.stats = stats({ books_finished: finished, pages_read: 320 * finished, by_month: month(finished), biggest_month: finished ? 1 : null, top_genres: [] });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Your lists" })).toBeVisible();
+    await expect(page.locator(".bv-year-card, .bv-shelf, .bv-shelf-months")).toHaveCount(0);
+    await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /^Your 2026:/ })).toHaveCount(0);
+  }
+  app.stats = stats({ books_finished: 3, pages_read: 960, by_month: month(1, 1, 1), biggest_month: 1, top_genres: [] });
   await page.reload();
-  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("1 book finished in 2026");
-  app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
-  await page.reload();
-  const empty = page.getByRole("link", { name: /^Your 2026:/ });
-  await expect(empty).toContainText("Finish a book this year and it’ll show up here.");
-  await expect(empty).toHaveAttribute("href", "/reading-life");
-  await expect(page.locator(".bv-shelf-spine")).toHaveCount(0);
-  expect((await empty.boundingBox()).height).toBeLessThan(180);
+  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("3 books finished in 2026");
 });
 
 test("the year shelf draws a spine per finished book up to what fits, shows +N for the rest, is stable between visits and never overflows", async ({ page, app }) => {
@@ -499,75 +501,51 @@ test("signed-out visitors see the plain person icon on the You tab, never an ava
   await expect(page.locator(".bv-header-avatar")).toHaveCount(0);
 });
 
-test("the tabs are a real tablist: arrows, Home and End move between them, only the selected tab is in the tab order, and ?tab= holds the state", async ({ page, app: _app }) => {
-  await page.goto("/profile");
-  const list = page.getByRole("tablist", { name: "Profile sections" });
-  const tabs = list.getByRole("tab");
-  await expect(tabs).toHaveText(["Overview", "Lists"]);
-  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-  await expect(tabs.nth(1)).toHaveAttribute("tabindex", "-1");
-  await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "bv-tab-overview");
-  await page.getByRole("tab", { name: "Overview" }).focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Lists" })).toBeFocused();
-  await expect(page).toHaveURL(/\/profile\?tab=lists$/);
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Overview" })).toBeFocused();
-  await expect(page).toHaveURL(/\/profile$/);
-  await page.keyboard.press("End");
-  await expect(page.getByRole("tab", { name: "Lists" })).toHaveAttribute("aria-selected", "true");
-  await page.keyboard.press("Home");
-  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-  // Clicking pushes history, so Back returns to the earlier tab; a linked tab opens directly; an unknown value is the Overview.
-  await page.getByRole("tab", { name: "Lists" }).click();
-  await expect(page.getByRole("heading", { name: "Your lists" })).toBeVisible();
-  await page.goBack();
-  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-  await page.goto("/profile?tab=year");
-  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
-  await page.goto("/profile?tab=nonsense");
-  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+test("the profile has no tabs: the header, your lists, the year (when it has something to show), then Settings; a ?tab= link lands on the same page", async ({ page, app: _app }) => {
+  for (const path of ["/profile", "/profile?tab=lists", "/profile?tab=year", "/profile?tab=nonsense"]) {
+    await page.goto(path);
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByRole("tab")).toHaveCount(0);
+    await expect(page.getByRole("tabpanel")).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Your lists" })).toBeVisible();
+    const order = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.map(node => node.className.split(" ")[0]));
+    expect(order, path).toEqual(["bv-profile-top", "bv-profile-lists", "bv-year-card", "bv-profile-account"]);
+  }
 });
 
-test("the Overview shows three big figures and up to three list rows, with See all lists only when there are more", async ({ page, app }) => {
+test("every list shows directly under the header as a card, with no See all lists step", async ({ page, app }) => {
   await page.goto("/profile");
-  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("18 books finished in 2026");
   await expect(page.locator(".bv-figures")).toHaveCount(0);
-  await expect(page.locator(".bv-list-row")).toHaveCount(1);
-  await expect(page.locator(".bv-list-row").first()).toContainText("3 books");
+  await expect(page.locator(".bv-list-card")).toHaveCount(1);
+  await expect(page.locator(".bv-list-card").first()).toContainText("3 books");
   await expect(page.getByRole("button", { name: "See all lists" })).toHaveCount(0);
   for (const id of [11, 12, 13]) app.lists.push({ id, name: `Extra ${id}`, description: null, is_public: false, book_count: 0, covers: [], books: [] });
   await page.reload();
-  await expect(page.locator(".bv-list-row")).toHaveCount(3);
-  await page.getByRole("button", { name: "See all lists" }).click();
-  await expect(page).toHaveURL(/\?tab=lists$/);
   await expect(page.locator(".bv-list-card")).toHaveCount(4);
+  await expect(page.getByRole("button", { name: "See all lists" })).toHaveCount(0);
 });
 
-test("an empty year shows one line on the Overview with no zeros", async ({ page, app }) => {
+test("an empty year shows nothing on the profile: no sentence, no zeros, no empty card", async ({ page, app }) => {
   app.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
   await page.goto("/profile");
-  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
-  await expect(page.locator(".bv-figures")).toHaveCount(0);
-  await expect(page.locator(".bv-year-card-line")).not.toContainText(/(?<!\d)0(?!\d)/);
-  expect((await page.locator(".bv-year-card").boundingBox()).height).toBeLessThan(180);
+  await expect(page.getByRole("heading", { name: "Your lists" })).toBeVisible();
+  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
+  await expect(page.locator(".bv-figures, .bv-year-card")).toHaveCount(0);
 });
 
-test("the tabs never wrap at 320px or at 200% text, and the header is centred", async ({ page, app: _app }) => {
+test("the header is centred and nothing overflows at 320px or at 200% text", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/profile");
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
-  const tabs = await page.getByRole("tab").evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { wraps: box.height > parseFloat(getComputedStyle(node).lineHeight) * 2.2, white: getComputedStyle(node).whiteSpace }; }));
-  for (const tab of tabs) { expect(tab.white).toBe("nowrap"); expect(tab.wraps).toBe(false); }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 800 });
-  const avatar = await page.locator(".bv-profile-head .bv-avatar").boundingBox(), tablist = await page.getByRole("tablist").boundingBox();
+  const avatar = await page.locator(".bv-profile-head .bv-avatar").boundingBox(), row = await page.locator(".bv-profile-actions").boundingBox();
   expect(Math.abs(avatar.x + avatar.width / 2 - 640)).toBeLessThan(2);
-  expect(Math.abs(tablist.x + tablist.width / 2 - 640)).toBeLessThan(2);
-  expect(tablist.width).toBeLessThanOrEqual(721);
+  expect(Math.abs(row.x + row.width / 2 - 640)).toBeLessThan(2);
+  expect(row.width).toBeLessThanOrEqual(681);
 });
 
-test("the Account rows stay at the bottom on every tab", async ({ page, app: _app }) => {
+test("the Account rows stay at the bottom", async ({ page, app: _app }) => {
   for (const path of ["/profile", "/profile?tab=lists"]) {
     await page.goto(path);
     await expect(page.getByRole("region", { name: "Settings" }).getByRole("link", { name: "Settings" })).toBeVisible();
@@ -576,11 +554,12 @@ test("the Account rows stay at the bottom on every tab", async ({ page, app: _ap
   }
 });
 
-test("the public page has the same header and tabs, third-person figures, public lists only and the guest line last", async ({ page, app }) => {
+test("the public page: with a year chart (3+ finished) it has the tabs, third-person figures, public lists only and the guest line last; without one there are no tabs and no empty chart", async ({ page, app }) => {
   app.guest = true;
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] });
   await page.goto("/u/ada");
   await expect(page.getByRole("tab")).toHaveText(["Overview", "Lists"]);
-  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.locator(".bv-year-card")).toContainText("5 books finished in 2026");
   await expect(page.locator(".bv-year-card")).not.toHaveAttribute("href", /.*/);
   await expect(page.locator(".bv-visibility")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Edit profile" })).toHaveCount(0);
@@ -590,19 +569,28 @@ test("the public page has the same header and tabs, third-person figures, public
   await expect(page.locator(".bv-list-card")).toHaveCount(1);
   const last = await page.locator(".bv-profile > *").evaluateAll(nodes => nodes.at(-1).className);
   expect(last).toContain("bv-profile-join");
-  app.publicProfile.stats = stats({ books_finished: 0, pages_read: 0, by_month: month(), biggest_month: null, top_genres: [] });
-  await page.goto("/u/ada");
-  await expect(page.getByText("Finish a book this year and it’ll show up here.")).toBeVisible();
+  // Under three finished books: no tabs, no chart, no empty line; the lists show directly.
+  for (const finished of [0, 1, 2]) {
+    app.publicProfile.stats = stats({ books_finished: finished, pages_read: 300 * finished, by_month: month(finished), biggest_month: finished ? 1 : null, top_genres: [] });
+    await page.goto("/u/ada");
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.locator(".bv-year-card, .bv-shelf")).toHaveCount(0);
+    await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
+    await expect(page.getByText("It starts with their first finished book.")).toHaveCount(0);
+    await expect(page.locator(".bv-list-card")).toHaveCount(1);
+  }
 });
 
-test("the selected tab is lifted above the track in dark and light, with readable text, and the tabs are pills", async ({ page, app: _app }) => {
+test("the selected tab is lifted above the track in dark and light, with readable text, and the tabs are pills", async ({ page, app }) => {
+  app.guest = true; // the owner's profile has no tabs; the public profile keeps its pill tabs
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] }); // the public tabs show once the year chart does
   await page.setViewportSize({ width: 390, height: 800 });
   const channels = colour => colour.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => colour.startsWith("color(") ? value * 255 : value);
   const luminance = colour => { const [r, g, b] = channels(colour).map(value => { const v = value / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   for (const theme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: theme });
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
-    await page.goto("/profile");
+    await page.goto("/u/ada");
     const selected = page.getByRole("tab", { name: "Overview" }), track = page.getByRole("tablist");
     const [tab, rail, text] = await Promise.all([selected.evaluate(node => getComputedStyle(node).backgroundColor), track.evaluate(node => getComputedStyle(node).backgroundColor), selected.evaluate(node => getComputedStyle(node).color)]);
     expect(luminance(tab), theme).toBeGreaterThan(luminance(rail));
@@ -614,28 +602,29 @@ test("the selected tab is lifted above the track in dark and light, with readabl
   for (const tab of await page.getByRole("tab").all()) expect((await tab.boundingBox()).height).toBeLessThan(80);
 });
 
-test("the Overview has one rule above the account rows, list names use the card title style, and the pill has equal 16px padding", async ({ page, app: _app }) => {
+test("list names use the card title style, the privacy pill has equal 16px padding, and Settings follows the content", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/profile");
-  const row = page.locator(".bv-list-row").last();
-  await expect(row).toHaveCSS("border-bottom-width", "0px");
-  const name = row.locator("strong");
+  const name = page.locator(".bv-list-card strong").first();
   await expect(name).toHaveCSS("font-size", "17px");
   await expect(name).toHaveCSS("font-family", /Bookvane Caslon/);
   const pill = page.locator(".bv-visibility");
   await expect(pill).toHaveCSS("padding-left", "16px");
   await expect(pill).toHaveCSS("padding-right", "16px");
-  const gap = (await page.locator(".bv-profile-account").boundingBox()).y - (await row.boundingBox()).y - (await row.boundingBox()).height;
+  const last = (await page.locator(".bv-year-card").boundingBox());
+  const gap = (await page.locator(".bv-profile-account").boundingBox()).y - last.y - last.height;
   expect(gap).toBeLessThan(60);
 });
 
-test("a tab switch settles the incoming panel in 160ms, never on the first paint, and not under reduced motion", async ({ page, app: _app }) => {
-  for (const path of ["/profile", "/profile?tab=lists"]) {
+test("a tab switch settles the incoming panel in 160ms, never on the first paint, and not under reduced motion", async ({ page, app }) => {
+  app.guest = true; // tabs live on the public profile
+  app.publicProfile.stats = stats({ books_finished: 5, pages_read: 1600, by_month: month(1, 1, 1, 2), biggest_month: 4, top_genres: [] }); // the public tabs show once the year chart does
+  for (const path of ["/u/ada", "/u/ada?tab=lists"]) {
     await page.goto(path);
     await expect(page.getByRole("tabpanel")).toBeVisible();
     await expect(page.getByRole("tabpanel")).toHaveCSS("animation-name", "none");
   }
-  await page.goto("/profile");
+  await page.goto("/u/ada");
   await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0.16s");
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -643,42 +632,31 @@ test("a tab switch settles the incoming panel in 160ms, never on the first paint
   await expect(page.getByRole("tabpanel")).toHaveCSS("animation-duration", "0s");
 });
 
-test("the gap between the header and the tabs is the same on the owner page and the public page", async ({ page, app }) => {
-  await page.setViewportSize({ width: 390, height: 900 });
-  await page.goto("/profile");
-  const edit = await page.getByRole("button", { name: "Edit profile" }).boundingBox(), ownerTabs = await page.getByRole("tablist").boundingBox();
-  const owner = ownerTabs.y - (edit.y + edit.height - 12);
-  app.guest = true;
-  await page.goto("/u/ada");
-  const bio = await page.locator(".bv-profile-bio").boundingBox(), publicTabs = await page.getByRole("tablist").boundingBox();
-  const publicGap = publicTabs.y - (bio.y + bio.height);
-  expect(Math.abs(owner - publicGap)).toBeLessThanOrEqual(4);
-});
-
-test("the privacy pill is centred: a two-row pill on phones with Make public on its own line, one line on desktop", async ({ page, app: _app }) => {
+test("the privacy pill and Edit profile share one centred row; on a phone they wrap, and Make public sits under its label", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/profile");
-  const pill = page.locator(".bv-visibility");
+  const pill = page.locator(".bv-visibility"), row = page.locator(".bv-profile-actions"), edit = page.getByRole("button", { name: "Edit profile" });
   const box = await pill.boundingBox();
   expect(Math.abs(box.x + box.width / 2 - 195)).toBeLessThan(2);
   expect(box.width).toBeLessThanOrEqual(350);
-  // At phone widths the label stays on one line and Make public sits on its own line under it.
   for (const width of [375, 390]) {
     await page.setViewportSize({ width, height: 800 });
     const label = await pill.locator("span").boundingBox(), action = await pill.getByRole("button", { name: "Make public" }).boundingBox();
     expect(label.height).toBeLessThan(30);
     expect(action.y).toBeGreaterThanOrEqual(label.y + label.height - 1);
+    const pillBox = await pill.boundingBox(), editBox = await edit.boundingBox();
+    expect(editBox.y, `${width}: Edit profile wraps below the pill`).toBeGreaterThanOrEqual(pillBox.y + pillBox.height - 1);
   }
-  await page.setViewportSize({ width: 390, height: 800 });
   await page.setViewportSize({ width: 320, height: 800 });
   const narrow = await pill.boundingBox(), button = await pill.getByRole("button", { name: "Make public" }).boundingBox();
   expect(narrow.x).toBeGreaterThanOrEqual(0); expect(narrow.x + narrow.width).toBeLessThanOrEqual(320);
   expect(button.x).toBeGreaterThanOrEqual(narrow.x); expect(button.x + button.width).toBeLessThanOrEqual(narrow.x + narrow.width + 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 800 });
-  const wide = await pill.boundingBox(), wideText = await pill.locator("span").boundingBox(), wideButton = await pill.getByRole("button", { name: "Make public" }).boundingBox();
-  expect(Math.abs(wide.x + wide.width / 2 - 640)).toBeLessThan(2);
-  expect(Math.abs((wideButton.y + wideButton.height / 2) - (wideText.y + wideText.height / 2))).toBeLessThan(12);
+  const wide = await row.boundingBox(), pillWide = await pill.boundingBox(), editWide = await edit.boundingBox();
+  expect(Math.abs(wide.x + wide.width / 2 - 640)).toBeLessThan(2); // the row is centred
+  expect(Math.abs((pillWide.y + pillWide.height / 2) - (editWide.y + editWide.height / 2))).toBeLessThan(30); // one row
+  expect(editWide.x).toBeGreaterThan(pillWide.x + pillWide.width - 1);
 });
 
 test("the Settings link sits on the 20px gutter, and tertiary links do too", async ({ page, app: _app }) => {
@@ -695,20 +673,18 @@ test("the Settings link sits on the 20px gutter, and tertiary links do too", asy
   expect(Math.round((await page.getByRole("button", { name: "Rename or delete" }).boundingBox()).x)).toBe(20);
 });
 
-test("on a wide screen the header, tabs and panels share one 680px column with the same left edge, the shelf is 140px tall and the list artwork 120px", async ({ page, app: _app }) => {
+test("on a wide screen the header, lists, year and Settings share one 680px column with the same left edge, the shelf is 56px tall and the list artwork 120px", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/profile");
   expect(Math.round((await page.locator(".bv-profile").boundingBox()).width)).toBe(680);
   const edge = async locator => Math.round((await locator.first().boundingBox()).x);
-  const tabsEdge = await edge(page.getByRole("tablist"));
-  expect(await edge(page.getByRole("link", { name: /^Your 2026:/ }))).toBe(tabsEdge);
-  expect(await edge(page.getByRole("link", { name: "Settings" }))).toBe(tabsEdge);
+  const listsEdge = await edge(page.locator(".bv-profile-lists"));
+  expect(await edge(page.getByRole("link", { name: /^Your 2026:/ }))).toBe(listsEdge);
+  expect(await edge(page.getByRole("link", { name: "Settings" }))).toBe(listsEdge);
   await expect(page.locator(".bv-year-card .bv-shelf")).toHaveCSS("height", "56px");
   await expect(page.locator(".bv-shelf-spine").first()).toHaveCSS("width", /^(1[0-2]|9)(\.\d+)?px$/);
-  await page.getByRole("tab", { name: "Lists" }).click();
   await expect(page.locator(".bv-list-card .bv-art").first()).toHaveCSS("height", "120px");
   await page.setViewportSize({ width: 375, height: 800 });
-  await page.getByRole("tab", { name: "Overview" }).click();
   await expect(page.locator(".bv-year-card .bv-shelf")).toHaveCSS("height", "56px");
 });
 
@@ -873,7 +849,7 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
   await expect(page.getByText("@ada · Reading since 2025")).toBeVisible();
   await expect(page.getByText("Quiet reader.")).toBeVisible();
-  await expect(page.locator(".bv-year-card")).toContainText("2 books finished in 2026");
+  await expect(page.locator(".bv-year-card")).toHaveCount(0); // two finished books: no chart, no empty line
   await expect(page.getByText("Books finished", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /Shared list/ })).toHaveAttribute("href", "/u/ada/lists/3");
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("width", "96px");

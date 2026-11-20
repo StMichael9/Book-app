@@ -138,7 +138,10 @@
 @media (max-width: 700px) {
   .bv-root .bv-header { position: sticky; top: 0; z-index: 11; padding-top: env(safe-area-inset-top); transition: transform 180ms ease-out; }
   .bv-root .bv-header.is-hidden { transform: translateY(-100%); }
-  .bv-root .bv-header .bv-header-inner { min-height: 52px; padding-block: 4px; }
+  /* The bar stays slim (56px): 6px above and below the 44px controls, and a 2px ring offset in the bar, so the 3px keyboard ring (5px out)
+     is never cut off by the page edge. */
+  .bv-root .bv-header .bv-header-inner { min-height: 56px; padding-block: 6px; }
+  .bv-root .bv-header :is(a, button):focus-visible { outline-offset: 2px; }
   .bv-root .bv-header .bv-header-avatar, .bv-root .bv-header .bv-header-check { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-header { transition: none; } }
