@@ -5,6 +5,8 @@ import { localToday } from "../localToday.js";
 export const MAX_PINS = 5;
 export const UP_NEXT_SHOWN = 4;
 export const PICKS_PER_TRY = 3;
+// On a phone the picks sit in a 2-column grid, so a try shows four (two rows of two).
+export const PICKS_PER_TRY_PHONE = 4;
 
 export function greetingFor(name, now = new Date()) {
   const first = String(name || "").trim().split(/\s+/)[0];

@@ -299,6 +299,21 @@ for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+// Can't decide? shows four picks per try on a phone (two rows of two) and still three on a desktop.
+test("on a phone Can't decide? shows four picks in two rows of two; on a desktop three", async ({ page, app }) => {
+  app.entries = TITLES.map((_, index) => entry(index + 1, { book: { ...book(index + 1, TITLES[index], 200) } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Something short" }).click();
+  const picks = page.locator(".bv-picks .bv-next-card");
+  await expect(picks).toHaveCount(4);
+  const boxes = await picks.evaluateAll(cards => cards.map(card => { const r = card.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) }; }));
+  expect(new Set(boxes.map(b => b.left)).size).toBe(2);
+  expect(new Set(boxes.map(b => b.top)).size).toBe(2);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(picks).toHaveCount(3);
+});
+
 test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
   app.pins = [];
   await page.goto("/book/1");

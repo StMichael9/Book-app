@@ -7,7 +7,7 @@ import { useGenres } from "../../ui-v2/useGenres.js";
 import { Button } from "../../ui-v2/primitives.jsx";
 import PickCard from "./PickCard.jsx";
 import NextReadSection from "../NextReadSection.jsx";
-import { PICKS_PER_TRY, cardFromEntry, startable, startReading } from "./homeLogic.js";
+import { PICKS_PER_TRY, PICKS_PER_TRY_PHONE, cardFromEntry, startable, startReading, useNarrow } from "./homeLogic.js";
 
 // On a shelf this small the whole shelf is already in hand, so a pill whose books are the same as an earlier pill's is dropped.
 // The books for each pill are worked out from that one library response (no extra requests). "More <subject>" can't be told
@@ -79,6 +79,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
+  const narrow = useNarrow();
   const usable = foldSameBooks(enabled, shelf);
   const pill = pills.find(item => item.key === active);
   useEffect(() => {
@@ -88,11 +89,12 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     return () => { request.current += 1; };
   }, [pill, oldest]);
   if (!usable.length) return null;
+  const perTry = narrow ? PICKS_PER_TRY_PHONE : PICKS_PER_TRY;
   // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
   const choose = key => { if (key === active) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
-  // Try again walks through the results three at a time and only repeats a book once they have all been shown.
-  const pages = results?.length ? Math.ceil(results.length / PICKS_PER_TRY) : 0;
-  const shown = results ? results.slice((turn % Math.max(pages, 1)) * PICKS_PER_TRY, (turn % Math.max(pages, 1)) * PICKS_PER_TRY + PICKS_PER_TRY) : [];
+  // Try again walks through the results three at a time (four on a phone) and only repeats a book once they have all been shown.
+  const pages = results?.length ? Math.ceil(results.length / perTry) : 0;
+  const shown = results ? results.slice((turn % Math.max(pages, 1)) * perTry, (turn % Math.max(pages, 1)) * perTry + perTry) : [];
   const start = card => { setPending(card.entry_id); command.run(() => startReading(card.entry_id), () => go(`/my-books/${card.entry_id}`)); };
   return <section className="bv-choose" aria-labelledby="bv-choose-title">
     <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? "Books you don’t have yet" : "Pick from your own shelf"}</p></div>
@@ -104,7 +106,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     {!pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
         <div className={`bv-picks${loading ? " bv-picks--busy" : ""}`}>{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending || loading} />)}</div>
-        <div className="bv-choose-foot">{results.length > PICKS_PER_TRY && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
+        <div className="bv-choose-foot">{results.length > perTry && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
           {!loading && <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/\bbooks\b/, "book") : pill.about}</p>}</div>
       </>}
     </div>}
