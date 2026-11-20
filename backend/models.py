@@ -126,7 +126,6 @@ IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BL
 class Book(Base):
     __tablename__ = 'books'
     __table_args__ = (CheckConstraint('quality_score IS NULL OR quality_score BETWEEN 0 AND 100', name='ck_books_quality_score'),
-                      Index('ix_books_complete', 'id', postgresql_where=text('is_complete')),
                       Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -189,7 +188,6 @@ class BookTitleAlias(Base):
         CheckConstraint("source IN ('openlibrary_edition')", name='ck_book_title_aliases_source'),
         Index('uq_book_title_alias', 'book_id', func.lower(text('title')), unique=True),
         Index('ix_book_title_aliases_book', 'book_id'),
-        Index('ix_book_title_aliases_title_trgm', 'title', postgresql_using='gin', postgresql_ops={'title': 'gin_trgm_ops'}),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
