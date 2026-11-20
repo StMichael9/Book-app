@@ -157,7 +157,7 @@ test('current Reading entry is absent from Finished while earlier finishes remai
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Import books', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
-  await expect(page.locator('.bv-journal-list > li')).toHaveCount(4);
+  await expect(page.locator('.bv-journal-list > li')).toHaveCount(3); // the reaction is its own row now, no longer a line here
   await expect(page.locator('.bv-journal-list')).toContainText('Read before: 2020, finished');
   expect(writes(app)).toHaveLength(0);
 });
@@ -256,7 +256,7 @@ for (const width of [390, 1440]) test(`same book Finish → Mark as reading upda
   await expect(page.locator('.bv-personal-book-state').getByText('Reading', { exact: true })).toBeVisible();
   await expect(page.getByText(/Finished before|Stopped before|also appear in Reading/)).toHaveCount(0);
   await page.getByRole('link', { name: 'A book with history', exact: true }).click();
-  await expect(page.locator('.bv-journal-list > li')).toHaveCount(3);
+  await expect(page.locator('.bv-journal-list > li')).toHaveCount(2);
   expect(app.attempts[0]).toEqual(original[0]);
   expect(app.attempts[1]).toEqual(original[1]);
   expect(app.entry).toMatchObject({ id: 101, is_owned: true, is_wanted: true });
