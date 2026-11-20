@@ -7,7 +7,7 @@ import { useGenres } from "../../ui-v2/useGenres.js";
 import { Button } from "../../ui-v2/primitives.jsx";
 import PickCard from "./PickCard.jsx";
 import NextReadSection from "../NextReadSection.jsx";
-import { PICKS_PER_TRY, cardFromEntry, startable, startReading } from "./homeLogic.js";
+import { PICKS_PER_TRY, PICKS_PER_TRY_PHONE, cardFromEntry, startable, startReading, useCompact } from "./homeLogic.js";
 
 // On a shelf this small the whole shelf is already in hand, so a pill whose books are the same as an earlier pill's is dropped.
 // The books for each pill are worked out from that one library response (no extra requests). "More <subject>" can't be told
@@ -79,32 +79,40 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
+  const compact = useCompact();
   const usable = foldSameBooks(enabled, shelf);
-  const pill = pills.find(item => item.key === active);
+  // The first available filter is already chosen on load, so the box opens with books and never a bare row of buttons.
+  const activeKey = active ?? usable[0]?.key ?? null;
+  const pill = pills.find(item => item.key === activeKey);
+  // Only "Waiting longest" uses the oldest-waiting figure, so a late stats answer must not refetch the other pills.
+  const oldestUsed = pill?.oldest ? oldest : null;
+  // The pill object is rebuilt when the genre names arrive; only what it asks for decides whether to fetch again.
+  const ask = pill && !pill.next ? JSON.stringify({ filters: pill.filters, from: pill.from, oldest: Boolean(pill.oldest) }) : null;
   useEffect(() => {
-    if (!pill || pill.next) return undefined;
+    if (!ask) return undefined;
     const token = ++request.current;
-    fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
+    fetchPicks(JSON.parse(ask), oldestUsed).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
     return () => { request.current += 1; };
-  }, [pill, oldest]);
+  }, [ask, oldestUsed]);
   if (!usable.length) return null;
+  const perTry = compact ? PICKS_PER_TRY_PHONE : PICKS_PER_TRY;
   // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
-  const choose = key => { if (key === active) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
-  // Try again walks through the results three at a time and only repeats a book once they have all been shown.
-  const pages = results?.length ? Math.ceil(results.length / PICKS_PER_TRY) : 0;
-  const shown = results ? results.slice((turn % Math.max(pages, 1)) * PICKS_PER_TRY, (turn % Math.max(pages, 1)) * PICKS_PER_TRY + PICKS_PER_TRY) : [];
+  const choose = key => { if (key === activeKey) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
+  // Try again walks through the results five at a time (four on a phone or tablet) and only repeats a book once they have all been shown.
+  const pages = results?.length ? Math.ceil(results.length / perTry) : 0;
+  const shown = results ? results.slice((turn % Math.max(pages, 1)) * perTry, (turn % Math.max(pages, 1)) * perTry + perTry) : [];
   const start = card => { setPending(card.entry_id); command.run(() => startReading(card.entry_id), () => go(`/my-books/${card.entry_id}`)); };
   return <section className="bv-choose" aria-labelledby="bv-choose-title">
     <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? "Books you don’t have yet" : "Pick from your own shelf"}</p></div>
     <div className="bv-pills" role="group" aria-label="Help me choose">
-      {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={active === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
+      {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={activeKey === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
     {pill && <div className={`bv-results${!pill.next && !loading && results !== null && (failed || !results.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
     {pill.next && <NextReadSection panel />}
     {!pill.next && <div role="status" aria-live="polite">
       {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
         <div className={`bv-picks${loading ? " bv-picks--busy" : ""}`}>{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending || loading} />)}</div>
-        <div className="bv-choose-foot">{results.length > PICKS_PER_TRY && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
+        <div className="bv-choose-foot">{results.length > perTry && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
           {!loading && <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/\bbooks\b/, "book") : pill.about}</p>}</div>
       </>}
     </div>}
