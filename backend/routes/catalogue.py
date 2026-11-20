@@ -1,7 +1,7 @@
 """Additive catalogue API; legacy /books, discovery filters and imports unchanged."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert
@@ -41,6 +41,18 @@ def search(request: Request, title: str = Query(default='',max_length=200), auth
     existing = set(db.scalars(select(Book.source_id).where(Book.source_id.in_([x['source_id'] for x in items])))) if items else set()
     filtered = [x for x in items if x['source_id'] not in existing]
     return {'items':filtered[:30], 'available':True, 'more_available':len(filtered)>30}
+
+
+@router.get('/isbn/{isbn}')
+@limiter.limit('90/minute')
+def isbn_lookup(request: Request, isbn: str = Path(max_length=20), current_user: User = Depends(reading_user),
+                db: Session = Depends(get_db)):
+    """What we know about a scanned or typed ISBN (T67). A lookup only: nothing is written to the catalogue."""
+    from services import isbn_lookup as scan
+    normalized = scan.normalize(isbn)
+    if not normalized:
+        raise HTTPException(422, detail='That is not a valid ISBN.')
+    return scan.lookup(db, current_user.id, normalized)
 
 
 class Selection(BaseModel):

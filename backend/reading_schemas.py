@@ -154,6 +154,18 @@ class PrivateEntryCreate(BaseModel):
     author: str | None = Field(default=None, max_length=500)
     is_owned: StrictBool = False
     is_wanted: StrictBool = False
+    isbn: str | None = Field(default=None, max_length=20)     # a scanned or typed ISBN: queues a catalogue lookup (T67)
+
+    @field_validator("isbn")
+    @classmethod
+    def _valid_isbn(cls, value):
+        if value is None or not value.strip():
+            return None
+        from data.clean import isbn10_to_13, isbn13
+        found = isbn13(value) or isbn10_to_13(value)
+        if not found:
+            raise ValueError("Enter a valid ISBN.")
+        return found
 
 
 class AttemptValues(BaseModel):
