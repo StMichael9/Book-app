@@ -211,7 +211,7 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     const wide = width > 700;
     await expect(desk.getByRole("article")).toHaveCount(wide ? 3 : 1);
     await expect(desk.getByRole("progressbar", { name: "Reading progress for Reading fixture 101" })).toHaveAttribute("value", "40");
-    await expect(desk.getByRole("progressbar")).toHaveCount(1);
+    await expect(desk.getByRole("progressbar")).toHaveCount(wide ? 3 : 1);
     if (wide) await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);

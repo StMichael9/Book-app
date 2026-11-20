@@ -84,12 +84,16 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   // The first available filter is already chosen on load, so the box opens with books and never a bare row of buttons.
   const activeKey = active ?? usable[0]?.key ?? null;
   const pill = pills.find(item => item.key === activeKey);
+  // Only "Waiting longest" uses the oldest-waiting figure, so a late stats answer must not refetch the other pills.
+  const oldestUsed = pill?.oldest ? oldest : null;
+  // The pill object is rebuilt when the genre names arrive; only what it asks for decides whether to fetch again.
+  const ask = pill && !pill.next ? JSON.stringify({ filters: pill.filters, from: pill.from, oldest: Boolean(pill.oldest) }) : null;
   useEffect(() => {
-    if (!pill || pill.next) return undefined;
+    if (!ask) return undefined;
     const token = ++request.current;
-    fetchPicks(pill, oldest).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
+    fetchPicks(JSON.parse(ask), oldestUsed).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
     return () => { request.current += 1; };
-  }, [pill, oldest]);
+  }, [ask, oldestUsed]);
   if (!usable.length) return null;
   const perTry = compact ? PICKS_PER_TRY_PHONE : PICKS_PER_TRY;
   // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
