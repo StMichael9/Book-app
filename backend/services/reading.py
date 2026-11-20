@@ -1,18 +1,29 @@
 """Reading commands serialize on the existing owner-scoped library entry."""
 import hashlib
+import uuid
 import json
+import re
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from fastapi import HTTPException
-from sqlalchemy import Text, case, func, literal_column, select, tuple_
+from sqlalchemy import Text, case, delete, func, literal_column, select, tuple_
 from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
 
-from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, ReadingProgressDay, UserBook
-from reading_schemas import AttemptDetail, AttemptPage, AttemptView, ReadingResult, ReadingWorkspace
+from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, ReadingNote, ReadingProgressDay, UserBook
+from reading_schemas import AttemptDetail, AttemptPage, AttemptView, NoteView, ReadingResult, ReadingWorkspace
 from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
+
+
+MAX_NOTES_PER_ATTEMPT = 200
+BLANK_LINE = re.compile(chr(92) + "n" + chr(92) + "s*" + chr(92) + "n")      # \n\s*\n
+
+
+def split_notes(text):
+    """The legacy single note as separate notes: split on blank lines, trimmed, empty parts dropped."""
+    return [part.strip() for part in BLANK_LINE.split(text or "") if part.strip()]
 
 
 def fingerprint(values):
@@ -152,6 +163,8 @@ class ReadingService(LibraryService):
         attempt = self._attempt(user_id, attempt_id)
         self._version(user_id, entry, data.expected_version)
         changes = data.model_dump(exclude_unset=True, exclude={"expected_version", "on"})
+        replace_notes = "note" in changes          # the old frontend's single text replaces this reading's notes
+        new_note_text = changes.pop("note", None)
         target = changes.get("state", attempt.state)
         if attempt.state in ("finished", "dnf"):
             if target == "paused":
@@ -166,6 +179,15 @@ class ReadingService(LibraryService):
             setattr(candidate, key, value)
         self._validate(candidate)
         changed = any(getattr(attempt, key) != value for key, value in changes.items())
+        if replace_notes:
+            parts = split_notes(new_note_text)
+            if len(parts) > MAX_NOTES_PER_ATTEMPT:
+                raise HTTPException(422, detail=f"A reading can have at most {MAX_NOTES_PER_ATTEMPT} notes")
+            if parts != list(self.db.scalars(select(ReadingNote.text).where(ReadingNote.attempt_id == attempt.id)
+                    .order_by(ReadingNote.id))):
+                self.db.execute(delete(ReadingNote).where(ReadingNote.attempt_id == attempt.id))
+                self.db.add_all([ReadingNote(attempt_id=attempt.id, text=part, request_id=uuid.uuid4()) for part in parts])
+                changed = True
         before = (attempt.progress_unit, attempt.progress_value)
         for key, value in changes.items():
             setattr(attempt, key, value)
@@ -177,6 +199,53 @@ class ReadingService(LibraryService):
             self._touch(entry)
         self.db.commit()
         return self._result(user_id, entry.id, attempt.id)
+
+    # --- notes: one row each, with their own dates and the reading's progress when they were written -----------------------
+
+    def _note(self, user_id, note_id):
+        note = self.db.scalar(select(ReadingNote).join(ReadingAttempt, ReadingAttempt.id == ReadingNote.attempt_id)
+            .join(UserBook, UserBook.id == ReadingAttempt.user_book_id)
+            .where(ReadingNote.id == note_id, UserBook.user_id == user_id).with_for_update(of=ReadingNote)
+            .execution_options(populate_existing=True))
+        if note is None:
+            raise HTTPException(404, detail="Note not found")
+        return note
+
+    def create_note(self, user_id, attempt_id, data):
+        attempt = self._attempt(user_id, attempt_id)
+        # Serialise this reading's note writes so the cap and the replay check cannot race.
+        self.db.execute(select(ReadingAttempt.id).where(ReadingAttempt.id == attempt.id).with_for_update())
+        existing = self.db.scalar(select(ReadingNote).where(ReadingNote.attempt_id == attempt.id,
+            ReadingNote.request_id == data.request_id))
+        if existing is not None:
+            self.db.rollback()
+            if existing.text != data.text:
+                raise HTTPException(409, detail="This request identifier already represents a different note")
+            return NoteView.model_validate(existing)
+        count = self.db.scalar(select(func.count()).select_from(ReadingNote).where(ReadingNote.attempt_id == attempt.id))
+        if count >= MAX_NOTES_PER_ATTEMPT:
+            self.db.rollback()
+            raise HTTPException(422, detail=f"A reading can have at most {MAX_NOTES_PER_ATTEMPT} notes")
+        note = ReadingNote(attempt_id=attempt.id, text=data.text, request_id=data.request_id,
+            written_at=datetime.now(timezone.utc), progress_unit=attempt.progress_unit, progress_value=attempt.progress_value)
+        self.db.add(note)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(409, detail="This note changed concurrently. Reload before trying again.") from None
+        return NoteView.model_validate(note)
+
+    def update_note(self, user_id, note_id, data):
+        note = self._note(user_id, note_id)
+        if note.text != data.text:
+            note.text, note.edited_at = data.text, datetime.now(timezone.utc)
+        self.db.commit()
+        return NoteView.model_validate(note)
+
+    def delete_note(self, user_id, note_id):
+        self.db.delete(self._note(user_id, note_id))
+        self.db.commit()
 
     def remove_attempt(self, user_id, attempt_id, data):
         attempt = self._attempt(user_id, attempt_id)

@@ -54,8 +54,12 @@ def lib(client, reader, app_modules, db_session):
     e_zulu = entry(private_title="zulu private", is_wanted=True)
 
     def attempt(item, state, ended=None, note=None, pages=None):
-        db.add(models.ReadingAttempt(id=uuid.uuid4(), user_book_id=item.id, state=state, ended_on=ended, note=note,
+        attempt_id = uuid.uuid4()
+        db.add(models.ReadingAttempt(id=attempt_id, user_book_id=item.id, state=state, ended_on=ended,
                                      total_pages=pages, creation_fingerprint=uuid.uuid4().hex))
+        if note:
+            db.flush()
+            db.add(models.ReadingNote(attempt_id=attempt_id, text=note, request_id=uuid.uuid4()))      # notes live one per row (T68)
 
     attempt(e_alpha, "finished", date(2023, 5, 1))
     attempt(e_bravo, "finished", date(2023, 2, 1))
