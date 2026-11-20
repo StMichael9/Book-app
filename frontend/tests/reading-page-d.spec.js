@@ -496,3 +496,22 @@ test("with reduced motion the pills do not transition", async ({ page, app: _app
   await finishBook(page);
   expect(await prompt(page).getByRole("button", { name: "Loved it", exact: true }).evaluate(node => getComputedStyle(node).transitionDuration)).toBe("0s");
 });
+
+for (const theme of ["light", "dark"]) test(`Skip is plain underlined text with no fill, border or shadow in any state; ${theme}`, async ({ page, app: _app }) => {
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await finishBook(page);
+  const skip = prompt(page).getByRole("button", { name: "Skip", exact: true });
+  const look = () => skip.evaluate(node => { const css = getComputedStyle(node); return { background: css.backgroundColor, image: css.backgroundImage, border: css.borderTopWidth, shadow: css.boxShadow, decoration: css.textDecorationLine, height: node.getBoundingClientRect().height }; });
+  for (const state of ["rest", "hover", "focus"]) {
+    if (state === "hover") await skip.hover();
+    if (state === "focus") await skip.focus();
+    const seen = await look();
+    expect(seen.background, state).toBe("rgba(0, 0, 0, 0)");
+    expect(seen.image, state).toBe("none");
+    expect(seen.border, state).toBe("0px");
+    expect(seen.shadow, state).toBe("none");
+    expect(seen.decoration, state).toBe("underline");
+    expect(seen.height, state).toBeGreaterThanOrEqual(44);
+  }
+});
