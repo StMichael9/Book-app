@@ -11,6 +11,7 @@ import { LibraryEntryCard, LibraryEntryRow } from "./ReadingCards.jsx";
 import { LETTERS, entryLetter, letterId } from "./library/libraryIndex.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
+import ScanEntry from "./scan/ScanEntry.jsx";
 import { FILTER_GROUPS, MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
 import "../../styles/ui-v2/library.css";
 
@@ -237,7 +238,7 @@ export default function LibraryPage() {
             : <EmptyState icon={BookOpen} title="No books here yet." action={<ActionLink to="/browse">Discover books</ActionLink>}>Mark a book Want to read or Owned to keep it here.</EmptyState>}
       </div>
     </div>
-    {library.readingActions && !library.readOnly && <p className="bv-library-tools"><TextLink to="/my-books/private">Add a book</TextLink></p>}
+    {library.readingActions && !library.readOnly && <div className="bv-library-tools"><TextLink to="/my-books/private">Add a book</TextLink><ScanEntry /></div>}
     {!desktop && <NativeDialog open={sheet} onClose={() => setSheet(false)} title="Filters" className="bv-sheet">
       <div className="bv-sheet-body">
         {moreShelves.length > 0 && <fieldset className="bv-facet-group"><legend>Other shelves</legend>

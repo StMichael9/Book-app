@@ -1,0 +1,290 @@
+import { test as base, expect } from "@playwright/test";
+import { GENRES } from "./support/genres.js";
+
+// The reading page and Home's Reading now cards, Direction D: one "Page or %" box, an inline finished prompt, a journal and one fold.
+// Browser-only fixtures; every API call is mocked from the contract.
+const book = { id: 1, title: "Piranesi", authors: [{ id: 1, name: "Susanna Clarke" }], tags: [], cover_image_url: null, page_count: 272, english_title: null };
+const freshAttempt = () => ({ id: "a1", state: "reading", started_on: "2026-11-13", ended_on: null, progress_unit: null, progress_value: null, total_pages: 360, note: null, reaction: null, updated_at: "2026-11-13T10:00:00Z" });
+const freshEntry = () => ({ id: 101, book_id: 1, book, is_owned: true, is_wanted: false, version: 1, reading_state: "reading", private_title: null, private_author: null, save_note: null, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-11-13T10:00:00Z" });
+
+const test = base.extend({
+  app: async ({ page, baseURL }, provide) => {
+    const state = { entry: freshEntry(), attempt: freshAttempt(), history: [], patches: [], requests: [], progressDays: undefined, isbn: {}, lookups: [], writes: [], inflight: 0, maxInflight: 0, holdLookups: null, readOnly: false, holdPatch: null, errors: [] };
+    page.on("pageerror", error => state.errors.push(error.message));
+    await page.route("**/*", async route => {
+      const request = route.request(), url = new URL(request.url());
+      if (url.origin !== new URL(baseURL).origin) return route.abort();
+      if (!url.pathname.startsWith("/test-api/")) return route.continue();
+      const path = url.pathname.slice("/test-api".length), method = request.method();
+      const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
+      state.requests.push({ path, method, body });
+      const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/auth/refresh") return reply(200, {});
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
+      if (path === "/genres") return reply(200, GENRES);
+      if (path === "/autocomplete/tags/batch") return reply(200, []);
+      if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: !state.readOnly, contract_version: 1, features: { reading_actions: true, private_context: true, privacy_controls: true, library_import: true } });
+      if (path === "/me/home") return reply(200, { current_reads: state.attempt.state === "reading" ? [{ entry: state.entry, attempt: state.attempt }] : [], reading_count: state.attempt.state === "reading" ? 1 : 0, paused_count: 0 });
+      if (path === "/me/library") return reply(200, { items: [state.entry], counts: { all: 1, owned: 1, want: 0, reading: 1, paused: 0, finished: 0, dnf: 0 }, total: 1, next_cursor: null, facets: {}, index: null });
+      if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => ({ book_id: id, entry_id: 101, version: state.entry.version, is_owned: state.entry.is_owned, is_wanted: state.entry.is_wanted, reading_state: state.entry.reading_state })) });
+      if (path === "/me/stats" || path === "/me/up-next") return reply(path === "/me/stats" ? 200 : 200, path === "/me/stats" ? { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } : []);
+      if (path === "/me/lists") return reply(200, []);
+      if (path === "/me/library/101/reading") return reply(200, { entry: state.entry, current_attempt: state.attempt, editions: [], ...(state.progressDays !== undefined ? { progress_days: state.progressDays } : {}) });
+      if (path === "/me/library/101/attempts") return reply(200, { items: state.history, next_cursor: null });
+      if (path === "/me/reading-attempts/a1" && method === "PATCH") {
+        state.patches.push(body);
+        if (state.holdPatch) await state.holdPatch;
+        const { expected_version: _version, ...changes } = body;
+        state.attempt = { ...state.attempt, ...changes, updated_at: "2026-11-13T12:00:00Z" };
+        state.entry = { ...state.entry, version: state.entry.version + 1, reading_state: state.attempt.state };
+        return reply(200, { entry: state.entry, attempt: state.attempt });
+      }
+      if (path === "/me/library/101" && method === "PATCH") {
+        const { expected_version: _version, ...changes } = body;
+        state.entry = { ...state.entry, ...changes, version: state.entry.version + 1 };
+        return reply(200, state.entry);
+      }
+      if (/\/description$/.test(path)) return reply(404, { detail: "Not found" });
+      if (path === "/books/1") return reply(200, { ...book, description: "A house of endless halls.", published_year: 2020, isbn13: null });
+      const isbnAt = path.match(/^\/me\/catalogue\/isbn\/(\d+)$/);
+      if (isbnAt) {
+        state.lookups.push(isbnAt[1]); state.inflight += 1; state.maxInflight = Math.max(state.maxInflight, state.inflight);
+        await (state.holdLookups || new Promise(done => setTimeout(done, 40)));
+        state.inflight -= 1;
+        const answer = state.isbn[isbnAt[1]];
+        if (answer === "429") return reply(429, { detail: "Too many requests" });
+        return reply(200, answer || { isbn13: isbnAt[1], status: "not_found", book_id: null, edition_id: null, title: null, authors: [], cover_url: null, on_shelf: null });
+      }
+      if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 900 + Number(path.split("/").pop()) }); }
+      if (path === "/me/library/private" && method === "POST") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 800 + state.writes.length, book_id: null, book: null, private_title: body.title }); }
+      state.errors.push(`Unhandled ${method} ${path}`);
+      return reply(404, { detail: "Not found" });
+    });
+    await provide(state);
+  },
+});
+
+const EMMA = "9780141439518", GATSBY = "9780743273565", MOCK = "9780061120084", ORWELL = "9780451524935", OL_ONLY = "9780140449136";
+const card = (isbn, title, extra = {}) => ({ isbn13: isbn, status: "catalogue", book_id: Number(isbn.slice(-4)), edition_id: 1, title, authors: ["An Author"], cover_url: null, on_shelf: null, ...extra });
+const answers = {
+  [EMMA]: card(EMMA, "Emma"),
+  [GATSBY]: card(GATSBY, "The Great Gatsby", { on_shelf: { is_owned: true, is_wanted: false } }),
+  [ORWELL]: card(ORWELL, "Nineteen Eighty-Four"),
+  [OL_ONLY]: { isbn13: OL_ONLY, status: "open_library", book_id: null, edition_id: null, title: "The Odyssey", authors: ["Homer"], cover_url: null, on_shelf: null },
+};
+
+// A camera stand-in: a canvas stream, and a BarcodeDetector that reports whatever the test pushes onto window.__codes.
+const withCamera = (page, mode = "ok") => page.addInitScript(mode => {
+  window.__codes = []; window.__stopped = 0; window.__streams = 0;
+  if (mode === "refused") { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Permission denied", "NotAllowedError"); }; return; }
+  if (mode === "none") { Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true }); return; }
+  navigator.mediaDevices.getUserMedia = async () => {
+    const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240;
+    const context = canvas.getContext("2d"); let shade = 0;
+    setInterval(() => { shade = (shade + 20) % 255; context.fillStyle = `rgb(${shade},${shade},${shade})`; context.fillRect(0, 0, 320, 240); }, 100);
+    const stream = canvas.captureStream(10); window.__streams += 1;
+    for (const track of stream.getTracks()) { const stop = track.stop.bind(track); track.stop = () => { window.__stopped += 1; stop(); }; }
+    return stream;
+  };
+  window.BarcodeDetector = class { async detect() { return window.__codes.splice(0).map(rawValue => ({ rawValue })); } };
+}, mode);
+const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
+const open = async page => { await page.goto("/my-books"); await page.getByRole("button", { name: "Scan books", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Scan books" })).toBeVisible(); };
+
+test.use({ viewport: { width: 390, height: 844 } });
+
+test("a phone gets a Scan books button; a wider screen gets only the typed-ISBN field", async ({ page, app: _app }) => {
+  await withCamera(page);
+  await page.goto("/my-books");
+  await expect(page.getByRole("button", { name: "Scan books", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Type an ISBN")).toHaveCount(0);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(page.getByRole("button", { name: "Scan books", exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Type an ISBN")).toBeVisible();
+});
+
+test("scanning a stack: rows collect, repeats and non-ISBN codes are ignored, and Add N books saves them all as owned", async ({ page, app }) => {
+  app.isbn = answers;
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await expect(dialog.getByText("Point at the barcode on the back")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Add 0 books" })).toBeDisabled();
+  await scan(page, EMMA, EMMA, "5012345678900", "9780141439519");   // a repeat, a shop code and a bad check digit
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(1);
+  await scan(page, GATSBY, OL_ONLY, MOCK);
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(4);
+  await expect(dialog.locator(`[data-isbn="${EMMA}"]`)).toContainText("Emma");
+  await expect(dialog.locator(`[data-isbn="${GATSBY}"]`)).toContainText("Already on your shelf");
+  await expect(dialog.locator(`[data-isbn="${OL_ONLY}"]`)).toContainText("The Odyssey");
+  await expect(dialog.locator(`[data-isbn="${MOCK}"]`)).toContainText("We’ll find this one — saved for now");
+  await expect(dialog.getByRole("switch", { name: "I own it" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("button", { name: "Add 3 books" })).toBeEnabled();
+  expect(app.lookups.filter(isbn => isbn === EMMA)).toHaveLength(1);
+  await dialog.getByRole("button", { name: "Add 3 books" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(app.writes.map(write => `${write.method} ${write.path}`).sort()).toEqual(["POST /me/library/private", "POST /me/library/private", `PUT /me/library/books/${EMMA.slice(-4)}`].sort());
+  expect(app.writes.find(write => write.method === "PUT").body).toEqual({ is_owned: true });
+  const odyssey = app.writes.find(write => write.body.isbn === OL_ONLY).body, unknown = app.writes.find(write => write.body.isbn === MOCK).body;
+  expect(odyssey).toMatchObject({ title: "The Odyssey", author: "Homer", is_owned: true, is_wanted: false });
+  expect(unknown).toMatchObject({ title: `ISBN ${MOCK}`, author: null, is_owned: true });
+  expect(new Set([odyssey.request_id, unknown.request_id]).size).toBe(2);
+  expect(await page.evaluate(() => window.__stopped)).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "Scan books", exact: true })).toBeFocused();
+});
+
+test("the switch changes the whole list to Want to read", async ({ page, app }) => {
+  app.isbn = answers;
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await scan(page, EMMA, MOCK);
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(2);
+  await dialog.getByRole("switch", { name: "I own it" }).click();
+  await expect(dialog.getByRole("switch", { name: "I own it" })).toHaveAttribute("aria-checked", "false");
+  await expect(dialog.getByRole("switch", { name: "I own it" })).toContainText("Want to read");
+  await dialog.getByRole("button", { name: "Add 2 books" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(app.writes.find(write => write.method === "PUT").body).toEqual({ is_wanted: true });
+  expect(app.writes.find(write => write.method === "POST").body).toMatchObject({ is_owned: false, is_wanted: true });
+});
+
+test("Add N books waits for lookups, a row can be removed, and a double click saves once", async ({ page, app }) => {
+  app.isbn = answers;
+  let release; app.holdLookups = new Promise(done => { release = done; });
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await scan(page, EMMA, ORWELL);
+  await expect(dialog.locator(".bv-scan-row.is-looking")).toHaveCount(2);
+  await expect(dialog.locator(".bv-scan-state").first()).toHaveText("Looking up…");
+  await expect(dialog.getByRole("button", { name: /^Add \d+ books?$/ })).toBeDisabled();
+  release();
+  await expect(dialog.getByRole("button", { name: "Add 2 books" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Remove Nineteen Eighty-Four" }).click();
+  await expect(dialog.getByRole("button", { name: "Add 1 book" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "Add 1 book" }).dblclick();
+  await expect(dialog).toHaveCount(0);
+  expect(app.writes).toHaveLength(1);
+});
+
+test("at most two lookups run at once, and a rate-limited one offers Retry on its own row", async ({ page, app }) => {
+  app.isbn = { ...answers, [ORWELL]: "429" };
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await scan(page, EMMA, GATSBY, ORWELL, OL_ONLY, MOCK);
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(5);
+  await expect(dialog.locator(".bv-scan-row.is-looking, .bv-scan-row.is-waiting")).toHaveCount(0);
+  expect(app.maxInflight).toBeLessThanOrEqual(2);
+  const failed = dialog.locator(`[data-isbn="${ORWELL}"]`);
+  await expect(failed).toContainText("Couldn’t look this up.");
+  await expect(failed.getByRole("button", { name: "Retry" })).toBeVisible();
+  app.isbn[ORWELL] = answers[ORWELL];
+  await failed.getByRole("button", { name: "Retry" }).click();
+  await expect(failed).toContainText("Nineteen Eighty-Four");
+  await expect(failed.getByRole("button", { name: "Retry" })).toHaveCount(0);
+});
+
+test("a refused or missing camera falls back to typing, with one plain sentence", async ({ page, app }) => {
+  app.isbn = answers;
+  for (const mode of ["refused", "none"]) {
+    await withCamera(page, mode);
+    await open(page);
+    const dialog = page.getByRole("dialog", { name: "Scan books" });
+    await expect(dialog.getByText("Camera’s off. Type the ISBN instead.")).toBeVisible();
+    await expect(dialog.getByText("Point at the barcode on the back")).toHaveCount(0);
+    await dialog.getByLabel("Type an ISBN").fill("0-14-143951-3");
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog.locator(`[data-isbn="${EMMA}"]`)).toContainText("Emma");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await page.reload();
+  }
+  expect(app.writes).toHaveLength(0);
+});
+
+test("Escape closes the sheet, stops the camera and returns focus; focus stays inside while it is open", async ({ page, app: _app }) => {
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  for (let index = 0; index < 8; index += 1) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => Boolean(document.activeElement?.closest("dialog")))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.__stopped)).toBeGreaterThan(0);
+  await expect(page.getByRole("button", { name: "Scan books", exact: true })).toBeFocused();
+});
+
+test("the camera stops when the page is hidden and starts again when it is shown", async ({ page, app: _app }) => {
+  await withCamera(page);
+  await open(page);
+  await expect.poll(() => page.evaluate(() => window.__streams)).toBe(1);
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect.poll(() => page.evaluate(() => window.__stopped)).toBeGreaterThan(0);
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: false, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect.poll(() => page.evaluate(() => window.__streams)).toBe(2);
+});
+
+test("on a wide screen the typed ISBN feeds the same list; a bad one is explained", async ({ page, app }) => {
+  app.isbn = answers;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/my-books");
+  await page.getByLabel("Type an ISBN").fill("12345");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByText("Enter a valid ISBN.")).toBeVisible();
+  await page.getByLabel("Type an ISBN").fill(EMMA);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await expect(dialog.locator(`[data-isbn="${EMMA}"]`)).toContainText("Emma");
+  await expect(dialog.locator("video")).toHaveCount(0);
+  await dialog.getByLabel("Type an ISBN").fill(OL_ONLY);
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(2);
+  await dialog.getByRole("button", { name: "Add 2 books" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(app.writes).toHaveLength(2);
+});
+
+test("if saving fails the books stay in the list and a second Add sends the same request ids", async ({ page, app }) => {
+  app.isbn = answers;
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await scan(page, MOCK);
+  await expect(dialog.getByRole("button", { name: "Add 1 book" })).toBeEnabled();
+  let fail = true;
+  await page.route("**/test-api/me/library/private", route => { if (fail) return route.fulfill({ status: 503, json: { detail: "Temporary failure" } }); return route.fallback(); });
+  await dialog.getByRole("button", { name: "Add 1 book" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Some books couldn’t be added. Try again.");
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(1);
+  fail = false;
+  await dialog.getByRole("button", { name: "Add 1 book" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(app.writes).toHaveLength(1);
+});
+
+for (const theme of ["light", "dark"]) test(`the sheet fits at 390, 320 and 200% text; ${theme}`, async ({ page, app }) => {
+  app.isbn = { ...answers, [ORWELL]: "429" };
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await withCamera(page);
+  for (const [width, zoom] of [[390, false], [320, false], [390, true]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await open(page);
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const dialog = page.getByRole("dialog", { name: "Scan books" });
+    await scan(page, EMMA, GATSBY, ORWELL, OL_ONLY, MOCK);
+    await expect(dialog.locator(".bv-scan-row")).toHaveCount(5);
+    await expect(dialog.locator(".bv-scan-row.is-looking, .bv-scan-row.is-waiting")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector("dialog").scrollWidth <= innerWidth)).toBe(true);
+    const box = await dialog.boundingBox();
+    expect(Math.round(box.width)).toBe(width);
+    await page.screenshot({ path: test.info().outputPath(`scan-${theme}-${width}${zoom ? "-200" : ""}.png`) });
+    await page.keyboard.press("Escape");
+    await page.reload();
+  }
+});
