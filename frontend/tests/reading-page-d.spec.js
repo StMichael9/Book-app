@@ -359,3 +359,140 @@ for (const theme of ["light", "dark"]) test(`the tracking page layout holds at e
     await page.screenshot({ path: test.info().outputPath(`tracking-${theme}-${width}${zoom ? "-200" : ""}.png`), fullPage: true });
   }
 });
+
+// ---- T70 part B: "How was it?" at finish, and the reaction row on the book page ---------------------------------------------------------
+
+const REACTION_NAMES = ["Loved it", "Liked it", "Not for me"];
+const prompt = page => page.locator(".bv-thumbs-prompt");
+const finishBook = async page => { await page.goto("/my-books/101"); await page.getByRole("button", { name: "Finish book", exact: true }).click(); await expect(page.getByRole("heading", { name: /^You finished / })).toBeVisible(); };
+
+test("finishing a book asks How was it? inline, with three pills and Skip; one tap saves and shows the chosen pill at the same height", async ({ page, app }) => {
+  await finishBook(page);
+  const group = prompt(page).getByRole("group", { name: "How was it?" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("button")).toHaveText(["Loved it", "Liked it", "Not for me", "Skip"]);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  for (const name of REACTION_NAMES) await expect(group.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "false");
+  const before = await prompt(page).evaluate(node => node.getBoundingClientRect().height), top = await prompt(page).evaluate(node => node.getBoundingClientRect().top);
+  await group.getByRole("button", { name: "Loved it", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 2, reaction: "loved" });
+  await expect(prompt(page).getByRole("button")).toHaveCount(1);
+  await expect(prompt(page).getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(prompt(page).getByRole("group")).toHaveCount(0);
+  const after = await prompt(page).evaluate(node => node.getBoundingClientRect().height);
+  expect(Math.abs(after - before)).toBeLessThanOrEqual(1);                  // reserved: nothing below it moves
+  expect(Math.abs(await prompt(page).evaluate(node => node.getBoundingClientRect().top) - top)).toBeLessThanOrEqual(1);
+  await expect(page.locator(".bv-thumbs-reaction").getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("Not finishing (stopping a book) asks too, and Skip removes the prompt without saving", async ({ page, app }) => {
+  await page.goto("/my-books/101");
+  await page.getByText("About this book", { exact: true }).click();
+  await page.getByRole("button", { name: "Stop reading this book", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /^You stopped reading / })).toBeVisible();
+  await expect(prompt(page).getByRole("group", { name: "How was it?" })).toBeVisible();
+  await prompt(page).getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(prompt(page)).toHaveCount(0);
+  expect(app.patches.filter(patch => "reaction" in patch)).toHaveLength(0);
+});
+
+test("the pills work from the keyboard: Tab through them, Enter or Space saves", async ({ page, app }) => {
+  await finishBook(page);
+  const group = prompt(page).getByRole("group", { name: "How was it?" });
+  await group.getByRole("button", { name: "Loved it", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(group.getByRole("button", { name: "Liked it", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(group.getByRole("button", { name: "Not for me", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(group.getByRole("button", { name: "Skip", exact: true })).toBeFocused();
+  await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => lastPatch(app)).toMatchObject({ reaction: "liked" });
+  await page.locator(".bv-thumbs-reaction").getByRole("button", { name: "Not for me", exact: true }).focus();
+  await page.keyboard.press("Space");
+  await expect.poll(() => lastPatch(app)).toMatchObject({ reaction: "not_for_me" });
+});
+
+test("the book page keeps a reaction row: the current choice pressed, another pill changes it, the pressed one clears it", async ({ page, app }) => {
+  app.attempt = { ...freshAttempt(), state: "finished", ended_on: "2026-11-18", reaction: "liked" };
+  app.entry.reading_state = "finished";
+  await page.goto("/my-books/101");
+  const row = page.locator(".bv-thumbs-reaction").getByRole("group", { name: "How was it?" });
+  await expect(prompt(page)).toHaveCount(0);                                 // the prompt belongs to the moment of finishing
+  await expect(row.getByRole("button", { name: "Liked it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(row.getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await row.getByRole("button", { name: "Loved it", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, reaction: "loved" });
+  await expect(row.getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await row.getByRole("button", { name: "Loved it", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 2, reaction: null });
+  for (const name of REACTION_NAMES) await expect(row.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "false");
+});
+
+test("a reading in progress shows no reaction row, and a closing note is written in Notes", async ({ page, app }) => {
+  await page.goto("/my-books/101");
+  await expect(page.locator(".bv-thumbs-reaction")).toHaveCount(0);
+  await finishBook(page);
+  await page.getByRole("button", { name: "Leave a closing note", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Write a thought about this book" })).toBeFocused();
+  await expect(page.getByLabel("Reaction (optional)")).toHaveCount(0);
+  await page.getByRole("textbox", { name: "Write a thought about this book" }).fill("Closing thought");
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 2, note: "Closing thought" });
+});
+
+test("on Home, finishing from the box asks How was it? in the same place; a pick saves, Skip removes the card", async ({ page, app }) => {
+  await page.goto("/home");
+  await home(page).fill("100%");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+  const card = page.locator(".bv-now-card.is-finished");
+  await expect(card.getByRole("group", { name: "How was it?" })).toBeVisible();
+  await expect(card).toContainText("Piranesi");
+  await card.getByRole("button", { name: "Not for me", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toMatchObject({ reaction: "not_for_me" });
+  await expect(card.getByRole("button", { name: "Not for me", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByRole("button")).toHaveCount(1);
+});
+
+test("on Home, Skip removes the finished card", async ({ page, app }) => {
+  await page.goto("/home");
+  await home(page).fill("100%");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+  const card = page.locator(".bv-now-card.is-finished");
+  await card.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(card).toHaveCount(0);
+  expect(app.patches.filter(patch => "reaction" in patch)).toHaveLength(0);
+});
+
+for (const theme of ["light", "dark"]) test(`the prompt and the reaction row do not shift or scroll sideways at 390, 320 and 200% text; ${theme}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const [width, zoom] of [[390, false], [320, false], [390, true]]) {
+    app.attempt = freshAttempt(); app.entry = freshEntry();
+    await page.setViewportSize({ width, height: 900 });
+    await finishBook(page);
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const group = prompt(page).getByRole("group", { name: "How was it?" });
+    await expect(group).toBeVisible();
+    const before = await page.evaluate(() => ({ height: document.querySelector(".bv-thumbs-prompt").getBoundingClientRect().height, below: (document.querySelector(".bv-thumbs-prompt").nextElementSibling?.getBoundingClientRect().top ?? 0) + window.scrollY, scroll: document.documentElement.scrollWidth <= innerWidth }));
+    expect(before.scroll).toBe(true);
+    for (const pill of await group.getByRole("button").all()) expect((await pill.boundingBox()).height).toBeGreaterThanOrEqual(43);
+    await page.screenshot({ path: test.info().outputPath(`thumbs-prompt-${theme}-${width}${zoom ? "-200" : ""}.png`) });
+    await group.getByRole("button", { name: "Liked it", exact: true }).click();
+    await expect(prompt(page).getByRole("group")).toHaveCount(0);
+    const after = await page.evaluate(() => ({ height: document.querySelector(".bv-thumbs-prompt").getBoundingClientRect().height, below: (document.querySelector(".bv-thumbs-prompt").nextElementSibling?.getBoundingClientRect().top ?? 0) + window.scrollY, scroll: document.documentElement.scrollWidth <= innerWidth }));
+    expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(1);
+    expect(Math.abs(after.below - before.below)).toBeLessThanOrEqual(1);
+    expect(after.scroll).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`thumbs-chosen-${theme}-${width}${zoom ? "-200" : ""}.png`) });
+  }
+});
+
+test("with reduced motion the pills do not transition", async ({ page, app: _app }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await finishBook(page);
+  expect(await prompt(page).getByRole("button", { name: "Loved it", exact: true }).evaluate(node => getComputedStyle(node).transitionDuration)).toBe("0s");
+});

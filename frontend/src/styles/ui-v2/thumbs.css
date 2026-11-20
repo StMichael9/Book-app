@@ -1,0 +1,16 @@
+/* "How was it?": three private reactions as pills with a thumbs icon and a visible label. Existing tokens only. */
+.bv-root .bv-thumbs-title { margin: 0 0 8px; font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
+.bv-root .bv-thumbs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bv-root .bv-thumbs-pill { appearance: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); transition: background-color 150ms ease-out, color 150ms ease-out; }
+.bv-root .bv-thumbs-pill svg { width: 18px; height: 18px; flex: none; }
+.bv-root .bv-thumbs-pill[aria-pressed="true"] { background-color: var(--bv-green); color: var(--bv-on-green); }
+.bv-root .bv-thumbs-pill:disabled { cursor: default; }
+.bv-root .bv-thumbs-pill:disabled:not([aria-pressed="true"]) { opacity: .6; }
+.bv-root .bv-thumbs-pill:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
+.bv-root .bv-thumbs-two { display: inline-flex; flex: none; }
+.bv-root .bv-thumbs-two svg + svg { margin-left: -6px; }
+.bv-root .bv-thumbs-skip { min-height: 44px; padding: 0 6px; background: transparent; box-shadow: none; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.bv-root .bv-thumbs-prompt { margin: 14px 0 0; }
+.bv-root .bv-thumbs-reaction { margin: 0 0 18px; }
+.bv-root .bv-now-progress .bv-thumbs-prompt { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .bv-root .bv-thumbs-pill { transition: none; } }

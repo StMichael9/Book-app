@@ -9,9 +9,9 @@ import { Button, EmptyState } from "../ui-v2/primitives.jsx";
 import { currentProgress, pageOf, percentOf } from "./progressInput.js";
 import { formatDay } from "./readingDates.js";
 import { addNote, editNote, noteMeta, notesOf } from "./readingNotes.js";
+import { ReactionRow } from "./ThumbsPrompt.jsx";
 
 const stateWord = { finished: "finished", dnf: "stopped", reading: "reading", paused: "paused" };
-const reactionLabel = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
 
 // The progress bar: a solid green fill on a quiet track. Decorative; the text line under it carries the facts.
 export function ForeEdge({ attempt }) {
@@ -122,7 +122,7 @@ export function ReadingNotes({ entry, attempt, readOnly, minVersion = 0, onSaved
 }
 
 // Everything that happened, newest first, built from what is already saved. Each line has a quiet Edit that opens it in place.
-export default function ReadingJournal({ entry, attempt, entryId, workspace, visible, readOnly, onEdit, editor, editing }) {
+export default function ReadingJournal({ entry, attempt, entryId, workspace, visible, readOnly, onEdit, editor, editing, minVersion = 0, onSaved }) {
   const auth = useAuth(), library = useUserBooks(), location = useLocation();
   const [params, setParams] = useSearchParams();
   const cursor = params.get("history_cursor") || "";
@@ -137,7 +137,6 @@ export default function ReadingJournal({ entry, attempt, entryId, workspace, vis
   if (attempt) {
     if (["finished", "dnf"].includes(attempt.state)) add("finished", attempt.ended_on, attempt.state === "dnf" ? "Stopped" : "Finished", { kind: "progress", attempt });
     if (attempt.state === "paused") add("paused", attempt.updated_at, "Paused", { kind: "progress", attempt });
-    if (attempt.reaction) add("reaction", attempt.updated_at, reactionLabel[attempt.reaction], { kind: "memory", attempt });
     if (attempt.started_on) add("started", attempt.started_on, "Started", { kind: "progress", attempt });
   }
   // Days with saved progress, from the workspace's `progress_days` (T55): {day, unit, first_value, last_value}, newest first.
@@ -158,6 +157,7 @@ export default function ReadingJournal({ entry, attempt, entryId, workspace, vis
   const open = line => editing && line.edit && editing.kind === line.edit.kind && (line.edit.kind === "save_note" || editing.attempt?.id === line.edit.attempt?.id);
   return <section className="bv-journal" aria-labelledby="bv-journal-title" hidden={!visible}>
     <h2 id="bv-journal-title">Your reading</h2>
+    <ReactionRow entry={entry} attempt={attempt} readOnly={readOnly} minVersion={minVersion} onSaved={onSaved} />
     {history.error ? <EmptyState error title="Your history couldn’t load." action={<Button onClick={history.retry}>Try again</Button>}>Your records haven’t changed.</EmptyState> : null}
     {lines.length > 0 && <ul className="bv-journal-list">{lines.map(line => <li key={line.key} className={line.key.startsWith("day-") ? "bv-journal-day" : undefined}>
       {open(line) ? editor : <>
