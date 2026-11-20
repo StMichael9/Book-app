@@ -96,7 +96,7 @@ export default function ReadingJournal({ entry, attempt, entryId, workspace, vis
       {open(line) ? editor : <>
         {line.day && <time dateTime={line.day}>{formatDay(line.day, { journal: true })}</time>}
         <span className="bv-journal-text">{line.text}</span>
-        {line.edit && !readOnly && <Button variant="quiet" className="bv-journal-edit" disabled={Boolean(editing)} aria-label={`Edit: ${line.text.slice(0, 60)}`} onClick={() => onEdit(line.edit.kind, line.edit.attempt)}>Edit</Button>}
+        {line.edit && !readOnly && <Button variant="quiet" className="bv-journal-edit bv-inline-action" disabled={Boolean(editing)} aria-label={`Edit: ${line.text.slice(0, 60)}`} onClick={() => onEdit(line.edit.kind, line.edit.attempt)}>Edit</Button>}
       </>}
     </li>)}</ul>}
     <div className="bv-form-actions">{cursor && <Button variant="secondary" onClick={() => showHistory()}>First readings</Button>}{history.data?.next_cursor && <Button variant="secondary" onClick={() => showHistory(history.data.next_cursor)}>Older readings</Button>}</div>

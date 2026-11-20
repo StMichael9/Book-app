@@ -38,3 +38,33 @@ test("the skip link is visible when focused, with an on-green ring inside its ed
   expect(parseInt(await style(skip, "outlineOffset"))).toBeLessThan(0);
   expect(ratio(await style(skip, "outlineColor"), await style(skip, "backgroundColor"))).toBeGreaterThanOrEqual(3);
 });
+
+// A text field draws no ring: on keyboard or mouse focus its border really is green (computed), and the second pixel is the inset shadow.
+for (const [scheme, green] of [["light", "rgb(40, 81, 63)"], ["dark", "rgb(185, 211, 191)"]]) {
+  test(`a focused text field has a green border and no outline (${scheme})`, async ({ page, app: _app }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/login");
+    const field = page.getByLabel("Email address");
+    await expect(field).toBeVisible();
+    const before = await style(field, "borderTopColor");
+    expect(before).not.toBe(green);
+    await field.click(); // a mouse click on a text field: still the green border
+    // The border eases to green over 150ms, so the computed value is read once it has settled.
+    for (const side of ["borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor"]) await expect.poll(() => style(field, side), { message: side }).toBe(green);
+    expect(parseFloat(await style(field, "outlineWidth")) === 0 || (await style(field, "outlineStyle")) === "none").toBe(true);
+    expect(await style(field, "boxShadow")).toContain(green);
+    await page.keyboard.press("Tab"); await page.keyboard.press("Shift+Tab"); // keyboard focus: the same
+    await expect.poll(() => style(field, "borderTopColor")).toBe(green);
+  });
+}
+
+test("the phone header has room for the keyboard ring above its controls", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const join = page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true });
+  await expect(join).toBeVisible();
+  const top = (await join.boundingBox()).y;
+  await join.focus(); await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Tab");
+  expect(parseFloat(await style(join, "outlineOffset")) + parseFloat(await style(join, "outlineWidth")), "how far the ring reaches").toBeLessThanOrEqual(top);
+});

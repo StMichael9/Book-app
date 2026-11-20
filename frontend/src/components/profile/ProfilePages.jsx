@@ -11,7 +11,7 @@ import { EditProfileSheet, HandleField, MakePublicSheet, SheetFacts } from "./Pr
 import { HANDLE, HANDLE_ERROR, saveMessage } from "./profileForm.js";
 import { collapse, expand, slideFrom } from "./motion.js";
 import { useProfile } from "./profileState.js";
-import { MONTHS } from "./shelfData.js";
+import { MONTHS, hasYearChart } from "./shelfData.js";
 import { TabBar, TabPanel } from "./ProfileTabs.jsx";
 import { useProfileTab } from "./profileTab.js";
 import { YearCard } from "./YearShelf.jsx";
@@ -99,7 +99,7 @@ function NewList() {
       setError(requestError?.detail?.code === "list_limit" ? "You’ve reached 50 lists." : "We couldn’t make that list. Please try again."); setPending(false);
     }
   }
-  if (!open) return <Button variant="quiet" className="bv-link-button" onClick={() => setOpen(true)}><Plus aria-hidden="true" />New list</Button>;
+  if (!open) return <Button variant="secondary" className="bv-profile-pill" onClick={() => setOpen(true)}><Plus aria-hidden="true" />New list</Button>;
   return <form className="bv-new-list" onSubmit={submit} aria-busy={pending}>
     <div className="bv-field"><label htmlFor="bv-new-list-name">List name</label><input id="bv-new-list-name" value={name} maxLength={80} autoFocus onChange={event => setName(event.target.value)} /></div>
     {error && <p className="bv-field-error" role="alert">{error}</p>}
@@ -135,7 +135,6 @@ function AccountSection() {
 export function ProfileHubPage() {
   const { profile, loading, failed, reload } = useProfile();
   const stats = useLoad(getStats), lists = useLoad(getLists);
-  const [tab, setTab, switched] = useProfileTab();
   const [editing, setEditing] = useState(false), [announcement, setAnnouncement] = useState("");
   if (failed) return <section className="bv-container"><div className="bv-profile"><Failed retry={reload}>We couldn’t load your profile.</Failed><AccountSection /></div></section>;
   if (loading || !profile?.reading_since) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening your profile…</p><AccountSection /></div></section>;
@@ -143,22 +142,19 @@ export function ProfileHubPage() {
   return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
     <div className="bv-profile-top">
       <Identity person={profile} handle={profile.handle} size={96}>
-        <Visibility profile={profile} announce={setAnnouncement} />
-        <Button variant="quiet" className="bv-link-button bv-profile-edit-button" onClick={() => setEditing(true)}>Edit profile</Button>
+        <div className="bv-profile-actions">
+          <Visibility profile={profile} announce={setAnnouncement} />
+          <Button variant="secondary" className="bv-profile-pill" onClick={() => setEditing(true)}>Edit profile</Button>
+        </div>
       </Identity>
       <EditProfileSheet profile={profile} open={editing} onClose={() => setEditing(false)} />
       <p className="bv-sr-only" role="status" aria-live="polite">{announcement}</p>
-      <TabBar value={tab} onChange={setTab} />
     </div>
-    <TabPanel key={tab} value={tab} settle={switched}>
-      {tab === "overview" && <>
-        {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : <YearCard stats={stats.data} />}
-        {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : <OverviewLists lists={lists.data} own linkFor={listLink} onSeeAll={() => setTab("lists")} />}</>}
-      {tab === "lists" && <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
-        {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
-          ? <ul className="bv-list-cards">{lists.data.map(item => <ListCard key={item.id} item={item} to={listLink(item)} own />)}</ul>
-          : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>}
-    </TabPanel>
+    <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Your lists</h2><NewList /></div>
+      {lists.error ? <Failed retry={lists.retry}>We couldn’t load your lists.</Failed> : Array.isArray(lists.data) && (lists.data.length
+        ? <ul className="bv-list-cards">{lists.data.map(item => <ListCard key={item.id} item={item} to={listLink(item)} own />)}</ul>
+        : <p className="bv-muted">Make a list for a series, a theme, or what to read on holiday.</p>)}</section>
+    {stats.error ? <Failed retry={stats.retry}>We couldn’t load your year.</Failed> : hasYearChart(stats.data) && <YearCard stats={stats.data} />}
     <AccountSection />
   </div></section>;
 }
@@ -294,7 +290,7 @@ export function ProfileListPage() {
     </li>)}</ol>}
     <p className="bv-list-add"><TextLink to="/my-books"><Plus aria-hidden="true" />Add a book</TextLink></p>
     <p className="bv-help">Add books from My Books or any book page.</p>
-    {undo && <div className="bv-undo-toast" role="status"><span>Removed {undo.book.title}.</span><Button variant="quiet" onClick={putBack}>Undo</Button></div>}
+    {undo && <div className="bv-undo-toast" role="status"><span>Removed {undo.book.title}.</span><Button variant="quiet" className="bv-inline-action" onClick={putBack}>Undo</Button></div>}
     <RenameSheet key={`${list.name}|${list.description}`} list={list} open={renaming} onClose={() => setRenaming(false)} onSave={change} onDelete={() => { setRenaming(false); setConfirming(true); }} />
     <NativeDialog open={confirming} onClose={() => !pending && setConfirming(false)} title="Delete this list?">
       <p>Delete this list? The books stay in your library.</p>
@@ -320,18 +316,22 @@ export function PublicProfilePage({ handle: given, notFound }) {
   if (!load.data) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening profile…</p></div></section>;
   const page = load.data, own = profile?.handle === handle;
   const listLink = item => `/u/${handle}/lists/${item.id}`;
+  // The year chart shows only once three books are finished this year (the same rule as Home and the owner's profile). Without it
+  // the Overview would hold nothing but lists, so there are no tabs: the lists show directly. With it, the Overview and Lists tabs stay.
+  const chart = hasYearChart(page.stats);
+  const listCards = page.lists.length > 0
+    ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
+      <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
+    : <p className="bv-muted">No public lists yet.</p>;
   return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
     <div className="bv-profile-top">
       <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
-      <TabBar value={tab} onChange={setTab} />
+      {chart && <TabBar value={tab} onChange={setTab} />}
     </div>
-    <TabPanel key={tab} value={tab} settle={switched}>
+    {chart ? <TabPanel key={tab} value={tab} settle={switched}>
       {tab === "overview" && <><YearCard stats={page.stats} own={false} /><OverviewLists lists={page.lists} own={false} linkFor={listLink} onSeeAll={() => setTab("lists")} /></>}
-      {tab === "lists" && (page.lists.length > 0
-        ? <section className="bv-profile-lists" aria-labelledby="bv-lists-heading"><div className="bv-profile-lists-head"><h2 id="bv-lists-heading">Lists</h2></div>
-          <ul className="bv-list-cards">{page.lists.map(item => <ListCard key={item.id} item={item} to={listLink(item)} />)}</ul></section>
-        : <p className="bv-muted">No public lists yet.</p>)}
-    </TabPanel>
+      {tab === "lists" && listCards}
+    </TabPanel> : listCards}
     <GuestLine />
   </div></section>;
 }

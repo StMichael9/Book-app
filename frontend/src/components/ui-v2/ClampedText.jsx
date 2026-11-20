@@ -18,6 +18,6 @@ export default function ClampedText({ text, lines = 2, className = "" }) {
   const clamp = expanded ? undefined : { display: "-webkit-box", WebkitLineClamp: lines, lineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" };
   return <>
     <p ref={paragraph} id={id} className={className} style={clamp}>{text}</p>
-    {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}
+    {(clipped || expanded) && <Button variant="quiet" className="bv-synopsis-toggle bv-inline-action" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}>{expanded ? "Show less" : "Show more"}</Button>}
   </>;
 }

@@ -9,6 +9,7 @@ import { getStats } from "../../../api/profile.js";
 import { useRequest } from "../../ui-v2/data.js";
 import { useProfile } from "../../profile/profileState.js";
 import { YearCard } from "../../profile/YearShelf.jsx";
+import { hasYearChart } from "../../profile/shelfData.js";
 import { BookCover, BookSkeletons, Button, EmptyState, TextLink } from "../../ui-v2/primitives.jsx";
 import FirstRunHome from "../FirstRunHome.jsx";
 import { SlowReadingNotice } from "../ReadingCards.jsx";
@@ -38,7 +39,7 @@ function ReadingCard({ read, onSaved, onFinished, readOnly }) {
 }
 
 function YearGlance({ stats }) {
-  if (!stats || !Array.isArray(stats.by_month)) return null;
+  if (!hasYearChart(stats)) return null;
   return <section className="bv-year-glance"><YearCard stats={stats} /></section>;
 }
 
@@ -78,7 +79,7 @@ export default function ReadingHomePage() {
       {request.loading ? <BookSkeletons count={2} /> : request.error ? <EmptyState error title="Your reading couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your books haven’t changed.</EmptyState>
         : reads.length ? <>
           <div className="bv-now-grid">{shown.map(read => <ReadingCard key={read.entry.id} read={read} readOnly={library.readOnly} onSaved={saved(read)} onFinished={finished} />)}</div>
-          {narrow && reads.length > 1 && <p className="bv-more-reading">{showAll ? <Button variant="quiet" onClick={() => setShowAll(false)}>Show fewer</Button> : <>+ {reads.length - 1} more you’re reading · <Button variant="quiet" onClick={() => setShowAll(true)}>Show</Button></>}</p>}
+          {narrow && reads.length > 1 && <p className="bv-more-reading">{showAll ? <Button variant="quiet" className="bv-inline-action" onClick={() => setShowAll(false)}>Show fewer</Button> : <>+ {reads.length - 1} more you’re reading · <Button variant="quiet" className="bv-inline-action" onClick={() => setShowAll(true)}>Show</Button></>}</p>}
           {readingCount > reads.length && <p className="bv-more-reading"><TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink></p>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
