@@ -433,26 +433,44 @@ def _top_edition_candidates(editions: list[dict], limit: int = 10) -> list[dict]
     return first + varied
 
 
-def select_useful_editions(editions: list[dict], limit: int = 5) -> list[dict]:
-    """Choose one preferred edition then add distinct ISBN/language/format coverage."""
-    remaining = sorted(editions, key=lambda item: (-item["quality"], item["edition_key"]))
-    chosen: list[dict] = []
-    covered_isbns: set[str] = set()
-    covered_languages: set[str] = set()
-    covered_formats: set[str] = set()
+MAX_EDITIONS_PER_BOOK = 3
+
+
+def _completeness(item: dict) -> int:
+    return (bool(item.get("page_count")) + bool(item.get("cover_image_url")) + bool(item.get("publishers"))
+            + bool(item.get("publication_date")) + bool(item.get("physical_format")))
+
+
+def select_useful_editions(editions: list[dict], limit: int = MAX_EDITIONS_PER_BOOK, keep: tuple[str, ...] = ()) -> list[dict]:
+    """The few editions worth storing for a work (T66: three, was five). In order:
+    1. the editions in `keep` (a user row, an import plan or the book's preferred edition points at them: never dropped);
+    2. the preferred (best quality) edition, then, if it has no cover, the best edition that has one;
+    3. editions that add an ISBN-13 (Get a copy, ISBN matching and library imports read these);
+    4. the most complete (pages, cover, publisher, date, format), then a new language or format, then quality.
+    `limit` counts the kept editions too; kept editions beyond it are still all kept."""
+    ordered = sorted(editions, key=lambda item: (-item["quality"], item["edition_key"]))
+    chosen = [item for item in ordered if item["edition_key"] in keep]
+    remaining = [item for item in ordered if item["edition_key"] not in keep]
+    if not chosen and remaining:
+        chosen.append(remaining.pop(0))
+    if len(chosen) < limit and not any(item.get("cover_image_url") for item in chosen):
+        cover = next((item for item in remaining if item.get("cover_image_url")), None)
+        if cover:
+            remaining.remove(cover)
+            chosen.append(cover)
+    covered_isbns = {isbn["isbn13"] for item in chosen for isbn in item["isbns"]}
+    covered_languages = {lang for item in chosen for lang in item["languages"]}
+    covered_formats = {item["physical_format"] for item in chosen if item.get("physical_format")}
     while remaining and len(chosen) < limit:
-        if not chosen:
-            best = remaining.pop(0)
-        else:
-            best = max(remaining, key=lambda item: (
-                len({isbn["isbn13"] for isbn in item["isbns"]} - covered_isbns),
-                len(set(item["languages"]) - covered_languages),
-                bool(item.get("physical_format") and item["physical_format"] not in covered_formats),
-                item["quality"], -int(hashlib.sha256(item["edition_key"].encode()).hexdigest(), 16),
-            ))
-            remaining.remove(best)
+        best = max(remaining, key=lambda item: (
+            bool({isbn["isbn13"] for isbn in item["isbns"]} - covered_isbns), _completeness(item),
+            len(set(item["languages"]) - covered_languages),
+            bool(item.get("physical_format") and item["physical_format"] not in covered_formats),
+            item["quality"], -int(hashlib.sha256(item["edition_key"].encode()).hexdigest(), 16),
+        ))
+        remaining.remove(best)
         chosen.append(best)
-        covered_isbns.update(item["isbn13"] for item in best["isbns"])
+        covered_isbns.update(isbn["isbn13"] for isbn in best["isbns"])
         covered_languages.update(best["languages"])
         if best.get("physical_format"):
             covered_formats.add(best["physical_format"])
