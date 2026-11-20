@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { acceptScan, createRepeatGuard, isbn13Valid, typedIsbn } from "../src/components/reading/scan/decoder.js";
+import { acceptScan, canDetectEan13, createRepeatGuard, isbn13Valid, startDecoder, typedIsbn } from "../src/components/reading/scan/decoder.js";
 import { isSaveable, rowFromAnswer } from "../src/components/reading/scan/scanList.js";
 
 // Pure logic of the scan sheet: which codes are accepted, how typed ISBNs are read, the repeat window and what a lookup answer means for a row.
@@ -44,4 +44,47 @@ test("a lookup answer becomes one of the row states", () => {
   for (const status of ["not_found", "unavailable"]) expect(rowFromAnswer({ status, book_id: null, title: null, authors: [], cover_url: null, on_shelf: null }).state).toBe("not_found");
   expect(["found", "not_found"].every(state => isSaveable({ state }))).toBe(true);
   expect(["on_shelf", "looking", "waiting", "failed"].some(state => isSaveable({ state }))).toBe(false);
+});
+
+// Which engine reads the barcodes: BarcodeDetector only where it says it reads ean_13, otherwise zxing (loaded on demand).
+function stand({ formats, throws = false, hasDetector = true }) {
+  const log = { detectors: 0, loads: 0, zxingStopped: 0, zxingElement: null, codes: [] };
+  class Detector {
+    static async getSupportedFormats() { if (throws) throw new Error("not supported"); return formats; }
+    constructor() { log.detectors += 1; }
+    async detect() { return [{ rawValue: "9780141439518" }]; }
+  }
+  class Reader {
+    async decodeFromVideoElement(video, callback) { log.zxingElement = video; callback({ getText: () => "9780743273565" }); return { stop: () => { log.zxingStopped += 1; } }; }
+  }
+  const load = async () => { log.loads += 1; return { BrowserMultiFormatReader: Reader, BarcodeFormat: { EAN_13: "ean13" }, DecodeHintType: { POSSIBLE_FORMATS: "formats" } }; };
+  return { log, env: hasDetector ? { BarcodeDetector: Detector } : {}, load, onCode: code => log.codes.push(code) };
+}
+
+test("a BarcodeDetector without ean_13 is not used: zxing is loaded instead", async () => {
+  for (const options of [{ formats: ["qr_code", "code_128"] }, { formats: [], throws: true }, { formats: [], hasDetector: false }]) {
+    const { log, env, load, onCode } = stand(options), video = { readyState: 4 };
+    expect(await canDetectEan13(env)).toBe(false);
+    const stop = await startDecoder(video, onCode, { env, load });
+    expect(log.detectors).toBe(0);
+    expect(log.loads).toBe(1);
+    expect(log.zxingElement).toBe(video);
+    expect(log.codes).toEqual(["9780743273565"]);
+    stop();
+    expect(log.zxingStopped).toBe(1);
+  }
+});
+
+test("a BarcodeDetector that reads ean_13 is used, and zxing is never loaded", async () => {
+  const { log, env, load, onCode } = stand({ formats: ["qr_code", "ean_13"] });
+  expect(await canDetectEan13(env)).toBe(true);
+  const stop = await startDecoder({ readyState: 4 }, onCode, { env, load });
+  await new Promise(done => setTimeout(done, 400));
+  stop();
+  const seen = log.codes.length;
+  expect(log.detectors).toBe(1);
+  expect(log.loads).toBe(0);
+  expect(seen).toBeGreaterThan(0);
+  await new Promise(done => setTimeout(done, 400));
+  expect(log.codes.length).toBe(seen);   // stopped means stopped
 });

@@ -33,25 +33,37 @@ export function createRepeatGuard(windowMs = REPEAT_MS, now = () => Date.now()) 
   };
 }
 
-// Starts reading from a playing <video>. BarcodeDetector is used where the browser has it (Android Chrome); otherwise zxing is
+const loadZxing = async () => {
+  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+  return { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType };
+};
+
+// BarcodeDetector exists in some browsers without EAN-13, where it would scan nothing, so it is used only when it says it reads ean_13.
+export async function canDetectEan13(env = typeof window === "undefined" ? undefined : window) {
+  if (!env || !("BarcodeDetector" in env)) return false;
+  try { return (await env.BarcodeDetector.getSupportedFormats()).includes("ean_13"); } catch { return false; }
+}
+
+// Starts reading from a playing <video>. BarcodeDetector is used where the browser can read EAN-13 (Android Chrome); otherwise zxing is
 // loaded on demand, so it is not part of the main bundle. Returns a stop function. `onCode` gets every EAN-13 value seen.
-export async function startDecoder(video, onCode) {
-  if (typeof window !== "undefined" && "BarcodeDetector" in window) {
-    const detector = new window.BarcodeDetector({ formats: ["ean_13"] });
+// `env` and `load` are there so a test can stand in for the browser and for the zxing import.
+export async function startDecoder(video, onCode, { env = typeof window === "undefined" ? undefined : window, load = loadZxing } = {}) {
+  if (await canDetectEan13(env)) {
+    const detector = new env.BarcodeDetector({ formats: ["ean_13"] });
     let stopped = false, timer = 0, busy = false;
     const tick = async () => {
       if (stopped) return;
       if (!busy && video.readyState >= 2) {
         busy = true;
-        try { for (const code of await detector.detect(video)) onCode(code.rawValue); } catch { /* a frame that cannot be read is skipped */ }
+        try { for (const code of await detector.detect(video)) if (!stopped) onCode(code.rawValue); } catch { /* a frame that cannot be read is skipped */ }
         busy = false;
       }
-      if (!stopped) timer = window.setTimeout(tick, 150);
+      if (!stopped) timer = setTimeout(tick, 150);
     };
     tick();
-    return () => { stopped = true; window.clearTimeout(timer); };
+    return () => { stopped = true; clearTimeout(timer); };
   }
-  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+  const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = await load();
   const hints = new Map([[DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13]]]);
   const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 150 });
   const controls = await reader.decodeFromVideoElement(video, result => { if (result) onCode(result.getText()); });

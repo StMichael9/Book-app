@@ -21,26 +21,36 @@ function useCamera(enabled, onCode) {
   useEffect(() => { onCodeRef.current = onCode; });
   useEffect(() => {
     if (!enabled) return undefined;
-    let stream = null, stop = null, gone = false;
+    let stream = null, stop = null, gone = false, openId = 0;
+    const stopTracks = media => media?.getTracks().forEach(track => track.stop());
+    // Releasing also retires any open() still waiting on the camera, the video or the decoder.
     const release = () => {
+      openId += 1;
       stop?.(); stop = null;
-      stream?.getTracks().forEach(track => track.stop()); stream = null;
+      stopTracks(stream); stream = null;
       if (video.current) video.current.srcObject = null;
     };
     async function open() {
       if (!navigator.mediaDevices?.getUserMedia) { setCamera("none"); return; }
+      const id = ++openId, stale = () => gone || id !== openId;
       setCamera("asking");
+      let opened = null, decoderStop = null;
+      // Whatever a retired open() started is stopped here, and it changes nothing else.
+      const abandon = () => { decoderStop?.(); stopTracks(opened); if (video.current?.srcObject === opened) video.current.srcObject = null; };
       try {
-        const opened = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-        if (gone || document.hidden) { opened.getTracks().forEach(track => track.stop()); return; }
+        opened = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        if (stale() || document.hidden) { abandon(); return; }
         stream = opened;
-        video.current.srcObject = stream;
+        video.current.srcObject = opened;
         await video.current.play().catch(() => {});
-        stop = await startDecoder(video.current, code => onCodeRef.current(code));
-        if (gone) release(); else setCamera("on");
+        if (stale()) { abandon(); return; }
+        decoderStop = await startDecoder(video.current, code => onCodeRef.current(code));
+        if (stale()) { abandon(); return; }
+        stop = decoderStop; setCamera("on");
       } catch (failure) {
+        if (stale()) { abandon(); return; }
         release();
-        if (!gone) setCamera(failure?.name === "NotAllowedError" || failure?.name === "SecurityError" ? "refused" : "none");
+        setCamera(failure?.name === "NotAllowedError" || failure?.name === "SecurityError" ? "refused" : "none");
       }
     }
     const visibility = () => { if (document.hidden) release(); else if (!stream && !gone) open(); };

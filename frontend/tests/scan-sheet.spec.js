@@ -76,18 +76,25 @@ const answers = {
 
 // A camera stand-in: a canvas stream, and a BarcodeDetector that reports whatever the test pushes onto window.__codes.
 const withCamera = (page, mode = "ok") => page.addInitScript(mode => {
-  window.__codes = []; window.__stopped = 0; window.__streams = 0;
+  window.__codes = []; window.__stopped = 0; window.__streams = 0; window.__streamTracks = []; window.__instances = [];
   if (mode === "refused") { navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Permission denied", "NotAllowedError"); }; return; }
   if (mode === "none") { Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: true }); return; }
+  // slow-play and slow-formats hold the camera's video start, or the decoder's check of what it can read, open for 600 ms.
+  if (mode === "slow-play") { const real = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { const started = real.call(this); return new Promise(done => setTimeout(() => done(started), 600)); }; }
   navigator.mediaDevices.getUserMedia = async () => {
     const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240;
     const context = canvas.getContext("2d"); let shade = 0;
     setInterval(() => { shade = (shade + 20) % 255; context.fillStyle = `rgb(${shade},${shade},${shade})`; context.fillRect(0, 0, 320, 240); }, 100);
     const stream = canvas.captureStream(10); window.__streams += 1;
-    for (const track of stream.getTracks()) { const stop = track.stop.bind(track); track.stop = () => { window.__stopped += 1; stop(); }; }
+    const record = { total: stream.getTracks().length, stopped: 0 }; window.__streamTracks.push(record);
+    for (const track of stream.getTracks()) { const stop = track.stop.bind(track); let done = false; track.stop = () => { if (!done) { done = true; window.__stopped += 1; record.stopped += 1; } stop(); }; }
     return stream;
   };
-  window.BarcodeDetector = class { async detect() { return window.__codes.splice(0).map(rawValue => ({ rawValue })); } };
+  window.BarcodeDetector = class {
+    static async getSupportedFormats() { if (mode === "slow-formats") await new Promise(done => setTimeout(done, 600)); return ["ean_13"]; }
+    constructor() { this.calls = 0; window.__instances.push(this); }
+    async detect() { this.calls += 1; return window.__codes.splice(0).map(rawValue => ({ rawValue })); }
+  };
 }, mode);
 const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
 const open = async page => { await page.goto("/my-books"); await page.getByRole("button", { name: "Scan books", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Scan books" })).toBeVisible(); };
@@ -293,4 +300,29 @@ for (const theme of ["light", "dark"]) test(`the sheet fits at 390, 320 and 200%
     await page.keyboard.press("Escape");
     await page.reload();
   }
+});
+
+for (const mode of ["slow-play", "slow-formats"]) test(`hiding the page while the camera is still opening leaves one decoder and no live tracks from the first open; ${mode}`, async ({ page, app: _app }) => {
+  await withCamera(page, mode);
+  await page.goto("/my-books");
+  await page.getByRole("button", { name: "Scan books", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.__streams)).toBe(1);
+  await page.waitForTimeout(150);                                           // the first open is now waiting on the video or the decoder
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: true, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await page.evaluate(() => { Object.defineProperty(document, "hidden", { value: false, configurable: true }); document.dispatchEvent(new Event("visibilitychange")); });
+  await expect.poll(() => page.evaluate(() => window.__streams)).toBe(2);
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1, { timeout: 8000 });
+  await page.waitForTimeout(1500);                                          // long enough for the first open to finish waiting
+  const tracks = await page.evaluate(() => window.__streamTracks);
+  expect(tracks[0].stopped).toBe(tracks[0].total);                          // every track of the first open is stopped
+  expect(tracks[1].stopped).toBe(0);                                        // the second one is live
+  const before = await page.evaluate(() => window.__instances.map(item => item.calls));
+  await page.waitForTimeout(800);
+  const after = await page.evaluate(() => window.__instances.map(item => item.calls));
+  expect(after.filter((calls, index) => calls > before[index])).toHaveLength(1);   // exactly one decoder loop is running
+  await page.keyboard.press("Escape");
+  await expect.poll(() => page.evaluate(() => window.__streamTracks.every(item => item.stopped === item.total))).toBe(true);
+  const closed = await page.evaluate(() => window.__instances.map(item => item.calls));
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => window.__instances.map(item => item.calls))).toEqual(closed);   // nothing keeps looking once the sheet is closed
 });
