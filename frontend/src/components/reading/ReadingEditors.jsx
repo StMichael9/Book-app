@@ -4,8 +4,6 @@ import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { Button } from "../ui-v2/primitives.jsx";
 import { draftFields } from "./readingDraftState.js";
 
-const reactions = { loved: "Loved it", liked: "Liked it", not_for_me: "Not for me" };
-
 export default function ReadingEditor({ draft, historical, readOnly, canReopen, onChange, onSaved, onClose, onReload, onRemove }) {
   const command = useReadingCommand();
   const heading = useRef(null);
@@ -32,12 +30,12 @@ export default function ReadingEditor({ draft, historical, readOnly, canReopen, 
       return updateReadingAttempt(draft.attempt.id, { expected_version: draft.version, ...(isProgress ? {
         total_pages: fields.total === "" ? null : Number(fields.total), started_on: fields.started || null,
         ...(terminal ? { ended_on: fields.ended || null } : {}),
-      } : { note: fields.text || null, reaction: fields.reaction || null }) });
+      } : { note: fields.text || null }) });
     }, onSaved);
   }
   return <div className="bv-reading-draft bv-workspace-editor">
     <form className="bv-field bv-reading-form" onSubmit={submit} aria-busy={command.pending}>
-      <h2 tabIndex={-1} ref={heading}>{historical ? "Selected reading" : title}</h2>
+      <h2 tabIndex={-1} ref={heading}>{historical && isProgress ? "Selected reading" : title}</h2>
       {readOnly && !isProgress && !isReason && !fields.text && !fields.reaction && <p className="bv-help">No note or reaction is saved for this reading. Changes are temporarily paused.</p>}
       <fieldset disabled={readOnly || command.pending}><legend className="bv-sr-only">{title}</legend>
         {isProgress ? <>
@@ -48,7 +46,6 @@ export default function ReadingEditor({ draft, historical, readOnly, canReopen, 
           <label htmlFor="reading-context">{isReason ? "Save reason (optional)" : "Note (optional)"}</label>
           <textarea id="reading-context" rows={4} maxLength={isReason ? 500 : 2000} value={fields.text} onChange={event => edit("text", event.target.value)} />
           <small className="bv-editor-caption">{fields.text.length} / {isReason ? 500 : 2000}</small>
-          {!isReason && <details className="bv-note-options"><summary>Reaction (optional)</summary><label className="bv-sr-only" htmlFor="reading-reaction">Reaction (optional)</label><select id="reading-reaction" value={fields.reaction} onChange={event => edit("reaction", event.target.value)}><option value="">No reaction</option>{Object.entries(reactions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></details>}
         </>}
         {canReopen && <><Button variant="quiet" disabled={dirty} onClick={() => command.run(() => updateReadingAttempt(draft.attempt.id, { expected_version: draft.version, state: "reading" }), onSaved)}>Reopen selected reading</Button>{dirty && <p className="bv-help">Save your changes before reopening this reading.</p>}</>}
       </fieldset>

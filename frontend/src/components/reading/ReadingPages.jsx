@@ -15,6 +15,7 @@ import { SlowReadingNotice } from "./ReadingCards.jsx";
 import { editionOptions } from "./editionLabels.js";
 import { ReadingBookDetails } from "./ReadingBookContext.jsx";
 import ProgressBox from "./ProgressBox.jsx";
+import ThumbsPrompt from "./ThumbsPrompt.jsx";
 import ReadingJournal, { ForeEdge, PageCountEdit, ProgressLine, ReadingNotes } from "./ReadingJournal.jsx";
 import "../../styles/ui-v2/reading-page.css";
 import BookMenu from "./BookMenu.jsx";
@@ -38,13 +39,14 @@ export { default as ReadingHomePage } from "./home/HomePage.jsx";
 
 // A quiet acknowledgement of a saved finish or stop. Dates appear only when recorded; nothing is required.
 // Finish and Stop are single clicks, so the moment carries an obvious undo for this session only.
-function FinishMoment({ kind, title, attempt, headingRef, onNote, noteDisabled, onUndo, undoDisabled }) {
+function FinishMoment({ kind, title, attempt, headingRef, onNote, noteDisabled, onUndo, undoDisabled, thumbs }) {
   const started = formatDay(attempt?.started_on), ended = formatDay(attempt?.ended_on);
   const stopped = kind === "dnf";
   return <section className="bv-finish-moment" aria-labelledby="bv-finish-title">
     <h2 id="bv-finish-title" ref={headingRef} tabIndex={-1}>{stopped ? `You stopped reading ${title}.` : `You finished ${title}.`}</h2>
     {(started || ended) && <p className="bv-finish-dates">{started && ended ? `Read ${started} – ${ended}` : ended ? `${stopped ? "Stopped" : "Finished"} ${ended}` : `Started ${started}`}</p>}
     <p className="bv-muted">{stopped ? "It stays in your Reading history, with your progress and note." : "No rating or review needed. If something stayed with you, you can keep it here."}</p>
+    {thumbs}
     {onNote && <Button variant="secondary" disabled={noteDisabled} onClick={onNote}>Leave a closing note</Button>}
     {onUndo && <p className="bv-finish-undo">{stopped ? "Stopped by mistake?" : "Finished by mistake?"} <Button variant="secondary" disabled={undoDisabled} onClick={onUndo}>Mark as reading</Button></p>}
   </section>;
@@ -199,7 +201,7 @@ export function ReadingWorkspacePage() {
     }
     command.run(() => updateReadingAttempt(attempt.id, { expected_version: entry.version, state, ...(ended_on ? { ended_on } : {}) }), result => {
       accept(result);
-      if (["finished", "dnf"].includes(state)) setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state });
+      if (["finished", "dnf"].includes(state)) setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state, ask: !result.attempt.reaction });
     });
   }
   function markAsReading() {
@@ -217,6 +219,8 @@ export function ReadingWorkspacePage() {
     <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author">{authorLabel(info)}</p>
       {status && <h2 className="bv-reading-chip" tabIndex={-1} ref={statusHeading}>{status}</h2>}</div>
   </div>; };
+  // A closing note is written in the Notes section, where every note lives.
+  const focusNotes = () => { const field = document.getElementById("bv-note-new"); field?.scrollIntoView?.({ block: "center" }); field?.focus(); };
   const onEdit = (kind, selectedAttempt) => { if (kind === "memory") openMemory(selectedAttempt); else if (kind === "save_note") openDraft("save_note"); else openEditor(selectedAttempt); };
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-reading-page">
     <div className="bv-reading-head">
@@ -232,7 +236,7 @@ export function ReadingWorkspacePage() {
         <ForeEdge attempt={attempt} />
         <ProgressLine attempt={attempt} />
         {attempt && !terminal && <ProgressBox key={attempt.id} entry={entry} attempt={attempt} title={book.title} onPage minVersion={minVersion} readOnly={library.readOnly} onSaved={accept}
-          onFinished={result => { accept(result); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state: "finished" }); }} />}
+          onFinished={result => { accept(result); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state: "finished", ask: !result.attempt.reaction }); }} />}
         <div className="bv-reading-actions" role="group" aria-label="Reading actions">
           {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
           {attempt && !terminal && !library.readOnly && <>
@@ -248,12 +252,13 @@ export function ReadingWorkspacePage() {
         {request.error && <p role="alert" className="bv-notice">Your reading couldn’t refresh. <Button variant="quiet" className="bv-inline-action" onClick={request.retry}>Try again</Button></p>}
       </>}
     {moment && <FinishMoment kind={moment.state} title={moment.title} attempt={attempt?.id === moment.id ? attempt : null} headingRef={finishHeading}
-      onNote={library.privateContext && attempt?.id === moment.id && !attempt.note ? () => openMemory(attempt) : undefined}
+      onNote={library.privateContext && attempt?.id === moment.id && !attempt.note ? focusNotes : undefined}
       noteDisabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)}
-      onUndo={!library.readOnly && attempt?.id === moment.id ? markAsReading : undefined} undoDisabled={blocked} />}
+      onUndo={!library.readOnly && attempt?.id === moment.id ? markAsReading : undefined} undoDisabled={blocked}
+      thumbs={moment.ask && !library.readOnly && attempt?.id === moment.id ? <ThumbsPrompt key={attempt.id} entry={entry} attempt={attempt} minVersion={minVersion} onSaved={accept} /> : null} />}
     {nextSection}
     {entry && attempt && <ReadingNotes key={attempt.id} entry={entry} attempt={attempt} readOnly={library.readOnly} minVersion={minVersion} onSaved={accept} />}
-    {entry && <ReadingJournal entry={entry} attempt={attempt} entryId={entryId} workspace={workspace} visible={loaded} readOnly={library.readOnly} onEdit={onEdit} editor={editor} editing={editing} />}
+    {entry && <ReadingJournal entry={entry} attempt={attempt} entryId={entryId} workspace={workspace} visible={loaded} readOnly={library.readOnly} onEdit={onEdit} editor={editor} editing={editing} minVersion={minVersion} onSaved={accept} />}
     <details hidden={!loaded} className="bv-reading-fold" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary><span className="bv-fold-title">About this book</span><span className="bv-fold-hint">Details, page count, remove</span><span className="bv-fold-chevron" aria-hidden="true">›</span></summary>
       {entry && <PageCountEdit entry={{ ...entry, version: Math.max(entry.version, minVersion) }} attempt={attempt} readOnly={library.readOnly} onSaved={accept} />}
       {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} entryId={entry.id} />}
