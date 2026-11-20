@@ -21,7 +21,10 @@
 .bv-root .bv-scan-type label { display: block; margin: 0 0 6px; font-weight: 600; }
 .bv-root .bv-scan-type-row { display: flex; gap: 8px; }
 .bv-root .bv-scan-type-row input { flex: 1 1 auto; }
-.bv-root .bv-scan-owned { justify-content: space-between; width: 100%; }
+.bv-root .bv-scan-shelf { display: flex; flex-wrap: wrap; gap: 8px; }
+.bv-root .bv-scan-pill { appearance: none; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); transition: background-color 150ms ease-out, color 150ms ease-out; }
+.bv-root .bv-scan-pill[aria-pressed="true"] { background-color: var(--bv-green); color: var(--bv-on-green); }
+.bv-root .bv-scan-pill:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
 
 .bv-root .bv-scan-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-scan-row { display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 12px 0; border-bottom: 1px solid var(--bv-line); }
@@ -29,10 +32,10 @@
 .bv-root .bv-scan-cover .bv-cover { width: 48px; }
 .bv-root .bv-scan-cover-blank { display: block; width: 48px; aspect-ratio: 2 / 3; border-radius: 4px; background: var(--bv-soft); }
 .bv-root .bv-scan-text { flex: 1 1 auto; min-width: 0; }
-.bv-root .bv-scan-title { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); overflow-wrap: anywhere; }
+.bv-root .bv-scan-title { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bv-root .bv-scan-state { margin: 2px 0 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-scan-row.is-on_shelf .bv-scan-title { color: var(--bv-muted); }
-.bv-root .bv-scan-retry { flex: none; min-height: 44px; }
+.bv-root .bv-scan-row .bv-scan-retry { border: 0; border-radius: 0; display: inline-flex; min-height: 44px; margin: 0 0 -12px; padding: 0 2px; color: var(--bv-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; background: transparent; box-shadow: none; }
 .bv-root .bv-scan-remove { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--bv-muted); cursor: pointer; border-radius: 50%; }
 .bv-root .bv-scan-remove svg { width: 20px; height: 20px; }
 

@@ -119,7 +119,8 @@ test("scanning a stack: rows collect, repeats and non-ISBN codes are ignored, an
   await expect(dialog.locator(`[data-isbn="${GATSBY}"]`)).toContainText("Already on your shelf");
   await expect(dialog.locator(`[data-isbn="${OL_ONLY}"]`)).toContainText("The Odyssey");
   await expect(dialog.locator(`[data-isbn="${MOCK}"]`)).toContainText("We’ll find this one — saved for now");
-  await expect(dialog.getByRole("switch", { name: "I own it" })).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByRole("button", { name: "I own it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByRole("button", { name: "Want to read", exact: true })).toHaveAttribute("aria-pressed", "false");
   await expect(dialog.getByRole("button", { name: "Add 3 books" })).toBeEnabled();
   expect(app.lookups.filter(isbn => isbn === EMMA)).toHaveLength(1);
   await dialog.getByRole("button", { name: "Add 3 books" }).click();
@@ -134,16 +135,16 @@ test("scanning a stack: rows collect, repeats and non-ISBN codes are ignored, an
   await expect(page.getByRole("button", { name: "Scan books", exact: true })).toBeFocused();
 });
 
-test("the switch changes the whole list to Want to read", async ({ page, app }) => {
+test("the two pills choose I own it or Want to read for the whole list", async ({ page, app }) => {
   app.isbn = answers;
   await withCamera(page);
   await open(page);
   const dialog = page.getByRole("dialog", { name: "Scan books" });
   await scan(page, EMMA, MOCK);
   await expect(dialog.locator(".bv-scan-row")).toHaveCount(2);
-  await dialog.getByRole("switch", { name: "I own it" }).click();
-  await expect(dialog.getByRole("switch", { name: "I own it" })).toHaveAttribute("aria-checked", "false");
-  await expect(dialog.getByRole("switch", { name: "I own it" })).toContainText("Want to read");
+  await dialog.getByRole("button", { name: "Want to read", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Want to read", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByRole("button", { name: "I own it", exact: true })).toHaveAttribute("aria-pressed", "false");
   await dialog.getByRole("button", { name: "Add 2 books" }).click();
   await expect(dialog).toHaveCount(0);
   expect(app.writes.find(write => write.method === "PUT").body).toEqual({ is_wanted: true });
@@ -181,6 +182,11 @@ test("at most two lookups run at once, and a rate-limited one offers Retry on it
   const failed = dialog.locator(`[data-isbn="${ORWELL}"]`);
   await expect(failed).toContainText("Couldn’t look this up.");
   await expect(failed.getByRole("button", { name: "Retry" })).toBeVisible();
+  // One line for the title, Retry under the state line, and every row the same height.
+  const metrics = await dialog.locator(".bv-scan-row").evaluateAll(rows => rows.map(row => ({ height: Math.round(row.getBoundingClientRect().height), titleHeight: Math.round(row.querySelector(".bv-scan-title").getBoundingClientRect().height) })));
+  expect(new Set(metrics.map(item => item.titleHeight)).size).toBe(1);
+  const retry = await failed.getByRole("button", { name: "Retry" }).boundingBox(), state = await failed.locator(".bv-scan-state").boundingBox(), remove = await failed.locator(".bv-scan-remove").boundingBox();
+  expect(retry.y).toBeGreaterThanOrEqual(state.y + state.height - 1); expect(retry.height).toBeGreaterThanOrEqual(44); expect(remove.x).toBeGreaterThan(retry.x + retry.width);
   app.isbn[ORWELL] = answers[ORWELL];
   await failed.getByRole("button", { name: "Retry" }).click();
   await expect(failed).toContainText("Nineteen Eighty-Four");

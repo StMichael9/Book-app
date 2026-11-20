@@ -59,8 +59,8 @@ function Row({ row, onRemove, onRetry }) {
     <div className="bv-scan-text">
       <p className="bv-scan-title">{title}</p>
       <p className="bv-scan-state" role={row.state === "failed" ? "alert" : undefined}>{stateLine(row)}</p>
+      {row.state === "failed" && <Button variant="quiet" className="bv-scan-retry" onClick={() => onRetry(row.isbn)}>Retry</Button>}
     </div>
-    {row.state === "failed" && <Button variant="secondary" className="bv-scan-retry" onClick={() => onRetry(row.isbn)}>Retry</Button>}
     <button type="button" className="bv-scan-remove" aria-label={`Remove ${row.title || `ISBN ${row.isbn}`}`} onClick={() => onRemove(row.isbn)}><X aria-hidden="true" /></button>
   </li>;
 }
@@ -121,7 +121,10 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
         </div>
         {typedError && <p id="bv-scan-isbn-error" className="bv-field-error">{typedError}</p>}
       </form>
-      <button type="button" role="switch" aria-checked={owned} aria-label="I own it" className="bv-owned-switch bv-scan-owned" onClick={() => setOwned(value => !value)}>{owned ? "I own it" : "Want to read"}<span className="bv-switch" aria-hidden="true" /></button>
+      <div className="bv-scan-shelf" role="group" aria-label="Shelf">
+        <button type="button" className="bv-scan-pill" aria-pressed={owned} onClick={() => setOwned(true)}>I own it</button>
+        <button type="button" className="bv-scan-pill" aria-pressed={!owned} onClick={() => setOwned(false)}>Want to read</button>
+      </div>
       </div>
       {list.rows.length > 0 && <ul className="bv-scan-list" aria-label="Scanned books">{list.rows.map(row => <Row key={row.isbn} row={row} onRemove={list.remove} onRetry={list.retry} />)}</ul>}
     </div>
