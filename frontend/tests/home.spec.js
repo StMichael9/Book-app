@@ -119,8 +119,8 @@ test("without pins Up next is suggested from the shelf, with no Edit", async ({ 
   await page.goto("/home");
   await expect(page.getByText("Suggested from your shelf", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
-  const cards = page.locator(".bv-next-card");
-  await expect(cards).toHaveCount(4);
+  const cards = page.locator(".bv-up-next .bv-next-card");
+  await expect(cards).toHaveCount(5);
   // Owned books first (odd ids are owned), the oldest saved first.
   await expect(cards.first()).toContainText("Owned");
 });
@@ -163,20 +163,21 @@ test("a pin change the server refuses leaves the list as it was and says so", as
 test("Start opens a reading from an Up next card", async ({ page, app }) => {
   app.pins = [pin(1)];
   await page.goto("/home");
-  await page.getByRole("button", { name: "Start reading Middlemarch" }).click();
+  await page.locator(".bv-up-next").getByRole("button", { name: "Start reading Middlemarch" }).click();
   await expect.poll(() => app.requests.some(request => request.method === "PUT" && request.path.startsWith("/me/reading-attempts/"))).toBe(true);
   const create = app.requests.find(request => request.method === "PUT" && request.path.startsWith("/me/reading-attempts/"));
   expect(create.body).toMatchObject({ entry_id: 101, started_via: "next_read" });
 });
 
-test("Can't decide? shows three at a time and Try again walks through the rest", async ({ page, app }) => {
+test("Can't decide? shows five at a time and Try again walks through the rest", async ({ page, app }) => {
+  app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 400) }));
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" });
   await expect(pills.getByRole("button", { name: "More Fantasy" })).toBeEnabled();
   await pills.getByRole("button", { name: "Something I own" }).click();
   const picks = page.locator(".bv-picks .bv-next-card");
-  await expect(picks).toHaveCount(3);
-  await expect(page.getByText("3 books you own and haven’t started", { exact: true })).toBeVisible();
+  await expect(picks).toHaveCount(5);
+  await expect(page.getByText("5 books you own and haven’t started", { exact: true })).toBeVisible();
   const first = await picks.allTextContents();
   await page.getByRole("button", { name: "Try again" }).click();
   const second = await picks.allTextContents();
@@ -195,7 +196,7 @@ test("Waiting longest falls back to the newest saved books read from the other e
   app.noOldestSort = true;
   await page.goto("/home");
   await page.getByRole("button", { name: "Waiting longest" }).click();
-  await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(3);
+  await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(5);
   expect(app.requests.some(request => request.path === "/me/library" && request.query.get("sort") === "added")).toBe(true);
   expect(app.errors).toEqual([]);
 });
@@ -299,19 +300,72 @@ for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-// Can't decide? shows four picks per try on a phone (two rows of two) and still three on a desktop.
-test("on a phone Can't decide? shows four picks in two rows of two; on a desktop three", async ({ page, app }) => {
+// Can't decide? shows four picks per try on a phone (two rows of two) and five on a desktop (one row of five).
+test("on a phone Can't decide? shows four picks in two rows of two; on a desktop five", async ({ page, app }) => {
   app.entries = TITLES.map((_, index) => entry(index + 1, { book: { ...book(index + 1, TITLES[index], 200) } }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
-  await page.getByRole("button", { name: "Something short" }).click();
   const picks = page.locator(".bv-picks .bv-next-card");
   await expect(picks).toHaveCount(4);
   const boxes = await picks.evaluateAll(cards => cards.map(card => { const r = card.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) }; }));
   expect(new Set(boxes.map(b => b.left)).size).toBe(2);
   expect(new Set(boxes.map(b => b.top)).size).toBe(2);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await expect(picks).toHaveCount(3);
+  await expect(picks).toHaveCount(5);
+  const tops = await picks.evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+});
+
+// Home's book areas follow My Books: covers on the page, no boxes, full-width rows.
+test("at 1440 Reading now is three box-free columns, Up next is five, and Can't decide? opens with five books", async ({ page, app }) => {
+  app.currentReads = [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468), { ...reading(3, "Ego is the Enemy", 0, 300), attempt: { id: "attempt-3", state: "reading", started_on: "2026-11-03", progress_unit: null, progress_value: null, total_pages: 300 } }];
+  app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/home");
+  const cards = page.locator(".bv-now-card");
+  await expect(cards).toHaveCount(3);
+  for (const card of await cards.all()) {
+    await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(card).toHaveCSS("box-shadow", "none");
+    await expect(card).toHaveCSS("border-top-left-radius", "0px");
+  }
+  const lefts = await cards.evaluateAll(list => list.map(card => Math.round(card.getBoundingClientRect().left)));
+  expect(new Set(lefts).size).toBe(3);
+  // Every book draws a meter, full width of its text column, and the page fields line up across the row.
+  const meters = page.locator(".bv-now-card .bv-reading-meter");
+  await expect(meters).toHaveCount(3);
+  for (const meter of await meters.all()) expect(await meter.evaluate(node => getComputedStyle(node).maxWidth)).toBe("none");
+  const fields = await page.locator(".bv-now-card .bv-progress-box").evaluateAll(list => list.map(box => Math.round(box.getBoundingClientRect().top)));
+  expect(new Set(fields).size).toBe(1);
+  // Title is the stronger line: Caslon and larger than the muted author.
+  const sizes = await cards.first().evaluate(card => ({ title: parseFloat(getComputedStyle(card.querySelector("h3")).fontSize), author: parseFloat(getComputedStyle(card.querySelector(".bv-author")).fontSize) }));
+  expect(sizes.title).toBeGreaterThan(sizes.author);
+  // Up next: five equal columns, five suggestions, Start reading as wide as its words.
+  const next = page.locator(".bv-up-next .bv-next-card");
+  await expect(next).toHaveCount(5);
+  const columns = await page.locator(".bv-next-row").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").map(parseFloat));
+  expect(columns).toHaveLength(5);
+  expect(Math.max(...columns) - Math.min(...columns)).toBeLessThan(1);
+  const button = await next.first().locator(".bv-button").boundingBox(), card = await next.first().boundingBox();
+  expect(button.width).toBeLessThan(card.width - 20);
+  expect(Math.abs(button.x - card.x)).toBeLessThan(2);
+  // Can't decide? is already showing books, with the first filter pressed and no click.
+  const picks = page.locator(".bv-picks .bv-next-card");
+  await expect(picks).toHaveCount(5);
+  await expect(page.getByRole("group", { name: "Help me choose" }).getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
+  const pickColumns = await page.locator(".bv-picks").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length);
+  expect(pickColumns).toBe(5);
+});
+
+test("at 390 Up next and Can't decide? open with books in two columns; Start reading fills its column", async ({ page, app }) => {
+  app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await expect(page.locator(".bv-up-next .bv-next-card")).toHaveCount(4);
+  await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(4);
+  for (const selector of [".bv-next-row", ".bv-picks"]) expect(await page.locator(selector).evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length), selector).toBe(2);
+  const button = await page.locator(".bv-up-next .bv-next-card").first().locator(".bv-button").boundingBox(), card = await page.locator(".bv-up-next .bv-next-card").first().boundingBox();
+  expect(Math.abs(button.width - card.width)).toBeLessThan(2);
 });
 
 test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
@@ -418,20 +472,22 @@ for (const theme of ["light", "dark"]) for (const [width, height, zoom] of [[390
 }
 
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+// The shelf request: every book, no filter. The pills ask for their own filtered pages.
+const isShelfRequest = request => request.path === "/me/library" && request.query.get("facet") === "all" && !request.query.get("owned") && !request.query.get("length") && !request.query.get("subject");
 const mainHeight = page => page.locator("main").evaluate(node => node.getBoundingClientRect().height);
 
 test("switching a pill keeps the old cards, dimmed, and the page never shrinks while the new ones load", async ({ page, app }) => {
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" }), picks = page.locator(".bv-picks .bv-next-card"), results = page.locator(".bv-results");
   await pills.getByRole("button", { name: "Something I own" }).click();
-  await expect(picks).toHaveCount(3);
+  await expect(picks).toHaveCount(4);
   const before = await mainHeight(page);
   app.delay = 1000;
   await page.evaluate(() => { const main = document.querySelector("main"); window.__heights = []; window.__timer = setInterval(() => window.__heights.push(main.getBoundingClientRect().height), 25); });
   await pills.getByRole("button", { name: "Waiting longest" }).click();
   await expect(results).toHaveAttribute("aria-busy", "true");
   await expect(page.locator(".bv-picks--busy")).toHaveCount(1);
-  await expect(picks).toHaveCount(3);
+  await expect(picks).toHaveCount(4);
   await expect(results).not.toHaveAttribute("aria-busy", "true", { timeout: 5000 });
   await expect(picks.first()).toContainText("Orlando");
   const heights = await page.evaluate(() => { clearInterval(window.__timer); return window.__heights; });
@@ -459,11 +515,11 @@ test("a shelf pill asks the library a bounded number of times and then stops", a
 test("Home asks the library for its books once, for a reader mid-book and for a quiet one", async ({ page, app }) => {
   await page.goto("/home");
   await expect(page.getByRole("heading", { name: "Can’t decide?" })).toBeVisible();
-  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+  expect(app.requests.filter(isShelfRequest)).toHaveLength(1);
   app.requests.length = 0; app.currentReads = [];
   await page.reload();
   await expect(page.getByRole("heading", { name: "Can’t decide?" })).toBeVisible();
-  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+  expect(app.requests.filter(isShelfRequest)).toHaveLength(1);
 });
 
 test("a cover that the image cache never answers switches to Open Library after 1.5 s, once", async ({ page, app }) => {
@@ -555,7 +611,7 @@ test("on a small shelf a pill whose books are the same as an earlier pill's is d
   const pills = page.getByRole("group", { name: "Help me choose" });
   await expect(pills.getByRole("button", { name: "Something I own" })).toBeVisible();
   await expect(pills.getByRole("button", { name: "Waiting longest" })).toHaveCount(0);
-  expect(app.requests.filter(request => request.path === "/me/library")).toHaveLength(1);
+  expect(app.requests.filter(isShelfRequest)).toHaveLength(1);
 });
 
 test("a shelf whose books are all short folds Something I own and Waiting longest into Something short", async ({ page, app }) => {

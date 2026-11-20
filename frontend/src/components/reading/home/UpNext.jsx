@@ -5,7 +5,7 @@ import { putUpNext } from "../../../api/home.js";
 import { useReadingCommand } from "../../../hooks/useReadingCommand.js";
 import { Button } from "../../ui-v2/primitives.jsx";
 import PickCard from "./PickCard.jsx";
-import { MAX_PINS, UP_NEXT_SHOWN, startReading } from "./homeLogic.js";
+import { MAX_PINS, startReading } from "./homeLogic.js";
 
 
 // The reader's pinned list (or the shelf's suggestions) with Start on each book; Edit reorders and unpins without dragging.
@@ -40,7 +40,7 @@ export default function UpNext({ pins, suggested, canEdit, readOnly, onPinsChang
         </span></li>)}</ol>
       {edit.error && <p className="bv-field-error" role="alert">{edit.error}</p>}
       <p className="bv-sr-only" role="status" ref={live} />
-    </> : <div className="bv-next-row">{cards.slice(0, UP_NEXT_SHOWN).map(card => <PickCard key={card.entry_id} card={card} label={card.pinned ? `${card.label} · Pinned` : card.label} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>}
+    </> : <div className="bv-next-row">{cards.slice(0, MAX_PINS).map(card => <PickCard key={card.entry_id} card={card} label={card.pinned ? `${card.label} · Pinned` : card.label} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending} />)}</div>}
     {command.error && <p className="bv-field-error" role="alert">{command.error}</p>}
   </section>;
 }

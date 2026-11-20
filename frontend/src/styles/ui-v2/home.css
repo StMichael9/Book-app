@@ -9,28 +9,33 @@
 .bv-root .bv-section-head h2 { margin: 0; }
 .bv-root .bv-section-head p { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 
-.bv-root .bv-now-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.bv-root .bv-now-card { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 20px; padding: 18px; background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); align-items: start; box-shadow: var(--bv-shadow-sheet); }
+/* Reading now follows My Books: covers sit on the page, no box. Three columns across the full width; each book is its cover with the title,
+   author, meter and page line beside it, and the page field and Save under that, spanning the column. */
+.bv-root .bv-now-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
+.bv-root .bv-now-card { display: grid; grid-template-columns: 112px minmax(0, 1fr); column-gap: 16px; padding: 0; background: none; border-radius: 0; box-shadow: none; align-items: start; }
+.bv-root .bv-now-progress { grid-column: 1 / -1; margin-top: 16px; min-width: 0; }
+.bv-root .bv-now-progress .bv-progress-box { margin: 0; }
 .bv-root .bv-now-card .bv-cover { width: 100%; }
 .bv-root .bv-now-body h3 { margin: 0; font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
-.bv-root .bv-now-body .bv-author { margin: 2px 0 12px; }
-.bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; margin: 0 0 8px; }
+.bv-root .bv-now-body .bv-author { margin: 2px 0 12px; font-size: var(--bv-fs-helper); }
+.bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; max-width: none; margin: 0 0 8px; }
 .bv-root .bv-now-body .bv-muted { margin: 0 0 14px; font-size: var(--bv-fs-helper); }
 .bv-root .bv-more-reading { margin: 12px 0 0; color: var(--bv-muted); }
 .bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; text-decoration: underline; }
 
-.bv-root .bv-next-row { display: grid; grid-template-columns: repeat(4, minmax(0, 176px)); gap: 20px 24px; }
+.bv-root .bv-next-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
 .bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .bv-root .bv-next-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .bv-root .bv-next-body .bv-help { margin: 6px 0 0; }
 .bv-root .bv-next-card h3 a { color: inherit; text-decoration: none; }
 .bv-root .bv-next-card h3 a:hover { text-decoration: underline; }
-.bv-root .bv-picks { display: grid; grid-template-columns: repeat(4, minmax(0, 176px)); gap: 20px 24px; }
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
 .bv-root .bv-next-cover { position: relative; }
 .bv-root .bv-next-card h3 { margin: 10px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 .bv-root .bv-next-label { margin: 6px 0 10px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 600; }
-.bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; }
+/* On a desktop Start reading is only as wide as its words, left-aligned, so the covers lead and the buttons do not. */
+.bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; align-self: flex-start; }
 .bv-root .bv-next-body .bv-next-label + .bv-button { margin-top: 4px; }
 .bv-root .bv-pin-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-pin-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--bv-line); }
@@ -65,14 +70,19 @@
 .bv-root .bv-progress-links { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; }
 
 @media (max-width: 900px) {
-  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); }
+  .bv-root .bv-now-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* Up next on a phone: a 2-column grid of covers (a fifth sits alone in the left column); nothing scrolls sideways. */
-  .bv-root .bv-next-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
+  .bv-root .bv-next-row, .bv-root .bv-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
   .bv-root .bv-glance { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); justify-content: start; gap: 24px; }
 }
 @media (max-width: 700px) {
-  .bv-root .bv-now-card { grid-template-columns: 88px minmax(0, 1fr); gap: 14px; padding: 14px; }
+  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); }
+  /* On a phone the page field sits under the text, beside the small cover, as before. */
+  .bv-root .bv-now-card { grid-template-columns: 88px minmax(0, 1fr); column-gap: 14px; }
+  .bv-root .bv-now-card > :first-child { grid-row: 1 / span 2; }
+  .bv-root .bv-now-progress { grid-column: 2; margin-top: 10px; }
+  .bv-root .bv-next-card .bv-button { align-self: stretch; }
     .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); gap: 18px; }
   .bv-root .bv-progress-sheet { width: 100%; max-width: none; margin: auto 0 0; padding: 12px 20px 20px; border-radius: 20px 20px 0 0; border-bottom: 0; }
 }
@@ -91,9 +101,8 @@
 
 @media (max-width: 700px) {
   /* Filter pills wrap onto more lines. Picks use the same 2-column cover grid as Up next; the button fills its column. */
-  .bv-root .bv-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
   .bv-root .bv-pill { white-space: nowrap; }
-  .bv-root .bv-picks .bv-next-body .bv-button { align-self: stretch; width: 100%; }
+  .bv-root .bv-picks .bv-next-body .bv-button { width: 100%; }
 }
 
 /* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */

@@ -3,9 +3,10 @@ import { createReadingAttempt, getReadingWorkspace } from "../../../api/reading.
 import { localToday } from "../localToday.js";
 
 export const MAX_PINS = 5;
-export const UP_NEXT_SHOWN = 4;
-export const PICKS_PER_TRY = 3;
-// On a phone the picks sit in a 2-column grid, so a try shows four (two rows of two).
+// Up next and Can't decide? fill a 5-column row on a desktop; from tablet width down they sit in a 2-column grid, so four (two rows of two).
+export const UP_NEXT_SHOWN = 5;
+export const UP_NEXT_SHOWN_COMPACT = 4;
+export const PICKS_PER_TRY = 5;
 export const PICKS_PER_TRY_PHONE = 4;
 
 export function greetingFor(name, now = new Date()) {
@@ -15,9 +16,13 @@ export function greetingFor(name, now = new Date()) {
   return `Good ${hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"}, ${first}`;
 }
 
-const NARROW = "(max-width: 700px)";
-const subscribe = notify => { const query = window.matchMedia(NARROW); query.addEventListener("change", notify); return () => query.removeEventListener("change", notify); };
-export const useNarrow = () => useSyncExternalStore(subscribe, () => window.matchMedia(NARROW).matches, () => false);
+const mediaHook = text => {
+  const subscribe = notify => { const query = window.matchMedia(text); query.addEventListener("change", notify); return () => query.removeEventListener("change", notify); };
+  return () => useSyncExternalStore(subscribe, () => window.matchMedia(text).matches, () => false);
+};
+export const useNarrow = mediaHook("(max-width: 700px)");
+// At 900px and under Home's book grids drop to two columns.
+export const useCompact = mediaHook("(max-width: 900px)");
 
 export const shortDate = iso => {
   const date = iso ? new Date(`${iso}T00:00:00`) : null;
