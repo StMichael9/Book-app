@@ -144,3 +144,27 @@ def test_the_storage_guard_still_stops_a_dump_phase_when_the_catalogue_is_too_bi
         for _ in range(10):
             importer.run_import(cfg, one_phase=True)
     assert stage_phase(url) == "paused_capacity"
+
+
+# --- T65: `selected=0` in the dump phases is normal; say what was staged, and stop a run that staged nothing ------------------
+
+def test_the_works_phase_reports_what_it_staged_while_selected_stays_zero(import_env, stage_schemas, monkeypatch, caplog):
+    models, factory, importer, config = import_env
+    url = stage_schemas("stage_t65_a")
+    fake_stream(monkeypatch, scenario())
+    cfg = popular(config, stage_database_url=url)
+    with caplog.at_level("INFO", logger="bookvane.catalogue"):
+        run_until(importer, cfg, url, "authors")
+    text_ = "\n".join(r.getMessage() for r in caplog.records)
+    assert "works finished: 3 works staged" in text_
+    assert "works line=" in text_ and "selected=0" in text_                         # the progress lines still read selected=0
+
+
+def test_a_popular_run_whose_works_phase_staged_nothing_stops_with_a_clear_error(import_env, stage_schemas, monkeypatch):
+    models, factory, importer, config = import_env
+    url = stage_schemas("stage_t65_b")
+    source = dumps([work(n) for n in (1, 2, 3)], [edition(n) for n in (1, 2, 3)], readers={900: 5, 901: 4})   # popularity for other works
+    fake_stream(monkeypatch, source)
+    cfg = popular(config, stage_database_url=url)
+    with pytest.raises(RuntimeError, match="staged no works"):
+        run_until(importer, cfg, url, "authors")
