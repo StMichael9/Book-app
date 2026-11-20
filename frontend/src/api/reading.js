@@ -34,3 +34,5 @@ export const forgetLibraryEntry = (id, version) => apiRequest(`/me/library/${id}
 export const getReadingExport = () => apiRequest("/me/reading-export", { responseType: "response" });
 export const getLibraryCsvExport = () => apiRequest("/me/library/export.csv", { responseType: "response" });
 export const searchLibraryFacet = (group, params, signal) => apiRequest(`/me/library/facets/${group}?${params}`, { signal });
+// What do we know about this ISBN? Read-only: it never adds anything to the catalogue or to the reader's shelf.
+export const lookupIsbn = (isbn, signal) => apiRequest(`/me/catalogue/isbn/${encodeURIComponent(isbn)}`, { signal });
