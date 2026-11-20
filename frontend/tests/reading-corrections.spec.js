@@ -301,7 +301,7 @@ test('stale Mark as reading does not retry or silently create a reread', async (
 // Finish and Stop are single clicks; their moment offers an immediate undo on the same attempt.
 for (const [action, heading, prompt, open] of [
   ['Finish book', 'You finished A book with history.', 'Finished by mistake?', null],
-  ['Stop reading this book', 'You stopped reading A book with history.', 'Stopped by mistake?', 'About this book · Manage'],
+  ['Stop reading this book', 'You stopped reading A book with history.', 'Stopped by mistake?', 'About this book'],
 ]) test(`undo right after "${action}" returns the same attempt to reading without new records`, async ({ page, app }) => {
   app.attempts[0].state = 'reading'; app.attempts[0].ended_on = null;
   app.entry.reading_state = 'reading';
