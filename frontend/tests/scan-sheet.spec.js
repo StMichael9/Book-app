@@ -84,7 +84,7 @@ const withCamera = (page, mode = "ok") => page.addInitScript(mode => {
   navigator.mediaDevices.getUserMedia = async () => {
     const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240;
     const context = canvas.getContext("2d"); let shade = 0;
-    setInterval(() => { shade = (shade + 20) % 255; context.fillStyle = `rgb(${shade},${shade},${shade})`; context.fillRect(0, 0, 320, 240); }, 100);
+    setInterval(() => { shade = (shade + 20) % 255; context.fillStyle = window.__fill || `rgb(${shade},${shade},${shade})`; context.fillRect(0, 0, 320, 240); }, 100);
     const stream = canvas.captureStream(10); window.__streams += 1;
     const record = { total: stream.getTracks().length, stopped: 0 }; window.__streamTracks.push(record);
     for (const track of stream.getTracks()) { const stop = track.stop.bind(track); let done = false; track.stop = () => { if (!done) { done = true; window.__stopped += 1; record.stopped += 1; } stop(); }; }
@@ -116,7 +116,7 @@ test("scanning a stack: rows collect, repeats and non-ISBN codes are ignored, an
   await withCamera(page);
   await open(page);
   const dialog = page.getByRole("dialog", { name: "Scan books" });
-  await expect(dialog.getByText("Point at the barcode on the back")).toBeVisible();
+  await expect(dialog.getByText("Fit the barcode in the box")).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Add 0 books" })).toBeDisabled();
   await scan(page, EMMA, EMMA, "5012345678900", "9780141439519");   // a repeat, a shop code and a bad check digit
   await expect(dialog.locator(".bv-scan-row")).toHaveCount(1);
@@ -207,7 +207,7 @@ test("a refused or missing camera falls back to typing, with one plain sentence"
     await open(page);
     const dialog = page.getByRole("dialog", { name: "Scan books" });
     await expect(dialog.getByText("Camera’s off. Type the ISBN instead.")).toBeVisible();
-    await expect(dialog.getByText("Point at the barcode on the back")).toHaveCount(0);
+    await expect(dialog.getByText("Fit the barcode in the box")).toHaveCount(0);
     await dialog.getByLabel("Type an ISBN").fill("0-14-143951-3");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     await expect(dialog.locator(`[data-isbn="${EMMA}"]`)).toContainText("Emma");
@@ -325,4 +325,162 @@ for (const mode of ["slow-play", "slow-formats"]) test(`hiding the page while th
   const closed = await page.evaluate(() => window.__instances.map(item => item.calls));
   await page.waitForTimeout(600);
   expect(await page.evaluate(() => window.__instances.map(item => item.calls))).toEqual(closed);   // nothing keeps looking once the sheet is closed
+});
+
+// ---- T69: the aiming box and the confirmation over the camera ------------------------------------------------------------------------
+
+const rect = (page, selector) => page.locator(selector).evaluate(node => { const box = node.getBoundingClientRect(); return { x: box.x, y: box.y, width: box.width, height: box.height }; });
+const rgb = value => value.match(/[\d.]+/g).slice(0, 3).map(Number);
+const luminance = ([r, g, b]) => { const f = value => { const x = value / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+const ratio = (a, b) => { const [hi, lo] = [luminance(rgb(a)), luminance(rgb(b))].sort((x, y) => y - x); return (hi + 0.05) / (lo + 0.05); };
+
+test("the camera shows an aiming box: centred, barcode-shaped, dimmed outside, a static green line, and the new hint", async ({ page, app: _app }) => {
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  await expect(dialog.getByText("Fit the barcode in the box")).toBeVisible();
+  await expect(dialog.getByText("Point at the barcode on the back")).toHaveCount(0);
+  const frame = await rect(page, ".bv-scan-camera"), aim = await rect(page, ".bv-scan-aim"), hint = await rect(page, ".bv-scan-hint");
+  expect(Math.abs(aim.x + aim.width / 2 - (frame.x + frame.width / 2))).toBeLessThan(1.5);
+  expect(Math.abs(aim.y + aim.height / 2 - (frame.y + frame.height / 2))).toBeLessThan(1.5);
+  expect(aim.width / frame.width).toBeGreaterThan(0.76); expect(aim.width / frame.width).toBeLessThan(0.8);
+  expect(aim.width / aim.height).toBeGreaterThan(2.1); expect(aim.width / aim.height).toBeLessThan(2.3);
+  expect(hint.y).toBeGreaterThanOrEqual(aim.y + aim.height);                 // the hint sits under the box, inside the frame
+  expect(hint.y + hint.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+  const style = await page.locator(".bv-scan-aim").evaluate(node => { const css = getComputedStyle(node), line = getComputedStyle(node, "::before"); return { shadow: css.boxShadow, radius: css.borderTopLeftRadius, stroke: css.borderTopWidth, animation: css.animationName, lineHeight: line.height, lineColor: line.backgroundColor, lineAnimation: line.animationName }; });
+  expect(style.shadow).toContain("rgba(0, 0, 0, 0.45)");
+  expect(style.radius).toBe("12px"); expect(style.stroke).toBe("2px");
+  expect(style.animation).toBe("none"); expect(style.lineAnimation).toBe("none"); expect(style.lineHeight).toBe("2px");
+  expect(style.lineColor).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("an accepted scan turns the box green with a tick for under a second, then clears; a repeat does not flash", async ({ page, app }) => {
+  app.isbn = answers;
+  await withCamera(page);
+  await open(page);
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  const idle = await page.locator(".bv-scan-aim").evaluate(node => getComputedStyle(node).borderTopColor);
+  await scan(page, EMMA);
+  await expect(page.locator(".bv-scan-camera.is-flash")).toHaveCount(1);
+  await expect(page.locator(".bv-scan-tick")).toHaveCSS("opacity", "1");
+  expect(await page.locator(".bv-scan-aim").evaluate(node => getComputedStyle(node).borderTopColor)).not.toBe(idle);
+  const tick = await rect(page, ".bv-scan-tick"), aim = await rect(page, ".bv-scan-aim");
+  expect(Math.round(tick.width)).toBe(40);
+  expect(Math.abs(tick.x + 20 - (aim.x + aim.width / 2))).toBeLessThan(1.5);
+  await expect(page.locator(".bv-scan-camera.is-flash")).toHaveCount(0, { timeout: 1000 });
+  await expect(page.locator(".bv-scan-tick")).toHaveCSS("opacity", "0");
+  expect(await page.locator(".bv-scan-aim").evaluate(node => getComputedStyle(node).borderTopColor)).toBe(idle);
+  await scan(page, EMMA);                                                    // the same ISBN inside the 3 s window
+  await page.waitForTimeout(300);
+  await expect(page.locator(".bv-scan-camera.is-flash")).toHaveCount(0);
+});
+
+test("the card: Looking up… then the title and Added · N scanned, replaced by the next scan, gone about 3 s after its answer; one announcement per answer", async ({ page, app }) => {
+  app.isbn = answers;
+  let release; app.holdLookups = new Promise(done => { release = done; });
+  await withCamera(page);
+  await open(page);
+  const card = page.locator(".bv-scan-card");
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  await expect(card).not.toHaveClass(/is-open/);
+  await scan(page, EMMA);
+  await expect(card).toHaveClass(/is-open/);
+  await expect(card.locator(".bv-scan-state")).toHaveText("Looking up…");
+  await expect(card.locator(".bv-scan-title")).toHaveText(EMMA);
+  await expect(page.getByRole("dialog", { name: "Scan books" }).locator(".bv-sr-only[aria-live='polite']")).toHaveText("");   // nothing is announced until the title is known
+  release();
+  await expect(card.locator(".bv-scan-title")).toHaveText("Emma");
+  await expect(card.locator(".bv-scan-state")).toHaveText("Added · 1 scanned");
+  await expect(page.getByRole("dialog", { name: "Scan books" }).locator(".bv-sr-only[aria-live='polite']")).toHaveText("Emma. Added · 1 scanned");
+  app.holdLookups = null;
+  await scan(page, ORWELL);
+  await expect(card.locator(".bv-scan-title")).toHaveText("Nineteen Eighty-Four");
+  await expect(card.locator(".bv-scan-state")).toHaveText("Added · 2 scanned");
+  await expect(page.getByRole("dialog", { name: "Scan books" }).locator(".bv-sr-only[aria-live='polite']")).toHaveText("Nineteen Eighty-Four. Added · 2 scanned");
+  await page.waitForTimeout(1500);
+  await expect(card).toHaveClass(/is-open/);                                 // it stays after the answer
+  await expect(card).not.toHaveClass(/is-open/, { timeout: 4000 });          // and goes about 3 s after it
+  expect(await card.evaluate(node => node.getAttribute("aria-hidden"))).toBe("true");
+  expect(await card.evaluate(node => node.tabIndex)).toBe(-1);
+});
+
+test("the card for a shelf book, a book we could not find and a failed lookup", async ({ page, app }) => {
+  app.isbn = { ...answers, [ORWELL]: "429" };
+  await withCamera(page);
+  await open(page);
+  const card = page.locator(".bv-scan-card");
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  await scan(page, GATSBY);
+  await expect(card.locator(".bv-scan-title")).toHaveText("The Great Gatsby");
+  await expect(card.locator(".bv-scan-state")).toHaveText("Already on your shelf");
+  await scan(page, MOCK);
+  await expect(card.locator(".bv-scan-title")).toHaveText(`ISBN ${MOCK}`);
+  await expect(card.locator(".bv-scan-state")).toHaveText("Added · 2 scanned");
+  await scan(page, ORWELL);
+  await expect(card.locator(".bv-scan-state")).toHaveText("Couldn’t look this up.");
+  await expect(card.locator(".bv-scan-title")).toHaveText(`ISBN ${ORWELL}`);
+});
+
+test("with reduced motion nothing animates: no transitions, but the tick and the card still come and go on the same timings", async ({ page, app }) => {
+  app.isbn = answers;
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await withCamera(page);
+  await open(page);
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  for (const selector of [".bv-scan-card", ".bv-scan-aim", ".bv-scan-tick"]) {
+    expect(await page.locator(selector).evaluate(node => { const css = getComputedStyle(node); return [css.transitionDuration, css.animationName]; }), selector).toEqual(["0s", "none"]);
+  }
+  await scan(page, EMMA);
+  await expect(page.locator(".bv-scan-camera.is-flash")).toHaveCount(1);
+  await expect(page.locator(".bv-scan-card")).toHaveClass(/is-open/);
+  await expect(page.locator(".bv-scan-camera.is-flash")).toHaveCount(0, { timeout: 1000 });
+  expect(await page.locator(".bv-scan-row").evaluate(node => getComputedStyle(node).animationName)).toBe("none");
+});
+
+test("the card and the hint stay readable over a white and a black video frame", async ({ page, app }) => {
+  app.isbn = answers;
+  await withCamera(page);
+  await open(page);
+  await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+  const readable = async selector => page.locator(selector).evaluate(node => {
+    const text = getComputedStyle(node).color; let el = node, back = "rgba(0, 0, 0, 0)";
+    while (el && /rgba\(0, 0, 0, 0\)|transparent/.test(back)) { back = getComputedStyle(el).backgroundColor; el = el.parentElement; }
+    return [text, back];
+  });
+  for (const fill of ["#ffffff", "#000000"]) {
+    await page.evaluate(value => { window.__fill = value; }, fill);
+    await scan(page, fill === "#ffffff" ? EMMA : ORWELL);
+    await expect(page.locator(".bv-scan-card.is-open .bv-scan-state")).toContainText("scanned");
+    for (const selector of [".bv-scan-card .bv-scan-title", ".bv-scan-card .bv-scan-state"]) { const [text, back] = await readable(selector); expect(ratio(text, back), `${selector} over ${fill}`).toBeGreaterThanOrEqual(4.5); }
+    await page.waitForTimeout(3600);
+  }
+  const [text, back] = await readable(".bv-scan-hint");
+  expect(ratio(text, back)).toBeGreaterThanOrEqual(4.5);
+});
+
+for (const theme of ["light", "dark"]) test(`the aiming box and card fit at 390, 320 and 200% text with no sideways scroll; ${theme}`, async ({ page, app }) => {
+  app.isbn = answers;
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  await withCamera(page);
+  for (const [width, zoom] of [[390, false], [320, false], [390, true]]) {
+    await page.setViewportSize({ width, height: 844 });
+    await open(page);
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
+    const before = await rect(page, ".bv-scan-camera");
+    await scan(page, EMMA);
+    await expect(page.locator(".bv-scan-card.is-open .bv-scan-state")).toHaveText("Added · 1 scanned");
+    const frame = await rect(page, ".bv-scan-camera"), card = await rect(page, ".bv-scan-card"), aim = await rect(page, ".bv-scan-aim");
+    expect(frame.height).toBe(before.height);                                // nothing shifts when the card arrives
+    expect(card.x).toBeGreaterThanOrEqual(frame.x); expect(card.x + card.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
+    expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 0.5);
+    expect(aim.x).toBeGreaterThanOrEqual(frame.x);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector("dialog").scrollWidth <= innerWidth)).toBe(true);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: test.info().outputPath(`feedback-${theme}-${width}${zoom ? "-200" : ""}.png`) });
+    await page.keyboard.press("Escape");
+    await page.reload();
+  }
 });

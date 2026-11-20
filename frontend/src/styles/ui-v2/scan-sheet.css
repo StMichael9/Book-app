@@ -15,6 +15,21 @@
 .bv-root .bv-scan-camera { position: relative; width: 100%; height: min(38dvh, 70vw); border-radius: 20px; overflow: hidden; background: var(--bv-soft); }
 .bv-root .bv-scan-camera video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .bv-root .bv-scan-camera.is-refused, .bv-root .bv-scan-camera.is-none { display: none; }
+/* The aiming box: a guide only (decoding reads the whole frame). The scrim is the box's own shadow, clipped by the camera frame. The camera view is dark
+   in both themes, so the stroke is white rather than a theme colour. */
+.bv-root .bv-scan-aim { position: absolute; left: 50%; top: 50%; width: 78%; aspect-ratio: 2.2 / 1; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); pointer-events: none; transition: border-color 120ms ease-out; }
+.bv-root .bv-scan-aim::before { content: ""; position: absolute; left: 10px; right: 10px; top: calc(50% - 1px); height: 2px; background: var(--bv-green); }
+.bv-root .bv-scan-tick { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; display: grid; place-items: center; border-radius: 50%; background: var(--bv-green); color: var(--bv-on-green); opacity: 0; transition: opacity 120ms ease-out; }
+.bv-root .bv-scan-tick svg { width: 22px; height: 22px; stroke-width: 3; }
+.bv-root .bv-scan-camera.is-flash .bv-scan-aim { border-color: var(--bv-green); }
+.bv-root .bv-scan-camera.is-flash .bv-scan-aim::before { opacity: 0; }
+.bv-root .bv-scan-camera.is-flash .bv-scan-tick { opacity: 1; }
+.bv-root .bv-scan-camera.is-asking .bv-scan-aim, .bv-root .bv-scan-camera.is-refused .bv-scan-aim, .bv-root .bv-scan-camera.is-none .bv-scan-aim { display: none; }
+.bv-root .bv-scan-camera.has-card .bv-scan-hint { opacity: 0; }
+.bv-root .bv-scan-card { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bv-sheet); color: var(--bv-ink); border-radius: 14px; box-shadow: var(--bv-lift); transform: translateY(calc(100% + 16px)); opacity: 0; visibility: hidden; transition: transform 180ms ease-out, opacity 180ms ease-out, visibility 0s linear 180ms; }
+.bv-root .bv-scan-card.is-open { transform: none; opacity: 1; visibility: visible; transition-delay: 0s; }
+.bv-root .bv-scan-card .bv-scan-cover, .bv-root .bv-scan-card .bv-scan-cover .bv-cover, .bv-root .bv-scan-card .bv-scan-cover-blank { width: 40px; }
+@media (prefers-reduced-motion: reduce) { .bv-root .bv-scan-aim, .bv-root .bv-scan-tick, .bv-root .bv-scan-card { transition: none; } }
 .bv-root .bv-scan-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); margin: 0; padding: 6px 14px; border-radius: 999px; background: var(--bv-paper); color: var(--bv-ink); font-size: var(--bv-fs-helper); font-weight: 600; white-space: nowrap; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
 .bv-root .bv-scan-notice { margin: 0; color: var(--bv-muted); }
 
