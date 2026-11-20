@@ -343,7 +343,7 @@ test("the camera shows an aiming box: centred, barcode-shaped, dimmed outside, a
   await expect(dialog.getByText("Point at the barcode on the back")).toHaveCount(0);
   const frame = await rect(page, ".bv-scan-camera"), aim = await rect(page, ".bv-scan-aim"), hint = await rect(page, ".bv-scan-hint");
   expect(Math.abs(aim.x + aim.width / 2 - (frame.x + frame.width / 2))).toBeLessThan(1.5);
-  expect(Math.abs(aim.y + aim.height / 2 - (frame.y + frame.height / 2))).toBeLessThan(1.5);
+  expect(aim.y + aim.height / 2).toBeLessThan(frame.y + frame.height / 2);   // centred in the space above the band kept for the card
   expect(aim.width / frame.width).toBeGreaterThan(0.76); expect(aim.width / frame.width).toBeLessThan(0.8);
   expect(aim.width / aim.height).toBeGreaterThan(2.1); expect(aim.width / aim.height).toBeLessThan(2.3);
   expect(hint.y).toBeGreaterThanOrEqual(aim.y + aim.height);                 // the hint sits under the box, inside the frame
@@ -469,11 +469,15 @@ for (const theme of ["light", "dark"]) test(`the aiming box and card fit at 390,
     await open(page);
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
-    const before = await rect(page, ".bv-scan-camera");
+    const before = await rect(page, ".bv-scan-camera"), aimBefore = await rect(page, ".bv-scan-aim");
     await scan(page, EMMA);
     await expect(page.locator(".bv-scan-card.is-open .bv-scan-state")).toHaveText("Added · 1 scanned");
     const frame = await rect(page, ".bv-scan-camera"), card = await rect(page, ".bv-scan-card"), aim = await rect(page, ".bv-scan-aim");
     expect(frame.height).toBe(before.height);                                // nothing shifts when the card arrives
+    expect(aim).toEqual(aimBefore);                                          // and the box does not move either
+    expect(card.y).toBeGreaterThanOrEqual(aim.y + aim.height);               // the card never covers the box
+    expect(aim.width / frame.width).toBeGreaterThanOrEqual(0.6);
+    expect(Math.abs(aim.width / aim.height - 2.2)).toBeLessThan(0.1);
     expect(card.x).toBeGreaterThanOrEqual(frame.x); expect(card.x + card.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
     expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 0.5);
     expect(aim.x).toBeGreaterThanOrEqual(frame.x);

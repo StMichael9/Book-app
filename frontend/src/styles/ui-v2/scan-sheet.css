@@ -12,12 +12,14 @@
 .bv-root .bv-scan-add { width: 100%; justify-content: center; min-height: 52px; }
 
 .bv-root .bv-scan-top { position: sticky; top: 0; z-index: 2; display: grid; gap: 16px; padding-bottom: 12px; background: var(--bv-paper); }
-.bv-root .bv-scan-camera { position: relative; width: 100%; height: min(38dvh, 70vw); border-radius: 20px; overflow: hidden; background: var(--bv-soft); }
+/* A band at the bottom of the frame is kept for the card (its height, plus the 8px it sits off the edge and an 8px gap), whether or not the card is up,
+   so the box never moves. The box is centred above it, and gets narrower (never under 60% of the frame) when the frame is short. */
+.bv-root .bv-scan-camera { --scan-h: min(38dvh, 70vw); --scan-band: calc(max(60px, 1.0625rem * 1.25 + 2px + 0.875rem * 1.45) + 20px + 16px); position: relative; width: 100%; height: var(--scan-h); border-radius: 20px; overflow: hidden; background: var(--bv-soft); }
 .bv-root .bv-scan-camera video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
 .bv-root .bv-scan-camera.is-refused, .bv-root .bv-scan-camera.is-none { display: none; }
 /* The aiming box: a guide only (decoding reads the whole frame). The scrim is the box's own shadow, clipped by the camera frame. The camera view is dark
    in both themes, so the stroke is white rather than a theme colour. */
-.bv-root .bv-scan-aim { position: absolute; left: 50%; top: 50%; width: 78%; aspect-ratio: 2.2 / 1; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); pointer-events: none; transition: border-color 120ms ease-out; }
+.bv-root .bv-scan-aim { position: absolute; left: 50%; top: calc((100% - var(--scan-band)) / 2); width: max(60%, min(78%, calc((var(--scan-h) - var(--scan-band) - 8px) * 2.2))); aspect-ratio: 2.2 / 1; transform: translate(-50%, -50%); border: 2px solid #fff; border-radius: 12px; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .45); pointer-events: none; transition: border-color 120ms ease-out; }
 .bv-root .bv-scan-aim::before { content: ""; position: absolute; left: 10px; right: 10px; top: calc(50% - 1px); height: 2px; background: var(--bv-green); }
 .bv-root .bv-scan-tick { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; display: grid; place-items: center; border-radius: 50%; background: var(--bv-green); color: var(--bv-on-green); opacity: 0; transition: opacity 120ms ease-out; }
 .bv-root .bv-scan-tick svg { width: 22px; height: 22px; stroke-width: 3; }
