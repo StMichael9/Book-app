@@ -110,7 +110,7 @@ def test_creation_replay_after_transitions_and_intent_conflict(client, owner, se
     assert replay.status_code == 200 and replay.json()["attempt"]["state"] == "finished"
     assert client.put(f"/me/reading-attempts/{identity}", json={**body, "state": "dnf"}).status_code == 409
     # History stays a summary; M3 context is deliberately detail-only.
-    summary = {key: value for key, value in replay.json()["attempt"].items() if key not in {"note", "reaction"}}
+    summary = {key: value for key, value in replay.json()["attempt"].items() if key not in {"note", "notes", "reaction"}}
     assert client.get(f"/me/library/{saved['id']}/attempts").json()["items"] == [summary]
 
 

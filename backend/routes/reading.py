@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from database import engine, get_db
 from models import User
 from rate_limit import limiter
-from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, NextReadQuery, NextReadResult, PrivateEntryCreate, ReadingRemoval, ReadingResult, ReadingWorkspace
+from reading_schemas import AttemptCreate, AttemptPage, AttemptUpdate, EntryDetail, NextReadQuery, NoteCreate, NoteUpdate, NoteView, NextReadResult, PrivateEntryCreate, ReadingRemoval, ReadingResult, ReadingWorkspace
 from routes.library import reading_user, writing_user
 from services.reading import ReadingService
 from services.next_read import NextReadService
@@ -84,6 +84,27 @@ def reading_detail(request: Request, attempt_id: UUID,
 def change_attempt(request: Request, attempt_id: UUID, data: AttemptUpdate,
                    current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
     return ReadingService(db).update_attempt(current_user.id, attempt_id, data)
+
+
+@router.post("/reading-attempts/{attempt_id}/notes", response_model=NoteView)
+@limiter.limit("60/minute")
+def add_note(request: Request, attempt_id: UUID, data: NoteCreate,
+             current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
+    return ReadingService(db).create_note(current_user.id, attempt_id, data)
+
+
+@router.patch("/reading-notes/{note_id}", response_model=NoteView)
+@limiter.limit("60/minute")
+def change_note(request: Request, note_id: int, data: NoteUpdate,
+                current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
+    return ReadingService(db).update_note(current_user.id, note_id, data)
+
+
+@router.delete("/reading-notes/{note_id}", status_code=204)
+@limiter.limit("60/minute")
+def remove_note(request: Request, note_id: int,
+                current_user: User = Depends(writing_user), db: Session = Depends(get_db)):
+    ReadingService(db).delete_note(current_user.id, note_id)
 
 
 @router.delete("/reading-attempts/{attempt_id}", response_model=EntryDetail)

@@ -10,7 +10,7 @@ import json
 from time import monotonic
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, text
+from sqlalchemy import func, literal, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 COLUMNS = ("version", "record_id", "attempt_id", "title", "author", "isbn13", "work_source_id", "status",
@@ -34,16 +34,18 @@ def csv_line(values, *, columns=COLUMNS, escape_metadata=True):
 
 def _query(user_id):
     # Keep pure CSV encoding importable before application/test DB setup.
-    from models import Author, Book, EditionISBN, ReadingAttempt, UserBook, book_authors
+    from models import Author, Book, EditionISBN, ReadingAttempt, ReadingNote, UserBook, book_authors
     authors = select(func.array_agg(aggregate_order_by(Author.name, Author.name, Author.id))).select_from(book_authors.join(Author))\
         .where(book_authors.c.book_id == UserBook.book_id).correlate(UserBook).scalar_subquery()
     edition_isbn = select(func.min(EditionISBN.isbn13)).where(EditionISBN.edition_id == ReadingAttempt.edition_id)\
         .correlate(ReadingAttempt).scalar_subquery()
+    notes = select(func.string_agg(ReadingNote.text, aggregate_order_by(literal(chr(10) * 2), ReadingNote.id)))\
+        .where(ReadingNote.attempt_id == ReadingAttempt.id).correlate(ReadingAttempt).scalar_subquery()
     return (select(UserBook.id.label("entry_id"), UserBook.private_title, UserBook.private_author,
         UserBook.private_description, UserBook.is_owned, UserBook.is_wanted, Book.title, authors.label("author"), Book.source_id,
         func.coalesce(edition_isbn, Book.isbn13).label("isbn13"), ReadingAttempt.id.label("attempt_id"),
         ReadingAttempt.state, ReadingAttempt.started_on, ReadingAttempt.ended_on, ReadingAttempt.edition_format,
-        ReadingAttempt.total_pages, ReadingAttempt.note).select_from(UserBook).outerjoin(Book).outerjoin(ReadingAttempt)
+        ReadingAttempt.total_pages, notes.label("note")).select_from(UserBook).outerjoin(Book).outerjoin(ReadingAttempt)
         .where(UserBook.user_id == user_id).order_by(UserBook.id, ReadingAttempt.id))
 
 
