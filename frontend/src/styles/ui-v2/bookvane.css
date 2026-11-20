@@ -114,7 +114,10 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-button--secondary:active:not(:disabled) { background: color-mix(in srgb, var(--bv-soft), #000 8%); }
 .bv-root .bv-button--danger:active:not(:disabled) { background: color-mix(in srgb, var(--bv-danger), #000 8%); }
 /* A text button inside a sentence (the page total, Undo) is a plain underlined link: no fill, no pill. Its 44px hit area stays. */
-.bv-root .bv-button.bv-inline-action, .bv-root .bv-button.bv-inline-action:is(:hover, :active):not(:disabled) { background: transparent; border-color: transparent; border-radius: 0; }
+.bv-root .bv-button:is(.bv-inline-action, .bv-link-button), .bv-root .bv-button:is(.bv-inline-action, .bv-link-button):is(:hover, :active):not(:disabled) { background: transparent; border-color: transparent; border-radius: 0; }
+/* The link look of a text button: green, 600, underlined, 44px tall. Contexts (the progress line, the undo toast, the journal) may recolour it. */
+.bv-root .bv-button.bv-inline-action { min-height: 44px; padding-inline: 2px; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-button.bv-journal-edit { color: var(--bv-muted); }
 .bv-root .bv-full-width { width: 100%; }
 .bv-root .bv-icon-button { min-width: 44px; min-height: 44px; padding: 10px; flex-shrink: 0; }
 /* The one tertiary link: green, 600 weight, underlined with a 3px offset, at least 44px tall. Text-style buttons share it. */

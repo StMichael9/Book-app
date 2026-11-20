@@ -242,8 +242,8 @@ export function ReadingWorkspacePage() {
             {!moment && <p className="bv-workspace-undo">Still reading it? <Button variant="quiet" className="bv-inline-action" disabled={blocked} onClick={markAsReading}>Mark as reading</Button></p>}
           </>}
         </div>
-        {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" onClick={request.retry}>Reload current reading</Button></p>}
-        {request.error && <p role="alert" className="bv-notice">Your reading couldn’t refresh. <Button variant="quiet" onClick={request.retry}>Try again</Button></p>}
+        {command.error && <p role="alert" className="bv-notice">{command.error} <Button variant="quiet" className="bv-inline-action" onClick={request.retry}>Reload current reading</Button></p>}
+        {request.error && <p role="alert" className="bv-notice">Your reading couldn’t refresh. <Button variant="quiet" className="bv-inline-action" onClick={request.retry}>Try again</Button></p>}
       </>}
     {moment && <FinishMoment kind={moment.state} title={moment.title} attempt={attempt?.id === moment.id ? attempt : null} headingRef={finishHeading}
       onNote={library.privateContext && attempt?.id === moment.id && !attempt.note ? () => openMemory(attempt) : undefined}

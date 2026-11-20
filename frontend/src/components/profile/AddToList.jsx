@@ -52,7 +52,7 @@ export default function AddToList({ book, menu = false, onChange, onClose }) {
   return <div className="bv-add-list" ref={wrapper} onKeyDown={event => { if (event.key === "Escape" && open) { event.stopPropagation(); close(); } }}>
     {!menu && <Button ref={trigger} variant="quiet" aria-expanded={open} aria-controls={open ? panel : undefined} onClick={() => open ? close() : setOpen(true)}><ListPlus aria-hidden="true" />Add to list</Button>}
     {open && <div id={panel} className="bv-add-list-panel" role="group" aria-label={`Add ${book.title} to a list`}>
-      {state.error ? <p role="alert">We couldn’t load your lists. <Button variant="quiet" onClick={() => { setState({ lists: null, error: false }); setAttempt(value => value + 1); }}>Try again</Button></p>
+      {state.error ? <p role="alert">We couldn’t load your lists. <Button variant="quiet" className="bv-inline-action" onClick={() => { setState({ lists: null, error: false }); setAttempt(value => value + 1); }}>Try again</Button></p>
         : !lists ? <p role="status" className="bv-muted">Loading your lists…</p>
         : <>{lists.length > 0 && <ul>{lists.map(item => <li key={item.id}><label><input type="checkbox" checked={Boolean(item.has_book)} onChange={() => toggle(item)} /><span>{item.name}</span></label></li>)}</ul>}
           {creating ? <form onSubmit={create}><div className="bv-field"><label htmlFor={`${panel}-name`}>List name</label><input id={`${panel}-name`} value={name} maxLength={80} autoFocus onChange={event => setName(event.target.value)} /></div>
