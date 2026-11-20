@@ -29,6 +29,9 @@ BACKFILL = r"""
         ORDER BY part.sort_attempt, part.position
     """
 
+# The column is never written after the upgrade, so clear it first: an attempt whose notes were all deleted must not get its old text back.
+CLEAR = "UPDATE reading_attempts SET note = NULL WHERE note IS NOT NULL"
+
 RESTORE = r"""
         UPDATE reading_attempts a
         SET note = left(joined.text, 2000)
@@ -66,6 +69,7 @@ def upgrade():
 
 def downgrade():
     op.execute("SET LOCAL lock_timeout = '5s'")
+    op.execute(sa.text(CLEAR))
     op.execute(sa.text(RESTORE))
     op.drop_index('ix_reading_notes_attempt_id_id', table_name='reading_notes')
     op.drop_table('reading_notes')

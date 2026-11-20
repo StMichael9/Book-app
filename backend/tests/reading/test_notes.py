@@ -66,8 +66,11 @@ def test_backfill_splits_on_blank_lines_in_order_and_downgrade_joins_back(app_mo
         assert rows("windows") == ["One", "Two"] and rows("blank") == [] and rows("none") == []
         assert db_session.execute(text("SELECT count(*) FROM reading_notes WHERE attempt_id = :a AND written_at IS NULL "
             "AND edited_at IS NULL AND progress_unit IS NULL AND request_id IS NOT NULL"), {"a": ids["three"]}).scalar() == 3
-        db_session.execute(text("UPDATE reading_attempts SET note = NULL WHERE user_book_id = :b"), {"b": book.id})
+        # the column still holds the old text after the upgrade, and the reader then deletes every note of one reading
+        db_session.execute(text("DELETE FROM reading_notes WHERE attempt_id = :a"), {"a": ids["windows"]})
+        db_session.execute(text(module.CLEAR))
         db_session.execute(text(module.RESTORE))
+        assert db_session.execute(text("SELECT note FROM reading_attempts WHERE id = :a"), {"a": ids["windows"]}).scalar() is None
         restored = db_session.execute(text("SELECT note FROM reading_attempts WHERE id = :a"), {"a": ids["three"]}).scalar()
         assert restored == "First" + chr(10) + "still first" + PARA + "Second" + PARA + "Third"
     finally:
