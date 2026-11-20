@@ -18,12 +18,12 @@ from functools import cached_property, lru_cache
 from datetime import date, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import ARRAY, Boolean, Date, DateTime, Integer, Text, case, cast, func, literal_column, null, or_, select, union_all
+from sqlalchemy import ARRAY, Boolean, Date, DateTime, Integer, Text, case, cast, func, literal_column, exists, null, or_, select, union_all
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array_agg
 
 from database import settings
 from models import (
-    Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, Tag, TagType, UserBook, book_authors, book_tags,
+    Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, ReadingNote, Tag, TagType, UserBook, book_authors, book_tags,
 )
 from data.taxonomy import GENRE_KEYS, genre_for_label
 from services.catalogue_resolver import surname
@@ -141,7 +141,7 @@ class LibraryView:
         attempts = select(*branch(
             "s", ReadingAttempt.user_book_id,
             c12=func.max(ReadingAttempt.total_pages),
-            c6=func.bool_or(func.btrim(func.coalesce(ReadingAttempt.note, "")) != ""),
+            c6=func.bool_or(exists().where(ReadingNote.attempt_id == ReadingAttempt.id).correlate(ReadingAttempt)),
             c8=array_agg(aggregate_order_by(ReadingAttempt.state, priority, ReadingAttempt.created_at.desc(),
                                             ReadingAttempt.id.desc()))[1],
             c9=cast(array_agg(func.distinct(func.extract("year", ReadingAttempt.ended_on))).filter(

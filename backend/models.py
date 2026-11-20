@@ -303,6 +303,7 @@ class ReadingAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     entry: Mapped["UserBook"] = relationship(back_populates="attempts")
+    notes: Mapped[list["ReadingNote"]] = relationship(order_by="ReadingNote.id", lazy="select", viewonly=True)
 
 
 class ReadingProgressDay(Base):
@@ -320,6 +321,29 @@ class ReadingProgressDay(Base):
     first_value: Mapped[int] = mapped_column(Integer, nullable=False)
     last_value: Mapped[int] = mapped_column(Integer, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ReadingNote(Base):
+    """One note on a reading, with its own dates and a snapshot of the reading's progress when it was written (owner-only)."""
+    __tablename__ = "reading_notes"
+    __table_args__ = (
+        UniqueConstraint("attempt_id", "request_id", name="uq_reading_note_request"),
+        CheckConstraint("char_length(btrim(text)) BETWEEN 1 AND 2000", name="ck_reading_note_text"),
+        CheckConstraint("(progress_unit IS NULL AND progress_value IS NULL) OR "
+                        "(progress_unit IS NOT NULL AND progress_value IS NOT NULL AND "
+                        "((progress_unit = 'percent' AND progress_value BETWEEN 0 AND 100) OR "
+                        "(progress_unit = 'pages' AND progress_value >= 0)))", name="ck_reading_note_progress"),
+        Index("ix_reading_notes_attempt_id_id", "attempt_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    attempt_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("reading_attempts.id", ondelete="CASCADE"), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    written_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    progress_unit: Mapped[str | None] = mapped_column(String(10))
+    progress_value: Mapped[int | None] = mapped_column(Integer)
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
 
 
 class ReadingList(Base):

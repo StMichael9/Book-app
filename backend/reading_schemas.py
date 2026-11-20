@@ -225,9 +225,39 @@ class AttemptView(BaseModel):
     updated_at: datetime
 
 
+NOTE_JOINER = chr(10) * 2      # notes are joined (and the legacy text split) on a blank line
+
+
+class NoteView(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    text: str
+    written_at: datetime | None
+    edited_at: datetime | None
+    progress_unit: str | None
+    progress_value: int | None
+
+
+class NoteCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    request_id: UUID
+    text: str = Field(min_length=1, max_length=2000)
+
+
+class NoteUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class AttemptDetail(AttemptView):
-    note: str | None
+    note: str | None = None       # compatibility for the old frontend: the notes joined with a blank line, or null
+    notes: list[NoteView] = []
     reaction: str | None
+
+    @model_validator(mode="after")
+    def _joined_note(self):
+        self.note = NOTE_JOINER.join(item.text for item in self.notes) or None
+        return self
 
 
 class ReadingResult(BaseModel):

@@ -7,9 +7,10 @@ import json
 from datetime import datetime, timezone
 from time import monotonic
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, literal, literal_column, select, text
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 
-from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, ReadingProgressDay, Tag, UserBook, UserPreference, book_authors
+from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, ReadingNote, ReadingProgressDay, Tag, UserBook, UserPreference, book_authors
 
 
 def _line(record):
@@ -25,6 +26,16 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
     # A correlated aggregate avoids one author lookup per personal book.
     authors = select(func.array_agg(Author.name)).select_from(book_authors.join(Author))\
         .where(book_authors.c.book_id == entry.c.book_id).correlate(entry).scalar_subquery()
+    # Each reading's notes ride in the same statement: `note` (joined, as before) and `notes` (one object per note).
+    note = ReadingNote.__table__
+    note_text = select(func.string_agg(note.c.text, aggregate_order_by(literal(chr(10) * 2), note.c.id)))\
+        .where(note.c.attempt_id == attempt.c.id).correlate(attempt).scalar_subquery()
+    note_rows = select(func.jsonb_agg(aggregate_order_by(func.jsonb_build_object(
+            literal_column("'id'"), note.c.id, literal_column("'text'"), note.c.text,
+            literal_column("'written_at'"), note.c.written_at, literal_column("'edited_at'"), note.c.edited_at,
+            literal_column("'progress_unit'"), note.c.progress_unit, literal_column("'progress_value'"), note.c.progress_value),
+            note.c.id)))\
+        .where(note.c.attempt_id == attempt.c.id).correlate(attempt).scalar_subquery()
     queries = (
         ("entry", select(entry.c.id, entry.c.book_id, entry.c.private_title, entry.c.private_author, entry.c.private_description, entry.c.private_catalogue,
             entry.c.is_owned, entry.c.is_wanted, entry.c.save_note, entry.c.version,
@@ -36,8 +47,9 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
         # silently become downloadable merely because the ORM grows.
         ("reading", select(*(attempt.c[name] for name in (
             "id", "user_book_id", "state", "started_on", "ended_on", "progress_unit",
-            "progress_value", "total_pages", "edition_id", "edition_source_id", "edition_format",
-            "note", "reaction", "started_via", "origin", "created_at", "updated_at")))
+            "progress_value", "total_pages", "edition_id", "edition_source_id", "edition_format")),
+            note_text.label("note"), note_rows.label("notes"),
+            *(attempt.c[name] for name in ("reaction", "started_via", "origin", "created_at", "updated_at")))
             .join(entry, attempt.c.user_book_id == entry.c.id)
             .where(entry.c.user_id == user_id).order_by(attempt.c.user_book_id, attempt.c.id)),
         # Optional kind (only when the reader has any): the daily progress history of their readings.
