@@ -199,6 +199,12 @@ class ReadingService(LibraryService):
     def create_private(self, user_id, data, *, catalogue_metadata=None):
         values = data.model_dump(mode="json", exclude={"request_id"})
         values["author"] = values["author"] or None
+        if values.get("isbn") is None:
+            values.pop("isbn", None)          # without an ISBN the request fingerprint is what it always was
+        elif catalogue_metadata is None:
+            from services.catalogue_queue import lookup_key
+            # Same shape the library import stores: the lookup that will upgrade this entry to the catalogue book.
+            catalogue_metadata = {"isbn": data.isbn, "lookup_key": lookup_key(data.isbn, None, None)}
         if catalogue_metadata is not None:
             values['catalogue'] = catalogue_metadata
         intent = fingerprint(values)
@@ -213,7 +219,13 @@ class ReadingService(LibraryService):
         if entry.creation_fingerprint != intent:
             self.db.rollback()
             raise HTTPException(409, detail="This request identifier already represents a different private book")
+        if data.isbn:
+            from services import catalogue_queue
+            catalogue_queue.enqueue(self.db, isbn=data.isbn, title=values["title"], author=values["author"],
+                                    user_book_id=new_id or entry.id)
         self.db.commit()
+        if data.isbn:
+            catalogue_queue.wake()
         return self.detail(user_id, new_id or entry.id)
 
     def private_matches(self, user_id, title):

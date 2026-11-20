@@ -16,7 +16,7 @@ import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
-import { greetingFor, progressOf, shortDate, suggestions, useNarrow } from "./homeLogic.js";
+import { greetingFor, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
 import "../../../styles/ui-v2/home.css";
 
 const books = count => `${count} ${count === 1 ? "book" : "books"}`;
@@ -31,10 +31,10 @@ function ReadingCard({ read, onSaved, onFinished, readOnly }) {
     <div className="bv-now-body">
       <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
       <p className="bv-author">{(book.authors || []).map(author => author.name).join(", ") || "Author not listed"}</p>
-      {percent != null && <progress className="bv-reading-meter" value={percent} max="100" aria-label={`Reading progress for ${book.title}`} />}
+      <progress className="bv-reading-meter" value={percent ?? 0} max="100" aria-label={`Reading progress for ${book.title}`} />
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
-      <ProgressBox entry={entry} attempt={attempt} title={book.title} readOnly={readOnly} onSaved={onSaved} onFinished={onFinished} />
     </div>
+    <div className="bv-now-progress"><ProgressBox entry={entry} attempt={attempt} title={book.title} readOnly={readOnly} onSaved={onSaved} onFinished={onFinished} /></div>
   </article>;
 }
 
@@ -59,7 +59,7 @@ export default function ReadingHomePage() {
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [showAll, setShowAll] = useState(false);
-  const narrow = useNarrow();
+  const narrow = useNarrow(), compact = useCompact();
   if (firstRun) return <FirstRunHome />;
   if (quiet && shelf.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
 
@@ -84,7 +84,7 @@ export default function ReadingHomePage() {
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
     {ready && <>
-      <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
+      <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
       {!shelf.loading && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
       <YearGlance stats={stats.data} />

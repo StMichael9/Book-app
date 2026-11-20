@@ -85,6 +85,10 @@ const test = base.extend({
 
 const withHint = page => page.addInitScript(() => { try { if (!sessionStorage.getItem("hint-seeded")) { sessionStorage.setItem("hint-seeded", "1"); localStorage.clear(); localStorage.setItem("bookvane:session-hint:v1", "1"); } } catch { /* none */ } });
 const mine = state => state.log.filter(call => call.path.startsWith("/me/"));
+// Can't decide? preselects its first pill, so Home also fetches filtered picks from /me/library. The shelf is the unfiltered call.
+const isShelf = call => { const q = new URLSearchParams(call.search); return (q.get("facet") ?? "all") === "all" && !q.get("owned") && !q.get("length") && !q.get("subject"); };
+const shelfCalls = (state, path) => (path === "/me/library" ? state.calls(path).filter(isShelf) : state.calls(path));
+const pickCalls = state => state.calls("/me/library").filter(call => !isShelf(call));
 const refreshEnd = state => state.calls("/auth/refresh", "POST")[0]?.end;
 
 // ---- Requests start with the account check -----------------------------------------------------------------------------------
@@ -96,10 +100,13 @@ test("Home: with the hint set, every page request starts before the account chec
   await expect(page.getByText(OWN.a.title).first()).toBeVisible();
   const answered = refreshEnd(app);
   for (const path of ["/me/profile", "/me/reading-capabilities", "/me/home", "/me/library", "/me/stats", "/me/up-next"]) {
-    const calls = app.calls(path);
+    const calls = shelfCalls(app, path);
     expect(calls.length, `${path} is requested once`).toBe(1);
     expect(calls[0].start, `${path} starts before /auth/refresh answers`).toBeLessThan(answered);
   }
+  const picks = new Map();
+  for (const call of pickCalls(app)) picks.set(call.search, (picks.get(call.search) ?? 0) + 1);
+  for (const [search, count] of picks) expect(count, `picks ${search} are requested at most once`).toBeLessThanOrEqual(1);
   expect(app.errors).toEqual([]);
 });
 
@@ -179,8 +186,16 @@ test("hint set, access cookie expired, refresh works: each request is retried on
   await page.goto("/home");
   await expect(page.getByText(OWN.a.title).first()).toBeVisible();
   for (const path of ["/me/profile", "/me/reading-capabilities", "/me/home", "/me/library", "/me/stats", "/me/up-next"]) {
-    expect(app.calls(path).length, `${path} is called at most twice`).toBeLessThanOrEqual(2);
-    expect(app.calls(path).at(-1).status, `${path} ends with success`).toBe(200);
+    expect(shelfCalls(app, path).length, `${path} is called at most twice`).toBeLessThanOrEqual(2);
+    expect(shelfCalls(app, path).at(-1).status, `${path} ends with success`).toBe(200);
+  }
+  // The picks load after the shelf, so let every pick call be answered before judging them.
+  await expect.poll(() => pickCalls(app).every(call => call.status !== 0)).toBe(true);
+  const picks = new Map();
+  for (const call of pickCalls(app)) picks.set(call.search, [...(picks.get(call.search) ?? []), call]);
+  for (const [search, list] of picks) {
+    expect(list.length, `picks ${search} are called at most twice`).toBeLessThanOrEqual(2);
+    expect(list.at(-1).status, `picks ${search} end with success`).toBe(200);
   }
   expect(app.calls("/auth/refresh", "POST").length).toBe(1);
   expect(await page.evaluate(() => window.__expired)).toBe(0);

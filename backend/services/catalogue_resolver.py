@@ -113,6 +113,17 @@ def book_for_isbn(db: Session, isbn: str) -> int | None:
                      .where(EditionISBN.isbn13 == isbn).order_by(Edition.book_id).limit(1))
 
 
+def edition_for_isbn(db: Session, isbn: str) -> tuple[int, int | None] | None:
+    """(book_id, edition_id) for an ISBN-13 in our own catalogue, or None. An edition that carries the ISBN wins (the lowest
+    edition id, as library_imports/matching ranks them); then a book whose own isbn13 it is (with its preferred edition)."""
+    row = db.execute(select(Edition.book_id, Edition.id).join(EditionISBN, EditionISBN.edition_id == Edition.id)
+                     .where(EditionISBN.isbn13 == isbn).order_by(Edition.id).limit(1)).first()
+    if row:
+        return row.book_id, row.id
+    row = db.execute(select(Book.id, Book.preferred_edition_id).where(Book.isbn13 == isbn).order_by(Book.id).limit(1)).first()
+    return (row.id, row.preferred_edition_id) if row else None
+
+
 def books_for_title(db: Session, title: str, author: str) -> list[int]:
     key = func.lower(func.regexp_replace(func.btrim(Book.title), r"\s+", " ", "g"))
     rows = db.execute(select(Book.id, Author.name).join(book_authors, book_authors.c.book_id == Book.id)
