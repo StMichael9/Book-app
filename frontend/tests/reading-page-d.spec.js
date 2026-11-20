@@ -59,13 +59,15 @@ const onPage = page => page.getByRole("textbox", { name: /^Page or %/ });
 const lastPatch = app => app.patches.at(-1);
 
 for (const where of ["Home", "the book page"]) {
+  const saveName = where === "Home" ? "Save" : "Save page";
   test(`the box saves a page from ${where}`, async ({ page, app }) => {
     await page.goto(where === "Home" ? "/home" : "/my-books/101");
     const box = where === "Home" ? home(page) : onPage(page);
     await box.fill("52");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
-    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. Page 52, 14%.");
+    if (where === "Home") await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. Page 52, 14%.");
+    else await expect(page.getByRole("status").filter({ hasText: "Saved page 52" })).toHaveText("✓ Saved page 52");
     await expect(box).toHaveValue("");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
@@ -75,23 +77,24 @@ for (const where of ["Home", "the book page"]) {
     const box = where === "Home" ? home(page) : onPage(page);
     await box.fill("35 %");
     await expect(page.getByText("about page 126")).toBeVisible();
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
-    await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. 35%, about page 126.");
+    if (where === "Home") await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. 35%, about page 126.");
+    else await expect(page.getByRole("status").filter({ hasText: "Saved 35%" })).toHaveText("✓ Saved 35%");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
   test(`bad input and a page past the end show the field error on ${where}`, async ({ page, app }) => {
     await page.goto(where === "Home" ? "/home" : "/my-books/101");
     const box = where === "Home" ? home(page) : onPage(page);
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect(page.getByText("Type a page, like 52, or a percent, like 35%.")).toBeVisible();
     await expect(box).toHaveAttribute("aria-invalid", "true");
     await box.fill("page fifty");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect(page.getByText("Type a page, like 52, or a percent, like 35%.")).toBeVisible();
     await box.fill("400");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect(page.getByText("Your copy has 360 pages.")).toBeVisible();
     await expect(box).toHaveValue("400");
     expect(app.patches).toHaveLength(0);
@@ -102,11 +105,11 @@ test("a page with no known total asks for it once, inline, and saves it with the
   app.attempt.total_pages = null;
   await page.goto("/my-books/101");
   await onPage(page).fill("52");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await expect(page.getByLabel("How many pages in your copy?")).toBeVisible();
   expect(app.patches).toHaveLength(0);
   await page.getByLabel("How many pages in your copy?").fill("360");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, total_pages: 360, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   await expect(page.getByLabel("How many pages in your copy?")).toHaveCount(0);
 });
@@ -114,14 +117,14 @@ test("a page with no known total asks for it once, inline, and saves it with the
 test("the last page asks Finished the book? inline; Yes finishes the reading, Not yet closes it", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await onPage(page).fill("360");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   const prompt = page.getByRole("group", { name: "Finished the book?" });
   await expect(prompt).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await prompt.getByRole("button", { name: "Not yet" }).click();
   await expect(prompt).toHaveCount(0);
   await onPage(page).fill("100%");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await prompt.getByRole("button", { name: "Yes, finished" }).click();
   await expect.poll(() => lastPatch(app)).toMatchObject({ state: "finished", ended_on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
   await expect(page.getByRole("heading", { name: "You finished Piranesi." })).toBeVisible();
@@ -136,14 +139,15 @@ test("on Home the finished prompt finishes the reading too", async ({ page, app 
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
-test("a thought is saved as the note, appended, and shows in the journal", async ({ page, app }) => {
+test("a thought is saved as the note, appended, and shows as a card in Notes", async ({ page, app }) => {
   app.attempt.note = "First thought.";
   await page.goto("/my-books/101");
-  await page.getByRole("textbox", { name: "Add a thought" }).fill("The halls again.");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("textbox", { name: "Write a thought about this book" }).fill("The halls again.");
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
   await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, note: "First thought.\n\nThe halls again." });
-  await expect(page.locator(".bv-journal")).toContainText("The halls again.");
-  await expect(page.getByRole("textbox", { name: "Add a thought" })).toHaveValue("");
+  await expect(page.locator(".bv-note-card").first()).toContainText("The halls again.");
+  await expect(page.locator(".bv-journal")).not.toContainText("The halls again.");
+  await expect(page.getByRole("textbox", { name: "Write a thought about this book" })).toHaveValue("");
 });
 
 test("Pause and Finish book are never disabled by the box", async ({ page, app }) => {
@@ -153,7 +157,7 @@ test("Pause and Finish book are never disabled by the box", async ({ page, app }
   await onPage(page).fill("52");
   await expect(page.getByRole("button", { name: "Pause reading" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Finish book" })).toBeEnabled();
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await expect.poll(() => app.patches.length).toBe(1);
   await expect(page.getByRole("button", { name: "Pause reading" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Finish book" })).toBeEnabled();
@@ -178,23 +182,26 @@ test("the page shows no ISO date, never says private, and shows one date format"
   const text = await page.locator("#bv-main").innerText();
   expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}/);
   expect(text).not.toMatch(/private/i);
-  await expect(page.locator(".bv-progress-line")).toHaveText("Page 52 of 360 · 14% · started 13 Nov 2026");
+  await expect(page.locator(".bv-progress-line")).toContainText("Page 52 of 360 · 14%");
+  await expect(page.locator(".bv-progress-line")).toContainText("started 13 Nov 2026");
 });
 
-test("the text line's page total edits in place", async ({ page, app }) => {
+test("the page total is corrected under About this book, not as a link in the text line", async ({ page, app }) => {
   app.attempt = { ...freshAttempt(), progress_unit: "pages", progress_value: 52 };
   await page.goto("/my-books/101");
+  await expect(page.locator(".bv-progress-line").getByRole("button")).toHaveCount(0);
+  await page.getByText("About this book", { exact: true }).click();
   await page.getByRole("button", { name: "Edit the page total, 360 pages" }).click();
   await page.locator("#bv-page-total").fill("300");
   await page.locator(".bv-progress-total-edit").getByRole("button", { name: "Save" }).click();
   await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, total_pages: 300 });
 });
 
-test("keyboard order runs header, menu, box, Save, thought, Pause, Finish, journal", async ({ page, app: _app }) => {
+test("keyboard order runs header, menu, box, Save page, Finish, Pause, notes, journal", async ({ page, app: _app }) => {
   await page.goto("/my-books/101");
   await expect(page.getByRole("link", { name: "Back to My Books" })).toBeVisible();
   await page.getByRole("link", { name: "Back to My Books" }).focus();
-  const order = [["button", "More actions for Piranesi"], ["textbox", "Page or % for Piranesi"], ["button", "Save"], ["textbox", "Add a thought"], ["button", "Pause reading"], ["button", "Finish book"]];
+  const order = [["button", "More actions for Piranesi"], ["textbox", "Page or % for Piranesi"], ["button", "Save page"], ["button", "Finish book"], ["button", "Pause reading"], ["textbox", "Write a thought about this book"]];
   for (const [role, name] of order) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole(role, { name, exact: true })).toBeFocused();
@@ -206,10 +213,18 @@ test("keyboard order runs header, menu, box, Save, thought, Pause, Finish, journ
 test("the save sends the reader's local day as `on`", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await onPage(page).fill("52");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
   await expect.poll(() => app.patches.length).toBe(1);
   const today = await page.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; });
   expect(app.patches[0].on).toBe(today);
+});
+
+test("a progress day with no movement shows no line", async ({ page, app }) => {
+  app.progressDays = [{ day: "2026-11-14", unit: "pages", first_value: 52, last_value: 52 }, { day: "2026-11-12", unit: "pages", first_value: 20, last_value: 35 }];
+  await page.goto("/my-books/101");
+  await expect(page.locator(".bv-journal-day")).toHaveCount(1);
+  await expect(page.locator(".bv-journal-day")).toContainText("Page 20 → 35");
+  await expect(page.getByText("Page 52 → 52")).toHaveCount(0);
 });
 
 test("progress days show one line each in the journal, newest first; a missing or empty list shows nothing", async ({ page, app }) => {
@@ -229,5 +244,118 @@ test("progress days show one line each in the journal, newest first; a missing o
     await expect(page.locator(".bv-journal")).toBeVisible();
     await expect(page.locator(".bv-journal-day")).toHaveCount(0);
     await expect(page.getByText(/missing|no history|couldn’t load/i)).toHaveCount(0);
+  }
+});
+
+// ---- The tracking page: progress and notes are saved separately --------------------------------------------------------------------
+
+test("Save page never sends a note, and Add note never sends progress", async ({ page, app }) => {
+  app.attempt.note = "First.";
+  await page.goto("/my-books/101");
+  await onPage(page).fill("52");
+  await page.getByRole("textbox", { name: "Write a thought about this book" }).fill("A new thought");
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
+  await expect.poll(() => app.patches.length).toBe(1);
+  expect(app.patches[0]).not.toHaveProperty("note");
+  expect(app.patches[0]).toMatchObject({ progress_unit: "pages", progress_value: 52 });
+  await expect(page.getByRole("textbox", { name: "Write a thought about this book" })).toHaveValue("A new thought");
+  await page.getByRole("button", { name: "Add note", exact: true }).click();
+  await expect.poll(() => app.patches.length).toBe(2);
+  expect(app.patches[1]).toEqual({ expected_version: 2, note: "First.\n\nA new thought" });
+  expect(app.patches[1]).not.toHaveProperty("progress_value");
+  expect(app.patches[1]).not.toHaveProperty("progress_unit");
+});
+
+test("Saved page N confirms beside the button and goes away by itself", async ({ page, app: _app }) => {
+  await page.goto("/my-books/101");
+  await onPage(page).fill("52");
+  await page.getByRole("button", { name: "Save page", exact: true }).click();
+  const tick = page.getByRole("status").filter({ hasText: "Saved page 52" });
+  await expect(tick).toBeVisible();
+  await expect(tick).toHaveCount(0, { timeout: 7000 });
+});
+
+test("Notes: each paragraph is a card, newest first; one can be edited and one deleted by emptying it", async ({ page, app }) => {
+  app.attempt.note = "One.\n\nTwo.\nOn a second line.\n\nThree.";
+  await page.goto("/my-books/101");
+  const cards = page.locator(".bv-note-card");
+  await expect(cards).toHaveCount(3);
+  await expect(cards.nth(0)).toContainText("Three.");
+  await expect(cards.nth(1)).toContainText("Two.");
+  await expect(cards.nth(1)).toContainText("On a second line.");
+  await expect(cards.nth(2)).toContainText("One.");
+  await expect(page.locator(".bv-note-meta")).toHaveCount(0);
+  await cards.nth(1).click();
+  const field = page.getByLabel("Edit note", { exact: true });
+  await field.fill("Two, changed.");
+  await page.locator(".bv-note-card").getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, note: "One.\n\nTwo, changed.\n\nThree." });
+  await expect(cards).toHaveCount(3);
+  await cards.nth(0).click();
+  await page.getByLabel("Edit note", { exact: true }).fill("   ");
+  await page.locator(".bv-note-card").getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 2, note: "One.\n\nTwo, changed." });
+  await expect(cards).toHaveCount(2);
+  await expect(page.getByText("Three.")).toHaveCount(0);
+});
+
+test("Notes: emptying the only note clears it", async ({ page, app }) => {
+  app.attempt.note = "Only one.";
+  await page.goto("/my-books/101");
+  await page.getByRole("button", { name: "Edit note: Only one." }).click();
+  await page.getByLabel("Edit note", { exact: true }).fill("");
+  await page.locator(".bv-note-card").getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, note: null });
+  await expect(page.locator(".bv-note-card")).toHaveCount(0);
+});
+
+test("Notes: a card opens from the keyboard and Escape closes it without saving", async ({ page, app }) => {
+  app.attempt.note = "Keep me.";
+  await page.goto("/my-books/101");
+  const card = page.getByRole("button", { name: "Edit note: Keep me." });
+  await card.focus();
+  await page.keyboard.press("Enter");
+  const field = page.getByLabel("Edit note", { exact: true });
+  await expect(field).toBeFocused();
+  await field.fill("Changed");
+  await page.keyboard.press("Escape");
+  await expect(field).toHaveCount(0);
+  await expect(page.getByText("Keep me.")).toBeVisible();
+  await page.getByRole("button", { name: "Edit note: Keep me." }).focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByLabel("Edit note", { exact: true })).toBeFocused();
+  expect(app.patches).toHaveLength(0);
+});
+
+test("the note line is gone from Your reading, and the reaction stays", async ({ page, app }) => {
+  app.attempt.note = "A thought for the notes."; app.attempt.reaction = "loved";
+  await page.goto("/my-books/101");
+  await expect(page.locator(".bv-notes")).toContainText("A thought for the notes.");
+  await expect(page.locator(".bv-journal")).not.toContainText("A thought for the notes.");
+  await expect(page.locator(".bv-journal")).toContainText("Loved it");
+});
+
+for (const theme of ["light", "dark"]) test(`the tracking page layout holds at every width; ${theme}`, async ({ page, app }) => {
+  app.attempt = { ...freshAttempt(), progress_unit: "pages", progress_value: 245, total_pages: 406, note: "One.\n\nTwo." };
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const [width, zoom] of [[1440, false], [390, false], [320, false], [390, true]]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/my-books/101");
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    await expect(page.locator(".bv-trackbar")).toBeVisible();
+    const bar = await page.locator(".bv-trackbar").evaluate(node => { const fill = node.firstElementChild, a = getComputedStyle(node), b = getComputedStyle(fill); return { track: a.backgroundImage, fill: b.backgroundImage, height: node.getBoundingClientRect().height, fillColor: b.backgroundColor, trackColor: a.backgroundColor }; });
+    expect(bar.track).toBe("none"); expect(bar.fill).toBe("none"); expect(bar.height).toBe(10);
+    expect(bar.fillColor).not.toBe(bar.trackColor);
+    await expect(page.locator(".bv-foreedge-mark")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 1440) {
+      // The form, the actions and the notes share the one content column.
+      const box = await page.locator(".bv-progress-box").boundingBox(), notes = await page.locator(".bv-notes").boundingBox(), bar = await page.locator(".bv-trackbar").boundingBox();
+      expect(Math.round(box.width)).toBe(Math.round(notes.width)); expect(Math.round(bar.width)).toBe(Math.round(notes.width));
+      const save = await page.getByRole("button", { name: "Save page" }).boundingBox();
+      expect(save.x + save.width).toBeLessThan(box.x + box.width);
+    }
+    await page.screenshot({ path: test.info().outputPath(`tracking-${theme}-${width}${zoom ? "-200" : ""}.png`), fullPage: true });
   }
 });

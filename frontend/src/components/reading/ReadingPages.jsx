@@ -15,7 +15,7 @@ import { SlowReadingNotice } from "./ReadingCards.jsx";
 import { editionOptions } from "./editionLabels.js";
 import { ReadingBookDetails } from "./ReadingBookContext.jsx";
 import ProgressBox from "./ProgressBox.jsx";
-import ReadingJournal, { ForeEdge, ProgressLine } from "./ReadingJournal.jsx";
+import ReadingJournal, { ForeEdge, PageCountEdit, ProgressLine, ReadingNotes } from "./ReadingJournal.jsx";
 import "../../styles/ui-v2/reading-page.css";
 import BookMenu from "./BookMenu.jsx";
 import { formatDay } from "./readingDates.js";
@@ -88,6 +88,8 @@ export function ReadingWorkspacePage() {
   const [removal, setRemoval] = useState(null);
   const [reread, setReread] = useState(null);
   const [finishNotice, setFinishNotice] = useState(null);
+  const [seenVersion, setSeenVersion] = useState({ key: "", version: 0 });
+  const minVersion = seenVersion.key === workspaceSession ? seenVersion.version : 0;
   const finishHeading = useRef(null);
   const loadingNode = useRef(null), errorNode = useRef(null), restoreHeadingFocus = useRef(false);
   const completeFocus = useCallback(node => {
@@ -128,6 +130,7 @@ export function ReadingWorkspacePage() {
     }
     const focused = document.activeElement;
     const restore = Boolean(focused === document.body || workspaceRoot.current?.querySelector(".bv-reading-draft")?.contains(focused));
+    if (result.entry?.version) setSeenVersion(seen => ({ key: workspaceSession, version: Math.max(seen.key === workspaceSession ? seen.version : 0, result.entry.version) }));
     library.readingChanged(result.entry); closeEditor(restore); intent.current = null;
     if (result.attempt && !["finished", "dnf"].includes(result.attempt.state)) setFinishNotice(null);
   }
@@ -209,33 +212,32 @@ export function ReadingWorkspacePage() {
   const momentId = moment?.id;
   useEffect(() => { if (momentId) finishHeading.current?.focus(); }, [momentId]);
   const chip = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" }[attempt?.state] || "Not started";
-  const identity = (shown, status) => { const info = displayBook(shown); return <div className="bv-reading-id">
-    <BookCover book={info} size="small" priority />
-    <div><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1><EnglishTitle book={info} /><p className="bv-detail-author">{authorLabel(info)}</p>
+  const identity = (shown, status, menu) => { const info = displayBook(shown); return <div className="bv-reading-id">
+    <BookCover book={info} size="medium" priority />
+    <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author">{authorLabel(info)}</p>
       {status && <h2 className="bv-reading-chip" tabIndex={-1} ref={statusHeading}>{status}</h2>}</div>
   </div>; };
   const onEdit = (kind, selectedAttempt) => { if (kind === "memory") openMemory(selectedAttempt); else if (kind === "save_note") openDraft("save_note"); else openEditor(selectedAttempt); };
   return <section ref={workspaceRoot} className="bv-container bv-reading-workspace bv-reading-page">
     <div className="bv-reading-head">
       <TextLink to={libraryView?.href || "/my-books"} state={libraryView ? { libraryPrevious: libraryView.previous, libraryLoaded: libraryView.loaded, libraryScroll: libraryView.scroll } : null}>Back to My Books</TextLink>
-      {entry && !library.readOnly && <BookMenu bookId={entry.book_id} title={book.title} className="bv-more--head" shelf={{ entry, disabled: command.pending, onToggle: toggleShelf }} />}
     </div>
     <SlowReadingNotice loading={request.loading} />
     {!entry && request.loading && seed ? <div key="seed" ref={trackLoading} aria-busy="true">{identity(seed)}<BookSkeletons count={1} /></div>
       : !entry && request.loading ? <div key="loading" ref={trackLoading} className="bv-workspace-loading" aria-busy="true"><PageHeading title="Loading your reading…" /><BookSkeletons count={1} /></div>
       : !entry ? <div key="error" ref={trackError} className="bv-workspace-loading"><EmptyState error title="This reading couldn’t load." action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/my-books" variant="secondary">My Books</ActionLink></>}>It may have been removed, or the server may need a moment.</EmptyState></div>
       : <>
-        {identity(entry, chip)}
+        {identity(entry, chip, !library.readOnly && <BookMenu bookId={entry.book_id} title={book.title} className="bv-more--head" shelf={{ entry, disabled: command.pending, onToggle: toggleShelf }} />)}
         {library.readOnly && <p role="status" className="bv-notice">Your reading is available to read. Changes are temporarily paused.</p>}
         <ForeEdge attempt={attempt} />
-        <ProgressLine entry={entry} attempt={attempt} readOnly={library.readOnly} onSaved={accept} />
-        {attempt && !terminal && <ProgressBox key={attempt.id} entry={entry} attempt={attempt} title={book.title} thought readOnly={library.readOnly} onSaved={accept}
+        <ProgressLine attempt={attempt} />
+        {attempt && !terminal && <ProgressBox key={attempt.id} entry={entry} attempt={attempt} title={book.title} onPage minVersion={minVersion} readOnly={library.readOnly} onSaved={accept}
           onFinished={result => { accept(result); setFinishNotice({ id: result.attempt.id, title: book.title, generation: auth.sessionGeneration, state: "finished" }); }} />}
         <div className="bv-reading-actions" role="group" aria-label="Reading actions">
           {!attempt && <Button disabled={blocked} onClick={() => create(entry)}>Start reading</Button>}
           {attempt && !terminal && !library.readOnly && <>
-            <Button variant="secondary" onClick={() => changeState(attempt.state === "reading" ? "paused" : "reading")}>{attempt.state === "reading" ? "Pause reading" : "Resume reading"}</Button>
-            <Button variant="secondary" onClick={() => changeState("finished")}>Finish book</Button></>}
+            <Button variant="secondary" onClick={() => changeState("finished")}>Finish book</Button>
+            <Button variant="quiet" className="bv-reading-pause" onClick={() => changeState(attempt.state === "reading" ? "paused" : "reading")}>{attempt.state === "reading" ? "Pause reading" : "Resume reading"}</Button></>}
           {terminal && !library.readOnly && <>
             <Button variant="secondary" disabled={blocked} onClick={() => setReread({ entry, editionId })}>Read it again</Button>
             {/* Right after Finish or Stop the moment offers the undo; on later visits this quiet link does. */}
@@ -250,8 +252,10 @@ export function ReadingWorkspacePage() {
       noteDisabled={command.pending || request.loading || Boolean(request.error) || Boolean(editing)}
       onUndo={!library.readOnly && attempt?.id === moment.id ? markAsReading : undefined} undoDisabled={blocked} />}
     {nextSection}
+    {entry && attempt && <ReadingNotes key={attempt.id} entry={entry} attempt={attempt} readOnly={library.readOnly} minVersion={minVersion} onSaved={accept} />}
     {entry && <ReadingJournal entry={entry} attempt={attempt} entryId={entryId} workspace={workspace} visible={loaded} readOnly={library.readOnly} onEdit={onEdit} editor={editor} editing={editing} />}
-    <details hidden={!loaded} className="bv-reading-fold" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary>About this book · Manage</summary>
+    <details hidden={!loaded} className="bv-reading-fold" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary><span className="bv-fold-title">About this book</span><span className="bv-fold-hint">Details, page count, remove</span><span className="bv-fold-chevron" aria-hidden="true">›</span></summary>
+      {entry && <PageCountEdit entry={{ ...entry, version: Math.max(entry.version, minVersion) }} attempt={attempt} readOnly={library.readOnly} onSaved={accept} />}
       {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} entryId={entry.id} />}
       {entry && workspace?.imported_sources_count > 0 && <div className="bv-workspace-imported"><ImportedSources key={`${auth.sessionGeneration}:${entry.id}`} entryId={entry.id} count={workspace.imported_sources_count} /></div>}
       {loaded && !library.readOnly && <div className="bv-reading-manage">
