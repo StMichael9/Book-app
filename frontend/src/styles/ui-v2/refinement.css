@@ -21,13 +21,8 @@
 .bv-root .bv-editorial-workspace .bv-reading-draft h2:focus { outline-offset: 5px; }
 .bv-root .bv-import-confirm { background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); padding: 24px; box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-import-page .bv-section { border-top: 1px solid var(--bv-line); }
-.bv-root .bv-landing-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
 /* Benefit titles sit below the section heading in the type scale, so the section has an anchor. */
-.bv-root .bv-landing-benefits h3 { font: 600 var(--bv-fs-card)/1.3 var(--bv-body); margin-bottom: 8px; }
-.bv-root .bv-landing-benefits p { color: var(--bv-muted); margin-bottom: 0; max-width: 36rem; }
-.bv-root .bv-landing-story { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-landing-loading { padding-block: 36px; }
-.bv-root .bv-hero .bv-hero-line { max-width: 32ch; }
 .bv-root .bv-library-facets { gap: 8px; }
 .bv-root .bv-library-search-row input { min-width: 0; }
 @media (hover: hover) and (pointer: fine) {
@@ -49,8 +44,6 @@
   .bv-root--landing .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
   .bv-root--landing .bv-hero-actions { flex-direction: column; }
   .bv-root--landing .bv-header-inner { gap: 12px; }
-  .bv-root .bv-landing-benefits { grid-template-columns: 1fr; gap: 24px; }
-  .bv-root .bv-landing-benefits h3 { font-size: var(--bv-fs-card); }
   .bv-root .bv-import-confirm { padding: 18px; }
 }
 /* Allow text enlargement to wrap chrome instead of pushing it off screen. */
@@ -93,7 +86,6 @@
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
   /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
   .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
-  .bv-root .bv-hero .bv-hero-line { max-width: none; }
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }

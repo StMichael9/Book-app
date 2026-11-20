@@ -27,6 +27,7 @@ import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx"
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 import "../../styles/ui-v2/search-suggest.css";
+import "../../styles/ui-v2/landing.css";
 import "../../styles/ui-v2/profile.css";
 
 const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");

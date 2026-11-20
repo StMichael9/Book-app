@@ -429,10 +429,10 @@ test("signed-out phone visitors can reach sign in and registration directly from
   await page.goto("/");
   await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
-  await page.locator(".bv-hero-actions").getByRole("link", { name: "Create your library", exact: true }).click();
-  await expect(page).toHaveURL(/\/register[?]src=landing$/);
+  await page.locator(".bv-landing-hero").getByRole("link", { name: "Import my library", exact: true }).click();
+  await expect(page).toHaveURL(/\/register[?]src=landing&returnTo=%2Fmy-books%2Fimport$/);
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/login[?]src=landing$/);
+  await expect(page).toHaveURL(/\/login[?]src=landing&returnTo=%2Fmy-books%2Fimport$/);
 });
 
 test("registration, onboarding, logout and protected routes remain connected", async ({ page, app }) => {

@@ -115,15 +115,16 @@ test("charcoal dark surfaces keep sage actions, form boundaries and focus readab
   await page.goto("/"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await expect(page.locator(".bv-root")).toHaveCSS("background-color", "rgb(22, 19, 15)");
   await expect(page.locator(".bv-root")).toHaveCSS("color", "rgb(240, 233, 220)");
-  await expect(page.locator(".bv-library-banner")).toHaveCSS("background-color", "rgb(47, 42, 35)");
-  await checkContrast(".bv-lead, .bv-help, .bv-genre-card, .bv-genre-card > span:last-child, .bv-button, .bv-text-link, .bv-library-banner p");
+  await expect(page.locator(".bv-landing-shelf")).toHaveCSS("background-color", "rgb(47, 42, 35)");
+  await checkContrast(".bv-landing-lead, .bv-landing-free, .bv-button, .bv-text-link, .bv-landing-way p");
+  // The landing's primary door is the normal green pill on paper, with the green focus ring.
   const explore = page.getByRole("link", { name: "Explore books", exact: true });
   await expect(explore).toHaveCSS("background-color", "rgb(185, 211, 191)");
   await expect(explore).toHaveCSS("color", "rgb(20, 32, 26)");
-  await explore.hover(); await checkContrast(".bv-hero-actions .bv-button");
+  await explore.hover(); await checkContrast(".bv-landing-doors .bv-button");
   await page.keyboard.press("Tab"); await explore.focus();
   await expect(explore).toHaveCSS("outline-color", "rgb(185, 211, 191)");
-  await checkContrast(".bv-hero-actions .bv-button", "outlineColor", 3);
+  await checkContrast(".bv-landing-doors .bv-button", "outlineColor", 3);
   await page.goto("/browse"); await expect(page.locator(".bv-book-card")).toHaveCount(5);
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCSS("background-color", "rgb(47, 42, 35)");
@@ -354,18 +355,18 @@ for (const theme of ["light", "dark"]) test(`minimalist landing is clear, respon
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
     await expect(page.locator(".bv-book-card")).toHaveCount(5);
-    const explore = page.getByRole("link", { name: "Explore books", exact: true });
+    const explore = page.locator(".bv-landing-hero").getByRole("link", { name: "Start with one book", exact: true });
     await expect(explore).toHaveAttribute("href", "/browse");
     expect((await explore.boundingBox()).y).toBeLessThan(650);
-    await expect(page.getByText("Free. Private. No account needed to explore.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Private by default", exact: true })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true })).toHaveCount(0);
-    await expect(page.locator(".bv-hero-actions").getByRole("link", { name: "Create your library", exact: true })).toBeVisible();
+    await expect(page.locator(".bv-landing-hero").getByRole("link", { name: "Import my library", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`polish-landing-${theme}-${width}.png`), fullPage: true });
   }
-  await page.getByRole("link", { name: "Explore books", exact: true }).click();
+  await page.locator(".bv-landing-hero").getByRole("link", { name: "Start with one book", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);
   expect(app.requests.filter(item => item.path === "/auth/register")).toHaveLength(0);
 });
@@ -399,7 +400,7 @@ test("minimalist root does not flash marketing during auth/capability checks and
 test("minimalist landing retains existing legacy fallback and scoped catalogue recovery", async ({ page, app }) => {
   app.authenticated = true; app.catalogueFails = true;
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Your personal reading home.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
   // The committed book snapshot keeps the page populated when the catalogue request fails, so there is no error panel.
   await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toHaveCount(0);
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
@@ -416,9 +417,9 @@ test("landing prefers covered, plain-English titles and never repeats hero books
   const odd = ["Ὀδύσσεια", "Hrabě Monte Cristo"];
   app.catalogue = Array.from({ length: 10 }, (_, i) => ({ ...books[i % 5], id: i + 1, title: odd[i] || `Plain title ${i + 1}`, cover_image_url: i === 9 ? null : `/test-cover/${i + 1}.jpg` }));
   await page.goto("/");
-  await expect(page.locator(".bv-hero-covers a")).toHaveCount(3);
+  await expect(page.locator(".bv-landing-covers a")).toHaveCount(3);
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
-  const hero = await page.locator(".bv-hero-covers a").evaluateAll(links => links.map(link => link.getAttribute("aria-label")));
+  const hero = await page.locator(".bv-landing-covers a").evaluateAll(links => links.map(link => link.getAttribute("aria-label")));
   const row = await page.locator(".bv-book-card h3").allTextContents();
   expect(hero).toEqual(["Explore Plain title 3", "Explore Plain title 4", "Explore Plain title 5"]);
   expect(row).toHaveLength(5);
@@ -526,9 +527,10 @@ test("register and the save dialog reassure the reader at the point of decision"
 test("the landing page invites guests to join free and carries its source", async ({ page, app }) => {
   app.authenticated = false;
   await page.goto("/"); await expect(page.locator(".bv-book-card").first()).toBeVisible();
-  await expect(page.getByText("Free. Private. No account needed to explore.", { exact: true })).toBeVisible();
-  for (const link of [page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true }), page.getByRole("link", { name: "Create your library", exact: true }), page.getByRole("link", { name: "Start your free library", exact: true })])
-    await expect(link).toHaveAttribute("href", "/register?src=landing");
+  await expect(page.getByRole("heading", { name: "Private by default", exact: true })).toBeVisible();
+  await expect(page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true })).toHaveAttribute("href", "/register?src=landing");
+  // Import my library: sign up first (the source is carried), then straight to the import.
+  for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/register?src=landing&returnTo=%2Fmy-books%2Fimport");
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const header = page.locator(".bv-header");
