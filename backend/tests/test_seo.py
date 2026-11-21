@@ -104,7 +104,8 @@ def test_the_sitemap_splits_into_chunks_and_the_index_lists_them(seo, monkeypatc
     index = seo.client.get("/sitemaps/index.xml")
     assert index.status_code == 200 and index.headers["cache-control"] == "public, max-age=86400"
     locs = re.findall(r"<loc>(.*?)</loc>", index.text)
-    assert locs == [f"https://api.bookvane.me/sitemaps/books-{n}.xml" for n in range(1, chunks + 1)] + ["https://bookvane.me/sitemap.xml"]
+    assert locs == [f"https://api.bookvane.me/sitemaps/books-{n}.xml" for n in range(1, chunks + 1)] + [
+        l for l in locs if "/sitemaps/authors-" in l] + ["https://bookvane.me/sitemap.xml"]
     seen = []
     for n in range(1, chunks + 1):
         urls = re.findall(r"/book/(\d+)</loc>", seo.client.get(f"/sitemaps/books-{n}.xml").text)

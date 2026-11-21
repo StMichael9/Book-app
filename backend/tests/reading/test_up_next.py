@@ -52,9 +52,10 @@ def test_pins_come_back_in_the_order_they_were_put_with_the_documented_shape(pin
     assert ids(pins.client.get("/me/up-next")) == [c.id, a.id, b.id]
     item = pins.client.get("/me/up-next").json()[1]
     book = pins.books[0]
-    assert set(item) == {"entry_id", "book_id", "title", "authors", "cover_url", "owned", "want", "page_count"}
+    assert set(item) == {"entry_id", "book_id", "title", "authors", "author_ids", "cover_url", "owned", "want", "page_count"}
     assert (item["entry_id"], item["book_id"], item["title"]) == (a.id, book.id, book.title)
     assert item["authors"] == [author.name for author in book.authors] and item["authors"]
+    assert sorted(item["author_ids"]) == sorted(author.id for author in book.authors)
     assert item["cover_url"] == book.cover_image_url and item["page_count"] == book.page_count
     assert (item["owned"], item["want"]) == (False, True)
 
@@ -152,7 +153,7 @@ def test_a_private_entry_pins_with_no_book_id_and_the_readers_own_text_wins(pins
     linked.private_title, linked.private_author = "Reader's title", "Reader's author"
     pins.db.commit()
     items = pins.put([private.id, linked.id]).json()
-    assert items[0] == {"entry_id": private.id, "book_id": None, "title": "My own book", "authors": ["Me Myself"],
+    assert items[0] == {"entry_id": private.id, "book_id": None, "title": "My own book", "authors": ["Me Myself"], "author_ids": [],
                         "cover_url": "https://covers.example/mine.jpg", "owned": True, "want": False, "page_count": None}
     assert items[1]["book_id"] == pins.books[0].id and items[1]["title"] == "Reader's title" and items[1]["authors"] == ["Reader's author"]
 

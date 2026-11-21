@@ -36,6 +36,7 @@ OPEN_LIBRARY_COVER = re.compile(r"^https://(covers\.openlibrary\.org/b/[a-z0-9]+
 _lock = threading.Lock()
 _sitemaps: dict = {}
 _books: OrderedDict = OrderedDict()
+_authors: OrderedDict = OrderedDict()
 _index = {"html": None, "fetched": 0.0, "retry_at": 0.0}
 
 
@@ -51,6 +52,7 @@ def clear_caches() -> None:
     with _lock:
         _sitemaps.clear()
         _books.clear()
+        _authors.clear()
         _index.update(html=None, fetched=0.0, retry_at=0.0)
 
 
@@ -73,9 +75,22 @@ def sitemap_count(db: Session) -> int:
     return -(-total // SITEMAP_CHUNK)
 
 
+def _with_listed_books():
+    return (select(book_authors.c.author_id).join(Book, Book.id == book_authors.c.book_id)
+            .where(book_authors.c.author_id == Author.id, Book.is_listed.is_(True)).correlate(Author).exists())
+
+
+def author_sitemap_count(db: Session) -> int:
+    """Chunks of authors that have at least one listed book."""
+    total = _cached_sitemap(("author-count",), lambda: db.scalar(select(func.count()).select_from(Author).where(_with_listed_books())) or 0)
+    return -(-total // SITEMAP_CHUNK)
+
+
 def sitemap_index_xml(db: Session) -> str:
     def build():
-        entries = [f"{api_url()}/sitemaps/books-{n}.xml" for n in range(1, sitemap_count(db) + 1)] + [f"{site_url()}/sitemap.xml"]
+        entries = ([f"{api_url()}/sitemaps/books-{n}.xml" for n in range(1, sitemap_count(db) + 1)]
+                   + [f"{api_url()}/sitemaps/authors-{n}.xml" for n in range(1, author_sitemap_count(db) + 1)]
+                   + [f"{site_url()}/sitemap.xml"])
         body = "".join(f"<sitemap><loc>{xml_escape(url)}</loc></sitemap>" for url in entries)
         return ('<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
                 f"{body}</sitemapindex>")
@@ -97,6 +112,20 @@ def sitemap_chunk_xml(db: Session, n: int) -> str | None:
         return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
                 f'{"".join(parts)}</urlset>')
     return _cached_sitemap(("chunk", n), build)
+
+
+def author_sitemap_chunk_xml(db: Session, n: int) -> str | None:
+    """The n-th chunk (1-based) of author pages, or None when there is no such chunk."""
+    if n < 1 or n > max(author_sitemap_count(db), 0):
+        return None
+
+    def build():
+        ids = db.scalars(select(Author.id).where(_with_listed_books()).order_by(Author.id)
+                         .offset((n - 1) * SITEMAP_CHUNK).limit(SITEMAP_CHUNK)).all()
+        parts = "".join(f"<url><loc>{site_url()}/author/{author_id}</loc></url>" for author_id in ids)
+        return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                f"{parts}</urlset>")
+    return _cached_sitemap(("author-chunk", n), build)
 
 
 # --- book pages ---------------------------------------------------------------------------------------------------
@@ -231,4 +260,91 @@ def render_book_page(index_html: str, facts: dict) -> str:
                   f'    <script type="application/ld+json" id="bv-book-ld">{json_ld(facts, canonical)}</script>\n')
     page = re.sub(r"</head>", lambda m: head_extra + "  </head>", page, count=1, flags=re.I)
     return re.sub(r'(<main\s+id="static-landing">).*?(</main>)', lambda m: m.group(1) + static_summary(facts) + m.group(2),
+                  page, count=1, flags=re.S | re.I)
+
+
+# --- author pages -------------------------------------------------------------------------------------------------
+
+AUTHOR_BOOKS_LISTED = 24
+
+
+def author_page_facts(db: Session, author_id: int) -> dict | None:
+    """What an author page needs, from two statements, cached (LRU of 5,000). None for an unknown author or one with no
+    listed books (such an author is not in the sitemap and has nothing to show a crawler)."""
+    now = time.monotonic()
+    with _lock:
+        hit = _authors.get(author_id)
+        if hit and hit[0] > now:
+            _authors.move_to_end(author_id)
+            return hit[1]
+    from services import authors as author_service
+    facts = None
+    base = author_service.author_facts(db, author_id)
+    if base is not None and base["book_count"] > 0:
+        books = db.execute(select(Book.id, Book.title).join(book_authors, book_authors.c.book_id == Book.id)
+                           .where(book_authors.c.author_id == author_id, Book.is_listed.is_(True))
+                           .order_by(Book.popularity.desc().nulls_last(), Book.id).limit(AUTHOR_BOOKS_LISTED)).all()
+        facts = {"id": base["id"], "name": base["name"], "bio": (base["bio"] or "").strip(), "photo_url": base["photo_url"],
+                 "same_as": author_service.open_library_url(base["source_id"]), "book_count": base["book_count"],
+                 "books": [{"id": row.id, "title": row.title.strip()} for row in books]}
+    with _lock:
+        _authors[author_id] = (now + BOOK_TTL, facts)
+        _authors.move_to_end(author_id)
+        while len(_authors) > BOOK_CACHE_SIZE:
+            _authors.popitem(last=False)
+    return facts
+
+
+def author_title(facts: dict) -> str:
+    return f"{facts['name']} · Books and bio · Bookvane" if facts["bio"] else f"{facts['name']} · Books · Bookvane"
+
+
+def author_description(facts: dict) -> str:
+    text = " ".join(facts["bio"].split())
+    if not text:
+        count = facts["book_count"]
+        return f"{facts['name']}: {count} book{'s' if count != 1 else ''} on Bookvane. Save them, track them and find what to read next."
+    if len(text) <= META_DESCRIPTION_CHARS:
+        return text
+    cut = text[:META_DESCRIPTION_CHARS]
+    return cut[:cut.rfind(" ")].rstrip(" ,;:.") + "…" if " " in cut else cut + "…"
+
+
+def author_json_ld(facts: dict, canonical: str) -> str:
+    data = {"@context": "https://schema.org", "@type": "Person", "name": facts["name"], "url": canonical}
+    if facts["bio"]:
+        data["description"] = facts["bio"]
+    if facts["photo_url"]:
+        data["image"] = facts["photo_url"]
+    if facts["same_as"]:
+        data["sameAs"] = [facts["same_as"]]
+    # Same escaping as the book page: nothing in a name or bio can close the script element.
+    return json.dumps(data, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+
+
+def author_static_summary(facts: dict) -> str:
+    parts = [f"<h1>{html.escape(facts['name'])}</h1>"]
+    if facts["bio"]:
+        parts.append(f"<p>{html.escape(' '.join(facts['bio'].split()))}</p>")
+    items = "".join(f'<li><a href="/book/{book["id"]}">{html.escape(book["title"])}</a></li>' for book in facts["books"])
+    parts.append(f"<ul>{items}</ul>")
+    parts.append('<p><a href="/browse">Explore more books on Bookvane</a></p>')
+    return "\n      " + "\n      ".join(parts) + "\n    "
+
+
+def render_author_page(index_html: str, facts: dict) -> str:
+    """The deployed index.html with this author's head tags, JSON-LD (Person) and a plain-HTML list of their books."""
+    canonical = f"{site_url()}/author/{facts['id']}"
+    title, description = author_title(facts), author_description(facts)
+    page = re.sub(r"<title>.*?</title>", lambda m: f"<title>{html.escape(title)}</title>", index_html, count=1, flags=re.S | re.I)
+    page = _set_content(page, r'(<meta\s+name="description"\s+content=")[^"]*("\s*/?>)', description)
+    page = _set_content(page, r'(<meta\s+property="og:title"\s+content=")[^"]*("\s*/?>)', title)
+    page = _set_content(page, r'(<meta\s+property="og:description"\s+content=")[^"]*("\s*/?>)', description)
+    page = _set_content(page, r'(<meta\s+property="og:type"\s+content=")[^"]*("\s*/?>)', "profile")
+    if facts["photo_url"]:
+        page = _set_content(page, r'(<meta\s+property="og:image"\s+content=")[^"]*("\s*/?>)', facts["photo_url"])
+    head_extra = (f'    <link rel="canonical" href="{html.escape(canonical, quote=True)}" />\n'
+                  f'    <script type="application/ld+json" id="bv-author-ld">{author_json_ld(facts, canonical)}</script>\n')
+    page = re.sub(r"</head>", lambda m: head_extra + "  </head>", page, count=1, flags=re.I)
+    return re.sub(r'(<main\s+id="static-landing">).*?(</main>)', lambda m: m.group(1) + author_static_summary(facts) + m.group(2),
                   page, count=1, flags=re.S | re.I)

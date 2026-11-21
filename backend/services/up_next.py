@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,7 +24,13 @@ def fail(status: int, code: str) -> HTTPException:
 
 
 def _authors_of_book():
-    return (select(func.array_agg(Author.name).filter(Author.name.is_not(None)))
+    return (select(func.array_agg(aggregate_order_by(Author.name, Author.id)).filter(Author.name.is_not(None)))
+            .select_from(book_authors.join(Author, Author.id == book_authors.c.author_id))
+            .where(book_authors.c.book_id == UserBook.book_id).correlate(UserBook).scalar_subquery())
+
+
+def _author_ids_of_book():
+    return (select(func.array_agg(aggregate_order_by(Author.id, Author.id)).filter(Author.name.is_not(None)))
             .select_from(book_authors.join(Author, Author.id == book_authors.c.author_id))
             .where(book_authors.c.book_id == UserBook.book_id).correlate(UserBook).scalar_subquery())
 
@@ -33,7 +40,7 @@ def pins(db: Session, user_id) -> list[dict]:
     rows = db.execute(
         select(UserBook.id, UserBook.book_id, UserBook.private_title, UserBook.private_author, UserBook.private_catalogue,
                UserBook.is_owned, UserBook.is_wanted, Book.title, Book.cover_image_url, Book.page_count,
-               _authors_of_book().label("authors"), _reading_state().label("state"))
+               _authors_of_book().label("authors"), _author_ids_of_book().label("author_ids"), _reading_state().label("state"))
         .outerjoin(Book, Book.id == UserBook.book_id)
         .where(UserBook.user_id == user_id, UserBook.up_next_position.is_not(None))
         .order_by(UserBook.up_next_position)).all()
@@ -46,6 +53,7 @@ def pins(db: Session, user_id) -> list[dict]:
         authors = [row.private_author] if row.private_author else list(row.authors or [])
         catalogue = row.private_catalogue if isinstance(row.private_catalogue, dict) else {}
         items.append({"entry_id": row.id, "book_id": row.book_id, "title": title, "authors": authors,
+                      "author_ids": [] if row.private_author else list(row.author_ids or []),
                       "cover_url": row.cover_image_url or catalogue.get("cover_image_url"),
                       "owned": bool(row.is_owned), "want": bool(row.is_wanted), "page_count": row.page_count})
     return items
