@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply | reclean_descriptions_dry_run | reclean_descriptions_apply | reclean_stored_dry_run | reclean_stored_apply | author_bios_dry_run | author_bios_apply | author_merge_dry_run | author_merge_apply"
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply | reclean_descriptions_dry_run | reclean_descriptions_apply | reclean_stored_dry_run | reclean_stored_apply | author_bios_dry_run | author_bios_apply | author_merge_dry_run | author_merge_apply | slim_dry_run | slim_apply"
         required: true
         default: remap_genres
         type: choice
@@ -17,6 +17,8 @@ on:
           - clean_apply
           - fill_descriptions_dry_run
           - fill_descriptions_apply
+          - slim_dry_run
+          - slim_apply
           - retag_genres_dry_run
           - retag_genres_apply
           - reclean_descriptions_dry_run
@@ -107,6 +109,12 @@ jobs:
             fill_descriptions_apply)
               CATALOGUE_IMPORT_PRODUCTION=yes python -m data.fill_descriptions --mode production --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/fill-report.md"
               head -20 "$RUNNER_TEMP/fill-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            slim_dry_run)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.slim --mode production --dry-run --report "$RUNNER_TEMP/slim-report.md"
+              head -40 "$RUNNER_TEMP/slim-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            slim_apply)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.slim --mode production --apply --report "$RUNNER_TEMP/slim-report.md"
+              head -40 "$RUNNER_TEMP/slim-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
             retag_genres_dry_run)
               CATALOGUE_IMPORT_PRODUCTION=yes python -m data.retag_genres --mode production --snapshot "$SNAPSHOT" --dry-run --samples 50 --report "$RUNNER_TEMP/retag-report.md"
               head -40 "$RUNNER_TEMP/retag-report.md" >> "$GITHUB_STEP_SUMMARY" ;;

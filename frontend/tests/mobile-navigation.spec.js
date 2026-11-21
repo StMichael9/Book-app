@@ -90,8 +90,9 @@ test("keyboard shelf actions remain visible above the fixed mobile navigation", 
   await expect(page.getByRole("link", { name: "Join free", exact: true })).toBeVisible();
   const title = page.getByRole("link", { name: "Touch navigation fixture 12", exact: true });
   await title.focus();
-  await page.keyboard.press("Tab");
   const want = page.getByRole("button", { name: "Add Touch navigation fixture 12 to Want to read", exact: true });
+  // The author link is a tab stop between the title and the shelf button: Tab on, at most three presses.
+  for (let press = 0; press < 3 && !(await want.evaluate(node => node === document.activeElement)); press += 1) await page.keyboard.press("Tab");
   await expect(want).toBeFocused();
   await expect.poll(() => want.evaluate((element) => {
     const nav = document.querySelector(".bv-mobile-nav");

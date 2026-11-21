@@ -17,6 +17,7 @@ import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
 import { greetingFor, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
+import AuthorLinks from "../../ui-v2/AuthorLinks.jsx";
 import ThumbsPrompt from "../ThumbsPrompt.jsx";
 import "../../../styles/ui-v2/home.css";
 
@@ -31,7 +32,7 @@ function ReadingCard({ read, onSaved, onFinished, readOnly }) {
     <BookCover book={book} priority />
     <div className="bv-now-body">
       <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
-      <p className="bv-author">{(book.authors || []).map(author => author.name).join(", ") || "Author not listed"}</p>
+      <p className="bv-author"><AuthorLinks authors={book.authors || []} /></p>
       <progress className="bv-reading-meter" value={percent ?? 0} max="100" aria-label={`Reading progress for ${book.title}`} />
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
     </div>
@@ -49,7 +50,7 @@ function FinishedCard({ finished, readOnly, onSaved }) {
     <BookCover book={book} priority />
     <div className="bv-now-body">
       <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
-      <p className="bv-author">{(book.authors || []).map(author => author.name).join(", ") || "Author not listed"}</p>
+      <p className="bv-author"><AuthorLinks authors={book.authors || []} /></p>
     </div>
     <div className="bv-now-progress">{readOnly ? null : <ThumbsPrompt entry={entry} attempt={attempt} onSaved={onSaved} onSkipped={() => setDone(true)} />}</div>
   </article>;

@@ -9,6 +9,7 @@ import { useReader } from "./readerState.js";
 import { authorLabel, bookSummary, englishTitle, prefetchBook, queueBook } from "./data.js";
 import { coverFallback, coverSrc } from "../../api/coverUrl.js";
 import AddToList from "../profile/AddToList.jsx";
+import AuthorLinks from "./AuthorLinks.jsx";
 import WhyPrompt from "./WhyPrompt.jsx";
 import { markAsked, wasAsked } from "./whyAsked.js";
 import { useServiceDown } from "../../hooks/useServiceDown.js";
@@ -198,7 +199,7 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
     <Link className="bv-book-link" to={`/book/${book.id}`} state={state} tabIndex={-1} aria-label={`View ${book.title}`}><BookCover book={book} priority={priority} /></Link>
     <h3><Link to={`/book/${book.id}`} state={state}>{book.title || "Untitled book"}</Link></h3>
     <EnglishTitle book={book} />
-    <p className="bv-author">{authorLabel(book)}</p>
+    <p className="bv-author"><AuthorLinks authors={book.authors} /></p>
     {!preview && <ShelfActions book={book} compact />}
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })}>Find on Bookshop <ArrowRight aria-hidden="true" /></a>}
   </article>;

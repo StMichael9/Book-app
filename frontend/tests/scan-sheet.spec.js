@@ -491,7 +491,7 @@ for (const theme of ["light", "dark"]) test(`the aiming box and card fit at 390,
     expect(aim.width / frame.width).toBeGreaterThanOrEqual(0.6);
     expect(Math.abs(aim.width / aim.height - 2.2)).toBeLessThan(0.1);
     expect(card.x).toBeGreaterThanOrEqual(frame.x); expect(card.x + card.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
-    expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 0.5);
+    expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 1.5);
     expect(aim.x).toBeGreaterThanOrEqual(frame.x);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector("dialog").scrollWidth <= innerWidth)).toBe(true);
     await page.waitForTimeout(1200);

@@ -53,7 +53,8 @@ def profile_view(user: User) -> dict:
     return {"display_name": user.display_name, "bio": user.bio, "initials": initials(user.display_name, user.email),
             "handle": user.handle, "profile_public": user.profile_public,
             "avatar_icon": user.avatar_icon, "avatar_color": user.avatar_color,
-            "show_prompt": user.profile_prompted_at is None, "reading_since": user.created_at.year}
+            "show_prompt": user.profile_prompted_at is None, "reading_since": user.created_at.year,
+            "email_tips": user.email_tips}
 
 
 def _text(value, limit: int, code: str) -> str | None:
@@ -108,6 +109,10 @@ def update_profile(db: Session, user: User, changes: dict) -> dict:
         if not isinstance(changes["profile_public"], bool):
             raise fail(422, "profile_public_invalid")
         values["profile_public"] = changes["profile_public"]
+    if "email_tips" in changes:
+        if not isinstance(changes["email_tips"], bool):
+            raise fail(422, "email_tips_invalid")
+        values["email_tips"] = changes["email_tips"]
     handle = values.get("handle", old_handle)
     if values.get("profile_public", user.profile_public) and not handle:
         raise fail(422, "handle_required")
