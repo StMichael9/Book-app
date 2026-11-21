@@ -66,6 +66,9 @@ function arrived(node) {
   node.setAttribute("data-arrived", "");
 }
 
+// A real cover is about 2:3. Anything much squarer or wider (an audiobook, a scan) is shown whole, with no frame behind it.
+const nearCover = node => node.naturalHeight > 0 && node.naturalWidth / node.naturalHeight >= 0.58 && node.naturalWidth / node.naturalHeight <= 0.76;
+
 function isCached(src) {
   if (!src || typeof Image === "undefined") return false;
   const probe = new Image();
@@ -77,7 +80,7 @@ const CACHE_PATIENCE_MS = 1500;
 
 export function BookCover({ book, priority = false, hero = false, size = "medium", decorative = false }) {
   const [failed, setFailed] = useState({ url: null, step: 0 });
-  const [loadedUrl, setLoadedUrl] = useState(null);
+  const [loadedUrl, setLoadedUrl] = useState(null), [freeUrl, setFreeUrl] = useState(null);
   const url = book.cover_image_url;
   // Step 0 is the image cache, step 1 Open Library directly, step 2 means no artwork could be had.
   const step = failed.url === url ? failed.step : 0;
@@ -85,6 +88,7 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   // An image the browser already holds (back navigation, a card seen before) paints at once with no jacket underneath.
   const cached = useMemo(() => isCached(src), [src]);
   const loaded = loadedUrl === src || cached;
+  const settle = node => { arrived(node); setLoadedUrl(src); setFreeUrl(nearCover(node) ? null : src); };
   const fail = () => setFailed({ url, step: step === 0 && coverFallback(url, size) ? 1 : 2 });
   // The image cache can take many seconds on a first fetch. If it hasn't answered in 1.5 s, ask Open Library directly (once).
   useEffect(() => {
@@ -93,11 +97,12 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
     return () => clearTimeout(timer);
   }, [step, loaded, src, url, size]);
   // The jacket (title and author) shows at once and the artwork fades in over it, so a card is never blank.
-  return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}`}>
+  // Once the artwork is in, the soft fill goes. Off-ratio artwork also loses the frame and carries its own shadow, bottom-aligned.
+  return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}${src && loaded ? " bv-cover--ready" : ""}${src && loaded && freeUrl === src ? " bv-cover--free" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
-    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) { arrived(node); setLoadedUrl(src); } }}
+    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) settle(node); }}
       src={src} alt={decorative ? "" : `Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
-      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={event => { arrived(event.currentTarget); setLoadedUrl(src); }} onError={fail} />}
+      {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={event => settle(event.currentTarget)} onError={fail} />}
   </div>;
 }
 

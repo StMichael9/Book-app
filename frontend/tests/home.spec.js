@@ -245,10 +245,10 @@ test("the year card is hidden until three books are finished this year: nothing 
   await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("3 books finished in 2026");
 });
 
-test("Up next covers fill their frame: the image box equals the 2:3 frame, whatever the picture's proportions", async ({ page, app }) => {
-  // A wide picture in a 2:3 frame is what used to leave soft bars above and below.
-  for (const entry of app.entries) entry.book.cover_image_url = "/test-cover/wide.gif";
-  await page.route("**/test-cover/*", route => route.fulfill({ status: 200, contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") }));
+test("Up next covers fill their frame: the image box equals the 2:3 frame for a cover that is about 2:3", async ({ page, app }) => {
+  // The shared cover rule: about-2:3 artwork fills the frame, so there are no soft bars (off-ratio artwork is shown whole, see cover-edges.spec.js).
+  for (const entry of app.entries) entry.book.cover_image_url = "/test-cover/near.svg";
+  await page.route("**/test-cover/*", route => route.fulfill({ status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="470"><rect width="320" height="470" fill="#369"/></svg>' }));
   await page.goto("/home");
   const covers = page.locator(".bv-next-cover .bv-cover");
   await expect(covers.first()).toBeVisible();
