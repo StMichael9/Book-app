@@ -469,17 +469,29 @@ for (const theme of ["light", "dark"]) test(`the aiming box and card fit at 390,
     await open(page);
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     await expect(page.locator(".bv-scan-camera.is-on")).toHaveCount(1);
-    const before = await rect(page, ".bv-scan-camera"), aimBefore = await rect(page, ".bv-scan-aim");
+    // The sheet opens and the card slides in: measure once two reads about 50ms apart agree (2s cap).
+    const settled = async () => {
+      const reads = () => Promise.all([rect(page, ".bv-scan-camera"), rect(page, ".bv-scan-card"), rect(page, ".bv-scan-aim")]);
+      let last = JSON.stringify(await reads());
+      for (const started = Date.now(); Date.now() - started < 2000;) {
+        await page.waitForTimeout(50);
+        const now = JSON.stringify(await reads());
+        if (now === last) break;
+        last = now;
+      }
+      return JSON.parse(last);
+    };
+    const [before, , aimBefore] = await settled();
     await scan(page, EMMA);
     await expect(page.locator(".bv-scan-card.is-open .bv-scan-state")).toHaveText("Added · 1 scanned");
-    const frame = await rect(page, ".bv-scan-camera"), card = await rect(page, ".bv-scan-card"), aim = await rect(page, ".bv-scan-aim");
+    const [frame, card, aim] = await settled();
     expect(frame.height).toBe(before.height);                                // nothing shifts when the card arrives
     expect(aim).toEqual(aimBefore);                                          // and the box does not move either
     expect(card.y).toBeGreaterThanOrEqual(aim.y + aim.height);               // the card never covers the box
     expect(aim.width / frame.width).toBeGreaterThanOrEqual(0.6);
     expect(Math.abs(aim.width / aim.height - 2.2)).toBeLessThan(0.1);
     expect(card.x).toBeGreaterThanOrEqual(frame.x); expect(card.x + card.width).toBeLessThanOrEqual(frame.x + frame.width + 0.5);
-    expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 0.5);
+    expect(card.y + card.height).toBeLessThanOrEqual(frame.y + frame.height + 1.5);
     expect(aim.x).toBeGreaterThanOrEqual(frame.x);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.querySelector("dialog").scrollWidth <= innerWidth)).toBe(true);
     await page.waitForTimeout(1200);

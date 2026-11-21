@@ -1,0 +1,11 @@
+/* An author's name is a link that looks like the text around it: same colour and size, underlined on hover and keyboard focus.
+   On the book page header it is a primary link, so it is underlined at rest. */
+.bv-root .bv-author-link { color: inherit; font: inherit; text-decoration: none; border-radius: 2px; }
+.bv-root .bv-author-link:hover, .bv-root .bv-author-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-author-link.is-primary { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-author-link:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 1px; }
+
+/* The author page: the name, "N books" under it, then 24px before the grid. */
+.bv-root .bv-author-page .bv-page-heading { padding-bottom: 24px; }
+.bv-root .bv-author-page .bv-page-heading h1 { margin-bottom: 6px; }
+.bv-root .bv-author-page .bv-author-page-name { width: min(320px, 70%); height: 2.25rem; margin-bottom: 8px; }

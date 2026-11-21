@@ -122,3 +122,8 @@ export async function resolveWork(workKey) {
   if (!Number.isSafeInteger(result?.id)) throw new Error("Invalid catalogue response.");
   return result.id;
 }
+
+// An author's page: the name and the number of catalogue books, then their books 24 to a page. Both are public; the books call also
+// carries the sign-in cookie, so it is never shared between readers.
+export const getAuthor = id => apiRequest(`/authors/${encodeURIComponent(id)}`);
+export const getAuthorBooks = (id, page = 1) => apiRequest(`/authors/${encodeURIComponent(id)}/books?page=${page}`);

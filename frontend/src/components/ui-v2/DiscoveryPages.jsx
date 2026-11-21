@@ -13,7 +13,8 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
-import { authorLabel, bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, useRequest } from "./data.js";
+import AuthorLinks from "./AuthorLinks.jsx";
+import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
@@ -319,7 +320,7 @@ export function BookPage() {
       <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
         <EnglishTitle book={book} />
         {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
-        <p className="bv-detail-author">{authorLabel(book)}</p>
+        <p className="bv-detail-author"><AuthorLinks authors={book.authors} primary /></p>
         {/* Shelf choices come before subjects so they're on a phone's first screen. */}
         <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
         {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
