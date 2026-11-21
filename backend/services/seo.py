@@ -53,6 +53,7 @@ def clear_caches() -> None:
         _sitemaps.clear()
         _books.clear()
         _authors.clear()
+        _shares.clear()
         _index.update(html=None, fetched=0.0, retry_at=0.0)
 
 
@@ -348,3 +349,91 @@ def render_author_page(index_html: str, facts: dict) -> str:
     page = re.sub(r"</head>", lambda m: head_extra + "  </head>", page, count=1, flags=re.I)
     return re.sub(r'(<main\s+id="static-landing">).*?(</main>)', lambda m: m.group(1) + author_static_summary(facts) + m.group(2),
                   page, count=1, flags=re.S | re.I)
+
+
+# --- shared profile and list pages (T73 G3) -----------------------------------------------------------------------
+
+SHARE_TTL = 10 * 60
+_shares: dict = {}
+
+
+def _drop_canonical(page: str) -> str:
+    return re.sub(r'<link\s+rel="canonical"[^>]*>\s*', "", page, flags=re.I)
+
+
+def _first_titles(titles: list[str]) -> str:
+    return ", ".join(titles[:3])
+
+
+def _shelf_description(count: int, titles: list[str]) -> str:
+    if not count:
+        return "A shelf on Bookvane, where readers keep their books together."
+    books = f"{count} book{'s' if count != 1 else ''}"
+    return f"{books}, including {_first_titles(titles)}." if titles else f"{books}."
+
+
+def share_facts(db: Session, handle: str, list_id: int | None = None) -> dict | None:
+    """What a shared profile (or list) page may show, only from data the owner already made public: the name, the list title, a
+    count of books, the first three titles and the first cover. Never notes, reactions, dates or private books. None (a 404)
+    for a profile or list that is private, hidden or unknown. Cached 10 minutes."""
+    from fastapi import HTTPException
+    from services import profile as profile_service
+    key = (handle.lower(), list_id)
+    now = time.monotonic()
+    with _lock:
+        hit = _shares.get(key)
+        if hit and hit[0] > now:
+            return hit[1]
+    facts = None
+    try:
+        if list_id is None:
+            page = profile_service.public_profile(db, handle)
+            name = page["display_name"] or handle
+            lists = page["lists"]
+            titles, cover = [], None
+            if lists:
+                first = profile_service.public_list(db, handle, lists[0]["id"])
+                titles = [book["title"] for book in first["books"]]
+                cover = next((book["cover_image_url"] for book in first["books"] if book["cover_image_url"]), None)
+            facts = {"kind": "profile", "handle": handle.lower(), "title": f"{name}'s shelf on Bookvane",
+                     "description": _shelf_description(sum(item["book_count"] for item in lists), titles),
+                     "cover": cover, "path": f"/u/{handle.lower()}"}
+        else:
+            page = profile_service.public_list(db, handle, list_id)
+            titles = [book["title"] for book in page["books"]]
+            cover = next((book["cover_image_url"] for book in page["books"] if book["cover_image_url"]), None)
+            facts = {"kind": "list", "handle": handle.lower(), "title": f"{page['name']} · a reading list on Bookvane",
+                     "description": _shelf_description(len(titles), titles), "cover": cover,
+                     "path": f"/u/{handle.lower()}/lists/{list_id}"}
+    except HTTPException:
+        facts = None
+    with _lock:
+        _shares[key] = (now + SHARE_TTL, facts)
+        if len(_shares) > BOOK_CACHE_SIZE:
+            _shares.pop(next(iter(_shares)))
+    return facts
+
+
+def render_share_page(index_html: str, facts: dict) -> str:
+    """The deployed index.html with a public profile's or list's head tags: title, description, og:image (the first book's cached
+    cover) and twitter:card summary_large_image. The page body is left to the app."""
+    canonical = f"{site_url()}{facts['path']}"
+    title, description = facts["title"], facts["description"]
+    page = _drop_canonical(index_html)
+    page = re.sub(r"<title>.*?</title>", lambda m: f"<title>{html.escape(title)}</title>", page, count=1, flags=re.S | re.I)
+    page = _set_content(page, r'(<meta\s+name="description"\s+content=")[^"]*("\s*/?>)', description)
+    page = _set_content(page, r'(<meta\s+property="og:title"\s+content=")[^"]*("\s*/?>)', title)
+    page = _set_content(page, r'(<meta\s+property="og:description"\s+content=")[^"]*("\s*/?>)', description)
+    page = _set_content(page, r'(<meta\s+property="og:type"\s+content=")[^"]*("\s*/?>)', "profile" if facts["kind"] == "profile" else "website")
+    image = cover_for_sharing(facts["cover"])
+    if image:
+        page = _set_content(page, r'(<meta\s+property="og:image"\s+content=")[^"]*("\s*/?>)', image)
+        page = _set_content(page, r'(<meta\s+name="twitter:card"\s+content=")[^"]*("\s*/?>)', "summary_large_image")
+    head_extra = f'    <link rel="canonical" href="{html.escape(canonical, quote=True)}" />\n'
+    return re.sub(r"</head>", lambda m: head_extra + "  </head>", page, count=1, flags=re.I)
+
+
+def render_home_page(index_html: str) -> str:
+    """The deployed index.html with a canonical tag for the home page (served to crawlers at /seo/home)."""
+    head_extra = f'    <link rel="canonical" href="{html.escape(site_url() + "/", quote=True)}" />\n'
+    return re.sub(r"</head>", lambda m: head_extra + "  </head>", _drop_canonical(index_html), count=1, flags=re.I)

@@ -1,0 +1,33 @@
+name: Welcome emails (daily)
+
+# Calls the API's service-key endpoint, which sends the due welcome emails: at most one per account and 200 a run. Off until the
+# repository variable WELCOME_EMAILS is 'on' (and a manual run is off too, so nothing is ever sent by accident). Needs the secret
+# ADMIN_API_KEY and the variable BOOKVANE_API. The answer is counts only.
+on:
+  schedule:
+    - cron: "15 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bookvane-welcome-emails
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: catalogue-health
+    if: ${{ vars.WELCOME_EMAILS == 'on' }}
+    env:
+      BOOKVANE_API: ${{ vars.BOOKVANE_API }}
+      ADMIN_API_KEY: ${{ secrets.ADMIN_API_KEY }}
+    steps:
+      - name: Send the due welcome emails
+        run: |
+          [[ "$BOOKVANE_API" =~ ^https://[A-Za-z0-9.-]+$ ]] || { echo "::error::BOOKVANE_API is not set to an https origin"; exit 1; }
+          [[ -n "$ADMIN_API_KEY" ]] || { echo "::error::ADMIN_API_KEY is not set"; exit 1; }
+          curl --fail-with-body --silent --show-error --retry 2 --retry-delay 5 -X POST \
+            -H "X-Admin-Key: $ADMIN_API_KEY" "$BOOKVANE_API/admin/send-welcome" | tee -a "$GITHUB_STEP_SUMMARY"

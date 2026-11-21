@@ -30,7 +30,7 @@ from models import User, RefreshToken, PasswordResetToken
 from auth.jwt import create_access_token
 
 from rate_limit import limiter
-from services.event_counts import clean_source, record_event
+from services.event_counts import clean_ref, clean_source, record_event
 
 
 router = APIRouter(
@@ -67,6 +67,8 @@ def clear_auth_cookies(response: Response) -> None:
 class RegisterRequest(BaseModel):
     email: EmailStr = Field(max_length=100)
     password: str
+    email_tips: bool = False                           # the sign-up tick for the welcome emails; off unless the reader ticks it
+    ref: str | None = Field(None, max_length=40)       # where the visit came from; counted by allow-list, never stored on the user
 
 
 def validate_password(password: str) -> None:
@@ -83,6 +85,7 @@ def register(
     request: Request,
     data: RegisterRequest,
     src: str | None = Query(None, max_length=40),
+    ref: str | None = Query(None, max_length=40),
     db: Session = Depends(get_db),
 ):
     validate_password(data.password)
@@ -102,6 +105,7 @@ def register(
     new_user = User(
         email=email,
         hashed_password=hashed_password,
+        email_tips=data.email_tips,
     )
 
     db.add(new_user)
@@ -112,7 +116,7 @@ def register(
         raise HTTPException(status_code=409, detail="User already exists") from None
 
     try:  # an aggregate count only; never let it affect sign-up
-        record_event(db, "register_completed", clean_source(src))
+        record_event(db, "register_completed", clean_source(src), ref=clean_ref(ref or data.ref))
     except SQLAlchemyError:
         db.rollback()
 

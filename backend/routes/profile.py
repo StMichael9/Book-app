@@ -11,7 +11,7 @@ from services.reading_life import reading_life
 
 router = APIRouter(tags=["profile"])
 PUBLIC_CACHE = "public, max-age=60"  # no stale-while-revalidate: going private must show within a minute
-PROFILE_FIELDS = {"display_name", "bio", "handle", "profile_public", "prompted", "avatar_icon", "avatar_color"}
+PROFILE_FIELDS = {"display_name", "bio", "handle", "profile_public", "prompted", "avatar_icon", "avatar_color", "email_tips"}
 
 
 @router.get("/me/profile")
