@@ -35,7 +35,7 @@ from data.staging import (
     CatalogueView, _compact_aliases, _prune_candidates, _write_aliases, _write_authors, _write_editions,
     _write_hydrate, _write_works, select_useful_editions,
 )
-from models import Book, CatalogueImportRun
+from models import Book, CatalogueImportRun, CatalogueStageCandidate, CatalogueStageWork
 
 log = logging.getLogger("bookvane.catalogue")
 TRANSIENT_ERRORS = (requests.RequestException, Urllib3HTTPError, EOFError, OSError)
@@ -210,6 +210,7 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
                     verified[phase] = expected["md5"]
                     report["verified_dumps"] = verified
                     run.report = report
+                _log_phase_end(session, run, phase, config)
                 run.phase, run.checkpoint_line = following, 0
             return True
         except StreamTimeBudgetReached:
@@ -228,6 +229,23 @@ def _stream_phase(factory: sessionmaker, config: ImportConfig, phase: str, url: 
             log.warning("%s stream failed (%s); replaying from checkpoint in %ds",
                         phase, type(exc).__name__, delay)
             time.sleep(delay)
+
+
+def _log_phase_end(session: Session, run: CatalogueImportRun, phase: str, config: ImportConfig) -> None:
+    """`selected` only moves in the select phase, so the dump-phase lines always read selected=0. Say what the phase staged, and
+    stop a popular run whose works phase staged nothing at all (it would select nothing and merge nothing)."""
+    if phase not in ("works", "authors", "editions"):
+        return
+    works = session.execute(select(func.count()).select_from(CatalogueStageWork).where(CatalogueStageWork.run_id == run.id)).scalar_one()
+    forced = session.execute(select(func.count()).select_from(CatalogueStageWork).where(
+        CatalogueStageWork.run_id == run.id, CatalogueStageWork.forced)).scalar_one()
+    candidates = session.execute(select(func.count()).select_from(CatalogueStageCandidate).where(
+        CatalogueStageCandidate.run_id == run.id)).scalar_one()
+    log.info("%s finished: %d works staged (%d already in the catalogue), %d selection candidates; nothing is selected until the "
+             "select phase", phase, works, forced, candidates)
+    if phase == "works" and config.popular and not works:
+        raise RuntimeError("The works phase staged no works: no popular work matched the popularity file. "
+                           "Check the work-key format of the popularity file against the works dump.")
 
 
 def _pause_capacity(factory: sessionmaker, config: ImportConfig, message: str, neon_factory: sessionmaker | None = None) -> None:
@@ -598,8 +616,15 @@ def main() -> None:
         finally:
             engine.dispose()
         return
-    result = run_import(config, one_phase=args.one_phase,
-                        time_budget_seconds=args.time_budget_seconds)
+    try:
+        result = run_import(config, one_phase=args.one_phase,
+                            time_budget_seconds=args.time_budget_seconds)
+    except CapacityPause as exc:
+        # The run is already stored as paused_capacity (nothing half-merged). End the job normally with a visible warning, so a
+        # nightly run that meets the storage guard stops cleanly instead of failing with a traceback.
+        result = "paused_capacity"
+        log.warning("Import %s paused at the storage guard: %s", config.run_id, exc)
+        print(f"::warning::Import {config.run_id} paused at the storage guard: {exc}")
     log.info("Import %s snapshot=%s phase=%s", config.run_id, config.snapshot_id, result)
     if result == "dry_run" and args.dry_run_report:
         engine = create_engine(database_url, pool_pre_ping=True)

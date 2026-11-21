@@ -144,3 +144,47 @@ def test_the_storage_guard_still_stops_a_dump_phase_when_the_catalogue_is_too_bi
         for _ in range(10):
             importer.run_import(cfg, one_phase=True)
     assert stage_phase(url) == "paused_capacity"
+
+
+# --- T65: `selected=0` in the dump phases is normal; say what was staged, and stop a run that staged nothing ------------------
+
+def test_the_works_phase_reports_what_it_staged_while_selected_stays_zero(import_env, stage_schemas, monkeypatch, caplog):
+    models, factory, importer, config = import_env
+    url = stage_schemas("stage_t65_a")
+    fake_stream(monkeypatch, scenario())
+    cfg = popular(config, stage_database_url=url)
+    with caplog.at_level("INFO", logger="bookvane.catalogue"):
+        run_until(importer, cfg, url, "authors")
+    text_ = "\n".join(r.getMessage() for r in caplog.records)
+    assert "works finished: 3 works staged" in text_
+    assert "works line=" in text_ and "selected=0" in text_                         # the progress lines still read selected=0
+
+
+def test_a_popular_run_whose_works_phase_staged_nothing_stops_with_a_clear_error(import_env, stage_schemas, monkeypatch):
+    models, factory, importer, config = import_env
+    url = stage_schemas("stage_t65_b")
+    source = dumps([work(n) for n in (1, 2, 3)], [edition(n) for n in (1, 2, 3)], readers={900: 5, 901: 4})   # popularity for other works
+    fake_stream(monkeypatch, source)
+    cfg = popular(config, stage_database_url=url)
+    with pytest.raises(RuntimeError, match="staged no works"):
+        run_until(importer, cfg, url, "authors")
+
+
+def test_a_capacity_pause_ends_the_job_with_a_warning_and_its_own_status(monkeypatch, tmp_path, capsys):
+    import sys
+    from types import SimpleNamespace
+    load = mod("load")
+    config = SimpleNamespace(run_id="nightly", snapshot_id="s", validate=lambda: None, popular=False)
+    monkeypatch.setenv("CATALOGUE_DATABASE_URL", "postgresql://u:p@localhost/x")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "out"))
+    monkeypatch.delenv("CATALOGUE_STAGE_DATABASE_URL", raising=False)
+    monkeypatch.setattr(load, "_config_for_command", lambda args, url, agent: config)
+
+    def pause(*args, **kwargs):
+        raise mod("reporting").CapacityPause("Database reached the 750 MB guard")
+
+    monkeypatch.setattr(load, "run_import", pause)
+    monkeypatch.setattr(sys, "argv", ["load", "--mode", "production", "--add-books", "5000"])
+    load.main()                                                     # no traceback, exit code 0
+    assert "status=paused_capacity" in (tmp_path / "out").read_text()
+    assert "::warning::Import nightly paused at the storage guard" in capsys.readouterr().out
