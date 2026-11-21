@@ -227,7 +227,6 @@ def test_workspace_carries_the_notes_without_an_extra_statement(client, reading,
     seen = []
     listener = lambda conn, cursor, statement, *a: seen.append(statement)
     db_session.commit()
-    db_session.expunge_all()
     event.listen(engine, "before_cursor_execute", listener)
     try:
         response = client.get(f"/me/library/{saved['id']}/reading")
