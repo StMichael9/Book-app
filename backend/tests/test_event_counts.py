@@ -53,7 +53,7 @@ def test_repeated_events_upsert_a_single_row_per_day_name_source_and_placement(c
 
 def test_the_table_holds_no_personal_columns(db_session, counters):
     models, _ = counters
-    assert {column.name for column in models.EventCount.__table__.columns} == {"day", "name", "src", "placement", "count"}
+    assert {column.name for column in models.EventCount.__table__.columns} == {"day", "name", "src", "placement", "ref", "count"}
 
 
 def test_a_text_plain_beacon_is_accepted_and_no_cookie_is_read(client, db_session, counters):

@@ -26,6 +26,7 @@ from routes import library_imports
 from routes import events
 from routes import profile
 from routes import seo
+from routes import welcome as welcome_routes
 from routes import up_next
 from routes import genres
 
@@ -156,6 +157,7 @@ app.include_router(library_imports.router)
 app.include_router(events.router)
 app.include_router(profile.router)
 app.include_router(seo.router)
+app.include_router(welcome_routes.router)
 app.include_router(up_next.router)
 app.include_router(genres.router)
 app.include_router(library_imports.sources_router)

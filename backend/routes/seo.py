@@ -56,3 +56,37 @@ def author_page(author_id: int, db: Session = Depends(get_db)):
         return Response(index, status_code=404, media_type="text/html; charset=utf-8", headers={"Cache-Control": "public, max-age=60"})
     return Response(seo.render_author_page(index, facts), media_type="text/html; charset=utf-8",
                     headers={"Cache-Control": "public, max-age=300"})
+
+
+def _share_response(facts, index):
+    if facts is None:
+        return Response(index, status_code=404, media_type="text/html; charset=utf-8", headers={"Cache-Control": "public, max-age=60"})
+    return Response(seo.render_share_page(index, facts), media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/seo/u/{handle}")
+def profile_share_page(handle: str, db: Session = Depends(get_db)):
+    """A public profile's head tags for crawlers and link previews. A private, hidden or unknown profile gets the untouched page
+    and a 404, so nothing about it is confirmed."""
+    index = seo.deployed_index()
+    if index is None:
+        return Response("Temporarily unavailable", status_code=503, media_type="text/plain", headers={"Cache-Control": "no-store"})
+    return _share_response(seo.share_facts(db, handle), index)
+
+
+@router.get("/seo/u/{handle}/lists/{list_id}")
+def list_share_page(handle: str, list_id: int, db: Session = Depends(get_db)):
+    index = seo.deployed_index()
+    if index is None:
+        return Response("Temporarily unavailable", status_code=503, media_type="text/plain", headers={"Cache-Control": "no-store"})
+    return _share_response(seo.share_facts(db, handle, list_id), index)
+
+
+@router.get("/seo/home")
+def home_page():
+    """The home page with a canonical tag, for crawlers."""
+    index = seo.deployed_index()
+    if index is None:
+        return Response("Temporarily unavailable", status_code=503, media_type="text/plain", headers={"Cache-Control": "no-store"})
+    return Response(seo.render_home_page(index), media_type="text/html; charset=utf-8", headers={"Cache-Control": "public, max-age=300"})
