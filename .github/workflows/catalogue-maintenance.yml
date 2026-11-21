@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply | reclean_descriptions_dry_run | reclean_descriptions_apply | reclean_stored_dry_run | reclean_stored_apply | author_bios_dry_run | author_bios_apply"
+        description: "backfill_popularity | remap_genres | clean_dry_run | clean_apply | fill_descriptions_dry_run | fill_descriptions_apply | retag_genres_dry_run | retag_genres_apply | reclean_descriptions_dry_run | reclean_descriptions_apply | reclean_stored_dry_run | reclean_stored_apply | author_bios_dry_run | author_bios_apply | author_merge_dry_run | author_merge_apply"
         required: true
         default: remap_genres
         type: choice
@@ -25,6 +25,8 @@ on:
           - reclean_stored_apply
           - author_bios_dry_run
           - author_bios_apply
+          - author_merge_dry_run
+          - author_merge_apply
       target_env:
         description: GitHub environment, which selects the database secret (a safety copy or production)
         required: true
@@ -131,8 +133,22 @@ jobs:
             author_bios_apply)
               CATALOGUE_IMPORT_PRODUCTION=yes python -m data.author_bios --mode production --snapshot "$SNAPSHOT" --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/author-report.md"
               head -40 "$RUNNER_TEMP/author-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            author_merge_dry_run)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.author_merge --mode production --dry-run --samples 20 --report "$RUNNER_TEMP/author-merge-report.md"
+              head -60 "$RUNNER_TEMP/author-merge-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            author_merge_apply)
+              CATALOGUE_IMPORT_PRODUCTION=yes python -m data.author_merge --mode production --apply --tag "$(date -u +%Y%m%d-%H%M)" --report "$RUNNER_TEMP/author-merge-report.md"
+              head -60 "$RUNNER_TEMP/author-merge-report.md" >> "$GITHUB_STEP_SUMMARY" ;;
             *) echo "unknown task"; exit 1 ;;
           esac
+      - name: Keep the author merge report
+        if: ${{ always() && startsWith(inputs.task, 'author_merge_') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalogue-author-merge-report
+          path: ${{ runner.temp }}/author-merge-report.md
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Keep the author report
         if: ${{ always() && startsWith(inputs.task, 'author_bios_') }}
         uses: actions/upload-artifact@v4
