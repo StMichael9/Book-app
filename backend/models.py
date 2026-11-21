@@ -298,6 +298,123 @@ class Loan(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class Club(Base):
+    """A private, invite-only book club (T78A). Free up to 25 members; Club Plus lifts the cap."""
+    __tablename__ = "clubs"
+    __table_args__ = (
+        CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 80", name="ck_club_name"),
+        CheckConstraint("description IS NULL OR char_length(description) <= 500", name="ck_club_description"),
+        CheckConstraint("visibility = 'invite'", name="ck_club_visibility"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500))
+    owner_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    visibility: Mapped[str] = mapped_column(String(10), nullable=False, default="invite", server_default="invite")
+    color: Mapped[str | None] = mapped_column(String(12))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubMember(Base):
+    __tablename__ = "club_members"
+    __table_args__ = (
+        CheckConstraint("role IN ('owner', 'admin', 'member')", name="ck_club_member_role"),
+        Index("uq_club_one_owner", "club_id", unique=True, postgresql_where=text("role = 'owner'")),
+        Index("ix_club_members_user_id", "user_id"),
+    )
+
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(String(10), nullable=False, default="member", server_default="member")
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    share_progress: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+
+
+class ClubInvite(Base):
+    """A revocable invite link: 32 random bytes, an expiry and an optional use limit."""
+    __tablename__ = "club_invites"
+    __table_args__ = (
+        CheckConstraint("max_uses IS NULL OR max_uses BETWEEN 1 AND 1000", name="ck_club_invite_uses"),
+        Index("ix_club_invites_club_id", "club_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("users.id", ondelete="SET NULL"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    max_uses: Mapped[int | None] = mapped_column(Integer)
+    uses: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubBook(Base):
+    __tablename__ = "club_books"
+    __table_args__ = (
+        CheckConstraint("status IN ('current', 'upcoming', 'past')", name="ck_club_book_status"),
+        CheckConstraint("starts_on IS NULL OR ends_on IS NULL OR ends_on >= starts_on", name="ck_club_book_dates"),
+        Index("uq_club_one_current_book", "club_id", unique=True, postgresql_where=text("status = 'current'")),
+        Index("ix_club_books_club_id", "club_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="RESTRICT"), nullable=False)
+    status: Mapped[str] = mapped_column(String(10), nullable=False, default="upcoming", server_default="upcoming")
+    starts_on: Mapped[date | None] = mapped_column(Date)
+    ends_on: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubCheckpoint(Base):
+    __tablename__ = "club_checkpoints"
+    __table_args__ = (
+        CheckConstraint("unit IN ('pages', 'percent')", name="ck_club_checkpoint_unit"),
+        CheckConstraint("(unit = 'percent' AND value BETWEEN 0 AND 100) OR (unit = 'pages' AND value >= 0)", name="ck_club_checkpoint_value"),
+        Index("ix_club_checkpoints_book", "club_book_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    club_book_id: Mapped[int] = mapped_column(Integer, ForeignKey("club_books.id", ondelete="CASCADE"), nullable=False)
+    unit: Mapped[str] = mapped_column(String(10), nullable=False)
+    value: Mapped[int] = mapped_column(Integer, nullable=False)
+    due_on: Mapped[date | None] = mapped_column(Date)
+    label: Mapped[str | None] = mapped_column(String(80))
+
+
+class ClubPost(Base):
+    """A discussion post, private to the club's members. Anchored at the page or percent it is about (none means the start)."""
+    __tablename__ = "club_posts"
+    __table_args__ = (
+        CheckConstraint("char_length(btrim(body)) BETWEEN 1 AND 2000 OR deleted_at IS NOT NULL", name="ck_club_post_body"),
+        CheckConstraint("(anchor_unit IS NULL AND anchor_value IS NULL) OR (anchor_unit IN ('pages', 'percent') AND anchor_value >= 0 "
+                        "AND (anchor_unit = 'pages' OR anchor_value <= 100))", name="ck_club_post_anchor"),
+        Index("ix_club_posts_book_id", "club_book_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    club_book_id: Mapped[int] = mapped_column(Integer, ForeignKey("club_books.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    anchor_unit: Mapped[str | None] = mapped_column(String(10))
+    anchor_value: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    hidden_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))      # set when 3 members reported it, until a moderator reviews
+
+
+class ClubReport(Base):
+    __tablename__ = "club_reports"
+
+    post_id: Mapped[int] = mapped_column(Integer, ForeignKey("club_posts.id", ondelete="CASCADE"), primary_key=True)
+    reporter_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    reason: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class BillingCustomer(Base):
     """The Stripe customer of a reader (T77A). Holds no card data: Stripe keeps that."""
     __tablename__ = "billing_customers"
@@ -322,7 +439,7 @@ class Entitlement(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     kind: Mapped[str] = mapped_column(String(10), nullable=False)
-    club_id: Mapped[int | None] = mapped_column(Integer, nullable=True)       # a foreign key once clubs exist (T78)
+    club_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="RESTRICT"), nullable=True)
     stripe_subscription_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     status: Mapped[str] = mapped_column(String(10), nullable=False)
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

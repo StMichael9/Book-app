@@ -19,7 +19,8 @@ CLIENT_NAMES = frozenset({"register_started", "save_prompt_shown", "guest_search
                           "get_copy_click", "share_click", "share_visit", "landing_visit", "scan_opened", "scan_added"})
 SERVER_NAMES = frozenset({"register_completed", "search_run", "search_empty",
                           "loan_created", "loan_link_created", "loan_link_opened", "loan_back",
-                          "checkout_started", "patron_started", "club_plus_started", "subscription_canceled"})
+                          "checkout_started", "patron_started", "club_plus_started", "subscription_canceled",
+                          "club_created", "club_joined"})
 SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "profile", "switch"})
 # Where a visit came from (the `ref` of a shared link). Anything else counts as no ref.
 REFS = frozenset({"tt", "ig", "rd", "ph", "yt", "x", "club", "share", "email", "loan"})
