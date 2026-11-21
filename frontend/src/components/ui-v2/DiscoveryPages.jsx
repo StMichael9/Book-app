@@ -14,7 +14,9 @@ import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import AuthorLinks from "./AuthorLinks.jsx";
-import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, safeReturnTo, useRequest } from "./data.js";
+import MoreByAuthor from "./MoreByAuthor.jsx";
+import "../../styles/ui-v2/book-page.css";
+import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, repeatsTitle, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
@@ -315,25 +317,40 @@ export function BookPage() {
       if (signedInFrom.delete(String(bookId)) || location.key === "default" || event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
       event.preventDefault(); navigate(-1);
     }}><ArrowLeft aria-hidden="true" />Back</TextLink></div>
-    {!book && request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}><div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div><div><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /><section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section></div></div> : (request.error && !request.data) || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <article className="bv-detail" aria-labelledby="bv-book-title" ref={trackArticle}>
+    {!book && request.loading ? <div key="loading" className="bv-detail" ref={trackLoading}>
+      <div className="bv-detail-art"><div className="bv-skeleton bv-skeleton--cover bv-detail-cover-placeholder" /></div>
+      <div className="bv-detail-body">
+        <div className="bv-book-head"><PageHeading title="Loading your book…" /><div className="bv-skeleton bv-skeleton--title" /></div>
+        <div className="bv-book-about"><section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section></div>
+      </div></div> : (request.error && !request.data) || !book ? <div key="error" ref={trackError}><EmptyState error title={request.error?.status === 404 ? "This book couldn’t be found." : "This book couldn’t load."} action={<><Button onClick={() => { restoreHeadingFocus.current = true; request.retry(); }}>Try again</Button><ActionLink to="/browse" variant="secondary">Discover books</ActionLink></>}>Try again or explore another title.</EmptyState></div> : <>
+    <article className="bv-detail" aria-labelledby="bv-book-title" ref={trackArticle}>
       <div className="bv-detail-art"><BookCover book={book} priority size="large" /></div>
-      <div className="bv-detail-body"><h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
-        <EnglishTitle book={book} />
-        {book.subtitle && <p className="bv-lead bv-muted">{book.subtitle}</p>}
-        <p className="bv-detail-author"><AuthorLinks authors={book.authors} primary /></p>
-        {/* Shelf choices come before subjects so they're on a phone's first screen. */}
-        <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
-        {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
-        {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
-        {book.tags?.some(tag => labelFor(tag.name)) && <div className="bv-book-tags">{book.tags.map((tag) => labelFor(tag.name) && <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{labelFor(tag.name)}</Link>)}</div>}
-        {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">
-          {book.published_year != null && <div><dt>Published</dt><dd>{formatYear(book.published_year)}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
-        </dl>}
-        {library.readingActions && <div className="bv-form-actions"><ActionLink to={`/my-books/start/${book.id}`} variant="secondary">Open or start your reading</ActionLink></div>}
-        {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
-        {request.data ? <BookAbout key={book.id} book={book} />
-          : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
+      <div className="bv-detail-body">
+        <div className="bv-book-head">
+          <h1 id="bv-book-title" tabIndex={-1} ref={completeFocusTransition}>{book.title || "Untitled book"}</h1>
+          <EnglishTitle book={book} />
+          {book.subtitle && !repeatsTitle(book.title, book.subtitle) && <p className="bv-lead bv-muted">{book.subtitle}</p>}
+          <p className="bv-detail-author"><AuthorLinks authors={book.authors} primary /></p>
+          {(book.published_year != null || book.page_count > 0) && <dl className="bv-book-metadata">
+            {book.published_year != null && <div><dt>Published</dt><dd>{formatYear(book.published_year)}</dd></div>}{book.page_count > 0 && <div><dt>Pages</dt><dd>{book.page_count}</dd></div>}
+          </dl>}
+        </div>
+        {/* Shelf choices come before everything else so they're on a phone's first screen. */}
+        <div className="bv-book-actions">
+          <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
+          {library.readingActions && <Link className="bv-open-link" to={`/my-books/start/${book.id}`}><span>Open or start your reading</span><ArrowRight aria-hidden="true" /></Link>}
+          {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
+        </div>
+        <div className="bv-book-about">
+          {request.data ? <BookAbout key={book.id} book={book} />
+            : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
+          {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
+          {book.tags?.some(tag => labelFor(tag.name)) && <div className="bv-book-tags">{book.tags.map((tag) => labelFor(tag.name) && <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{labelFor(tag.name)}</Link>)}</div>}
+          {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
+        </div>
       </div>
-    </article>}
+    </article>
+    <MoreByAuthor book={book} />
+    </>}
   </section>;
 }

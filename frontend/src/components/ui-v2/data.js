@@ -8,6 +8,14 @@ export function authorLabel(book) {
     "Author not listed";
 }
 
+// A subtitle that only repeats the title ("Color Purple" under "The Color Purple") is left out. Both are lowercased with punctuation and a
+// leading "the", "a" or "an" removed; if either contains the other it is a repeat. A real subtitle is kept.
+const plain = text => String(text || "").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().replace(/^(the|a|an)\s+/, "");
+export function repeatsTitle(title, subtitle) {
+  const a = plain(title), b = plain(subtitle);
+  return Boolean(a) && Boolean(b) && (a.includes(b) || b.includes(a));
+}
+
 export function englishTitle(book) {
   const english = typeof book?.english_title === "string" ? book.english_title.trim() : "";
   if (!english) return null;
