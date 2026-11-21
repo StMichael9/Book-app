@@ -188,7 +188,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-private-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bv-root .bv-book-link { display: block; }
 .bv-root .bv-cover { background: transparent; aspect-ratio: 2/3; border-radius: 4px; overflow: hidden; width: 100%; box-shadow: var(--bv-shadow-cover); }
-.bv-root .bv-cover img { width: 100%; height: 100%; object-fit: cover; }
+.bv-root .bv-cover img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
 /* No grey panel behind a cover, ever. While the picture loads the frame is an outline only (the doubled class beats the per-page cover shadows);
    the typographic jacket brings its own colours, and a loaded picture needs nothing behind it. */
 .bv-root .bv-cover.bv-cover--loading.bv-cover--loading { background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); }
