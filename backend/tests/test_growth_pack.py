@@ -54,6 +54,7 @@ def growth(client, db_session, app_modules, monkeypatch):
     g.client, g.db, g.models, g.settings, g.made = client, db_session, models, settings, made
 
     def user(prefix="g", age=0, **fields):
+        fields.setdefault("email_tips", True)             # most fixtures are readers who opted in; the default itself is tested below
         item = models.User(email=f"{prefix}-{uuid.uuid4().hex[:8]}@growth-fixture.org", hashed_password="x",
                            created_at=days_ago(age), **fields)
         db_session.add(item)
@@ -574,12 +575,33 @@ def test_email_tips_can_be_changed_in_the_profile_settings_and_defaults_on(growt
     from auth.dependencies import get_current_user
     person = growth.user("prefs", 0)
     growth.client.app.dependency_overrides[get_current_user] = lambda: person
-    assert growth.client.get("/me/profile").json()["email_tips"] is True
+    assert growth.client.get("/me/profile").json()["email_tips"] is True            # this fixture reader opted in
     assert growth.client.patch("/me/profile", json={"email_tips": False}).json()["email_tips"] is False
     assert growth.client.patch("/me/profile", json={"email_tips": "no"}).status_code == 422
     growth.db.expire_all()
     assert growth.db.get(growth.models.User, person.id).email_tips is False
     growth.client.app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_email_tips_is_an_opt_in_chosen_at_sign_up_and_off_for_everyone_else(growth):
+    emails = {}
+    for n, body in enumerate([{}, {"email_tips": True}, {"email_tips": False}]):
+        email = f"tips{n}-{uuid.uuid4().hex[:6]}@growth-fixture.org"
+        emails[n] = email
+        assert growth.client.post("/auth/register", json={"email": email, "password": "long enough password", **body}).status_code == 201
+    assert growth.client.post("/auth/register", json={"email": "bad-tips@growth-fixture.org", "password": "long enough password",
+                                                       "email_tips": "maybe"}).status_code == 422
+    growth.db.expire_all()
+    stored = {n: growth.db.scalar(select(growth.models.User.email_tips).where(growth.models.User.email == email)) for n, email in emails.items()}
+    assert stored == {0: False, 1: True, 2: False}
+    box = Mailbox()
+    due(growth, box, now=datetime.now(timezone.utc) + timedelta(minutes=1))
+    assert [to for to, _ in box.sent] == [emails[1]]                                  # only the account that ticked the box is mailed
+    assert growth.models.User.__table__.c.email_tips.server_default.arg == "false"
+    path = ROOT / "backend" / "alembic" / "versions" / "c5d8f1b34e76_welcome_emails.py"
+    assert "sa.false()" in path.read_text(encoding="utf-8")                           # existing accounts stay false
+    growth.db.execute(delete(growth.models.User).where(growth.models.User.email.like("tips%@growth-fixture.org")))
+    growth.db.commit()
 
 
 def test_the_welcome_migration_marks_accounts_already_older_than_30_days_as_finished(growth):

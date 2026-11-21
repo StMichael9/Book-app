@@ -67,6 +67,7 @@ def clear_auth_cookies(response: Response) -> None:
 class RegisterRequest(BaseModel):
     email: EmailStr = Field(max_length=100)
     password: str
+    email_tips: bool = False                           # the sign-up tick for the welcome emails; off unless the reader ticks it
     ref: str | None = Field(None, max_length=40)       # where the visit came from; counted by allow-list, never stored on the user
 
 
@@ -104,6 +105,7 @@ def register(
     new_user = User(
         email=email,
         hashed_password=hashed_password,
+        email_tips=data.email_tips,
     )
 
     db.add(new_user)

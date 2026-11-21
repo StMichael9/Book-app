@@ -78,7 +78,7 @@ def test_get_profile_shape_and_defaults(world):
     world.act_as(user)
     body = world.client.get("/me/profile").json()
     assert body == {"display_name": None, "bio": None, "initials": user.email[0].upper(), "handle": None,
-                    "profile_public": False, "show_prompt": True, "reading_since": user.created_at.year, "email_tips": True,
+                    "profile_public": False, "show_prompt": True, "reading_since": user.created_at.year, "email_tips": False,
                     "avatar_icon": None, "avatar_color": None}
 
 
