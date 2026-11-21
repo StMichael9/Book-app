@@ -31,21 +31,21 @@ export default function SwitchPage() {
     const undo = [setMeta("name", "description", SWITCH_COPY.description), setMeta("property", "og:title", `${SWITCH_COPY.title} · Bookvane`), setMeta("property", "og:description", SWITCH_COPY.description)];
     return () => undo.forEach(restore => restore());
   }, []);
-  return <section className="bv-container bv-switch">
-    <div className="bv-switch-column">
+  return <section className="bv-container bv-leave">
+    <div className="bv-leave-column">
       <h1>{SWITCH_COPY.heading}</h1>
-      <p className="bv-switch-lede">{SWITCH_COPY.lede}</p>
+      <p className="bv-leave-lede">{SWITCH_COPY.lede}</p>
       <ActionLink to={target}>{SWITCH_COPY.button}</ActionLink>
-      <p className="bv-switch-small">{SWITCH_COPY.login}</p>
-      <section className="bv-switch-block" aria-labelledby="bv-switch-steps">
-        <h2 id="bv-switch-steps">{SWITCH_COPY.stepsHeading}</h2>
-        <ol className="bv-switch-steps" role="list">{SWITCH_COPY.steps.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ol>
+      <p className="bv-leave-small">{SWITCH_COPY.login}</p>
+      <section className="bv-leave-block" aria-labelledby="bv-leave-steps">
+        <h2 id="bv-leave-steps">{SWITCH_COPY.stepsHeading}</h2>
+        <ol className="bv-leave-steps" role="list">{SWITCH_COPY.steps.map(([title, text]) => <li key={title}><strong>{title}</strong><span>{text}</span></li>)}</ol>
       </section>
-      <section className="bv-switch-block" aria-labelledby="bv-switch-across">
-        <h2 id="bv-switch-across">{SWITCH_COPY.acrossHeading}</h2>
-        <ul className="bv-switch-across">{SWITCH_COPY.across.map(line => <li key={line}>{line}</li>)}</ul>
+      <section className="bv-leave-block" aria-labelledby="bv-leave-across">
+        <h2 id="bv-leave-across">{SWITCH_COPY.acrossHeading}</h2>
+        <ul className="bv-leave-across">{SWITCH_COPY.across.map(line => <li key={line}>{line}</li>)}</ul>
       </section>
-      <aside className="bv-switch-close"><p>{SWITCH_COPY.closing}</p><ActionLink to={target}>{SWITCH_COPY.button}</ActionLink></aside>
+      <aside className="bv-leave-close"><p>{SWITCH_COPY.closing}</p><ActionLink to={target}>{SWITCH_COPY.button}</ActionLink></aside>
     </div>
   </section>;
 }

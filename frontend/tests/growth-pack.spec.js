@@ -37,10 +37,10 @@ test("/switch signed out: the words, the two buttons go to sign-up with src=swit
   await expect(page.getByText("Bring your library with you. Your shelves, reading dates and notes come across, and everything stays private to you.")).toBeVisible();
   await expect(page.getByText("Bookvane never asks for your Goodreads login.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "Three steps" })).toBeVisible();
-  await expect(page.locator(".bv-switch-steps li")).toHaveCount(3);
+  await expect(page.locator(".bv-leave-steps li")).toHaveCount(3);
   await expect(page.getByText("Up to 20,000 books. You’ll see a summary before anything is added.")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: "What comes across" })).toBeVisible();
-  await expect(page.locator(".bv-switch-across li")).toHaveText(["Your shelves: read, reading and want to read", "Books you own", "Start and finish dates, including re-reads", "Your reviews and notes come along too, kept with the book"]);
+  await expect(page.locator(".bv-leave-across li")).toHaveText(["Your shelves: read, reading and want to read", "Books you own", "Start and finish dates, including re-reads", "Your reviews and notes come along too, kept with the book"]);
   await expect(page.getByText("Ready when you are.")).toBeVisible();
   const buttons = page.getByRole("link", { name: "Start your import", exact: true });
   await expect(buttons).toHaveCount(2);
@@ -74,6 +74,16 @@ test("leaving /switch puts the page's own description back, and the footer links
 test("the landing page's Import my library opens /switch for a signed-out visitor", async ({ page, app: _app }) => {
   await page.goto("/");
   for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/switch");
+});
+
+for (const width of [1440, 390]) test(`/switch lays out as a normal page at ${width}: the content is its own height and the footer comes after it`, async ({ page, app: _app }) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/switch");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const box = await page.evaluate(() => { const section = document.querySelector(".bv-leave"), close = document.querySelector(".bv-leave-close").getBoundingClientRect(), footer = document.querySelector(".bv-footer").getBoundingClientRect(), style = getComputedStyle(section); return { sectionHeight: section.getBoundingClientRect().height, background: style.backgroundColor, closeBottom: close.bottom + scrollY, footerTop: footer.top + scrollY }; });
+  expect(box.sectionHeight).toBeGreaterThan(600);                         // not a 24px switch control: the page's own class
+  expect(box.background).toBe("rgba(0, 0, 0, 0)");
+  expect(box.footerTop).toBeGreaterThanOrEqual(box.closeBottom);          // the footer sits after the content
 });
 
 test("/switch is in the sitemap", () => {
