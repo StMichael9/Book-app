@@ -1,5 +1,5 @@
 /* "How was it?": three private reactions as pills with a thumbs icon and a visible label. Existing tokens only. */
-.bv-root .bv-thumbs-title { margin: 0 0 8px; font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
+.bv-root .bv-thumbs-title { margin: 0 0 10px; color: var(--bv-ink); font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
 .bv-root .bv-thumbs-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .bv-root .bv-thumbs-pill { appearance: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); transition: background-color 150ms ease-out, color 150ms ease-out; }
 .bv-root .bv-thumbs-pill svg { width: 18px; height: 18px; flex: none; }
@@ -7,11 +7,20 @@
 .bv-root .bv-thumbs-pill:disabled { cursor: default; }
 .bv-root .bv-thumbs-pill:disabled:not([aria-pressed="true"]) { opacity: .6; }
 .bv-root .bv-thumbs-pill:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
-.bv-root .bv-thumbs-two { display: inline-flex; flex: none; }
-.bv-root .bv-thumbs-two svg + svg { margin-left: -6px; }
+.bv-root .bv-thumbs-pill[aria-pressed="true"] svg.bv-thumbs-heart { fill: currentColor; }
 /* Skip is plain underlined text: no fill, border or shadow in any state (the quiet Button variant paints one, so this is as specific as it). */
 .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus:not(:focus-visible), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:disabled { min-height: 44px; padding: 0 6px; background: transparent; border: 0; box-shadow: none; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
-.bv-root .bv-thumbs-prompt { margin: 14px 0 0; }
-.bv-root .bv-thumbs-reaction { margin: 0 0 18px; }
+/* One rhythm: 24px above the title, 10px title to pills (set on the title), 28px below the pills in the finish block; the reaction row on
+   the book page has 12px above and 20px below. */
+.bv-root .bv-thumbs-prompt { margin: 24px 0 28px; }
+.bv-root .bv-thumbs-reaction { margin: 12px 0 20px; }
+.bv-root .bv-finish-moment .bv-muted { margin-bottom: 0; }
+.bv-root .bv-finish-moment .bv-thumbs-prompt + .bv-button, .bv-root .bv-finish-moment .bv-thumbs-prompt + .bv-finish-undo { margin-top: 0; }
+.bv-root .bv-thumbs-prompt .bv-field-error, .bv-root .bv-thumbs-reaction .bv-field-error { margin: 8px 0 0; }
 .bv-root .bv-now-progress .bv-thumbs-prompt { margin: 0; }
+/* Home on a phone: the prompt goes under the cover and title row at the card's full width, like the page field and Save. */
+@media (max-width: 700px) {
+  .bv-root .bv-now-card.is-finished > :first-child { grid-row: 1; }
+  .bv-root .bv-now-card.is-finished .bv-now-progress { grid-column: 1 / -1; margin-top: 16px; }
+}
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-thumbs-pill { transition: none; } }

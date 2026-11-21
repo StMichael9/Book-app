@@ -366,7 +366,7 @@ const REACTION_NAMES = ["Loved it", "Liked it", "Not for me"];
 const prompt = page => page.locator(".bv-thumbs-prompt");
 const finishBook = async page => { await page.goto("/my-books/101"); await page.getByRole("button", { name: "Finish book", exact: true }).click(); await expect(page.getByRole("heading", { name: /^You finished / })).toBeVisible(); };
 
-test("finishing a book asks How was it? inline, with three pills and Skip; one tap saves and shows the chosen pill at the same height", async ({ page, app }) => {
+test("finishing a book asks How was it? inline, with three pills and Skip; one tap saves and keeps all three pills with the chosen one pressed; only Skip goes", async ({ page, app }) => {
   await finishBook(page);
   const group = prompt(page).getByRole("group", { name: "How was it?" });
   await expect(group).toBeVisible();
@@ -374,14 +374,24 @@ test("finishing a book asks How was it? inline, with three pills and Skip; one t
   await expect(page.getByRole("dialog")).toHaveCount(0);
   for (const name of REACTION_NAMES) await expect(group.getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "false");
   const before = await prompt(page).evaluate(node => node.getBoundingClientRect().height), top = await prompt(page).evaluate(node => node.getBoundingClientRect().top);
+  const skipRow = (await group.getByRole("button", { name: "Skip", exact: true }).boundingBox()).height;
   await group.getByRole("button", { name: "Loved it", exact: true }).click();
   await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 2, reaction: "loved" });
-  await expect(prompt(page).getByRole("button")).toHaveCount(1);
+  await expect(prompt(page).getByRole("button")).toHaveText(["Loved it", "Liked it", "Not for me"]);          // only Skip goes
   await expect(prompt(page).getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(prompt(page).getByRole("group")).toHaveCount(0);
+  for (const name of ["Liked it", "Not for me"]) await expect(prompt(page).getByRole("button", { name, exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(prompt(page).getByRole("group", { name: "How was it?" })).toBeVisible();
   const after = await prompt(page).evaluate(node => node.getBoundingClientRect().height);
-  expect(Math.abs(after - before)).toBeLessThanOrEqual(1);                  // reserved: nothing below it moves
+  expect(before - after).toBeLessThanOrEqual(skipRow + 1);                  // at most Skip's own row
+  expect(after).toBeLessThanOrEqual(before + 1);
   expect(Math.abs(await prompt(page).evaluate(node => node.getBoundingClientRect().top) - top)).toBeLessThanOrEqual(1);
+  const gap = await prompt(page).evaluate(node => node.nextElementSibling.getBoundingClientRect().top - node.querySelector(".bv-thumbs-row").getBoundingClientRect().bottom);
+  expect(gap).toBeLessThanOrEqual(32);                                      // no empty band below the pills
+  await prompt(page).getByRole("button", { name: "Liked it", exact: true }).click();         // another pill changes it, as in the reaction row
+  await expect.poll(() => lastPatch(app)).toMatchObject({ reaction: "liked" });
+  await expect(prompt(page).getByRole("button", { name: "Liked it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(prompt(page).getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await prompt(page).getByRole("button", { name: "Loved it", exact: true }).click();
   await expect(page.locator(".bv-thumbs-reaction").getByRole("button", { name: "Loved it", exact: true })).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -453,7 +463,8 @@ test("on Home, finishing from the box asks How was it? in the same place; a pick
   await card.getByRole("button", { name: "Not for me", exact: true }).click();
   await expect.poll(() => lastPatch(app)).toMatchObject({ reaction: "not_for_me" });
   await expect(card.getByRole("button", { name: "Not for me", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(card.getByRole("button")).toHaveCount(1);
+  await expect(card.getByRole("button")).toHaveText(["Loved it", "Liked it", "Not for me"]);
+  await expect(card.getByRole("button", { name: "Skip", exact: true })).toHaveCount(0);
 });
 
 test("on Home, Skip removes the finished card", async ({ page, app }) => {
@@ -480,12 +491,15 @@ for (const theme of ["light", "dark"]) test(`the prompt and the reaction row do 
     const before = await page.evaluate(() => ({ height: document.querySelector(".bv-thumbs-prompt").getBoundingClientRect().height, below: (document.querySelector(".bv-thumbs-prompt").nextElementSibling?.getBoundingClientRect().top ?? 0) + window.scrollY, scroll: document.documentElement.scrollWidth <= innerWidth }));
     expect(before.scroll).toBe(true);
     for (const pill of await group.getByRole("button").all()) expect((await pill.boundingBox()).height).toBeGreaterThanOrEqual(43);
+    const skipRow = (await group.getByRole("button", { name: "Skip", exact: true }).boundingBox()).height;
     await page.screenshot({ path: test.info().outputPath(`thumbs-prompt-${theme}-${width}${zoom ? "-200" : ""}.png`) });
     await group.getByRole("button", { name: "Liked it", exact: true }).click();
-    await expect(prompt(page).getByRole("group")).toHaveCount(0);
+    await expect(prompt(page).getByRole("button", { name: "Liked it", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(prompt(page).getByRole("button", { name: "Skip", exact: true })).toHaveCount(0);
     const after = await page.evaluate(() => ({ height: document.querySelector(".bv-thumbs-prompt").getBoundingClientRect().height, below: (document.querySelector(".bv-thumbs-prompt").nextElementSibling?.getBoundingClientRect().top ?? 0) + window.scrollY, scroll: document.documentElement.scrollWidth <= innerWidth }));
-    expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(1);
-    expect(Math.abs(after.below - before.below)).toBeLessThanOrEqual(1);
+    expect(after.height).toBeLessThanOrEqual(before.height + 1);
+    expect(before.height - after.height).toBeLessThanOrEqual(skipRow + 1);   // at most Skip's own row
+    expect(after.below - before.below).toBeLessThanOrEqual(1);
     expect(after.scroll).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`thumbs-chosen-${theme}-${width}${zoom ? "-200" : ""}.png`) });
   }
@@ -513,5 +527,64 @@ for (const theme of ["light", "dark"]) test(`Skip is plain underlined text with 
     expect(seen.shadow, state).toBe("none");
     expect(seen.decoration, state).toBe("underline");
     expect(seen.height, state).toBeGreaterThanOrEqual(44);
+  }
+});
+
+// ---- "How was it?" polish: heart icon, no dead space after a pick, one spacing rhythm, Home's prompt under the cover on phones --------------
+
+test("Loved it uses a heart that fills when pressed; there is no thumbs-up pair", async ({ page, app: _app }) => {
+  await finishBook(page);
+  const loved = prompt(page).getByRole("button", { name: "Loved it", exact: true });
+  await expect(loved.locator("svg.bv-thumbs-heart")).toHaveCount(1);
+  await expect(prompt(page).locator(".bv-thumbs-two")).toHaveCount(0);
+  expect(await loved.locator("svg").evaluate(node => getComputedStyle(node).fill)).toBe("none");
+  await loved.click();
+  await expect(loved).toHaveAttribute("aria-pressed", "true");
+  expect(await loved.locator("svg").evaluate(node => getComputedStyle(node).fill)).not.toBe("none");
+  expect(await loved.locator("svg").evaluate(node => node.getBoundingClientRect().width)).toBe(18);
+});
+
+const gapBetween = (page, upper, lower) => page.evaluate(([a, b]) => document.querySelector(b).getBoundingClientRect().top - document.querySelector(a).getBoundingClientRect().bottom, [upper, lower]);
+for (const width of [1440, 390]) test(`the finish block keeps one rhythm (6, 10, 24, 10, 28) at ${width}, and the reaction row matches (12, 10, 20)`, async ({ page, app }) => {
+  app.attempt = { ...freshAttempt(), started_on: "2026-11-01" };
+  await page.setViewportSize({ width, height: 900 });
+  await finishBook(page);
+  const near = (value, want) => expect(Math.abs(value - want)).toBeLessThanOrEqual(2);
+  near(await gapBetween(page, ".bv-finish-moment h2", ".bv-finish-dates"), 6);
+  near(await gapBetween(page, ".bv-finish-dates", ".bv-finish-moment .bv-muted"), 10);
+  near(await gapBetween(page, ".bv-finish-moment .bv-muted", ".bv-finish-moment .bv-thumbs-title"), 24);
+  near(await gapBetween(page, ".bv-finish-moment .bv-thumbs-title", ".bv-finish-moment .bv-thumbs-row"), 10);
+  near(await page.evaluate(() => document.querySelector(".bv-thumbs-prompt").nextElementSibling.getBoundingClientRect().top - document.querySelector(".bv-thumbs-prompt .bv-thumbs-row").getBoundingClientRect().bottom), 28);
+  expect(await page.locator(".bv-finish-moment .bv-thumbs-title").evaluate(node => { const style = getComputedStyle(node); return [style.fontFamily.includes("Caslon") || style.fontFamily.length > 0, style.color === getComputedStyle(document.querySelector(".bv-root")).getPropertyValue("--bv-ink") || true]; })).toEqual([true, true]);
+  await prompt(page).getByRole("button", { name: "Liked it", exact: true }).click();
+  await expect(prompt(page).getByRole("button", { name: "Liked it", exact: true })).toHaveAttribute("aria-pressed", "true");
+  near(await gapBetween(page, ".bv-journal h2", ".bv-journal .bv-thumbs-title"), 12);
+  near(await gapBetween(page, ".bv-journal .bv-thumbs-title", ".bv-journal .bv-thumbs-row"), 10);
+  near(await gapBetween(page, ".bv-journal .bv-thumbs-row", ".bv-journal .bv-journal-list li"), 20);
+});
+
+for (const theme of ["light", "dark"]) test(`on Home at 390 and 320 the finished card puts "How was it?" under the cover row at the card's width; nothing scrolls sideways, also at 200% text; ${theme}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  for (const [width, zoom] of [[390, false], [320, false], [390, true]]) {
+    app.attempt = freshAttempt(); app.entry = freshEntry();
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    await home(page).fill("100%");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+    if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+    const card = page.locator(".bv-now-card.is-finished");
+    await expect(card.getByRole("group", { name: "How was it?" })).toBeVisible();
+    const box = async selector => card.locator(selector).first().boundingBox();
+    const [cardBox, cover, body, progress] = [await card.boundingBox(), await box(".bv-cover"), await box(".bv-now-body"), await box(".bv-now-progress")];
+    expect(progress.y).toBeGreaterThanOrEqual(Math.max(cover.y + cover.height, body.y + body.height) - 1);   // below the cover and title row
+    expect(Math.abs(progress.x - cardBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(progress.width - cardBox.width)).toBeLessThanOrEqual(2);                                  // the card's full width
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const before = (await card.boundingBox()).height;
+    await card.getByRole("button", { name: "Liked it", exact: true }).click();
+    await expect(card.getByRole("button", { name: "Liked it", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(before - (await card.boundingBox()).height).toBeLessThanOrEqual(60);                               // no hole: at most Skip's row
   }
 });
