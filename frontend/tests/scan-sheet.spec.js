@@ -500,3 +500,20 @@ for (const theme of ["light", "dark"]) test(`the aiming box and card fit at 390,
     await page.reload();
   }
 });
+
+// No grey panel behind a cover: the blank beside a row that is still being looked up is an outline only.
+for (const name of ["light", "dark"]) test(`the scan sheet's blank cover is an outline, not a grey fill; ${name}`, async ({ page, app }) => {
+  app.isbn = answers;
+  let release; app.holdLookups = new Promise(done => { release = done; });
+  await page.emulateMedia({ colorScheme: name });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), name);
+  await withCamera(page);
+  await open(page);
+  const dialog = page.getByRole("dialog", { name: "Scan books" });
+  await scan(page, EMMA);
+  await expect(dialog.locator(".bv-scan-row.is-looking .bv-scan-cover-blank")).toHaveCount(1);
+  const blank = await dialog.locator(".bv-scan-cover-blank").first().evaluate(node => { const s = getComputedStyle(node); return [s.backgroundColor, s.boxShadow]; });
+  expect(blank[0]).toBe("rgba(0, 0, 0, 0)"); expect(blank[1]).toMatch(/inset/);
+  release();
+  await expect(dialog.locator(".bv-scan-row.is-looking")).toHaveCount(0);
+});

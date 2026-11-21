@@ -97,15 +97,16 @@ test("a near-2:3 cover fills its frame with object-fit: cover; an off-ratio one 
   expect(new Set(bottoms).size).toBe(1);
 });
 
-test("while an image is loading and for a book with no cover the frame keeps the soft fill and the jacket", async ({ page, app }) => {
+test("while an image is loading the frame is an outline only, and a book with no cover keeps its jacket", async ({ page, app }) => {
   app.browseItems = [...await withCovers(page, [[300, 450]], 1500), { ...bookOf(2), title: "No cover", cover_image_url: null }];
   await page.goto("/browse");
   const loading = grid(page).locator(".bv-cover--loading").first();
   await expect(loading).toBeVisible();
-  expect(transparent(await loading.evaluate(node => getComputedStyle(node).backgroundColor))).toBe(false);
+  expect(transparent(await loading.evaluate(node => getComputedStyle(node).backgroundColor))).toBe(true);   // no grey fill: an outline only
+  expect(await loading.evaluate(node => getComputedStyle(node).boxShadow)).toMatch(/inset/);
   const none = grid(page).locator(".bv-book-card").filter({ hasText: "No cover" }).locator(".bv-cover");
   await expect(none.locator(".bv-cover-fallback")).toHaveCount(1);
-  expect(transparent(await none.evaluate(node => getComputedStyle(node).backgroundColor))).toBe(false);
+  expect(transparent(await none.locator(".bv-cover-fallback").evaluate(node => getComputedStyle(node).backgroundColor))).toBe(false);   // the jacket brings its own colours
   await expect(none).not.toHaveClass(/bv-cover--ready|bv-cover--free/);
   await expect(page.locator(".bv-cover--ready")).toHaveCount(1);
   await expect(page.locator(".bv-cover--ready")).not.toHaveClass(/bv-cover--loading/);

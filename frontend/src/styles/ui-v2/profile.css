@@ -72,7 +72,7 @@
 /* Artwork: up to four covers side by side in 2:3 frames; a missing cover is a bookcloth spine block. */
 .bv-root .bv-art { display: flex; gap: 2px; height: 64px; overflow: hidden; border-radius: 4px; }
 .bv-root .bv-art--tall { height: 96px; margin: 8px 0 14px; }
-.bv-root .bv-art-slot { position: relative; flex: none; height: 100%; aspect-ratio: 2/3; border-radius: 3px; overflow: hidden; background: var(--bv-soft); }
+.bv-root .bv-art-slot { position: relative; flex: none; height: 100%; aspect-ratio: 2/3; border-radius: 3px; overflow: hidden; background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); }
 .bv-root .bv-art-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
 .bv-root .bv-art-slot.is-loaded img { opacity: 1; animation: bv-jacket-in 160ms ease-out both; }
 .bv-root .bv-art--empty { align-items: flex-end; width: 84px; height: 64px; border-radius: 0; border-bottom: 3px solid var(--bv-ink); padding-inline: 10px; }

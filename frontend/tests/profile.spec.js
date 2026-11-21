@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { greyBehindCovers } from "./support/cover-bg.js";
 import { installGenres } from "./support/genres.js";
 import { mkdirSync } from "node:fs";
 
@@ -993,4 +994,15 @@ test("a public list links each author by author_ids, and a name with no id stays
   await expect(rows.nth(1)).toContainText("Unlinked Name");
   await expect(rows.nth(1).getByRole("link", { name: "Unlinked Name" })).toHaveCount(0);
   expect(await page.locator("a a").count()).toBe(0);
+});
+
+test("a profile list's art slots, empty or filled, have no grey fill: outline only", async ({ page, app: _app }) => {
+  for (const name of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: name });
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), name);
+    await page.goto("/profile");
+    await expect(page.locator(".bv-art-slot").first()).toBeVisible();
+    expect(await greyBehindCovers(page)).toEqual([]);
+    for (const slot of await page.locator(".bv-art-slot").all()) expect(await slot.evaluate(node => getComputedStyle(node).boxShadow)).toMatch(/inset/);
+  }
 });

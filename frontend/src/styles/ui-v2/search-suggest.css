@@ -6,8 +6,8 @@
 .bv-root .bv-header-search .bv-suggest { left: auto; right: 0; width: 420px; max-width: calc(100vw - 32px); }
 .bv-root .bv-suggest ul { list-style: none; margin: 0; padding: 0; }
 .bv-root .bv-suggest-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; cursor: pointer; }
-.bv-root .bv-suggest-row.is-active { background: var(--bv-soft); box-shadow: inset 0 0 0 2px var(--bv-green); }
-@media (hover: hover) { .bv-root .bv-suggest-row:hover { background: var(--bv-soft); } }
+.bv-root .bv-suggest-row.is-active { background: transparent; box-shadow: inset 0 0 0 2px var(--bv-green); }
+@media (hover: hover) { .bv-root .bv-suggest-row:hover { background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); } }
 .bv-root .bv-suggest-cover { width: 32px; flex: none; }
 /* A cover on the sheet keeps a thin edge, so a dark jacket never melts into the dark sheet. */
 .bv-root .bv-suggest-cover .bv-cover { box-shadow: 0 0 0 1px var(--bv-control); }

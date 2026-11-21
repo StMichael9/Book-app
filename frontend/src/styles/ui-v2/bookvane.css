@@ -187,9 +187,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-book-card { display: flex; flex-direction: column; min-width: 0; }
 .bv-root .bv-private-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bv-root .bv-book-link { display: block; }
-.bv-root .bv-cover { background: var(--bv-soft); aspect-ratio: 2/3; border-radius: 4px; overflow: hidden; width: 100%; box-shadow: var(--bv-shadow-cover); }
+.bv-root .bv-cover { background: transparent; aspect-ratio: 2/3; border-radius: 4px; overflow: hidden; width: 100%; box-shadow: var(--bv-shadow-cover); }
 .bv-root .bv-cover img { width: 100%; height: 100%; object-fit: cover; }
-/* Once artwork has loaded there is no soft fill behind it, so no brown edge can show at the corners. The fill stays for loading and the jacket. */
+/* No grey panel behind a cover, ever. While the picture loads the frame is an outline only (the doubled class beats the per-page cover shadows);
+   the typographic jacket brings its own colours, and a loaded picture needs nothing behind it. */
+.bv-root .bv-cover.bv-cover--loading.bv-cover--loading { background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); }
 .bv-root .bv-cover--ready { background: transparent; }
 /* Artwork that is not about 2:3 (square, wide) is shown whole with no frame: the radius and shadow are on the picture, sitting on the bottom edge,
    so a row of covers keeps one baseline. The doubled class beats the per-page cover shadows. */
@@ -240,8 +242,9 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 
 .bv-root .bv-breadcrumb { font-size: var(--bv-fs-body); padding: 24px 0; }
 .bv-root .bv-detail { display: grid; grid-template-columns: 330px minmax(0,1fr); gap: 64px; align-items: start; padding: 6px 0 32px; }
-.bv-root .bv-detail-art { background: var(--bv-soft); border-radius: 8px; padding: 32px; }
-.bv-root .bv-detail-art .bv-cover { max-width: 250px; margin: auto; box-shadow: var(--bv-shadow-cover); }
+/* The book page cover sits straight on the page with its own shadow: no padded panel. Its column is unchanged, so the text does not move. */
+.bv-root .bv-detail-art { padding-top: 14px; }
+.bv-root .bv-detail-art .bv-cover { max-width: 320px; margin: 0; box-shadow: var(--bv-shadow-cover); }
 .bv-root .bv-detail-body { padding-top: 14px; min-width: 0; }
 .bv-root .bv-detail-body h1 { font-size: var(--bv-fs-page); margin: 12px 0; overflow-wrap: anywhere; }
 .bv-root .bv-detail-author { font-size: 1.375rem; color: var(--bv-muted); margin-bottom: 18px; }
@@ -267,7 +270,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root :is(.bv-field, .bv-why, .bv-import-page, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 50px; padding: 11px 14px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
 .bv-root input::placeholder { color: var(--bv-muted); opacity: 1; }
 .bv-root .bv-auth-layout { max-width: 1020px; margin: 62px auto 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
-.bv-root .bv-auth-story { background: var(--bv-soft); border-radius: 8px; padding: 44px; }
+.bv-root .bv-auth-story { background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); border-radius: 8px; padding: 44px; }
 .bv-root .bv-auth-story p { margin: 28px 0 0; font-size: var(--bv-fs-body); color: var(--bv-ink); text-align: center; }
 .bv-root .bv-auth-story .bv-hero-covers { min-height: 0; }
 .bv-root .bv-auth-strip { display: none; }
@@ -290,7 +293,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-auth-switch { font-size: var(--bv-fs-body); margin: 20px 0 12px; }
 /* A link inside a sentence gets its 44 px target from padding and a matching negative margin, so the line is not stretched. */
 .bv-root :is(.bv-auth-card, .bv-narrow) :is(p, .bv-muted, .bv-field-error) .bv-text-link { display: inline; min-height: 0; padding: 12px 0; margin: -12px 0; }
-.bv-root .bv-pending-book { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--bv-radius-sheet); background: var(--bv-soft); margin: 24px 0; text-align: left; }
+.bv-root .bv-pending-book { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: var(--bv-radius-sheet); background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); margin: 24px 0; text-align: left; }
 .bv-root .bv-pending-book .bv-cover { width: 38px; flex-shrink: 0; }
 .bv-root .bv-pending-book p { margin: 0; font-size: var(--bv-fs-helper); line-height: 1.4; }
 .bv-root .bv-pending-book strong { display: block; margin-bottom: 3px; }
@@ -340,8 +343,9 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-empty { text-align: center; max-width: 480px; margin: 30px auto; padding: 40px 12px; min-height: 320px; }
 .bv-root .bv-empty-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 .bv-root .bv-empty .bv-muted { line-height: 1.55; }
-.bv-root .bv-skeleton { background: var(--bv-soft); border-radius: 4px; }
-.bv-root .bv-skeleton--cover { aspect-ratio: 2/3; }
+/* Text-line skeletons are a quiet line-coloured bar; a cover-shaped one is an outline only. */
+.bv-root .bv-skeleton { background: var(--bv-line); border-radius: 4px; }
+.bv-root .bv-skeleton--cover { aspect-ratio: 2/3; background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); }
 .bv-root .bv-skeleton--title { width: 80%; height: 20px; margin-top: 14px; }
 .bv-root .bv-skeleton--line { width: 100%; height: 16px; margin-top: 12px; }
 .bv-root .bv-skeleton--short { width: 60%; }
@@ -362,7 +366,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-hero-covers { gap: 10px; min-height: 190px; }
   .bv-root .bv-book-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .bv-root .bv-detail { grid-template-columns: 270px minmax(0,1fr); gap: 40px; }
-  .bv-root .bv-detail-art { padding: 22px; }
+  .bv-root .bv-detail-art { padding-top: 14px; }
   .bv-root .bv-auth-layout { gap: 40px; }
   .bv-root .bv-auth-story { padding: 30px; }
   .bv-root .bv-genre-card { padding: 15px; }
@@ -435,8 +439,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   .bv-root .bv-pagination nav > span { font-size: var(--bv-fs-helper); }
   .bv-root .bv-breadcrumb { font-size: var(--bv-fs-helper); padding: 18px 0 22px; }
   .bv-root .bv-detail { grid-template-columns: 1fr; gap: 24px; padding-top: 0; }
-  .bv-root .bv-detail-art { padding: 24px; width: 100%; max-width: 350px; margin: auto; }
-  .bv-root .bv-detail-art .bv-cover { width: 158px; }
+  .bv-root .bv-detail-art { padding: 0; width: 100%; margin: auto; }
+  .bv-root .bv-detail-art .bv-cover { width: 158px; margin: auto; }
   .bv-root .bv-detail-body { padding-top: 0; }
   .bv-root .bv-detail-body h1 { font-size: var(--bv-fs-page); margin: 8px 0 12px; }
   .bv-root .bv-detail-author { font-size: var(--bv-fs-title); margin-bottom: 15px; }
