@@ -1,0 +1,27 @@
+/* /switch: one narrow column on the paper, the way the landing page sits. Tokens only. */
+.bv-root .bv-switch { padding-top: 56px; padding-bottom: 72px; }
+.bv-root .bv-switch-column { max-width: 720px; margin: 0 auto; }
+.bv-root .bv-switch h1 { font-size: clamp(2.25rem, 5.4vw, 3.5rem); line-height: 1.08; margin: 0 0 20px; }
+.bv-root .bv-switch-lede { font-size: 1.3125rem; line-height: 1.5; color: var(--bv-muted); margin: 0 0 28px; max-width: 40rem; }
+.bv-root .bv-switch-small { margin: 12px 0 0; font-size: var(--bv-fs-helper); color: var(--bv-muted); }
+.bv-root .bv-switch-block { border-top: 1px solid var(--bv-line); margin-top: 48px; padding-top: 36px; }
+.bv-root .bv-switch-block h2 { font-size: 1.875rem; margin: 0 0 24px; }
+.bv-root .bv-switch-steps { list-style: none; counter-reset: step; margin: 0; padding: 0; display: grid; gap: 24px; }
+.bv-root .bv-switch-steps li { counter-increment: step; position: relative; display: grid; gap: 4px; padding-left: 60px; min-height: 44px; }
+.bv-root .bv-switch-steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--bv-soft); font: 400 1.25rem/1 var(--bv-display); }
+.bv-root .bv-switch-steps strong { font-size: var(--bv-fs-title); }
+.bv-root .bv-switch-steps span { color: var(--bv-muted); }
+.bv-root .bv-switch-across { margin: 0; padding-left: 22px; display: grid; gap: 10px; list-style: disc; }
+.bv-root .bv-switch-close { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 48px; padding: 28px; border-radius: var(--bv-radius-sheet); background: var(--bv-sheet); }
+.bv-root .bv-switch-close p { margin: 0; font: 400 1.5rem/1.2 var(--bv-display); }
+@media (max-width: 700px) {
+  .bv-root .bv-switch { padding-top: 32px; padding-bottom: 48px; }
+  .bv-root .bv-switch-lede { font-size: var(--bv-fs-title); }
+  .bv-root .bv-switch-block { margin-top: 36px; padding-top: 28px; }
+  .bv-root .bv-switch-block h2 { font-size: 1.5rem; }
+  .bv-root .bv-switch-steps li { padding-left: 54px; }
+  .bv-root .bv-switch-close { padding: 22px 20px; }
+  .bv-root .bv-switch-close .bv-button, .bv-root .bv-switch > .bv-switch-column > .bv-button { width: 100%; justify-content: center; }
+}
+
+.bv-root .bv-footer-links { display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: center; }
