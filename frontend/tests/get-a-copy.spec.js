@@ -33,7 +33,9 @@ async function mock(page, { signedIn = false, isbn13 = ISBN, nextRead = false } 
   });
 }
 const buyUrl = id => `https://bookshop.org/search?keywords=${encodeURIComponent(`Copy fixture ${id} Fixture Author`)}&affiliate=130585`;
-const copyLink = page => page.getByRole("link", { name: /Find it at Bookshop\.org/ });
+const copyLink = page => page.getByRole("link", { name: /^Bookshop\.org/ });
+const amazonLink = page => page.getByRole("link", { name: /^Amazon/ });
+const amazonUrl = id => `https://www.amazon.com/s?k=${encodeURIComponent(`Copy fixture ${id} Fixture Author`)}&tag=bookvane-20`;
 
 for (const signedIn of [false, true]) {
   test(`book page offers a sponsored Bookshop link ${signedIn ? "signed in" : "signed out"}`, async ({ page }) => {
@@ -43,8 +45,17 @@ for (const signedIn of [false, true]) {
     const link = copyLink(page);
     await expect(link).toHaveAttribute("href", buyUrl(7));
     await expect(link).toHaveAttribute("target", "_blank");
-    expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "noreferrer", "sponsored"]);
-    await expect(page.getByText("Bookvane may earn a small commission.")).toBeVisible();
+    expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "sponsored"]);
+    await expect(link.locator("svg")).toHaveCount(1);
+    const amazon = amazonLink(page);                                           // the second, quieter link
+    await expect(amazon).toHaveAttribute("href", amazonUrl(7));
+    await expect(amazon).toHaveAttribute("target", "_blank");
+    expect((await amazon.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "sponsored"]);
+    await expect(amazon.locator("svg")).toHaveCount(1);
+    expect(await amazon.evaluate(node => getComputedStyle(node.firstElementChild).textDecorationLine)).toBe("underline");
+    expect(await link.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe("1px");   // the outline pill
+    await expect(page.getByText("We may earn a small commission at no cost to you.")).toBeVisible();
+    await expect(page.getByText("Bookvane may earn a small commission.")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Get a copy" })).toBeVisible();
   });
 }
@@ -61,6 +72,8 @@ test("the Get a copy row is hidden without an affiliate ID", async ({ page }) =>
   await expect(page.getByRole("heading", { name: "Copy fixture 7" })).toBeVisible();
   await expect(page.getByText("About this book")).toBeVisible();
   await expect(copyLink(page)).toHaveCount(0);
+  await expect(amazonLink(page)).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Get a copy" })).toHaveCount(0);   // neither id: the whole block is hidden
   await expect(page.getByText(/may earn a small commission/)).toHaveCount(0);
 });
 
@@ -116,7 +129,8 @@ test("Get a copy clicks send get_copy_click with their placement and nothing els
     return JSON.parse(request.postData());
   };
   await page.goto(`${WITH_ID}/book/7`);
-  expect(await clickBeacon(copyLink(page))).toEqual({ name: "get_copy_click", placement: "book_page" });
+  expect(await clickBeacon(copyLink(page))).toEqual({ name: "get_copy_click", placement: "bookshop" });
+  expect(await clickBeacon(amazonLink(page))).toEqual({ name: "get_copy_click", placement: "amazon" });
   await page.goto(`${WITH_ID}/my-books?status=want`);
   expect(await clickBeacon(page.getByRole("link", { name: /Find on Bookshop/ }))).toEqual({ name: "get_copy_click", placement: "want_card" });
   await page.goto(`${WITH_ID}/home`);

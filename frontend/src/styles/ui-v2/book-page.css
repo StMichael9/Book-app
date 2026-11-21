@@ -33,11 +33,6 @@
 .bv-root .bv-book-about .bv-description { max-width: 66ch; margin-top: 0; padding-top: 24px; }
 .bv-root .bv-book-about .bv-description h2 { font-size: 1.75rem; }
 .bv-root .bv-book-about .bv-book-tags { margin-top: 20px; }
-.bv-root .bv-book-about .bv-get-copy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; margin-top: 22px; font-size: var(--bv-fs-helper); }
-.bv-root .bv-book-about .bv-get-copy h2 { margin: 0; color: var(--bv-ink); }
-.bv-root .bv-book-about .bv-get-copy h2::after { content: "\00b7"; margin-left: 8px; font-weight: 400; color: var(--bv-muted); }
-.bv-root .bv-book-about .bv-get-copy a { min-height: 44px; color: var(--bv-green); font-weight: 600; }
-.bv-root .bv-book-about .bv-get-copy .bv-help { flex: 0 0 100%; margin: -8px 0 0; color: var(--bv-muted); }
 
 /* More by {author}: full width under a hairline. Five equal columns; two columns of four on a phone. */
 .bv-root .bv-more-by { border-top: 1px solid var(--bv-line); margin-top: 8px; padding: 36px 0 48px; }
@@ -78,3 +73,14 @@
   .bv-root .bv-more-by-grid > :nth-child(n+5) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-open-link svg { transition: none; } .bv-root .bv-open-link:hover svg, .bv-root .bv-open-link:focus-visible svg { transform: none; } }
+
+/* Get a copy: Bookshop.org as an outline pill, Amazon as a quieter underlined link, then the commission note. */
+.bv-root .bv-copy-block { margin-top: 22px; }
+.bv-root .bv-copy-block h2 { margin: 0 0 10px; font: 600 var(--bv-fs-body)/1.3 var(--bv-body); color: var(--bv-ink); }
+.bv-root .bv-copy-links { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.bv-root .bv-copy-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--bv-ink); font-weight: 600; }
+.bv-root .bv-copy-link svg { width: 16px; height: 16px; flex: none; }
+.bv-root .bv-copy-link--pill { padding: 0 20px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-pill); }
+.bv-root .bv-copy-link--text > span:first-child { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-copy-note { margin: 8px 0 0; font-size: var(--bv-fs-helper); color: var(--bv-muted); }
+.bv-root .bv-workspace-about .bv-copy-block { margin-top: 14px; }
