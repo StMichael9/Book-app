@@ -24,8 +24,9 @@ def create_loan(request: Request, data: LoanCreate, current_user: User = Depends
 @router.get("/loans")
 @limiter.limit("60/minute")
 def list_loans(request: Request, state: Literal["open", "closed"] | None = None, direction: Literal["lent", "borrowed"] | None = None,
+               entry_id: int | None = Query(None, ge=1), limit: int = Query(loans.LIST_LIMIT, ge=1, le=loans.LIST_LIMIT),
                current_user: User = Depends(reading_user), db: Session = Depends(get_db)):
-    return {"items": loans.listing(db, current_user, state=state, direction=direction)}
+    return {"items": loans.listing(db, current_user, state=state, direction=direction, entry_id=entry_id, limit=limit)}
 
 
 @router.patch("/loans/{loan_id}", response_model=LoanView)

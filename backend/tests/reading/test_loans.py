@@ -64,7 +64,7 @@ def test_lend_a_book_and_see_it_in_the_list(lending):
     response = make(lending.client, lending.saved, due_on=str(TODAY + timedelta(days=14)))
     assert response.status_code == 201, response.text
     loan = response.json()
-    assert (loan["direction"], loan["person_name"], loan["started_on"], loan["overdue"], loan["said_back"], loan["shared"]) == (
+    assert (loan["direction"], loan["person_name"], loan["started_on"], loan["overdue"], loan["said_back"], loan["has_link"]) == (
         "lent", "Sam", str(TODAY), False, False, False)
     assert loan["entry_id"] == lending.saved["id"] and loan["ended_on"] is None
     listed = lending.client.get("/me/loans").json()["items"]
@@ -213,7 +213,7 @@ def test_share_creates_then_reuses_a_32_byte_token_and_only_for_lent_open_loans(
     token = first.json()["url"].rsplit("/", 1)[1]
     assert len(token) == 43 and set(token) <= set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")      # 32 random bytes, base64url
     assert lending.client.post(f"/me/loans/{loan['id']}/share").json()["url"].endswith(token)                              # reused
-    assert lending.client.get("/me/loans").json()["items"][0]["shared"] is True
+    assert lending.client.get("/me/loans").json()["items"][0]["has_link"] is True
     borrowed = make(lending.client, lending.saved, direction="borrowed", person_name="Ana").json()
     assert lending.client.post(f"/me/loans/{borrowed['id']}/share").status_code == 422
     lending.client.patch(f"/me/loans/{loan['id']}", json={"ended": True})
@@ -413,3 +413,36 @@ def test_the_migration_has_the_partial_unique_index_and_the_cascade(lending):
     lending.db.execute(text("DELETE FROM user_books WHERE id = :e"), {"e": lending.saved["id"]})
     lending.db.commit()
     assert lending.db.scalar(text("SELECT count(*) FROM loans WHERE id = :i"), {"i": loan["id"]}) == 0      # a removed entry takes its loans with it
+
+
+def test_the_open_loan_has_an_id_and_has_link_but_never_the_token(lending):
+    loan = make(lending.client, lending.saved).json()
+    assert lending.client.get(f"/me/library/{lending.saved['id']}").json()["loan"]["has_link"] is False
+    token = token_of(lending, loan)
+    detail = lending.client.get(f"/me/library/{lending.saved['id']}")
+    assert detail.json()["loan"]["id"] == loan["id"] and detail.json()["loan"]["has_link"] is True and token not in detail.text
+    for path in ("/me/library", f"/me/library/{lending.saved['id']}/reading", "/me/loans"):
+        assert token not in lending.client.get(path).text
+    lending.client.delete(f"/me/loans/{loan['id']}/share")
+    assert lending.client.get(f"/me/library/{lending.saved['id']}").json()["loan"]["has_link"] is False       # revoked: no live link
+
+
+def test_loans_can_be_filtered_to_one_entry_and_limited_most_recent_first(lending):
+    ids = []
+    for n in range(7):
+        loan = make(lending.client, lending.saved, person_name=f"P{n}").json()
+        lending.client.patch(f"/me/loans/{loan['id']}", json={"ended": True})
+        lending.db.execute(text("UPDATE loans SET started_on = :s, ended_on = :e WHERE id = :i"),
+                           {"s": TODAY - timedelta(days=30), "e": TODAY - timedelta(days=20 - n), "i": loan["id"]})
+        ids.append(loan["id"])
+    lending.db.commit()
+    other = [b for b in lending.books.values() if b.id != lending.saved["book_id"]][0]
+    elsewhere = lending.client.put(f"/me/library/books/{other.id}", json={"is_owned": True}).json()
+    make(lending.client, elsewhere)
+    recent = lending.client.get(f"/me/loans?state=closed&entry_id={lending.saved['id']}&limit=5").json()["items"]
+    assert [item["id"] for item in recent] == list(reversed(ids))[:5]
+    assert len(lending.client.get("/me/loans?state=closed").json()["items"]) == 7
+    assert len(lending.client.get(f"/me/loans?entry_id={elsewhere['id']}").json()["items"]) == 1
+    assert lending.client.get("/me/loans?limit=0").status_code == 422 and lending.client.get("/me/loans?limit=201").status_code == 422
+    sign_in_as(lending, stranger(lending))
+    assert lending.client.get(f"/me/loans?entry_id={lending.saved['id']}").json()["items"] == []            # another reader's entry shows nothing

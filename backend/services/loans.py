@@ -47,7 +47,7 @@ def brief(loan: Loan, on: date | None = None) -> LoanBrief:
     return LoanBrief(id=loan.id, direction=loan.direction, person_name=loan.person_name, started_on=loan.started_on,
                      due_on=loan.due_on, overdue=bool(loan.ended_on is None and loan.due_on is not None and loan.due_on < on),
                      said_back=loan.borrower_said_back_at is not None and loan.ended_on is None,
-                     shared=loan.share_token is not None and loan.share_revoked_at is None and loan.ended_on is None)
+                     has_link=loan.share_token is not None and loan.share_revoked_at is None and loan.ended_on is None)
 
 
 def view(loan: Loan, on: date | None = None) -> LoanView:
@@ -141,7 +141,8 @@ def delete(db: Session, user: User, loan_id) -> None:
     db.commit()
 
 
-def listing(db: Session, user: User, *, state: str | None = None, direction: str | None = None) -> list[dict]:
+def listing(db: Session, user: User, *, state: str | None = None, direction: str | None = None, entry_id: int | None = None,
+            limit: int = LIST_LIMIT) -> list[dict]:
     """The reader's loans with the book's title, open ones first (overdue, then by due date)."""
     on = today()
     query = (select(Loan, func.coalesce(Book.title, UserBook.private_title).label("title"))
@@ -153,9 +154,14 @@ def listing(db: Session, user: User, *, state: str | None = None, direction: str
         query = query.where(Loan.ended_on.is_not(None))
     if direction:
         query = query.where(Loan.direction == direction)
+    if entry_id is not None:
+        query = query.where(Loan.user_book_id == entry_id)
     overdue_first = case((Loan.ended_on.is_(None) & (Loan.due_on < on), 0), else_=1)
-    query = query.order_by(Loan.ended_on.is_not(None), overdue_first, Loan.due_on.asc().nulls_last(), Loan.started_on.desc(),
-                           Loan.id).limit(LIST_LIMIT)
+    if state == "closed":       # past loans: the most recently returned first
+        query = query.order_by(Loan.ended_on.desc(), Loan.created_at.desc(), Loan.id)
+    else:
+        query = query.order_by(Loan.ended_on.is_not(None), overdue_first, Loan.due_on.asc().nulls_last(), Loan.started_on.desc(), Loan.id)
+    query = query.limit(min(limit, LIST_LIMIT))
     return [{**view(loan, on).model_dump(mode="json"), "title": title} for loan, title in db.execute(query).all()]
 
 

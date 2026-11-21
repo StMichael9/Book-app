@@ -17,7 +17,7 @@ class LoanBrief(BaseModel):
     due_on: date | None = None
     overdue: bool = False
     said_back: bool = False          # the borrower tapped "I've given it back" on the link (lent loans only)
-    shared: bool = False             # a live share link exists
+    has_link: bool = False           # a live share link exists (the token itself is never in these payloads)
 
 
 class LoanView(LoanBrief):
