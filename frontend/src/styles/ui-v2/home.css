@@ -123,5 +123,3 @@
 /* A one-line "nothing matches" or error message needs no reserved card row. */
 .bv-root .bv-results.bv-results--quiet { min-height: 0; }
 
-/* Up next covers fill their 2:3 frame, whatever the picture's own proportions: no soft bars above or below. */
-.bv-root .bv-next-cover .bv-cover img { object-fit: cover; }

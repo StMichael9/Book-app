@@ -188,7 +188,13 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-private-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bv-root .bv-book-link { display: block; }
 .bv-root .bv-cover { background: var(--bv-soft); aspect-ratio: 2/3; border-radius: 4px; overflow: hidden; width: 100%; box-shadow: var(--bv-shadow-cover); }
-.bv-root .bv-cover img { width: 100%; height: 100%; object-fit: contain; }
+.bv-root .bv-cover img { width: 100%; height: 100%; object-fit: cover; }
+/* Once artwork has loaded there is no soft fill behind it, so no brown edge can show at the corners. The fill stays for loading and the jacket. */
+.bv-root .bv-cover--ready { background: transparent; }
+/* Artwork that is not about 2:3 (square, wide) is shown whole with no frame: the radius and shadow are on the picture, sitting on the bottom edge,
+   so a row of covers keeps one baseline. The doubled class beats the per-page cover shadows. */
+.bv-root .bv-cover.bv-cover--free.bv-cover--free { display: flex; align-items: flex-end; justify-content: center; background: transparent; box-shadow: none; border-radius: 0; overflow: visible; transition: none; }
+.bv-root .bv-cover--free img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: bottom; border-radius: 4px; box-shadow: var(--bv-shadow-cover); }
 /* Typographic jacket for books without artwork: the cover itself carries title and author.
    One of five palette tints is chosen per title; type scales with the cover's own width. */
 .bv-root .bv-cover { container-type: inline-size; position: relative; }
