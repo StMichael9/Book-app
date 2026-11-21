@@ -1,5 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 import { installGenres } from "./support/genres.js";
+import { greyBehindCovers } from "./support/cover-bg.js";
 
 // Browser fixtures only. Home: greeting, Reading now with the progress sheet, Up next (T41 pins are mocked from the
 // contract), Can't decide? and the year at a glance.
@@ -677,4 +678,27 @@ test("My Books: covers and list link each author; the card click still opens the
   await row.getByRole("link", { name: /^Author \d+$/ }).click();
   await expect(page).toHaveURL(/\/author\/\d+$/);
   expect(app.requests.filter(request => /^\/me\/library\/\d+\/reading$/.test(request.path)).length).toBe(opened);
+});
+
+// ---- No grey panel behind a cover: Home and My Books, in light and dark, loaded and still loading ----------------------------------------
+
+const COVER_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="470"><rect width="320" height="470" fill="#369"/></svg>';
+for (const name of ["light", "dark"]) for (const slow of [false, true]) test(`Home and My Books have no panel behind any cover, ${slow ? "while loading" : "loaded"}; ${name}`, async ({ page, app }) => {
+  await page.emulateMedia({ colorScheme: name });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), name);
+  for (const item of app.entries) item.book.cover_image_url = "/test-cover/near.svg";
+  for (const item of app.currentReads) item.entry.book.cover_image_url = "/test-cover/near.svg";
+  app.pins = [pin(1), pin(2)];
+  await page.route("**/test-cover/*", async route => { if (slow) await new Promise(done => setTimeout(done, 4000)); return route.fulfill({ status: 200, contentType: "image/svg+xml", body: COVER_SVG }); });
+  await page.goto("/home");
+  await expect(page.locator(".bv-now-card .bv-cover").first()).toBeVisible();
+  await expect(page.locator(slow ? ".bv-cover--loading" : ".bv-cover--ready").first()).toBeVisible();
+  expect(await greyBehindCovers(page)).toEqual([]);
+  for (const view of ["covers", "list"]) {
+    await page.evaluate(value => localStorage.setItem("bookvane-library-view", value), view);
+    await page.goto("/my-books");
+    await expect(page.locator(".bv-cover").first()).toBeVisible();
+    await expect(page.locator(slow ? ".bv-cover--loading" : ".bv-cover--ready").first()).toBeVisible();
+    expect(await greyBehindCovers(page)).toEqual([]);
+  }
 });
