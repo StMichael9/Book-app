@@ -53,7 +53,7 @@ def test_the_nightly_schedule_is_off_unless_the_variable_is_on_and_adds_5000_by_
     on = workflow.get("on") or workflow[True]
     assert on["schedule"] == [{"cron": "0 10 * * *"}]
     job = workflow["jobs"]["import"]
-    assert job["if"] == "${{ github.event_name != 'schedule' || vars.CATALOGUE_NIGHTLY == 'on' }}"
+    assert job["if"] == "${{ needs.guard.outputs.proceed == 'true' && (github.event_name != 'schedule' || vars.CATALOGUE_NIGHTLY == 'on') }}"
     assert "catalogue-production" in job["environment"]                           # a schedule has no inputs: production is the default
     add = job["env"]["INPUT_ADD_BOOKS"]
     assert "vars.CATALOGUE_NIGHTLY_ADD_BOOKS" in add and "'5000'" in add         # never falls back to the 150000 total on a schedule
