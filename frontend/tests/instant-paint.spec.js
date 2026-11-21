@@ -160,7 +160,8 @@ test("while a cover loads its title jacket shows, then the image fades in over i
   await expect(card.locator(".bv-jacket")).toHaveAttribute("aria-hidden", "true");
   const cover = card.locator(".bv-cover");
   await expect(cover).toHaveClass(/bv-cover--loading/);
-  expect(await cover.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
+  expect(await cover.evaluate(node => getComputedStyle(node).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  expect(await cover.evaluate(node => getComputedStyle(node).boxShadow)).not.toBe("none");
   expect(await card.locator("img").evaluate(node => getComputedStyle(node).opacity)).toBe("0");
   app.holdCover = null; release();
   await expect(cover).not.toHaveClass(/bv-cover--loading/);

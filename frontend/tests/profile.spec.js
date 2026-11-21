@@ -86,7 +86,7 @@ const test = base.extend({
         return reply(200, publicMatch[2] ? state.publicList : state.publicProfile);
       }
       // A book page asks for the author's other books (More by); these fixtures have none.
-      if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (/^/authors/d+/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);
@@ -996,7 +996,7 @@ test("a public list links each author by author_ids, and a name with no id stays
   await expect(rows.nth(1)).toContainText("Unlinked Name");
   await expect(rows.nth(1).getByRole("link", { name: "Unlinked Name" })).toHaveCount(0);
   expect(await page.locator("a a").count()).toBe(0);
-});
+});
 
 test("a profile list's art slots, empty or filled, have no grey fill: outline only", async ({ page, app: _app }) => {
   for (const name of ["light", "dark"]) {
