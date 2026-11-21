@@ -1,4 +1,4 @@
-"""Aggregate, cookie-less event counters. One row per (day, name, src, placement) holds a count and nothing else:
+"""Aggregate, cookie-less event counters. One row per (day, name, src, placement, ref) holds a count and nothing else:
 no user, address, user agent or timestamp finer than the day is ever stored."""
 from __future__ import annotations
 
@@ -13,11 +13,15 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from models import EventCount, User
+from services import growth_metrics
 
 CLIENT_NAMES = frozenset({"register_started", "save_prompt_shown", "guest_search_empty",
-                          "get_copy_click", "share_click", "share_visit"})
+                          "get_copy_click", "share_click", "share_visit", "landing_visit", "scan_opened", "scan_added"})
 SERVER_NAMES = frozenset({"register_completed", "search_run", "search_empty"})
-SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "profile"})
+SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "profile", "switch"})
+# Where a visit came from (the `ref` of a shared link). Anything else counts as no ref.
+REFS = frozenset({"tt", "ig", "rd", "ph", "yt", "x", "club", "share", "email"})
+MAX_SCAN_ADDED = 100
 PLACEMENTS = frozenset({"book_page", "want_card"})
 MAX_EVENTS_PER_MINUTE = 600
 MAX_BODY_BYTES = 1024
@@ -51,8 +55,13 @@ def clean_source(value) -> str:
     return value if isinstance(value, str) and value in SOURCES else ""
 
 
-def parse_event(raw: bytes) -> tuple[str, str, str] | None:
-    """The (name, src, placement) of a valid client event, else None. Accepts JSON sent as text/plain too."""
+def clean_ref(value) -> str:
+    return value if isinstance(value, str) and value in REFS else ""
+
+
+def parse_event(raw: bytes) -> tuple[str, str, str, str, int] | None:
+    """The (name, src, placement, ref, n) of a valid client event, else None. Accepts JSON sent as text/plain too.
+    An unknown ref counts as none. `n` is 1 except for scan_added, which carries 1 to 100 books and is refused outside that."""
     if not raw or len(raw) > MAX_BODY_BYTES:
         return None
     try:
@@ -66,15 +75,20 @@ def parse_event(raw: bytes) -> tuple[str, str, str] | None:
     placement = "" if placement is None else placement
     if src != "" and src not in SOURCES or placement != "" and placement not in PLACEMENTS:
         return None
-    return body["name"], src, placement
+    n = 1
+    if body["name"] == "scan_added":
+        n = body.get("n", 1)
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= MAX_SCAN_ADDED:
+            return None
+    return body["name"], src, placement, clean_ref(body.get("ref")), n
 
 
-def record_event(db: Session, name: str, src: str = "", placement: str = "") -> None:
+def record_event(db: Session, name: str, src: str = "", placement: str = "", ref: str = "", n: int = 1) -> None:
     day = datetime.now(timezone.utc).date()
-    statement = insert(EventCount).values(day=day, name=name, src=src, placement=placement, count=1)
+    statement = insert(EventCount).values(day=day, name=name, src=src, placement=placement, ref=ref, count=n)
     db.execute(statement.on_conflict_do_update(
-        index_elements=["day", "name", "src", "placement"],
-        set_={"count": EventCount.count + 1}))
+        index_elements=["day", "name", "src", "placement", "ref"],
+        set_={"count": EventCount.count + n}))
     db.commit()
 
 
@@ -90,10 +104,42 @@ def record_server_event(name: str) -> None:
         pass
 
 
+def _share(part: int, whole: int) -> float | None:
+    return round(part / whole, 3) if whole else None
+
+
+def channels(rows) -> dict:
+    """Visits (landing_visit), sign-ups (register_completed) and conversion by ref, per day and in total. Computed from the
+    counter rows already read; a visit with no ref is the empty string."""
+    per_day: dict[tuple[str, str], list[int]] = {}
+    total: dict[str, list[int]] = {}
+    for row in rows:
+        if row.name not in ("landing_visit", "register_completed"):
+            continue
+        slot = 0 if row.name == "landing_visit" else 1
+        per_day.setdefault((row.day.isoformat(), row.ref), [0, 0])[slot] += row.count
+        total.setdefault(row.ref, [0, 0])[slot] += row.count
+    return {"by_day": [{"day": day, "ref": ref, "visits": v, "signups": s, "conversion": _share(s, v)}
+                       for (day, ref), (v, s) in sorted(per_day.items())],
+            "totals": [{"ref": ref, "visits": v, "signups": s, "conversion": _share(s, v)} for ref, (v, s) in sorted(total.items())]}
+
+
+def scans(rows) -> dict:
+    """Scan sheets opened, books added from them, and books per opened sheet, per day and in total."""
+    per_day: dict[str, list[int]] = {}
+    for row in rows:
+        if row.name in ("scan_opened", "scan_added"):
+            per_day.setdefault(row.day.isoformat(), [0, 0])[0 if row.name == "scan_opened" else 1] += row.count
+    opened = sum(v[0] for v in per_day.values())
+    added = sum(v[1] for v in per_day.values())
+    return {"opened": opened, "added": added, "books_per_scan": _share(added, opened),
+            "by_day": [{"day": day, "opened": o, "added": a, "books_per_scan": _share(a, o)} for day, (o, a) in sorted(per_day.items())]}
+
+
 def metrics(db: Session, days: int) -> dict:
     since = datetime.now(timezone.utc).date() - timedelta(days=days - 1)
     rows = db.execute(select(EventCount).where(EventCount.day >= since)
-                      .order_by(EventCount.day, EventCount.name, EventCount.src, EventCount.placement)).scalars().all()
+                      .order_by(EventCount.day, EventCount.name, EventCount.src, EventCount.placement, EventCount.ref)).scalars().all()
     totals: dict[str, int] = {}
     for row in rows:
         totals[row.name] = totals.get(row.name, 0) + row.count
@@ -111,8 +157,11 @@ def metrics(db: Session, days: int) -> dict:
     return {
         "days": days, "since": since.isoformat(),
         "counts": [{"day": row.day.isoformat(), "name": row.name, "src": row.src,
-                    "placement": row.placement, "count": row.count} for row in rows],
+                    "placement": row.placement, "ref": row.ref, "count": row.count} for row in rows],
         "totals": totals,
+        "channels": channels(rows),
+        "scans": scans(rows),
+        **growth_metrics.growth_block(db, days),
         "new_accounts": new_accounts,
         "new_accounts_with_3_saves_in_7_days": active,
     }

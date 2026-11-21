@@ -30,6 +30,7 @@ class User(Base):
     __tablename__ = 'users'
     __table_args__ = (
         CheckConstraint("handle IS NULL OR handle ~ '^[a-z0-9-]{3,30}$'", name="ck_user_handle"),
+        CheckConstraint("welcome_step BETWEEN 0 AND 3", name="ck_user_welcome_step"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4)
@@ -46,6 +47,9 @@ class User(Base):
     avatar_color: Mapped[str | None] = mapped_column(String(12))
     profile_public: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     profile_prompted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # T73 G4: the welcome emails. welcome_step is how many have been sent (0 to 3); email_tips is the reader's opt-in (off until they tick it).
+    welcome_step: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0, server_default="0")
+    email_tips: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
     # relationships
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
@@ -637,6 +641,7 @@ class EventCount(Base):
     name: Mapped[str] = mapped_column(Text, primary_key=True)
     src: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
     placement: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
+    ref: Mapped[str] = mapped_column(Text, primary_key=True, default="", server_default="")
     count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
 
