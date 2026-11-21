@@ -1,12 +1,12 @@
 """Drop two indexes no query uses (T66): ix_books_complete and ix_book_title_aliases_title_trgm.
 
 Revision ID: e3a7c1f95b28
-Revises: d7f2b9e41c05
+Revises: a7d3e15c9b42
 """
 from alembic import op
 
 revision = "e3a7c1f95b28"
-down_revision = "d7f2b9e41c05"
+down_revision = "a7d3e15c9b42"
 branch_labels = None
 depends_on = None
 
