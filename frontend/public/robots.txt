@@ -9,6 +9,7 @@ Disallow: /profile
 Disallow: /login
 Disallow: /reset-password
 Disallow: /forgot-password
+Disallow: /l/
 
 # AI search and assistants may read and cite Bookvane's public pages.
 User-agent: GPTBot
@@ -33,6 +34,7 @@ Disallow: /profile
 Disallow: /login
 Disallow: /reset-password
 Disallow: /forgot-password
+Disallow: /l/
 
 Sitemap: https://bookvane.me/sitemap.xml
 Sitemap: https://api.bookvane.me/sitemaps/index.xml
