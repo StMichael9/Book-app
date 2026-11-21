@@ -110,13 +110,13 @@ test("the book page cover has no padded panel: the picture is the frame, the fra
   await page.goto("/book/1");
   const art = page.locator(".bv-detail-art");
   await expect(art.locator(".bv-cover--ready")).toHaveCount(1);
-  const frame = await art.locator(".bv-cover").boundingBox(), image = await art.locator("img").boundingBox(), panel = await art.boundingBox(), body = await page.locator(".bv-detail-body").boundingBox();
+  const frame = await art.locator(".bv-cover").boundingBox(), image = await art.locator("img").boundingBox(), panel = await art.boundingBox(), body = await page.locator(".bv-book-head").boundingBox();
   expect(Math.abs(frame.width - image.width)).toBeLessThanOrEqual(1); expect(Math.abs(frame.height - image.height)).toBeLessThanOrEqual(1);
   expect(Math.abs(frame.x - panel.x)).toBeLessThanOrEqual(1);              // no padding: the cover is the left edge of its column
-  expect(frame.width).toBeLessThanOrEqual(320.5); expect(frame.width).toBeGreaterThan(300);
+  expect(Math.abs(frame.width - 300)).toBeLessThanOrEqual(1);
   expect(Math.abs(frame.y - (panel.y + 14))).toBeLessThanOrEqual(1);
   expect(await art.evaluate(node => { const s = getComputedStyle(node); return [s.backgroundColor, s.paddingLeft, s.borderTopLeftRadius]; })).toEqual(["rgba(0, 0, 0, 0)", "0px", "0px"]);
-  expect(Math.abs(body.x - (panel.x + 330 + 64))).toBeLessThanOrEqual(2);   // the grid column and gap are unchanged
+  expect(Math.abs(body.x - (panel.x + 300 + 64))).toBeLessThanOrEqual(2);   // the 300px column and 64px gap
 });
 
 for (const name of ["light", "dark"]) test(`the book page at 390, 320 and 200% text keeps its cover on the page with no sideways scroll; ${name}`, async ({ page, app }) => {
@@ -129,7 +129,7 @@ for (const name of ["light", "dark"]) test(`the book page at 390, 320 and 200% t
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     await expect(page.locator(".bv-detail-art .bv-cover--ready")).toHaveCount(1);
     const frame = await page.locator(".bv-detail-art .bv-cover").boundingBox();
-    expect(Math.abs(frame.width - 158)).toBeLessThanOrEqual(1);
+    expect(Math.abs(frame.width - 120)).toBeLessThanOrEqual(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await greyBehindCovers(page)).toEqual([]);
   }

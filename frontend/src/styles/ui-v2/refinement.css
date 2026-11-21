@@ -52,7 +52,7 @@
 .bv-root :is(.bv-field, .bv-why, .bv-import-page) textarea { width: 100%; min-height: 8rem; resize: vertical; padding: 12px; font: inherit; color: var(--bv-ink); background: var(--bv-raised); border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); }
 .bv-root .bv-field textarea:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 3px; }
 @media (max-width: 700px) {
-  .bv-root .bv-detail-art .bv-detail-cover-placeholder { width: 158px; margin-inline: auto; }
+  .bv-root .bv-detail-art .bv-detail-cover-placeholder { width: 120px; }
 }
 @media (max-width: 700px) {
   .bv-root .bv-hero-actions .bv-text-link { display: inline-flex; justify-content: center; }
