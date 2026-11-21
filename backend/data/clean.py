@@ -142,10 +142,54 @@ def normalize_work(data: dict, mapped_subjects: dict[str, str] | None = None) ->
     }
 
 
+BIO_LIMIT = 600
+_BIO_TRAILER = re.compile(r"(?m)^\s*(?:-{3,}|\*{3,}|_{3,}|={3,})\s*$|\(?\s*\[?source\]?\s*[:\]]", re.I)
+_BIO_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+_BIO_SENTENCE_END = re.compile(r"[.!?][\"')\]]*(?=\s|$)")
+
+
+def author_bio(value: object) -> str | None:
+    """A short plain-text bio from an Open Library author record: a string or {"value": ...}. Markdown and links are stripped,
+    text after a rule or a "Source:" credit is dropped, whitespace is collapsed, and a longer text is cut at the last sentence
+    end within 600 characters. None when nothing usable is left (a first sentence longer than 600 is not cut mid-sentence)."""
+    raw = value.get("value") if isinstance(value, dict) else value
+    if not isinstance(raw, str):
+        return None
+    text = chr(10).join(unicodedata.normalize("NFKC", raw).splitlines())
+    cut = _BIO_TRAILER.search(text)
+    if cut:
+        text = text[:cut.start()]
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)  # [label](url) -> label
+    text = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", text)  # [label][ref] -> label
+    text = re.sub(r"(?m)^\s*\[[^\]]+\]:\s*\S+.*$", " ", text)         # reference definitions
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"https?://\S+|www\.\S+", " ", text)
+    text = re.sub(r"(?m)^\s{0,3}(?:#{1,6}|>|[-*+])\s+", "", text)
+    text = re.sub(r"(\*{1,3})(?=\S)(.+?)(?<=\S)\1", r"\2", text)
+    text = re.sub(r"(?<!\w)(_{1,3})(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", text)
+    text = text.replace("*", "").replace("`", "")
+    text = " ".join(text.split())
+    if not text or _BIO_EMAIL.search(text):
+        return None
+    if len(text) <= BIO_LIMIT:
+        return text
+    ends = [m.end() for m in _BIO_SENTENCE_END.finditer(text[:BIO_LIMIT])]
+    return text[:ends[-1]].strip() if ends else None
+
+
+def author_photo(value: object) -> int | None:
+    """The first positive photo id; Open Library uses -1 for a removed photo."""
+    if not isinstance(value, list):
+        return None
+    return next((item for item in value if isinstance(item, int) and not isinstance(item, bool) and 0 < item <= 2_147_483_647), None)
+
+
 def normalize_author(data: dict) -> dict | None:
     key = author_key(data.get("key"))
     name = _text(data.get("name"), 225)
-    return {"source_id": key, "name": name} if key and name else None
+    if not (key and name):
+        return None
+    return {"source_id": key, "name": name, "bio": author_bio(data.get("bio")), "photo_id": author_photo(data.get("photos"))}
 
 
 def normalize_edition(data: dict) -> list[dict]:

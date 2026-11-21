@@ -96,16 +96,18 @@ def _merge_batch(stage: Session, config: ImportConfig, neon: Session | None = No
         CatalogueStagePopularity.run_id == run.id, CatalogueStagePopularity.source_id.in_(source_ids))).all())
     author_rows = stage.execute(select(
         CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.author_key,
-        CatalogueStageAuthor.name,
+        CatalogueStageAuthor.name, CatalogueStageAuthor.bio, CatalogueStageAuthor.photo_id,
     ).order_by(CatalogueStageWorkAuthor.source_id, CatalogueStageWorkAuthor.position).outerjoin(CatalogueStageAuthor, and_(
         CatalogueStageAuthor.run_id == CatalogueStageWorkAuthor.run_id,
         CatalogueStageAuthor.author_key == CatalogueStageWorkAuthor.author_key,
     )).where(CatalogueStageWorkAuthor.run_id == run.id,
             CatalogueStageWorkAuthor.source_id.in_(source_ids))).all()
     authors_by_work: dict[str, list[tuple[str, str]]] = defaultdict(list)
-    for source_id, author_key, name in author_rows:
+    extras: dict[str, tuple[str | None, int | None]] = {}      # author key -> (bio, photo id) from the authors dump
+    for source_id, author_key, name, bio, photo_id in author_rows:
         if name:
             authors_by_work[source_id].append((author_key, name))
+            extras[author_key] = (bio, photo_id)
     for source_id, pairs in list(authors_by_work.items()):
         # One cleaner for every entry point: first-listed author, variants folded, publisher names dropped, at most three.
         kept, seen, filtered = set(cleaner.clean_authors([name for _, name in pairs])), set(), []
@@ -197,11 +199,19 @@ def _merge_batch(stage: Session, config: ImportConfig, neon: Session | None = No
     names_by_key = {key: name for source_id in book_for_work for key, name in authors_by_work[source_id]}
     for key in author_keys:
         if key not in existing_authors:
-            author = Author(source_id=key, name=names_by_key[key], source_managed_name=True)
+            bio, photo_id = extras.get(key, (None, None))
+            author = Author(source_id=key, name=names_by_key[key], source_managed_name=True, bio=bio, photo_id=photo_id,
+                            bio_source="open_library" if bio else None)
             session.add(author)
             existing_authors[key] = author
         elif existing_authors[key].source_managed_name:
             existing_authors[key].name = names_by_key[key]
+            bio, photo_id = extras.get(key, (None, None))
+            # Fill and refresh from the dump, but never replace a value with nothing and never touch a hand-set bio.
+            if bio and existing_authors[key].bio_source in (None, "open_library"):
+                existing_authors[key].bio, existing_authors[key].bio_source = bio, "open_library"
+            if photo_id:
+                existing_authors[key].photo_id = photo_id
     tag_specs = {(tag["name"].casefold(), tag["name"], tag["type"])
                  for work in works if work.source_id in book_for_work for tag in work.tags}
     tags_by_key = {tag.name.casefold(): tag for tag in session.execute(select(Tag).where(

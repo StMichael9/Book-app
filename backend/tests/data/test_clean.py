@@ -45,7 +45,7 @@ def test_malformed_and_missing_metadata():
     assert clean.normalize_work({"key": "/works/OL7W", "title": "A",
                                  "subjects": "fantasy", "authors": None}) is None
     assert clean.normalize_author({"key": "/authors/OL8A", "name": "  Jane   Doe "}) == {
-        "source_id": "/authors/OL8A", "name": "Jane Doe"
+        "source_id": "/authors/OL8A", "name": "Jane Doe", "bio": None, "photo_id": None
     }
     assert clean.normalize_author({"key": "/authors/OL8A", "name": None}) is None
     assert clean.year("unknown") is None
