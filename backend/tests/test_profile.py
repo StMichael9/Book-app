@@ -200,6 +200,8 @@ def test_list_crud_add_remove_order_and_cross_reader_404(world):
         assert world.client.post(f"/me/lists/{lid}/books", json={"book_id": book_id}).status_code == 204
     assert world.client.post(f"/me/lists/{lid}/books", json={"book_id": ids[0]}).status_code == 204  # no duplicate
     assert [b["id"] for b in world.client.get(f"/me/lists/{lid}").json()["books"]] == ids
+    for entry, book in zip(world.client.get(f"/me/lists/{lid}").json()["books"], world.books[:3]):
+        assert entry["author_ids"] == sorted(author.id for author in book.authors) and len(entry["author_ids"]) == len(entry["authors"])
     summary = world.client.get("/me/lists").json()[0]
     assert summary["book_count"] == 3 and len(summary["covers"]) <= 3
     assert [p["id"] for p in summary["previews"]] == ids  # book ids in list order, each with its cover (or null)

@@ -365,3 +365,22 @@ def test_duplicate_report_finds_same_name_pairs_on_one_book_and_merges_nothing(w
     assert not [item for item in result["samples"] if other.id in (item["first"][0], item["second"][0])]
     assert world.db.scalar(text("SELECT count(*) FROM authors")) == before
     assert "Report only" in duplicate_authors.markdown(result)
+
+
+def test_entry_payloads_already_carry_author_ids(world, app_modules):
+    """My Books, the workspace and Home build their books from the same entry shape, which holds {id, name} authors."""
+    from auth.dependencies import get_current_user
+    ann = world.author("Linked Ann")
+    book = world.book("Linked Book", [ann])
+    reader = world.user()
+    entry = world.models.UserBook(user_id=reader.id, book_id=book.id, is_owned=True)
+    world.db.add(entry)
+    world.db.commit()
+    app_modules["main"].app.dependency_overrides[get_current_user] = lambda: reader
+    try:
+        for path in ("/me/books",):
+            response = world.client.get(path)
+            assert response.status_code == 200, (path, response.text)
+            assert f'"id":{ann.id},"name":"Linked Ann"' in response.text.replace(": ", ":").replace(", ", ","), path
+    finally:
+        app_modules["main"].app.dependency_overrides.pop(get_current_user, None)
