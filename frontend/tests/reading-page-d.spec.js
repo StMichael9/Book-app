@@ -588,3 +588,22 @@ for (const theme of ["light", "dark"]) test(`on Home at 390 and 320 the finished
     expect(before - (await card.boundingBox()).height).toBeLessThanOrEqual(60);                               // no hole: at most Skip's row
   }
 });
+
+for (const theme of ["light", "dark"]) for (const where of ["home", "book"]) test(`after a pick the pressed pill is solid green at full opacity and no pill is disabled; ${where}, ${theme}`, async ({ page, app: _app }) => {
+  await page.emulateMedia({ colorScheme: theme });
+  await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+  let scope;
+  if (where === "home") {
+    await page.goto("/home");
+    await home(page).fill("100%");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+    scope = page.locator(".bv-now-card.is-finished");
+  } else { await finishBook(page); scope = prompt(page); }
+  await scope.getByRole("button", { name: "Loved it", exact: true }).click();
+  const loved = scope.getByRole("button", { name: "Loved it", exact: true });
+  await expect(loved).toHaveAttribute("aria-pressed", "true");
+  const tokens = await page.evaluate(() => { const probe = document.createElement("span"), root = document.querySelector(".bv-root"); root.append(probe); const out = {}; for (const [key, token] of [["bg", "--bv-green"], ["fg", "--bv-on-green"]]) { probe.style.color = `var(${token})`; out[key] = getComputedStyle(probe).color; } probe.remove(); return out; });
+  await expect.poll(() => loved.evaluate(node => { const style = getComputedStyle(node); return [style.backgroundColor, style.color, style.opacity]; })).toEqual([tokens.bg, tokens.fg, "1"]);
+  for (const button of await scope.getByRole("button").all()) await expect(button).toBeEnabled();
+});
