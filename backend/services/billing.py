@@ -92,6 +92,12 @@ def _site() -> str:
     return (settings.frontend_base_url or "https://bookvane.me").rstrip("/")
 
 
+def _club_exists(db: Session, club_id: int) -> bool:
+    if db.scalar(text("SELECT to_regclass('clubs')")) is None:
+        return True            # before the clubs table exists nothing can be checked (and nothing references it)
+    return db.scalar(text("SELECT 1 FROM clubs WHERE id = :c"), {"c": club_id}) is not None
+
+
 def _owns_club(db: Session, user_id, club_id: int) -> bool:
     """Only a club's owner may buy Club Plus for it. Answers False until the clubs table exists."""
     if db.scalar(text("SELECT to_regclass('clubs')")) is None:
@@ -179,7 +185,8 @@ def apply_subscription(db: Session, sub: dict, created: int, counts: list[str], 
         log.warning("Subscription %s has no known reader or product; ignored", sub.get("id"))
         return
     club_id = int(meta["club_id"]) if product == "club_plus" and str(meta.get("club_id", "")).isdigit() else None
-    if product == "club_plus" and club_id is None:
+    if product == "club_plus" and (club_id is None or not _club_exists(db, club_id)):
+        log.warning("Subscription %s is for a club that does not exist; ignored", sub.get("id"))
         return
     recurring = price.get("recurring") or {}
     existing = db.scalar(select(Entitlement).where(Entitlement.stripe_subscription_id == sub["id"]).with_for_update())

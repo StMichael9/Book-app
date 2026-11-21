@@ -82,12 +82,19 @@ def billing(client, db_session, app_modules, monkeypatch):
         app_modules["main"].app.dependency_overrides[get_current_user] = lambda: item
 
     b.user, b.sign_in = user, sign_in
+    if db_session.scalar(text("SELECT to_regclass('clubs')")) is not None:        # clubs exist: the club ids these tests use must be real
+        holder = user("clubholder")
+        for club_id in (1, 2, 7):
+            db_session.execute(text("INSERT INTO clubs (id, name, owner_id) VALUES (:i, 'Billing fixture', :u)"), {"i": club_id, "u": holder.id})
+        db_session.commit()
     yield b
     app_modules["main"].app.dependency_overrides.pop(get_current_user, None)
     limiter.reset()
     db_session.rollback()
     for table in ("entitlements", "billing_events", "billing_customers", "event_counts"):
         db_session.execute(text(f"DELETE FROM {table}"))
+    if db_session.scalar(text("SELECT to_regclass('clubs')")) is not None:
+        db_session.execute(text("DELETE FROM clubs WHERE id IN (1, 2, 7) AND name = 'Billing fixture'"))
     db_session.execute(delete(models.User).where(models.User.id.in_(b.users)))
     db_session.commit()
 
@@ -343,6 +350,12 @@ def test_club_plus_belongs_to_the_club_not_the_payer_and_patron_is_separate(bill
     billing.db.expire_all()
     assert not entitlements.club_plus(billing.db, 7)                                             # lapsed: only the extras stop, nothing is deleted
     assert billing.db.scalar(text("SELECT count(*) FROM entitlements WHERE club_id = 7")) == 1
+
+
+def test_a_club_plus_subscription_for_a_club_that_does_not_exist_is_ignored_not_retried_forever(billing):
+    owner = billing.user("owner")
+    assert send(billing, stripe_event("customer.subscription.created", subscription("sub_ghostclub", owner, product="club_plus", price="price_cm", club_id=424242))).status_code == 200
+    assert billing.db.scalar(text("SELECT count(*) FROM entitlements")) == (0 if billing.db.scalar(text("SELECT to_regclass('clubs')")) is not None else 1)
 
 
 def test_unknown_readers_products_and_events_are_acknowledged_and_ignored(billing):
