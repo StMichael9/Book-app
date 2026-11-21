@@ -49,12 +49,12 @@ def test_only_the_data_load_and_description_tasks_opt_in_to_production():
     assert {"backfill_popularity", "remap_genres", "clean_dry_run", "clean_apply",
             "fill_descriptions_dry_run", "fill_descriptions_apply", "retag_genres_dry_run", "retag_genres_apply",
             "reclean_descriptions_dry_run", "reclean_descriptions_apply",
-            "reclean_stored_dry_run", "reclean_stored_apply", "author_bios_dry_run", "author_bios_apply", "author_merge_dry_run", "author_merge_apply"} <= set(branches)
+            "reclean_stored_dry_run", "reclean_stored_apply", "author_bios_dry_run", "author_bios_apply", "author_merge_dry_run", "author_merge_apply", "slim_dry_run", "slim_apply"} <= set(branches)
     opted_in = {task for task, body in branches.items() if f"{OPT_IN}=yes" in body}
     assert opted_in == {"backfill_popularity", "remap_genres", "fill_descriptions_dry_run", "fill_descriptions_apply",
                         "retag_genres_dry_run", "retag_genres_apply", "reclean_descriptions_dry_run",
                         "reclean_descriptions_apply", "reclean_stored_dry_run", "reclean_stored_apply",
-                        "author_bios_dry_run", "author_bios_apply", "author_merge_dry_run", "author_merge_apply"}
+                        "author_bios_dry_run", "author_bios_apply", "author_merge_dry_run", "author_merge_apply", "slim_dry_run", "slim_apply"}
     for task in ("backfill_popularity", "remap_genres"):
         assert re.search(rf"{OPT_IN}=yes python -m data\.load\b", branches[task]), task
     for task in ("fill_descriptions_dry_run", "fill_descriptions_apply"):

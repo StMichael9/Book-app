@@ -38,7 +38,7 @@ def titles(response):
 
 def test_alias_table_and_indexes_exist(db_session):
     indexes = set(db_session.execute(text("SELECT indexname FROM pg_indexes WHERE tablename = 'book_title_aliases'")).scalars())
-    assert {"uq_book_title_alias", "ix_book_title_aliases_book", "ix_book_title_aliases_title_trgm"} <= indexes
+    assert {"uq_book_title_alias", "ix_book_title_aliases_book"} <= indexes   # the trigram index was dropped by migration e3a7c1f95b28 (T66)
 
 
 def test_alias_source_and_blank_titles_are_constrained(db_session, make_book, app_modules):

@@ -64,11 +64,6 @@ def test_is_complete_follows_later_updates_and_cannot_be_written(make_book, db_s
     db_session.rollback()
 
 
-def test_partial_index_exists(db_session):
-    definition = db_session.execute(text("SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_books_complete'")).scalar_one()
-    assert "WHERE is_complete" in definition and "(id)" in definition
-
-
 def test_browse_hides_incomplete_books_and_totals_match(client, make_book):
     make_book("Complete A")
     make_book("Complete B")

@@ -247,16 +247,22 @@ def _merge_batch(stage: Session, config: ImportConfig, neon: Session | None = No
             session.execute(insert(table).values(rows[start:start + 500]).on_conflict_do_nothing())
 
     # Load, prune, and refresh all editions for this batch with set-based queries.
-    selected_by_work = {key: select_useful_editions(editions_by_work[key]) for key in book_for_work}
-    chosen_keys = {item["edition_key"] for items in selected_by_work.values() for item in items}
     old_editions = session.execute(select(Edition).where(Edition.book_id.in_(book_ids))).scalars().all()
     old_ids = [edition.id for edition in old_editions]
+    from data.slim import protected_edition_ids
+    protected = protected_edition_ids(session, old_ids)          # a user row or an import plan points at these: never dropped
+    keep_for_work = {key: tuple(edition.source_id for edition in old_editions
+                                if edition.id in protected and edition.book_id == book_for_work[key].id)
+                     for key in book_for_work}
+    selected_by_work = {key: select_useful_editions(editions_by_work[key], keep=keep_for_work[key]) for key in book_for_work}
+    chosen_keys = {item["edition_key"] for items in selected_by_work.values() for item in items}
     for book in book_for_work.values():
         book.preferred_edition_id = None
     session.flush()
-    if old_ids:
-        session.execute(delete(EditionISBN).where(EditionISBN.edition_id.in_(old_ids)))
-    stale_ids = [edition.id for edition in old_editions if edition.source_id not in chosen_keys]
+    reset_ids = [edition.id for edition in old_editions if edition.id not in protected or edition.source_id in chosen_keys]
+    if reset_ids:                                    # a kept edition that is not staged this time keeps its ISBN rows
+        session.execute(delete(EditionISBN).where(EditionISBN.edition_id.in_(reset_ids)))
+    stale_ids = [edition.id for edition in old_editions if edition.source_id not in chosen_keys and edition.id not in protected]
     if stale_ids:
         session.execute(delete(Edition).where(Edition.id.in_(stale_ids)))
     persisted: dict[str, Edition] = {edition.source_id: edition for edition in old_editions

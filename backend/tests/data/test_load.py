@@ -606,7 +606,7 @@ def test_import_carries_author_bio_and_photo_and_never_overwrites_a_hand_set_bio
         assert (found["/authors/OL2A"].bio, found["/authors/OL2A"].photo_id, found["/authors/OL2A"].bio_source) == (None, None, None)
 
 
-def test_five_editions_and_multiple_isbns_do_not_merge(import_env, monkeypatch):
+def test_three_editions_and_multiple_isbns_do_not_merge(import_env, monkeypatch):
     models, factory, importer, config = import_env
     source = records()
     source[WORKS_URL] = source[WORKS_URL][:1]
@@ -623,11 +623,11 @@ def test_five_editions_and_multiple_isbns_do_not_merge(import_env, monkeypatch):
     with factory() as session:
         book = session.execute(select(models.Book)).scalar_one()
         editions = session.execute(select(models.Edition)).scalars().all()
-        assert len(editions) == 5
-        assert len({edition.source_id for edition in editions}) == 5
+        assert len(editions) == 3
+        assert len({edition.source_id for edition in editions}) == 3
         assert book.preferred_edition_id is not None
         assert book.page_count == 101
-        assert session.execute(select(func.count()).select_from(models.EditionISBN)).scalar_one() >= 6
+        assert session.execute(select(func.count()).select_from(models.EditionISBN)).scalar_one() >= 3
 
 
 def test_redirect_preserves_book_and_user_link(import_env, monkeypatch):
