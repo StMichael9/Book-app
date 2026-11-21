@@ -68,7 +68,7 @@ function arrived(node) {
 }
 
 // A real cover is about 2:3. Anything much squarer or wider (an audiobook, a scan) is shown whole, with no frame behind it.
-const nearCover = node => node.naturalHeight > 0 && node.naturalWidth / node.naturalHeight >= 0.58 && node.naturalWidth / node.naturalHeight <= 0.76;
+const nearCover = node => node.naturalHeight > 0 && node.naturalWidth / node.naturalHeight >= 0.62 && node.naturalWidth / node.naturalHeight <= 0.72;
 
 function isCached(src) {
   if (!src || typeof Image === "undefined") return false;
