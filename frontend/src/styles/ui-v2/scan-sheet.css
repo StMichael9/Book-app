@@ -47,7 +47,7 @@
 .bv-root .bv-scan-row { display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 12px 0; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-scan-cover { width: 48px; flex: none; }
 .bv-root .bv-scan-cover .bv-cover { width: 48px; }
-.bv-root .bv-scan-cover-blank { display: block; width: 48px; aspect-ratio: 2 / 3; border-radius: 4px; background: var(--bv-soft); }
+.bv-root .bv-scan-cover-blank { display: block; width: 48px; aspect-ratio: 2 / 3; border-radius: 4px; background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); }
 .bv-root .bv-scan-text { flex: 1 1 auto; min-width: 0; }
 .bv-root .bv-scan-title { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bv-root .bv-scan-state { margin: 2px 0 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
