@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
+from loan_schemas import LoanBrief
+
 LibraryFacet = Literal["all", "owned", "want", "reading", "paused", "finished", "dnf"]
 
 
@@ -132,6 +134,8 @@ class LibraryEntry(BaseModel):
     created_at: datetime
     updated_at: datetime
     finished_on: str | None = None     # newest dated finish (ISO date); only filled by the My Books list
+    loan: LoanBrief | None = None      # the open loan (lent first), from the entry's own statement
+    loans: list[LoanBrief] = []        # every open loan: at most one lent and one borrowed
 
 
 class LibraryPage(BaseModel):
