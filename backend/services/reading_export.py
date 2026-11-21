@@ -10,7 +10,7 @@ from time import monotonic
 from sqlalchemy import func, literal, literal_column, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by
 
-from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, ReadingAttempt, ReadingNote, ReadingProgressDay, Tag, UserBook, UserPreference, book_authors
+from models import Author, Book, ImportedLibraryRecord, ImportedReadLink, Loan, ReadingAttempt, ReadingNote, ReadingProgressDay, Tag, UserBook, UserPreference, book_authors
 
 
 def _line(record):
@@ -59,6 +59,12 @@ def stream_reading_export(engine, user_id, *, batch_size=100):
         ("preference", select(preference.c.id, preference.c.tag_id, preference.c.source_text,
             preference.c.created_at, Tag.name, Tag.type).join(Tag)
             .where(preference.c.user_id == user_id).order_by(preference.c.id)),
+        # Optional kind (only when the reader has any): their own loans, with the person's name (the lender's or the borrower's own record).
+        ("loan", select(*(Loan.__table__.c[name] for name in ("id", "user_book_id", "direction", "person_name", "started_on", "due_on",
+            "ended_on", "borrower_said_back_at", "created_at", "updated_at")),
+            (Loan.__table__.c.share_token.is_not(None) & Loan.__table__.c.share_revoked_at.is_(None)).label("link_active"))
+            .join(entry, Loan.__table__.c.user_book_id == entry.c.id)
+            .where(entry.c.user_id == user_id).order_by(Loan.__table__.c.user_book_id, Loan.__table__.c.created_at)),
         ("imported_source", select(ImportedLibraryRecord.id, ImportedLibraryRecord.user_book_id,
             ImportedLibraryRecord.source, ImportedLibraryRecord.scope, ImportedLibraryRecord.context,
             ImportedLibraryRecord.removed, ImportedLibraryRecord.created_at, ImportedLibraryRecord.updated_at)

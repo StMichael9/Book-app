@@ -10,6 +10,7 @@ from database import settings
 from models import Author, Book, BookTitleAlias, ImportedLibraryRecord, ReadingAttempt, UserBook, UserBookStatus, book_authors
 from reading_schemas import EntryDetail, FlagUpdate, LibraryEntry, LibraryPage
 from services.library_view import STATES, Filters, LibraryView
+from services.loans import briefs_for
 
 
 def reading_enabled(user_id) -> bool:
@@ -51,7 +52,8 @@ def legacy_write_guard(db: Session, user_id, book_id):
 def _summary_options():
     # The book, its authors and its alternate titles ride in the same statement as the entries (a round trip costs ~60 ms).
     book = joinedload(UserBook.book).load_only(Book.id, Book.title, Book.cover_image_url, Book.page_count, Book.isbn13)
-    return (book.joinedload(Book.authors).load_only(Author.id, Author.name), joinedload(UserBook.book).joinedload(Book.title_aliases))
+    return (book.joinedload(Book.authors).load_only(Author.id, Author.name), joinedload(UserBook.book).joinedload(Book.title_aliases),
+            joinedload(UserBook.open_loans))       # T75: an entry's open loan(s) ride in the same statement
 
 
 def _reading_state():
@@ -62,6 +64,7 @@ def _reading_state():
 
 def entry_dto(entry, state=None, *, detail=False):
     book = entry.book
+    loan_list = briefs_for(entry)
     values = dict(
         id=entry.id, book_id=entry.book_id,
         book=None if book is None else dict(id=book.id, title=book.title,
@@ -71,6 +74,7 @@ def entry_dto(entry, state=None, *, detail=False):
         private_description=entry.private_description, private_catalogue=entry.private_catalogue,
         is_owned=entry.is_owned, is_wanted=entry.is_wanted, version=entry.version,
         reading_state=state, created_at=entry.created_at, updated_at=entry.updated_at,
+        loan=loan_list[0] if loan_list else None, loans=loan_list,
     )
     return EntryDetail(**values, save_note=entry.save_note) if detail else LibraryEntry(**values)
 
