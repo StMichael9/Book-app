@@ -248,6 +248,10 @@ def _cleanup(factory: sessionmaker, config: ImportConfig, neon_factory: sessionm
         run = session.get(CatalogueImportRun, config.run_id, with_for_update=True)
         _check(session, run, config, neon)
         _compact_aliases(session, run, include_shortlist=False, neon=neon)
+        # The works phase copied every shortlisted chain into the catalogue database; the ones whose work was not merged
+        # are dead weight (T66: 59k of 256k rows, ~15 MB, after trial 2).
+        from data.slim import delete_orphan_aliases
+        run.report = dict(run.report or {}) | {"orphan_aliases_removed": delete_orphan_aliases(neon if neon is not None else session)}
         run.report = _build_report(session, run, neon)
         _release_staging(session, run)
         run.phase = "complete"
