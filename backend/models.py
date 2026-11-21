@@ -254,6 +254,9 @@ class UserBook(Base):
     user: Mapped["User"] = relationship(back_populates="books")
     book: Mapped["Book | None"] = relationship(back_populates="user_books")
     attempts: Mapped[list["ReadingAttempt"]] = relationship(back_populates="entry", cascade="all, delete-orphan", passive_deletes=True)
+    # T75: this entry's OPEN loans (at most one per direction), read-only; 'lent' sorts first. Loaded with the entry in one statement.
+    open_loans: Mapped[list["Loan"]] = relationship("Loan", primaryjoin="and_(Loan.user_book_id == UserBook.id, Loan.ended_on.is_(None))",
+                                                   order_by="Loan.direction.desc()", viewonly=True, lazy="select")
 
     def __init__(self, **kwargs):
         # Preserve legacy ORM construction while canonical writers set both flags.
@@ -263,6 +266,36 @@ class UserBook(Base):
         if "status" not in kwargs:
             kwargs["status"] = UserBookStatus.owned if kwargs["is_owned"] else UserBookStatus.want if kwargs["is_wanted"] else None
         super().__init__(**kwargs)
+
+
+class Loan(Base):
+    """A book lent to or borrowed from someone (T75). The person's name is private to the reader; the optional share token gives the
+    borrower a page with the one book and the lender's first name, nothing else."""
+    __tablename__ = "loans"
+    __table_args__ = (
+        CheckConstraint("direction IN ('lent', 'borrowed')", name="ck_loan_direction"),
+        CheckConstraint("char_length(btrim(person_name)) BETWEEN 1 AND 80", name="ck_loan_person"),
+        CheckConstraint("due_on IS NULL OR due_on >= started_on", name="ck_loan_due"),
+        CheckConstraint("ended_on IS NULL OR ended_on >= started_on", name="ck_loan_ended"),
+        CheckConstraint("share_token IS NULL OR direction = 'lent'", name="ck_loan_share_lent"),
+        UniqueConstraint("user_book_id", "request_id", name="uq_loan_request"),
+        Index("uq_loan_open", "user_book_id", "direction", unique=True, postgresql_where=text("ended_on IS NULL")),
+        Index("ix_loans_user_book_id", "user_book_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
+    user_book_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_books.id", ondelete="CASCADE"), nullable=False)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
+    person_name: Mapped[str] = mapped_column(Text, nullable=False)
+    started_on: Mapped[date] = mapped_column(Date, nullable=False, server_default=func.current_date())
+    due_on: Mapped[date | None] = mapped_column(Date)
+    ended_on: Mapped[date | None] = mapped_column(Date)
+    share_token: Mapped[str | None] = mapped_column(Text, unique=True)
+    share_revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    borrower_said_back_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    request_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
 class ReadingAttempt(Base):
