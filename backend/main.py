@@ -26,6 +26,7 @@ from routes import library_imports
 from routes import events
 from routes import profile
 from routes import seo
+from routes import billing as billing_routes
 from routes import loans as loan_routes
 from routes import welcome as welcome_routes
 from routes import up_next
@@ -158,6 +159,7 @@ app.include_router(library_imports.router)
 app.include_router(events.router)
 app.include_router(profile.router)
 app.include_router(seo.router)
+app.include_router(billing_routes.router)
 app.include_router(loan_routes.router)
 app.include_router(loan_routes.public)
 app.include_router(welcome_routes.router)

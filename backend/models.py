@@ -298,6 +298,53 @@ class Loan(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 
 
+class BillingCustomer(Base):
+    """The Stripe customer of a reader (T77A). Holds no card data: Stripe keeps that."""
+    __tablename__ = "billing_customers"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    stripe_customer_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Entitlement(Base):
+    """What a paid subscription gives: 'patron' to the payer, or 'club_plus' for one club (the organizer pays)."""
+    __tablename__ = "entitlements"
+    __table_args__ = (
+        CheckConstraint("kind IN ('patron', 'club_plus')", name="ck_entitlement_kind"),
+        CheckConstraint("status IN ('active', 'trialing', 'past_due', 'canceled')", name="ck_entitlement_status"),
+        CheckConstraint("(kind = 'club_plus') = (club_id IS NOT NULL)", name="ck_entitlement_club"),
+        CheckConstraint("\"interval\" IS NULL OR \"interval\" IN ('month', 'year')", name="ck_entitlement_interval"),
+        Index("ix_entitlements_user_id", "user_id"),
+        Index("ix_entitlements_club_id", "club_id", postgresql_where=text("club_id IS NOT NULL")),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    club_id: Mapped[int | None] = mapped_column(Integer, nullable=True)       # a foreign key once clubs exist (T78)
+    stripe_subscription_id: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    interval: Mapped[str | None] = mapped_column("interval", String(5))
+    unit_amount: Mapped[int | None] = mapped_column(Integer)                   # cents per interval, for MRR
+    currency: Mapped[str | None] = mapped_column(String(3))
+    payment_failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))   # starts the 7-day grace
+    stripe_event_created: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")   # ignores stale events
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+
+
+class BillingEvent(Base):
+    """Every Stripe webhook event id already handled, so a replay changes nothing."""
+    __tablename__ = "billing_events"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    type: Mapped[str] = mapped_column(Text, nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
 class ReadingAttempt(Base):
     __tablename__ = "reading_attempts"
     __table_args__ = (

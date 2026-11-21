@@ -43,6 +43,14 @@ class Settings(BaseSettings):
     # A service key for the weekly catalogue-health job (admin endpoints only). Unset means that route of access is closed.
     admin_api_key: SecretStr | None = Field(default=None, alias="ADMIN_API_KEY")
     library_import_max_database_mb: int = Field(default=800, ge=100, le=800, alias="LIBRARY_IMPORT_MAX_DATABASE_MB")
+    # Billing (T77A). Stripe test mode only until STRIPE_ALLOW_LIVE=yes; every value is unset by default, which turns billing off.
+    stripe_secret_key: SecretStr | None = Field(default=None, alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: SecretStr | None = Field(default=None, alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_patron_month: str | None = Field(default=None, alias="STRIPE_PRICE_PATRON_MONTH")
+    stripe_price_patron_year: str | None = Field(default=None, alias="STRIPE_PRICE_PATRON_YEAR")
+    stripe_price_clubplus_month: str | None = Field(default=None, alias="STRIPE_PRICE_CLUBPLUS_MONTH")
+    stripe_price_clubplus_year: str | None = Field(default=None, alias="STRIPE_PRICE_CLUBPLUS_YEAR")
+    stripe_allow_live: bool = Field(default=False, alias="STRIPE_ALLOW_LIVE")
     sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
     sentry_environment: str | None = Field(default=None, alias="SENTRY_ENVIRONMENT")
 
@@ -62,6 +70,13 @@ class Settings(BaseSettings):
                 "DATABASE_URL must be a valid PostgreSQL connection string"
             )
         return v
+
+    @model_validator(mode="after")
+    def check_stripe_test_mode(self):
+        key = self.stripe_secret_key.get_secret_value() if self.stripe_secret_key else ""
+        if key and not self.stripe_allow_live and not key.startswith(("sk_test_", "rk_test_")):
+            raise ValueError("STRIPE_SECRET_KEY must be a test-mode key (sk_test_ or rk_test_) unless STRIPE_ALLOW_LIVE=yes")
+        return self
 
     @model_validator(mode="after")
     def check_production_security(self):
