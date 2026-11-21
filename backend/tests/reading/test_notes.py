@@ -217,3 +217,22 @@ def test_no_query_per_attempt(client, reading, app_modules, db_session):
     for _ in range(30):
         add(client, identity)
     assert [count(path) for path in paths] == before
+
+
+def test_workspace_carries_the_notes_without_an_extra_statement(client, reading, app_modules, db_session):
+    identity, _, saved = reading
+    add(client, identity, "First")
+    add(client, identity, "Second")
+    engine = app_modules["database"].engine
+    seen = []
+    listener = lambda conn, cursor, statement, *a: seen.append(statement)
+    db_session.commit()
+    db_session.expunge_all()
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        response = client.get(f"/me/library/{saved['id']}/reading")
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    attempt = response.json()["current_attempt"]
+    assert [n["text"] for n in attempt["notes"]] == ["First", "Second"] and attempt["note"] == "First" + PARA + "Second"
+    assert not any("FROM reading_notes" in s and "jsonb_agg" not in s for s in seen)       # never the lazy per-attempt read

@@ -9,11 +9,12 @@ from types import SimpleNamespace
 from fastapi import HTTPException
 from sqlalchemy import Text, case, delete, func, literal_column, select, tuple_
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError
 
 from models import Book, Edition, ImportedLibraryRecord, ReadingAttempt, ReadingNote, ReadingProgressDay, UserBook
-from reading_schemas import AttemptDetail, AttemptPage, AttemptView, NoteView, ReadingResult, ReadingWorkspace
+from reading_schemas import NOTE_JOINER, AttemptDetail, AttemptPage, AttemptView, NoteView, ReadingResult, ReadingWorkspace
 from services.library import LibraryService, _reading_state, _summary_options, entry_dto, projection
 
 
@@ -322,17 +323,31 @@ class ReadingService(LibraryService):
                 literal_column("'first_value'"), day.c.first_value, literal_column("'last_value'"), day.c.last_value),
                 day.c.day.desc())), literal_column("'[]'::jsonb")).cast(Text))
             .where(day.c.attempt_id == current.id).correlate(current).scalar_subquery())
-        row = self.db.execute(select(UserBook, current, _reading_state(), imported, days)
+        # The current reading's notes ride along the same way, so the lazy relationship is never touched (T68 follow-up).
+        note = ReadingNote.__table__
+        notes = (select(func.coalesce(func.jsonb_agg(aggregate_order_by(func.jsonb_build_object(
+                literal_column("'id'"), note.c.id, literal_column("'text'"), note.c.text,
+                literal_column("'written_at'"), note.c.written_at, literal_column("'edited_at'"), note.c.edited_at,
+                literal_column("'progress_unit'"), note.c.progress_unit, literal_column("'progress_value'"), note.c.progress_value),
+                note.c.id)), literal_column("'[]'::jsonb")).cast(Text))
+            .where(note.c.attempt_id == current.id).correlate(current).scalar_subquery())
+        row = self.db.execute(select(UserBook, current, _reading_state(), imported, days, notes)
             .outerjoin(current, current.id == current_attempt_id)
             .where(UserBook.user_id == user_id, UserBook.id == entry_id).options(*_summary_options())).unique().one_or_none()
         if row is None:
             raise HTTPException(404, detail="Library entry not found")
-        entry, attempt, state, imported_count, progress_days = row
+        entry, attempt, state, imported_count, progress_days, notes_json = row
+        detail = None
+        if attempt is not None:
+            set_committed_value(attempt, "notes", [])      # no lazy load; the notes come from the column above
+            detail = AttemptDetail.model_validate(attempt)
+            detail.notes = [NoteView.model_validate(item) for item in json.loads(notes_json or "[]")]
+            detail.note = NOTE_JOINER.join(item.text for item in detail.notes) or None
         editions = [] if entry.book_id is None else self.db.execute(select(Edition.id, Edition.source_id,
             Edition.physical_format, Edition.page_count, Edition.languages).where(Edition.book_id == entry.book_id)
             .order_by(Edition.id).limit(5)).mappings().all()
         return ReadingWorkspace(entry=entry_dto(entry, state, detail=True),
-            current_attempt=AttemptDetail.model_validate(attempt) if attempt else None,
+            current_attempt=detail,
             editions=[dict(item) for item in editions], imported_sources_count=imported_count,
             progress_days=json.loads(progress_days or "[]")[:366])
 
