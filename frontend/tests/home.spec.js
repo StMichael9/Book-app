@@ -678,7 +678,7 @@ test("My Books: covers and list link each author; the card click still opens the
   await row.getByRole("link", { name: /^Author \d+$/ }).click();
   await expect(page).toHaveURL(/\/author\/\d+$/);
   expect(app.requests.filter(request => /^\/me\/library\/\d+\/reading$/.test(request.path)).length).toBe(opened);
-});
+});
 
 // ---- No grey panel behind a cover: Home and My Books, in light and dark, loaded and still loading ----------------------------------------
 

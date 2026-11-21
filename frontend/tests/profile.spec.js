@@ -994,7 +994,7 @@ test("a public list links each author by author_ids, and a name with no id stays
   await expect(rows.nth(1)).toContainText("Unlinked Name");
   await expect(rows.nth(1).getByRole("link", { name: "Unlinked Name" })).toHaveCount(0);
   expect(await page.locator("a a").count()).toBe(0);
-});
+});
 
 test("a profile list's art slots, empty or filled, have no grey fill: outline only", async ({ page, app: _app }) => {
   for (const name of ["light", "dark"]) {

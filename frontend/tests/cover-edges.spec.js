@@ -97,8 +97,21 @@ test("a near-2:3 cover fills its frame with object-fit: cover; an off-ratio one 
   expect(new Set(bottoms).size).toBe(1);
 });
 
+test("only artwork within about 7% of 2:3 is cropped to fill, and the crop keeps the top of the cover (the title)", async ({ page, app }) => {
+  // 300x500 (0.60) and 360x480 (0.75) used to be cropped by up to 13%; they are now shown whole.
+  app.browseItems = await withCovers(page, [[300, 450], [300, 500], [360, 480], [310, 440]]);
+  await page.goto("/browse");
+  const frames = page.locator(".bv-book-card .bv-cover--ready");
+  await expect(frames).toHaveCount(4);
+  for (const index of [0, 3]) {
+    await expect(frames.nth(index)).not.toHaveClass(/bv-cover--free/);
+    await expect(frames.nth(index).locator("img")).toHaveCSS("object-position", "50% 0%");
+  }
+  for (const index of [1, 2]) await expect(frames.nth(index)).toHaveClass(/bv-cover--free/);
+});
+
 test("while an image is loading the frame is an outline only, and a book with no cover keeps its jacket", async ({ page, app }) => {
-  app.browseItems = [...await withCovers(page, [[300, 450]], 1500), { ...bookOf(2), title: "No cover", cover_image_url: null }];
+  app.browseItems = [...await withCovers(page, [[300, 450]], 6000), { ...bookOf(2), title: "No cover", cover_image_url: null }];
   await page.goto("/browse");
   const loading = grid(page).locator(".bv-cover--loading").first();
   await expect(loading).toBeVisible();
@@ -108,7 +121,7 @@ test("while an image is loading the frame is an outline only, and a book with no
   await expect(none.locator(".bv-cover-fallback")).toHaveCount(1);
   expect(transparent(await none.locator(".bv-cover-fallback").evaluate(node => getComputedStyle(node).backgroundColor))).toBe(false);   // the jacket brings its own colours
   await expect(none).not.toHaveClass(/bv-cover--ready|bv-cover--free/);
-  await expect(page.locator(".bv-cover--ready")).toHaveCount(1);
+  await expect(page.locator(".bv-cover--ready")).toHaveCount(1, { timeout: 12000 });   // the image is held for 6s so the loading checks above never race it
   await expect(page.locator(".bv-cover--ready")).not.toHaveClass(/bv-cover--loading/);
 });
 
