@@ -612,8 +612,15 @@ def main() -> None:
         finally:
             engine.dispose()
         return
-    result = run_import(config, one_phase=args.one_phase,
-                        time_budget_seconds=args.time_budget_seconds)
+    try:
+        result = run_import(config, one_phase=args.one_phase,
+                            time_budget_seconds=args.time_budget_seconds)
+    except CapacityPause as exc:
+        # The run is already stored as paused_capacity (nothing half-merged). End the job normally with a visible warning, so a
+        # nightly run that meets the storage guard stops cleanly instead of failing with a traceback.
+        result = "paused_capacity"
+        log.warning("Import %s paused at the storage guard: %s", config.run_id, exc)
+        print(f"::warning::Import {config.run_id} paused at the storage guard: {exc}")
     log.info("Import %s snapshot=%s phase=%s", config.run_id, config.snapshot_id, result)
     if result == "dry_run" and args.dry_run_report:
         engine = create_engine(database_url, pool_pre_ping=True)

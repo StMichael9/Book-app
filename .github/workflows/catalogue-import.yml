@@ -97,7 +97,11 @@ jobs:
       CATALOGUE_USER_AGENT: ${{ vars.CATALOGUE_USER_AGENT }}
       INPUT_RUN_ID: ${{ github.event.client_payload.run_id }}
       INPUT_TARGET_ENV: ${{ inputs.target_env || github.event.client_payload.target_env || 'catalogue-production' }}
-      INPUT_ADD_BOOKS: ${{ inputs.add_books || vars.CATALOGUE_NIGHTLY_ADD_BOOKS }}
+      # A scheduled night adds 5000 books unless the repository variable CATALOGUE_NIGHTLY_ADD_BOOKS says otherwise; it never falls
+      # back to the 150000 total that a blank manual run uses.
+      INPUT_ADD_BOOKS: ${{ inputs.add_books || vars.CATALOGUE_NIGHTLY_ADD_BOOKS || (github.event_name == 'schedule' && '5000') || '' }}
+      # The storage guard of a NEW run: 750 MB on a scheduled night, 800 MB otherwise. A continuation keeps its run's own guard.
+      INPUT_MAX_DB_MB: ${{ github.event_name == 'schedule' && '750' || '800' }}
       INPUT_DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run }}
       INPUT_RESUME_RUN_ID: ${{ inputs.resume_run_id }}
       INPUT_SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
@@ -204,18 +208,19 @@ jobs:
           EFFECTIVE_DRY_RUN: ${{ steps.source.outputs.dry_run }}
         run: |
           [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" || "$INPUT_TARGET_ENV" == "catalogue-production" ]] || exit 1
-          args=(--mode production --time-budget-seconds 17400 --max-database-mb 800 --state-dir "$RUNNER_TEMP/catalogue-state")
+          args=(--mode production --time-budget-seconds 17400 --state-dir "$RUNNER_TEMP/catalogue-state")
           if [[ "$INPUT_TARGET_ENV" == "catalogue-rehearsal" ]]; then
             [[ "$INPUT_PRODUCTION_SIZE_MB" =~ ^[0-9]{1,4}$ ]] || exit 1
             args+=(--production-size-mb "$INPUT_PRODUCTION_SIZE_MB" --max-project-mb 750)
           fi
+          [[ "$INPUT_MAX_DB_MB" =~ ^(750|800)$ ]] || exit 1
           if [[ "$EFFECTIVE_DRY_RUN" == "true" ]]; then
             args+=(--dry-run --dry-run-report "$RUNNER_TEMP/dry-run-report.json")
           fi
           if [[ -n "$RESUME_ID" ]]; then
             args+=(--run-id "$RESUME_ID" --resume-only)
           else
-            args+=(--snapshot "$INPUT_SNAPSHOT")
+            args+=(--snapshot "$INPUT_SNAPSHOT" --max-database-mb "$INPUT_MAX_DB_MB")
             if [[ -n "$INPUT_ADD_BOOKS" ]]; then
               [[ "$INPUT_ADD_BOOKS" =~ ^[0-9]{1,6}$ ]] || exit 1
               args+=(--add-books "$INPUT_ADD_BOOKS")

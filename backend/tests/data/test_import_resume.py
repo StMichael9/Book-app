@@ -168,3 +168,23 @@ def test_a_popular_run_whose_works_phase_staged_nothing_stops_with_a_clear_error
     cfg = popular(config, stage_database_url=url)
     with pytest.raises(RuntimeError, match="staged no works"):
         run_until(importer, cfg, url, "authors")
+
+
+def test_a_capacity_pause_ends_the_job_with_a_warning_and_its_own_status(monkeypatch, tmp_path, capsys):
+    import sys
+    from types import SimpleNamespace
+    load = mod("load")
+    config = SimpleNamespace(run_id="nightly", snapshot_id="s", validate=lambda: None, popular=False)
+    monkeypatch.setenv("CATALOGUE_DATABASE_URL", "postgresql://u:p@localhost/x")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "out"))
+    monkeypatch.delenv("CATALOGUE_STAGE_DATABASE_URL", raising=False)
+    monkeypatch.setattr(load, "_config_for_command", lambda args, url, agent: config)
+
+    def pause(*args, **kwargs):
+        raise mod("reporting").CapacityPause("Database reached the 750 MB guard")
+
+    monkeypatch.setattr(load, "run_import", pause)
+    monkeypatch.setattr(sys, "argv", ["load", "--mode", "production", "--add-books", "5000"])
+    load.main()                                                     # no traceback, exit code 0
+    assert "status=paused_capacity" in (tmp_path / "out").read_text()
+    assert "::warning::Import nightly paused at the storage guard" in capsys.readouterr().out

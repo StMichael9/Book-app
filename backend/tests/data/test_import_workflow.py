@@ -46,3 +46,25 @@ def test_the_dispatch_for_the_next_segment_carries_this_runs_id():
     assert job["env"]["THIS_RUN_ID"] == "${{ github.run_id }}"
     script = job["steps"][0]["run"]
     assert "source_run_id:$source_run_id" in script and '--arg source_run_id "$THIS_RUN_ID"' in script
+
+
+def test_the_nightly_schedule_is_off_unless_the_variable_is_on_and_adds_5000_by_default():
+    workflow = load()
+    on = workflow.get("on") or workflow[True]
+    assert on["schedule"] == [{"cron": "0 10 * * *"}]
+    job = workflow["jobs"]["import"]
+    assert job["if"] == "${{ github.event_name != 'schedule' || vars.CATALOGUE_NIGHTLY == 'on' }}"
+    assert "catalogue-production" in job["environment"]                           # a schedule has no inputs: production is the default
+    add = job["env"]["INPUT_ADD_BOOKS"]
+    assert "vars.CATALOGUE_NIGHTLY_ADD_BOOKS" in add and "'5000'" in add         # never falls back to the 150000 total on a schedule
+
+
+def test_a_scheduled_new_run_has_a_750_guard_and_a_continuation_keeps_its_own():
+    workflow = load()
+    job = workflow["jobs"]["import"]
+    assert job["env"]["INPUT_MAX_DB_MB"] == "${{ github.event_name == 'schedule' && '750' || '800' }}"
+    script = step(workflow, "Run or resume the checkpointed import")["run"]
+    head, tail = script.split('if [[ -n "$RESUME_ID" ]]; then', 1)
+    resume, new = tail.split("else", 1)
+    assert "--max-database-mb" not in head and "--max-database-mb" not in resume    # resuming never changes the guard
+    assert '--max-database-mb "$INPUT_MAX_DB_MB"' in new
