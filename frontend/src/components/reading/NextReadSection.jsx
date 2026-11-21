@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import AuthorLinks from "../ui-v2/AuthorLinks.jsx";
 import { useNavigate } from "react-router-dom";
 import { createReadingAttempt, ensureLibraryBook, getNextRead, getReadingWorkspace, lookupLibraryBooks } from "../../api/reading.js";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -51,14 +52,14 @@ export const HOME_GET_A_COPY = true;
 
 function NextReadCard({ choice, disabled, pending, onStart, compact = false }) {
   const book = choice.book || { title: choice.private_title, cover_image_url: choice.private_catalogue?.cover_image_url, authors: choice.private_author ? [{ name: choice.private_author }] : [] };
-  if (compact) return <PickCard card={{ ...choice, title: book.title, authors: book.authors.map(author => author.name), cover_url: book.cover_image_url }} href={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}
+  if (compact) return <PickCard card={{ ...choice, title: book.title, authors: book.authors.map(author => author.name), author_ids: book.authors.map(author => author.id ?? null), cover_url: book.cover_image_url }} href={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}
     label={choice.reasons.slice(0, 1).map(reasonText).join(" ")} startText="Start reading" onStart={onStart} pending={pending} disabled={disabled}>
     {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
     {!choice.book && <p className="bv-help">Private book · only in your library</p>}
     {choice.book && HOME_GET_A_COPY && <GetACopy book={book} disclosure={false} />}
   </PickCard>;
   return <article className="bv-book-card"><BookCover book={book} /><h3>{book.title}</h3>
-    <p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>
+    <p className="bv-author"><AuthorLinks authors={book.authors} /></p>
     <p className="bv-help">{choice.reasons.slice(0, 2).map(reasonText).join(" ")}</p>
     {choice.revisit && <p className="bv-help">Back on Want · previously finished or stopped.</p>}
     {!choice.book && <p className="bv-help">Private book · only in your library</p>}
@@ -182,7 +183,7 @@ export default function NextReadSection({ preview = false, home = false, panel =
     return <section className="bv-workspace-next" aria-label={home ? "Choose your next read" : "Next after this"}><h2>{home ? "Your next read" : "Next after this"}</h2>
       {choice && <p className="bv-help">From your Want to read list.</p>}
       {request.loading ? <p role="status" className="bv-help">Finding a choice…</p> : request.error ? <><p role="status" className="bv-muted">Choices couldn’t load. Your reading is unchanged.</p><Button variant="quiet" onClick={request.retry}>Try choices again</Button></> : choice ?
-        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author">{book.authors.map(author => author.name).join(", ") || "Author not listed"}</p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink>{choice.book && <GetACopy book={book} />}</div></article>
+        <article className="bv-workspace-next-book"><BookCover book={book} /><div><h3>{book.title}</h3><p className="bv-author"><AuthorLinks authors={book.authors} /></p>{choice.reasons.some(reason => reason.code !== "want") && <p className="bv-help">{choice.reasons.filter(reason => reason.code !== "want").slice(0, 2).map(reasonText).join(" ")}</p>}<TextLink to={choice.entry_id ? `/my-books/${choice.entry_id}` : `/book/${book.id}`}>Open your book</TextLink>{choice.book && <GetACopy book={book} />}</div></article>
         : <p className="bv-muted">{currentKey ? "Nothing else on Want to read yet." : "Nothing is on your Want to read list yet. Mark a book Want to read, or explore other choices."}</p>}
       <Button ref={previewButton} variant="quiet" onClick={() => setExpanded(true)}>{home ? "Choose next" : "Explore more choices"}</Button>
     </section>;

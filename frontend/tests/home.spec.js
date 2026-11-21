@@ -628,3 +628,53 @@ test("a shelf with differing results keeps every pill", async ({ page, app: _app
   const pills = page.getByRole("group", { name: "Help me choose" });
   for (const name of ["Something short", "Something I own", "Waiting longest"]) await expect(pills.getByRole("button", { name })).toBeVisible();
 });
+
+// ---- T71 Part B: authors are links to /author/:id wherever an id is known --------------------------------------------------------------
+
+test("Home: Reading now links each author to the author page, and the title still opens the reading", async ({ page, app: _app }) => {
+  await page.goto("/home");
+  const card = page.locator(".bv-now-card").first();
+  await expect(card.getByRole("link", { name: "Author 51", exact: true })).toHaveAttribute("href", "/author/51");
+  await expect(card.getByRole("link", { name: "Piranesi" })).toHaveAttribute("href", "/my-books/201");
+  expect(await page.locator("a a").count()).toBe(0);
+  await card.getByRole("link", { name: "Author 51", exact: true }).click();
+  await expect(page).toHaveURL(/\/author\/51$/);
+});
+
+test("Home: Up next links a pin's authors by author_ids, and a pin without ids keeps plain text", async ({ page, app }) => {
+  app.pins = [pin(1, { authors: ["Author 1", "Second Author"], author_ids: [1, 9] }), pin(2, { author_ids: [] }), pin(3, { authors: ["Author 3"] })];
+  await page.goto("/home");
+  const cards = page.locator(".bv-next-card");
+  await expect(cards.first().locator(".bv-author")).toHaveText("Author 1, Second Author");
+  await expect(cards.first().getByRole("link", { name: "Author 1", exact: true })).toHaveAttribute("href", "/author/1");
+  await expect(cards.first().getByRole("link", { name: "Second Author", exact: true })).toHaveAttribute("href", "/author/9");
+  await expect(cards.nth(1).getByRole("link", { name: "Author 2" })).toHaveCount(0);
+  await expect(cards.nth(2).getByRole("link", { name: "Author 3" })).toHaveCount(0);
+  expect(await page.locator("a a").count()).toBe(0);
+});
+
+test("Home: Can't decide? picks link their authors", async ({ page, app }) => {
+  app.entries = Array.from({ length: 6 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 400) }));
+  await page.goto("/home");
+  await page.getByRole("group", { name: "Help me choose" }).getByRole("button", { name: "Something I own" }).click();
+  const first = page.locator(".bv-picks .bv-next-card").first();
+  await expect(first.getByRole("link", { name: /^Author \d+$/ })).toHaveAttribute("href", /^\/author\/\d+$/);
+  expect(await page.locator("a a").count()).toBe(0);
+});
+
+test("My Books: covers and list link each author; the card click still opens the reading; the author click does not", async ({ page, app }) => {
+  await page.goto("/my-books");
+  const card = page.locator(".bv-personal-book").first();
+  const link = card.getByRole("link", { name: /^Author \d+$/ });
+  await expect(link).toHaveAttribute("href", /^\/author\/\d+$/);
+  expect(await page.locator("a a").count()).toBe(0);
+  await page.evaluate(() => localStorage.setItem("bookvane-library-view", "list"));
+  await page.reload();
+  const row = page.locator(".bv-library-row").first();
+  await expect(row.getByRole("link", { name: /^Author \d+$/ })).toHaveAttribute("href", /^\/author\/\d+$/);
+  expect(await page.locator("a a").count()).toBe(0);
+  const opened = app.requests.filter(request => /^\/me\/library\/\d+\/reading$/.test(request.path)).length;
+  await row.getByRole("link", { name: /^Author \d+$/ }).click();
+  await expect(page).toHaveURL(/\/author\/\d+$/);
+  expect(app.requests.filter(request => /^\/me\/library\/\d+\/reading$/.test(request.path)).length).toBe(opened);
+});

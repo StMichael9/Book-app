@@ -7,6 +7,7 @@ import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
 import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
+import AuthorPage from "./AuthorPage.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
 import SearchSuggest from "./SearchSuggest.jsx";
@@ -100,7 +101,7 @@ function Header() {
   const warm = usePageWarmers();
   const warmProps = to => ({ onPointerEnter: () => warm(to), onFocus: () => warm(to), onTouchStart: () => warm(to) });
   const location = useLocation();
-  const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/");
+  const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/") || location.pathname.startsWith("/author/");
   const library = location.pathname.startsWith("/my-books");
   const home = location.pathname === "/home";
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
@@ -278,7 +279,7 @@ function Shell() {
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
-        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} />
+        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />

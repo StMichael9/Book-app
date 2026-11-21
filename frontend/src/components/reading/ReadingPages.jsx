@@ -5,7 +5,8 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { createPrivateEntry, createReadingAttempt, ensureLibraryBook, findPrivateMatches, getReadingAttempt, getReadingWorkspace, lookupLibraryBooks, updateLibraryEntry, updateReadingAttempt } from "../../api/reading.js";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageFrame, PageHeading, TextLink } from "../ui-v2/primitives.jsx";
-import { authorLabel, useDocumentTitle, useRequest } from "../ui-v2/data.js";
+import AuthorLinks from "../ui-v2/AuthorLinks.jsx";
+import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
 import NextReadSection from "./NextReadSection.jsx";
@@ -216,7 +217,7 @@ export function ReadingWorkspacePage() {
   const chip = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" }[attempt?.state] || "Not started";
   const identity = (shown, status, menu) => { const info = displayBook(shown); return <div className="bv-reading-id">
     <BookCover book={info} size="medium" priority />
-    <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author">{authorLabel(info)}</p>
+    <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author"><AuthorLinks authors={info.authors} primary /></p>
       {status && <h2 className="bv-reading-chip" tabIndex={-1} ref={statusHeading}>{status}</h2>}</div>
   </div>; };
   // A closing note is written in the Notes section, where every note lives.

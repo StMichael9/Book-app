@@ -86,9 +86,9 @@ test("a My Books card shows the reader's own reason in italics, else the descrip
   await expect(cards.nth(1).locator(".bv-card-line")).toHaveText("Two sisters inherit a lighthouse…");
   await expect(cards.nth(1).locator(".bv-card-line")).not.toHaveClass(/bv-card-line--reason/);
   await expect(cards.nth(2).locator(".bv-card-line")).toHaveCount(0);
-  // Two lines at most, and no extra tab stop: the title link is the only link that opens the book.
+  // Two lines at most, and no extra tab stop for the line: the title link is the only link that opens the book (the author link goes to the author).
   expect(await cards.nth(0).locator(".bv-card-line").evaluate(node => getComputedStyle(node).webkitLineClamp)).toBe("2");
-  await expect(cards.nth(0).locator("a")).toHaveCount(2);
+  await expect(cards.nth(0).locator("a")).toHaveCount(3);
   await expect(cards.nth(0).getByRole("link", { name: "Quiet Harbour", exact: true })).toHaveAccessibleDescription("Because a friend swore by it");
   await cards.nth(1).locator(".bv-card-line").click();
   await expect(page).toHaveURL(/\/book\/2$/);

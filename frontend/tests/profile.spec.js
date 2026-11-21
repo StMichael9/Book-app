@@ -982,3 +982,15 @@ test("the privacy and data pages are short bullets, with the plain backup lines 
   await expect(page.getByText(/\d+ days/)).toHaveCount(0);
   expect((await page.locator("main").innerText()).match(/operator|onboarding channel/i)).toBeNull();
 });
+
+test("a public list links each author by author_ids, and a name with no id stays text", async ({ page, app }) => {
+  app.guest = true;
+  app.publicList.books = [{ id: 1, title: "The Murder of Roger Ackroyd", cover_image_url: null, page_count: 200, authors: ["Agatha Christie", "Second Hand"], author_ids: [4, 5] }, { id: 2, title: "Peril at End House", cover_image_url: null, page_count: 200, authors: ["Unlinked Name"], author_ids: [] }];
+  await page.goto("/u/ada/lists/3");
+  const rows = page.locator(".bv-list-books li");
+  await expect(rows.first().getByRole("link", { name: "Agatha Christie", exact: true })).toHaveAttribute("href", "/author/4");
+  await expect(rows.first().getByRole("link", { name: "Second Hand", exact: true })).toHaveAttribute("href", "/author/5");
+  await expect(rows.nth(1)).toContainText("Unlinked Name");
+  await expect(rows.nth(1).getByRole("link", { name: "Unlinked Name" })).toHaveCount(0);
+  expect(await page.locator("a a").count()).toBe(0);
+});

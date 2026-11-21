@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import AuthorLinks from "../ui-v2/AuthorLinks.jsx";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe, Lock, Plus, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -350,7 +351,7 @@ export function PublicListPage({ notFound }) {
     {list.books.length > 0 && <ol className="bv-list-books">{list.books.map((book, index) => <li key={book.id}>
       <span className="bv-list-number" aria-hidden="true">{index + 1}</span>
       <ListCover book={book} />
-      <span className="bv-list-book-text"><Link to={`/book/${book.id}`}>{book.title}</Link>{book.authors?.length > 0 && <small>{book.authors.join(", ")}</small>}</span></li>)}</ol>}
+      <span className="bv-list-book-text"><Link to={`/book/${book.id}`}>{book.title}</Link>{book.authors?.length > 0 && <small><AuthorLinks names={book.authors} ids={book.author_ids} /></small>}</span></li>)}</ol>}
     <GuestLine />
   </div></section>;
 }

@@ -197,11 +197,11 @@ test("the page total is corrected under About this book, not as a link in the te
   await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, total_pages: 300 });
 });
 
-test("keyboard order runs header, menu, box, Save page, Finish, Pause, notes, journal", async ({ page, app: _app }) => {
+test("keyboard order runs header, menu, author, box, Save page, Finish, Pause, notes, journal", async ({ page, app: _app }) => {
   await page.goto("/my-books/101");
   await expect(page.getByRole("link", { name: "Back to My Books" })).toBeVisible();
   await page.getByRole("link", { name: "Back to My Books" }).focus();
-  const order = [["button", "More actions for Piranesi"], ["textbox", "Page or % for Piranesi"], ["button", "Save page"], ["button", "Finish book"], ["button", "Pause reading"], ["textbox", "Write a thought about this book"]];
+  const order = [["button", "More actions for Piranesi"], ["link", "Susanna Clarke"], ["textbox", "Page or % for Piranesi"], ["button", "Save page"], ["button", "Finish book"], ["button", "Pause reading"], ["textbox", "Write a thought about this book"]];
   for (const [role, name] of order) {
     await page.keyboard.press("Tab");
     await expect(page.getByRole(role, { name, exact: true })).toBeFocused();

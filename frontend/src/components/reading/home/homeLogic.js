@@ -45,7 +45,7 @@ const label = entry => entry.is_owned ? "Owned" : "Want to read";
 // One shape for a card, whether it came from a pin or from the library.
 export function cardFromEntry(entry) {
   const book = bookOf(entry);
-  return { entry_id: entry.id, book_id: entry.book?.id ?? null, title: book.title, authors: (book.authors || []).map(author => author.name).filter(Boolean), cover_url: book.cover_image_url || null, owned: Boolean(entry.is_owned), want: Boolean(entry.is_wanted), page_count: entry.book?.page_count ?? null, label: label(entry) };
+  return { entry_id: entry.id, book_id: entry.book?.id ?? null, title: book.title, authors: (book.authors || []).map(author => author.name).filter(Boolean), author_ids: (book.authors || []).filter(author => author.name).map(author => author.id ?? null), cover_url: book.cover_image_url || null, owned: Boolean(entry.is_owned), want: Boolean(entry.is_wanted), page_count: entry.book?.page_count ?? null, label: label(entry) };
 }
 export const cardFromPin = pin => ({ ...pin, authors: pin.authors || [], label: pin.owned ? "Owned" : "Want to read", pinned: true });
 export const coverBook = card => ({ title: card.title, cover_image_url: card.cover_url, authors: card.authors.map(name => ({ name })) });
