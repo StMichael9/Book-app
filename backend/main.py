@@ -14,6 +14,7 @@ from database import get_db, settings, SessionLocal
 from observability import environment_name, init_sentry
 
 from routes import books
+from routes import authors as author_routes
 from routes import catalogue
 from routes import autocomplete
 from routes import user_books
@@ -142,6 +143,7 @@ for _database_error in (OperationalError, DisconnectionError, PoolTimeoutError):
     app.add_exception_handler(_database_error, database_unavailable)
 
 app.include_router(books.router)
+app.include_router(author_routes.router)
 app.include_router(catalogue.router)
 app.include_router(autocomplete.router)
 app.include_router(auth_router)

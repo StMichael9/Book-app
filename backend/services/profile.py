@@ -10,6 +10,7 @@ from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import and_, case, delete, extract, func, select, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -282,9 +283,12 @@ def reorder(db: Session, user: User, list_id: int, book_ids) -> None:
 def _books(db: Session, list_id: int, owner_id=None) -> list[dict]:
     """The list's books in order. With owner_id, each book also carries the reader's shelf status and latest finished month."""
     columns = [Book.id, Book.title, Book.cover_image_url, Book.page_count,
-               select(func.coalesce(func.array_agg(Author.name), []))
+               select(func.coalesce(func.array_agg(aggregate_order_by(Author.name, Author.id)), []))
                .select_from(book_authors.join(Author, Author.id == book_authors.c.author_id))
-               .where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery().label("authors")]
+               .where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery().label("authors"),
+               select(func.coalesce(func.array_agg(aggregate_order_by(Author.id, Author.id)), []))
+               .select_from(book_authors.join(Author, Author.id == book_authors.c.author_id))
+               .where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery().label("author_ids")]
     query = select(*columns).select_from(ReadingListItem).join(Book, Book.id == ReadingListItem.book_id).where(
         ReadingListItem.list_id == list_id).order_by(ReadingListItem.position)
     if owner_id is not None:
@@ -297,7 +301,8 @@ def _books(db: Session, list_id: int, owner_id=None) -> list[dict]:
     result = []
     for row in db.execute(query):
         item = {"id": row.id, "title": row.title, "cover_image_url": row.cover_image_url,
-                "page_count": row.page_count, "authors": list(row.authors or [])}
+                "page_count": row.page_count, "authors": list(row.authors or []),
+                "author_ids": list(row.author_ids or [])}
         if owner_id is not None:
             item.update(status=row.status, finished_month=row.finished_month)
         result.append(item)

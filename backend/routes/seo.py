@@ -34,3 +34,25 @@ def book_page(book_id: int, db: Session = Depends(get_db)):
         return Response(index, status_code=404, media_type="text/html; charset=utf-8", headers={"Cache-Control": "public, max-age=60"})
     return Response(seo.render_book_page(index, facts), media_type="text/html; charset=utf-8",
                     headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/sitemaps/authors-{n}.xml")
+def author_sitemap_chunk(n: int, db: Session = Depends(get_db)):
+    body = seo.author_sitemap_chunk_xml(db, n)
+    if body is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    return Response(body, media_type=XML, headers={"Cache-Control": DAY})
+
+
+@router.get("/seo/author/{author_id}")
+def author_page(author_id: int, db: Session = Depends(get_db)):
+    """An author's page with its head tags, Person JSON-LD and a plain-HTML list of books, for crawlers that do not run
+    JavaScript. An unknown author, or one with no listed books, gets the untouched page and a 404."""
+    index = seo.deployed_index()
+    if index is None:
+        return Response("Temporarily unavailable", status_code=503, media_type="text/plain", headers={"Cache-Control": "no-store"})
+    facts = seo.author_page_facts(db, author_id)
+    if facts is None:
+        return Response(index, status_code=404, media_type="text/html; charset=utf-8", headers={"Cache-Control": "public, max-age=60"})
+    return Response(seo.render_author_page(index, facts), media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "public, max-age=300"})

@@ -587,6 +587,25 @@ def test_same_name_authors_have_distinct_source_ids(import_env, monkeypatch):
         assert {author.source_id for author in authors} == {"/authors/OL1A", "/authors/OL2A"}
 
 
+def test_import_carries_author_bio_and_photo_and_never_overwrites_a_hand_set_bio(import_env, monkeypatch):
+    models, factory, importer, config = import_env
+    source = records()
+    source[WORKS_URL] = [
+        {"key": f"/works/OL{n}W", "title": f"Title {n}", "subjects": ["Fantasy"],
+         "authors": [{"author": {"key": f"/authors/OL{n}A"}}]} for n in (1, 2)]
+    source[AUTHORS_URL] = [
+        {"key": "/authors/OL1A", "name": "Has Bio", "bio": {"value": "**Has Bio** wrote [books](http://x.org)."}, "photos": [-1, 42]},
+        {"key": "/authors/OL2A", "name": "No Bio"}]
+    source[EDITIONS_URL] = []
+    fake_stream(monkeypatch, source)
+    importer.run_import(config(target_books=2))
+    with factory() as session:
+        found = {a.source_id: a for a in session.execute(select(models.Author)).scalars()}
+        assert (found["/authors/OL1A"].bio, found["/authors/OL1A"].photo_id, found["/authors/OL1A"].bio_source) == (
+            "Has Bio wrote books.", 42, "open_library")
+        assert (found["/authors/OL2A"].bio, found["/authors/OL2A"].photo_id, found["/authors/OL2A"].bio_source) == (None, None, None)
+
+
 def test_five_editions_and_multiple_isbns_do_not_merge(import_env, monkeypatch):
     models, factory, importer, config = import_env
     source = records()

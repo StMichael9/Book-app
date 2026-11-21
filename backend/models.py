@@ -369,11 +369,16 @@ class ReadingListItem(Base):
 
 class Author(Base):
     __tablename__ = 'authors'
+    __table_args__ = (CheckConstraint("bio IS NULL OR char_length(bio) <= 600", name="ck_author_bio_length"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False, index=True)
     source_id: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True, index=True)
     source_managed_name: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # T71: a short plain-text bio and the Open Library photo id (the image is served by covers.openlibrary.org, never stored).
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    bio_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     # Relationships
     books: Mapped[list["Book"]] = relationship(
@@ -545,6 +550,8 @@ class CatalogueStageAuthor(Base):
     )
     author_key: Mapped[str] = mapped_column(String(100), primary_key=True)
     name: Mapped[str] = mapped_column(String(225), nullable=False)
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class CatalogueStageEdition(Base):

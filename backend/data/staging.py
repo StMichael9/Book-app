@@ -399,10 +399,12 @@ def _write_authors(session: Session, run: CatalogueImportRun, records: list[dict
     ).distinct()).scalars())
     if needed:
         statement = insert(CatalogueStageAuthor).values([
-            {"run_id": run.id, "author_key": key, "name": authors[key]["name"]} for key in needed
+            {"run_id": run.id, "author_key": key, "name": authors[key]["name"],
+             "bio": authors[key].get("bio"), "photo_id": authors[key].get("photo_id")} for key in needed
         ])
         session.execute(statement.on_conflict_do_update(
-            index_elements=["run_id", "author_key"], set_={"name": statement.excluded.name}
+            index_elements=["run_id", "author_key"],
+            set_={"name": statement.excluded.name, "bio": statement.excluded.bio, "photo_id": statement.excluded.photo_id}
         ))
 
 

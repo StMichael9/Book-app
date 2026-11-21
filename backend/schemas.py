@@ -87,3 +87,23 @@ class UserPreferenceSchema(BaseModel):
     tag_id: int
     source_text: str | None
     tag: TagSchema
+
+
+class AuthorPageSchema(BaseModel):
+    id: int
+    name: str
+    bio: str | None = None
+    photo_url: str | None = None
+    book_count: int = 0
+
+
+class ShelfFlags(BaseModel):
+    entry_id: int
+    status: str | None = None
+    is_owned: bool = False
+    is_wanted: bool = False
+
+
+class AuthorBookSchema(BookSchema):
+    """A catalogue book card plus the signed-in reader's shelf flags (null when signed out or not on a shelf)."""
+    shelf: ShelfFlags | None = None
