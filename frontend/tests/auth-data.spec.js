@@ -76,6 +76,8 @@ const test = base.extend({
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
+      // A book page asks for the author's other books (More by); these fixtures have none.
+      if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
       app.errors.push(`Unhandled API: ${path}`); return reply(500, {});
     });
     await installGenres(page, app);

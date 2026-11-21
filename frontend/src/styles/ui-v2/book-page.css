@@ -1,0 +1,80 @@
+/* The book page. On a desktop the cover (300px) sits on the page with its own shadow and spans three rows beside the head (title, author, facts),
+   the actions and About; 64px apart. On a phone the cover (120px) sits beside the head, the actions run full width below, then About.
+   Anything the page needs from tokens comes from tokens only. */
+.bv-root .bv-detail { display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-areas: "art head" "art actions" "art about"; grid-template-rows: auto auto 1fr; column-gap: 64px; align-items: start; padding: 6px 0 40px; }
+.bv-root .bv-detail-body { display: contents; }
+.bv-root .bv-detail-art { grid-area: art; padding-top: 14px; }
+.bv-root .bv-detail-art .bv-cover { width: 300px; max-width: 100%; margin: 0; box-shadow: var(--bv-shadow-cover); }
+.bv-root .bv-book-head { grid-area: head; min-width: 0; padding-top: 14px; }
+.bv-root .bv-book-actions { grid-area: actions; min-width: 0; }
+.bv-root .bv-book-about { grid-area: about; min-width: 0; margin-top: 28px; padding-top: 4px; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-book-head h1 { font-size: clamp(2.5rem, 4.4vw, 3.75rem); line-height: 1.04; margin: 0 0 10px; overflow-wrap: anywhere; }
+.bv-root .bv-detail-author { font-size: 1.3125rem; color: var(--bv-muted); margin: 0 0 14px; }
+.bv-root .bv-book-head .bv-book-metadata { border: 0; padding: 0; margin: 0 0 26px; }
+.bv-root .bv-book-head .bv-book-metadata dd { color: var(--bv-ink); font-weight: 600; }
+
+/* Actions on one row: Want to read and I own it at their content width, Add to list as quiet underlined text. */
+.bv-root .bv-book-actions .bv-shelf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.bv-root .bv-book-actions .bv-shelf-actions { flex: none; gap: 12px; }
+.bv-root .bv-book-actions .bv-shelf-actions .bv-button { flex: none; padding-inline: 24px; }
+.bv-root .bv-book-actions .bv-shelf-controls > .bv-help { flex: 0 0 100%; order: 9; margin: 0; }
+.bv-root .bv-book-actions .bv-add-list { margin: 0; }
+.bv-root .bv-book-actions .bv-add-list:has(.bv-add-list-panel) { flex: 0 0 100%; }
+.bv-root .bv-book-actions .bv-add-list > .bv-button, .bv-root .bv-book-actions .bv-add-list > .bv-button:hover:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:active:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:focus:not(:focus-visible) { background: transparent; box-shadow: none; border-color: transparent; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; padding-inline: 4px; }
+.bv-root .bv-book-actions .bv-pin-action { margin: 6px 0 0; }
+
+/* "Open or start your reading": underlined text with a real arrow icon that nudges 2px on hover. */
+.bv-root .bv-open-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 12px; color: var(--bv-green); font-weight: 600; }
+.bv-root .bv-open-link span { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-open-link svg { width: 18px; height: 18px; flex: none; transition: transform 150ms ease-out; }
+.bv-root .bv-open-link:hover svg, .bv-root .bv-open-link:focus-visible svg { transform: translateX(2px); }
+
+/* About this book, in the text column: the section title at about 28px, a measure of 66ch, then the subjects and the shop link. */
+.bv-root .bv-book-about .bv-description { max-width: 66ch; margin-top: 0; padding-top: 24px; }
+.bv-root .bv-book-about .bv-description h2 { font-size: 1.75rem; }
+.bv-root .bv-book-about .bv-book-tags { margin-top: 20px; }
+.bv-root .bv-book-about .bv-get-copy { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; margin-top: 22px; font-size: var(--bv-fs-helper); }
+.bv-root .bv-book-about .bv-get-copy h2 { margin: 0; color: var(--bv-ink); }
+.bv-root .bv-book-about .bv-get-copy h2::after { content: "\00b7"; margin-left: 8px; font-weight: 400; color: var(--bv-muted); }
+.bv-root .bv-book-about .bv-get-copy a { min-height: 44px; color: var(--bv-green); font-weight: 600; }
+.bv-root .bv-book-about .bv-get-copy .bv-help { flex: 0 0 100%; margin: -8px 0 0; color: var(--bv-muted); }
+
+/* More by {author}: full width under a hairline. Five equal columns; two columns of four on a phone. */
+.bv-root .bv-more-by { border-top: 1px solid var(--bv-line); margin-top: 8px; padding: 36px 0 48px; }
+.bv-root .bv-more-by-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.bv-root .bv-more-by-head h2 { margin: 0; font-size: 2.125rem; line-height: 1.1; overflow-wrap: anywhere; }
+.bv-root .bv-more-by-all { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; flex: none; color: var(--bv-ink); font-weight: 600; }
+.bv-root .bv-more-by-all span { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-more-by-all svg { width: 18px; height: 18px; }
+.bv-root .bv-more-by-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
+.bv-root .bv-more-by-grid li, .bv-root .bv-more-by-grid > div { min-width: 0; }
+.bv-root .bv-more-by-grid h3 { margin: 12px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; }
+.bv-root .bv-more-by-grid h3 a { color: inherit; text-decoration: none; }
+.bv-root .bv-more-by-grid h3 a:hover { text-decoration: underline; }
+
+@media (max-width: 899px) and (min-width: 701px) {
+  .bv-root .bv-detail { grid-template-columns: 220px minmax(0, 1fr); column-gap: 36px; }
+  .bv-root .bv-detail-art .bv-cover { width: 220px; }
+  .bv-root .bv-more-by-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bv-root .bv-more-by-grid > :nth-child(n+4) { display: none; }
+}
+@media (max-width: 700px) {
+  .bv-root .bv-detail { grid-template-columns: 120px minmax(0, 1fr); grid-template-areas: "art head" "actions actions" "about about"; grid-template-rows: auto; column-gap: 16px; padding-top: 0; }
+  .bv-root .bv-detail-art { padding-top: 0; }
+  .bv-root .bv-detail-art .bv-cover { width: 120px; margin: 0; }
+  .bv-root .bv-book-head { padding-top: 0; }
+  .bv-root .bv-book-head h1 { font-size: var(--bv-fs-page); margin: 0 0 8px; }
+  .bv-root .bv-detail-author { font-size: var(--bv-fs-title); margin-bottom: 10px; }
+  .bv-root .bv-book-head .bv-book-metadata { margin: 0; font-size: var(--bv-fs-helper); gap: 12px; }
+  .bv-root .bv-book-actions { margin-top: 20px; }
+  .bv-root .bv-book-actions .bv-shelf-actions { flex: 0 0 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .bv-root .bv-book-actions .bv-shelf-actions .bv-button { padding-inline: 12px; }
+  .bv-root .bv-book-actions .bv-add-list { flex: 0 0 100%; }
+  .bv-root .bv-book-about { margin-top: 20px; }
+  .bv-root .bv-book-about .bv-description h2 { font-size: 1.5rem; }
+  .bv-root .bv-more-by { padding: 28px 0 36px; }
+  .bv-root .bv-more-by-head h2 { font-size: 1.5rem; }
+  .bv-root .bv-more-by-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 16px; }
+  .bv-root .bv-more-by-grid > :nth-child(n+5) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .bv-root .bv-open-link svg { transition: none; } .bv-root .bv-open-link:hover svg, .bv-root .bv-open-link:focus-visible svg { transform: none; } }

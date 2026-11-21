@@ -135,6 +135,8 @@ const test = base.extend({
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       // An older service has no reading library: the requests a returning reader's page starts early (api/earlyStart.js) are simply refused.
       if (path === "/me/library" || path === "/me/library/lookup" || path === "/me/home" || /^\/me\/library\/\d+\/reading$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
+      // A book page asks for the author's other books (More by); these fixtures have none.
+      if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
