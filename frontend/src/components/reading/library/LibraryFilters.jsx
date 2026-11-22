@@ -41,6 +41,8 @@ function Group({ group, options, state, labelFor, onToggle, search, found }) {
   const rows = [...chosenOnly.map(value => ({ value, label: labelFor(group, value), count: undefined })), ...list].filter(item => item.label);
   const shown = expanded || found ? rows : rows.filter((item, index) => index < TOP || selected.includes(String(item.value)));
   const id = `bv-facet-${group}`;
+  // A group with nothing to choose (and no search box) draws no heading.
+  if (!shown.length && !search) return null;
   return <fieldset className="bv-facet-group" aria-labelledby={id}>
     <legend id={id}>{GROUP_TITLES[group]}</legend>
     {search}
