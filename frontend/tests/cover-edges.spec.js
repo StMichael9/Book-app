@@ -113,10 +113,12 @@ test("only artwork within about 7% of 2:3 is cropped to fill, and the crop keeps
 test("while an image is loading the frame is an outline only, and a book with no cover keeps its jacket", async ({ page, app }) => {
   app.browseItems = [...await withCovers(page, [[300, 450]], 6000), { ...bookOf(2), title: "No cover", cover_image_url: null }];
   await page.goto("/browse");
-  const loading = grid(page).locator(".bv-cover--loading").first();
+  // Scope to our own card: /browse first paints its instant catalogue (other books), then swaps in these items,
+  // so a bare ".bv-cover--loading" can match a card that is replaced a moment later. Auto-retrying assertions re-resolve the node.
+  const loading = grid(page).locator(".bv-book-card").filter({ hasText: "Cover 300x450" }).locator(".bv-cover.bv-cover--loading");
   await expect(loading).toBeVisible();
-  expect(transparent(await loading.evaluate(node => getComputedStyle(node).backgroundColor))).toBe(true);   // no grey fill: an outline only
-  expect(await loading.evaluate(node => getComputedStyle(node).boxShadow)).toMatch(/inset/);
+  await expect(loading).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");   // no grey fill: an outline only
+  await expect(loading).toHaveCSS("box-shadow", /inset/);
   const none = grid(page).locator(".bv-book-card").filter({ hasText: "No cover" }).locator(".bv-cover");
   await expect(none.locator(".bv-cover-fallback")).toHaveCount(1);
   expect(transparent(await none.locator(".bv-cover-fallback").evaluate(node => getComputedStyle(node).backgroundColor))).toBe(false);   // the jacket brings its own colours

@@ -25,6 +25,7 @@ export function readLibraryState(params) {
     author: params.getAll("author").slice(0, 50),
     length: params.getAll("length").filter(value => ["short", "medium", "long"].includes(value)),
     label: params.get("label") || "",
+    onLoan: params.get("loan") === "1",
   };
 }
 
@@ -36,6 +37,7 @@ export function writeLibraryState(state) {
   if (state.sort !== "added") out.set("sort", state.sort);
   for (const group of FILTER_GROUPS) for (const value of state[group]) out.append(group, value);
   if (state.label) out.set("label", state.label);
+  if (state.onLoan) out.set("loan", "1");
   return out;
 }
 

@@ -1,3 +1,4 @@
+import LoanTag from "../lending/LoanTag.jsx";
 import { useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BookCover, EnglishTitle, ShelfActions } from "../ui-v2/primitives.jsx";
@@ -40,7 +41,7 @@ export function LibraryEntryRow({ entry, readingActions, navigationState, onOpen
     <span className="bv-row-thumb" aria-hidden="true"><BookCover book={book} size="small" /></span>
     <div className="bv-row-title"><h3>{destination ? <Link to={destination} state={navigationState} onClick={onOpen}>{book.title}</Link> : book.title}</h3></div>
     <p className="bv-row-author"><AuthorLinks authors={book.authors} /></p>
-    <p className="bv-row-shelf">{labels.join(" · ")}</p>
+    <p className="bv-row-shelf">{labels.join(" · ")}{entry.loan && <>{labels.length > 0 && " · "}<LoanTag loan={entry.loan} inline /></>}</p>
     {finished ? <p className="bv-row-finished">Finished {finished}</p> : <span className="bv-row-finished" aria-hidden="true" />}
     {moreMenu && entry.book_id && <BookMenu bookId={entry.book_id} title={book.title} />}
   </li>;
@@ -65,6 +66,7 @@ export function LibraryEntryCard({ entry, priority, readingActions, buyUrl, navi
     {line && <p id={noteId} className={`bv-card-line${reason ? " bv-card-line--reason" : ""}`} onClick={destination ? () => { onOpen?.(); navigate(destination, { state: navigationState }); } : undefined}>{line}</p>}
     {/* One status line on every card: the reading state leads, then the independent shelves. */}
     {entry.book && !readingActions ? <ShelfActions book={book} compact /> : <StatusLine labels={[readingLabels[entry.reading_state], entry.is_wanted && "Want to read", entry.is_owned && "Owned", !entry.book && "Private book"].filter(Boolean)} />}
+    <LoanTag loan={entry.loan} />
     {buyUrl && <a className="bv-buy-link" href={buyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "want_card" })}>Find on Bookshop ↗</a>}
   </article>;
 }
