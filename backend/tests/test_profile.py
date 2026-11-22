@@ -1,5 +1,6 @@
 """Profile v1: profile settings, yearly stats, reading lists and the public pages."""
 import json
+import re
 import uuid
 from datetime import date
 
@@ -127,19 +128,31 @@ def test_a_handle_can_be_cleared_while_private(world):
     assert world.client.patch("/me/profile", json={"handle": ""}).json()["handle"] is None
 
 
-def test_handle_suggestion_comes_from_the_display_name_then_the_email(world):
+def test_handle_suggestion_comes_from_the_display_name_never_the_email(world):
     named = world.make_user(display_name="  Ada Lovelace!  ")
     world.act_as(named)
     r = world.client.get("/me/profile/handle-suggestion")
     assert r.status_code == 200 and r.json() == {"handle": "ada-lovelace"}
     assert r.headers["cache-control"] == "private, no-store"
-    unnamed = world.make_user(email=f"Jo.Reader_{uuid.uuid4().hex[:6]}@example.test")
-    world.act_as(unnamed)
-    handle = world.client.get("/me/profile/handle-suggestion").json()["handle"]
-    assert handle.startswith("jo-reader-") and service_ok(handle)
-    short = world.make_user(display_name="Al", email=f"zz{uuid.uuid4().hex[:8]}@example.test")
-    world.act_as(short)
-    assert service_ok(world.client.get("/me/profile/handle-suggestion").json()["handle"])  # 2 letters is too short
+    for name in (None, "Al"):  # no name, or too short to be a handle
+        user = world.make_user(display_name=name, email=f"jo.secret{uuid.uuid4().hex[:6]}@example.test")
+        world.act_as(user)
+        handle = world.client.get("/me/profile/handle-suggestion").json()["handle"]
+        assert re.match(r"^reader-\d{4}$", handle) and "secret" not in handle
+
+
+def test_an_existing_handle_is_returned_as_is(world):
+    world.act_as(world.make_user(display_name="Someone Else", handle="already-mine"))
+    assert world.client.get("/me/profile/handle-suggestion").json() == {"handle": "already-mine"}
+
+
+def test_the_reader_fallback_retries_when_taken(world, monkeypatch):
+    from services import profile
+    world.make_user(handle="reader-0001")
+    draws = iter([1, 1, 2])
+    monkeypatch.setattr(profile.secrets, "randbelow", lambda n: next(draws))
+    world.act_as(world.make_user(display_name="!!!"))
+    assert world.client.get("/me/profile/handle-suggestion").json() == {"handle": "reader-0002"}
 
 
 def service_ok(handle):

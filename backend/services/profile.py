@@ -6,6 +6,7 @@ user, entry or attempt can never leak by accident.
 from __future__ import annotations
 
 import re
+import secrets
 import unicodedata
 from datetime import date, datetime, timezone
 
@@ -104,14 +105,20 @@ def _handle_taken(db: Session, user: User, handle: str) -> bool:
 
 
 def suggest_handle(db: Session, user: User) -> dict:
-    """A free, valid handle from the display name, else the email local part; -2, -3 ... when taken."""
-    base = next((slug for slug in (_slug(user.display_name), _slug((user.email or "").split("@")[0]), "reader")
-                 if HANDLE_PATTERN.match(slug) and slug not in RESERVED_HANDLES), "reader")
-    candidate, number = base, 1
-    while _handle_taken(db, user, candidate):
-        number += 1
-        suffix = f"-{number}"
-        candidate = base[:30 - len(suffix)].rstrip("-") + suffix
+    """The reader's own handle if set; else a free one from the display name (-2, -3 ... when taken), else reader-NNNN.
+    Never derived from the email: a handle becomes a public URL."""
+    if user.handle:
+        return {"handle": user.handle}
+    base = _slug(user.display_name)
+    if HANDLE_PATTERN.match(base) and base not in RESERVED_HANDLES:
+        candidate, number = base, 1
+        while _handle_taken(db, user, candidate):
+            number += 1
+            suffix = f"-{number}"
+            candidate = base[:30 - len(suffix)].rstrip("-") + suffix
+        return {"handle": candidate}
+    while _handle_taken(db, user, candidate := f"reader-{secrets.randbelow(10000):04d}"):
+        pass
     return {"handle": candidate}
 
 
