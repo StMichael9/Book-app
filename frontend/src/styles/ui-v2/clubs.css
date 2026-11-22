@@ -4,6 +4,8 @@
 .bv-root .bv-club-tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--bv-line); margin-bottom: 20px; }
 .bv-root .bv-club-tabs a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; color: var(--bv-muted); font-weight: 600; text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .bv-root .bv-club-tabs a[aria-current="page"] { color: var(--bv-green); border-bottom-color: var(--bv-green); }
+/* On My Books the tabs sit tight above the search, so the first book stays high on a phone. */
+.bv-root .bv-reading-library .bv-club-tabs { margin-bottom: 8px; }
 
 .bv-root .bv-club-listhead { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .bv-root .bv-club-listhead h2 { margin: 0; font: 400 var(--bv-fs-section)/1.15 var(--bv-display); }
