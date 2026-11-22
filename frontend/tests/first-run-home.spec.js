@@ -61,15 +61,15 @@ test("an account with no books gets a first-run Home with a few books to pick, i
   await expect(page.getByRole("link", { name: "Tell us what you like (optional)" })).toHaveAttribute("href", "/preferences");
   const pickTop = (await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y;
   expect((await page.getByRole("link", { name: "Tell us what you like (optional)" }).boundingBox()).y).toBeLessThan(pickTop);
-  await expect(page.getByRole("link", { name: /Import from Goodreads or StoryGraph/ })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("link", { name: /Import from Goodreads or StoryGraph/ })).toHaveCount(0);
   expect(app.requests.some(request => request.path.startsWith("/me/library/books/"))).toBe(false);
 });
 
 test("the import path shows only when library import is on", async ({ page, app }) => {
   app.libraryImport = true;
   await page.goto("/home");
-  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
-  expect((await page.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
+  await expect(page.getByRole("main").getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
+  expect((await page.getByRole("main").getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
 });
 
 test("after three saves the page says the shelf is started and offers My Books", async ({ page, app }) => {
