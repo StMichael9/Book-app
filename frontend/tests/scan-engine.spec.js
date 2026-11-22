@@ -32,6 +32,7 @@ const test = base.extend({
       if (path === "/me/library/lookup") return reply(200, { items: [] });
       if (path === "/me/stats") return reply(200, { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null });
       if (["/me/lists", "/me/up-next", "/me/preferences"].includes(path)) return reply(200, []);
+      if (/^\/me\/library\/101\/(reading|attempts)$/.test(path)) return reply(404, { detail: "Not found" });   // background prefetch, not part of this fixture
       const isbn = path.match(/^\/me\/catalogue\/isbn\/(\d+)$/);
       if (isbn) { state.lookups.push(isbn[1]); return reply(200, { isbn13: isbn[1], status: "catalogue", book_id: 5, edition_id: 1, title: "Emma", authors: ["Jane Austen"], cover_url: null, on_shelf: null }); }
       state.errors.push(`Unhandled ${request.method()} ${path}`);
@@ -57,6 +58,7 @@ const withCamera = (page, { engine = "native", caps = {} } = {}) => page.addInit
   if (engine === "wasm") delete window.BarcodeDetector;
   else window.BarcodeDetector = class { static async getSupportedFormats() { return ["ean_13"]; } async detect() { return window.__codes.splice(0).map(rawValue => ({ rawValue })); } };
 }, { engine, caps, picture: FIXTURE });
+const scanOnce = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
 const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values, ...values), codes);
 const open = async (page, { clock = false } = {}) => {
   if (clock) await page.clock.install();
@@ -82,7 +84,7 @@ test("the counters: engine, typed fallback, no read after 8 seconds, and a barco
   await withCamera(page);
   const dialog = await open(page, { clock: true });
   expect(app.events).toContain("scan_engine_native");
-  await scan(page, "5012345678900"); await page.clock.runFor(400); await scan(page, "5012345678900"); await page.clock.runFor(400);
+  await scanOnce(page, "5012345678900"); await page.clock.runFor(400); await scanOnce(page, "5012345678900"); await page.clock.runFor(400);
   await expect(dialog.getByText("This barcode isn’t an ISBN.")).toBeVisible();
   await page.clock.runFor(8500);
   await expect.poll(() => app.events.filter(name => name === "scan_non_isbn")).toHaveLength(1);
@@ -155,7 +157,7 @@ test("clean-up: grey, a contrast stretch that survives glare, a sharpen that kee
   const edge = new Uint8ClampedArray([0, 0, 0, 0, 255, 255, 255, 255].flatMap(v => [v, v, v, v, v, v, v, v]));
   const sharp = sharpen(edge.slice(0, 64), 8, 8);
   expect(sharp[3 * 8 + 3]).toBe(0);
-  expect(sharp[3 * 8 + 4]).toBe(255);
+  expect(sharp[4 * 8 + 3]).toBe(255);
   const even = cleanFrame(rgba, width, height, 0), odd = cleanFrame(rgba, width, height, 1);
   expect(even.length).toBe(width * height * 4);
   expect(even[0]).not.toBe(odd[0]);                                                     // odd frames are inverted
