@@ -389,8 +389,8 @@ test("the landing for a signed-in reader without the reading features links to t
   app.authenticated = true;
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Return to your library", exact: true })).toHaveAttribute("href", "/my-books");
-  await expect(page.getByRole("link", { name: "Explore books", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Return to your library", exact: true }).first()).toHaveAttribute("href", "/my-books");
+  await expect(page.getByRole("link", { name: "Explore books", exact: true }).first()).toBeVisible();
   await expect(page.locator(".bv-book-card")).toHaveCount(0);
 });
 
