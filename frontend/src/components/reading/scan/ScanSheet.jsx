@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Flashlight, X } from "lucide-react";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { BookCover, Button, NativeDialog } from "../../ui-v2/primitives.jsx";
-import { acceptScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
+import { classifyScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
+import { SCAN_COPY, tipSeen, markTipSeen, platformTip } from "./scanCopy.js";
 import { isSaveable, saveRow, useScanList } from "./scanList.js";
 import "../../../styles/ui-v2/scan-sheet.css";
 
+const DEFAULT_ZOOM = 2, TROUBLE_MS = 8000;
 const stateLine = row => ({
   looking: "Looking up…", waiting: "Looking up…",
   found: row.authors?.join(", ") || "",
@@ -18,6 +20,8 @@ const stateLine = row => ({
 function useCamera(enabled, onCode) {
   const video = useRef(null), onCodeRef = useRef(onCode);
   const [camera, setCamera] = useState(enabled ? "asking" : "off");
+  const track = useRef(null);
+  const [tools, setTools] = useState({ torch: false, torchOn: false, zoom: null, tip: false });
   useEffect(() => { onCodeRef.current = onCode; });
   useEffect(() => {
     if (!enabled) return undefined;
@@ -27,8 +31,9 @@ function useCamera(enabled, onCode) {
     const release = () => {
       openId += 1;
       stop?.(); stop = null;
-      stopTracks(stream); stream = null;
+      stopTracks(stream); stream = null; track.current = null;
       if (video.current) video.current.srcObject = null;
+      setTools(current => ({ ...current, torch: false, torchOn: false, zoom: null }));
     };
     async function open() {
       if (!navigator.mediaDevices?.getUserMedia) { setCamera("none"); return; }
@@ -38,9 +43,21 @@ function useCamera(enabled, onCode) {
       // Whatever a retired open() started is stopped here, and it changes nothing else.
       const abandon = () => { decoderStop?.(); stopTracks(opened); if (video.current?.srcObject === opened) video.current.srcObject = null; };
       try {
-        opened = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+        // Whether the browser is about to ask for the camera: the tip after the prompt is shown once, and only then.
+        let prompting = !tipSeen();
+        try { const status = await navigator.permissions?.query({ name: "camera" }); if (status) prompting = prompting && status.state === "prompt"; } catch { /* no permissions API: the first ever open counts */ }
+        if (stale()) return;
+        opened = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: { ideal: "environment" } }, audio: false });
         if (stale() || document.hidden) { abandon(); return; }
         stream = opened;
+        const found = opened.getVideoTracks?.()[0] || null, capabilities = found?.getCapabilities?.() || {};
+        track.current = found;
+        const apply = constraint => Promise.resolve(found?.applyConstraints?.({ advanced: [constraint] })).catch(() => {});
+        // Continuous focus, and about 2x zoom so the phone can be held 20 to 30 cm away, where it can focus.
+        if (capabilities.focusMode?.includes?.("continuous")) apply({ focusMode: "continuous" });
+        let zoom = null;
+        if (capabilities.zoom) { const value = Math.min(capabilities.zoom.max, Math.max(capabilities.zoom.min, DEFAULT_ZOOM)); zoom = { min: capabilities.zoom.min, max: capabilities.zoom.max, step: capabilities.zoom.step || 0.1, value }; apply({ zoom: value }); }
+        setTools({ torch: Boolean(capabilities.torch), torchOn: false, zoom, tip: prompting && !tipSeen() });
         video.current.srcObject = opened;
         await video.current.play().catch(() => {});
         if (stale()) { abandon(); return; }
@@ -58,7 +75,14 @@ function useCamera(enabled, onCode) {
     open();
     return () => { gone = true; document.removeEventListener("visibilitychange", visibility); release(); };
   }, [enabled]);
-  return { video, camera };
+  const setZoom = value => { setTools(current => current.zoom ? { ...current, zoom: { ...current.zoom, value } } : current); Promise.resolve(track.current?.applyConstraints?.({ advanced: [{ zoom: value }] })).catch(() => {}); };
+  const toggleTorch = () => setTools(current => {
+    const torchOn = !current.torchOn;
+    Promise.resolve(track.current?.applyConstraints?.({ advanced: [{ torch: torchOn }] })).catch(() => {});
+    return { ...current, torchOn };
+  });
+  const dismissTip = () => { markTipSeen(); setTools(current => ({ ...current, tip: false })); };
+  return { video, camera, tools, setZoom, toggleTorch, dismissTip };
 }
 
 // What the card over the camera says about the latest scan. The words are the list's own, so the card and the row never disagree.
@@ -92,8 +116,18 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   const [owned, setOwned] = useState(true), [typed, setTyped] = useState(""), [typedError, setTypedError] = useState(""), [saving, setSaving] = useState(false), [saveError, setSaveError] = useState("");
   // The latest accepted scan: a tick on the aiming box for 0.6 s, and a card over the camera until 3 s after its answer (or the next scan).
   const [latest, setLatest] = useState(null), [flash, setFlash] = useState(0), [cardOpen, setCardOpen] = useState(false), scanId = useRef(0);
+  const [notIsbn, setNotIsbn] = useState(false), [trouble, setTrouble] = useState(false), [troubleOpen, setTroubleOpen] = useState(false), [idleStamp, setIdleStamp] = useState(0), misread = useRef({ code: "", at: 0 });
   const accept = code => {
-    if (!acceptScan(code) || !guard.current(code)) return;
+    const kind = classifyScan(code);
+    // A barcode that is not an ISBN is named only when the same one is read twice within two seconds, so one misread never flashes it.
+    if (kind === "non_isbn") {
+      const now = Date.now(), seen = misread.current;
+      misread.current = { code, at: now };
+      if (seen.code === code && now - seen.at < 2000) setNotIsbn(true);
+      return;
+    }
+    if (kind !== "isbn" || !guard.current(code)) return;
+    setNotIsbn(false); setTrouble(false); setTroubleOpen(false); setIdleStamp(Date.now());
     try { navigator.vibrate?.(30); } catch { /* not every device can */ }
     list.add(code);
     scanId.current += 1;
@@ -113,7 +147,19 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     return () => clearTimeout(timer);
   }, [latest, cardSettled]);
   const showCard = Boolean(cardOpen && card);
-  const { video, camera } = useCamera(open && wantCamera, accept);
+  const { video, camera, tools, setZoom, toggleTorch, dismissTip } = useCamera(open && wantCamera, accept);
+  // Eight seconds of the camera running with nothing read: offer the tips.
+  useEffect(() => {
+    if (camera !== "on") return undefined;
+    const timer = setTimeout(() => setTrouble(true), TROUBLE_MS);
+    return () => clearTimeout(timer);
+  }, [camera, idleStamp]);
+  useEffect(() => {
+    if (!notIsbn) return undefined;
+    const timer = setTimeout(() => setNotIsbn(false), 8000);
+    return () => clearTimeout(timer);
+  }, [notIsbn]);
+  const typeIt = () => { document.getElementById("bv-scan-isbn")?.focus(); };
   useEffect(() => {
     if (seeded.current) return;
     seeded.current = true;
@@ -139,12 +185,12 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     if (failed.length) { setSaveError("Some books couldn’t be added. Try again."); return; }
     onClose();
   }
-  const refusedLine = camera === "refused" || camera === "none";
   return <NativeDialog open={open} onClose={() => { if (!saving) onClose(); }} title="Scan books" className="bv-scan-sheet">
     <div className="bv-scan-body">
       <div className="bv-scan-top">
       {wantCamera && <div className={`bv-scan-camera is-${camera}${flash ? " is-flash" : ""}${showCard ? " has-card" : ""}`}>
         <video ref={video} muted playsInline aria-hidden="true" />
+        {tools.torch && <button type="button" className="bv-scan-light" aria-label={tools.torchOn ? SCAN_COPY.lightOff : SCAN_COPY.lightOn} aria-pressed={tools.torchOn} onClick={toggleTorch}><Flashlight size={18} strokeWidth={2} aria-hidden="true" /></button>}
         <div className="bv-scan-aim" aria-hidden="true"><span className="bv-scan-tick"><Check /></span></div>
         {camera !== "refused" && camera !== "none" && <p className="bv-scan-hint">Fit the barcode in the box</p>}
         <div className={`bv-scan-card${showCard ? " is-open" : ""}`} aria-hidden="true">
@@ -153,7 +199,14 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
         </div>
       </div>}
       <p className="bv-sr-only" role="status" aria-live="polite">{showCard && card?.settled ? `${card.title}. ${card.line}` : ""}</p>
-      {wantCamera && refusedLine && <p className="bv-scan-notice" role="status">Camera’s off. Type the ISBN instead.</p>}
+      {wantCamera && tools.zoom && <label className="bv-scan-zoom">{SCAN_COPY.zoom}<input type="range" min={tools.zoom.min} max={tools.zoom.max} step={tools.zoom.step} value={tools.zoom.value} onChange={event => setZoom(Number(event.target.value))} /></label>}
+      {wantCamera && camera === "refused" && <div className="bv-scan-notice" role="status"><p>{SCAN_COPY.blocked}</p><Button variant="secondary" onClick={typeIt}>{SCAN_COPY.type}</Button></div>}
+      {wantCamera && camera === "none" && <p className="bv-scan-notice" role="status">Camera’s off. Type the ISBN instead.</p>}
+      {wantCamera && tools.tip && camera === "on" && <div className="bv-scan-notice bv-scan-tip" role="status"><p>{SCAN_COPY.tip}</p>{platformTip() && <p>{platformTip()}</p>}<Button variant="secondary" onClick={dismissTip}>{SCAN_COPY.gotIt}</Button></div>}
+      {wantCamera && notIsbn && <div className="bv-scan-notice" role="status"><p><b>{SCAN_COPY.notIsbn}</b></p><p>{SCAN_COPY.notIsbnHelp}</p><Button variant="secondary" onClick={typeIt}>{SCAN_COPY.type}</Button></div>}
+      {wantCamera && trouble && camera === "on" && !notIsbn && (troubleOpen
+        ? <div className="bv-scan-notice" role="status"><ul className="bv-scan-tips">{[tools.torch && SCAN_COPY.tipLight, SCAN_COPY.tipFurther, SCAN_COPY.tipFlat, SCAN_COPY.tipGlare].filter(Boolean).map(line => <li key={line}>{line}</li>)}</ul><Button variant="secondary" onClick={typeIt}>{SCAN_COPY.type}</Button></div>
+        : <button type="button" className="bv-scan-trouble" aria-expanded="false" onClick={() => setTroubleOpen(true)}>{SCAN_COPY.trouble}</button>)}
       <form className="bv-scan-type" onSubmit={submitTyped} noValidate>
         <label htmlFor="bv-scan-isbn">Type an ISBN</label>
         <div className="bv-scan-type-row">
