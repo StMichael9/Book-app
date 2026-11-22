@@ -35,8 +35,9 @@ jobs:
           --health-retries 12
     env:
       TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/bookvane_test
-      # The "application" database must differ from the test one (the suite refuses to run against it); nothing connects to it.
-      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/postgres
+      # The "application" database must differ from the test one (the suite refuses to run against it). Some test modules import the
+      # app at collection time, before the test URL is applied, so this database is migrated too, exactly like a local dev database.
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/bookvane_app
       BOOKVANE_TEST_DB_ISOLATED: "yes"
       IS_DEV: "true"
       READING_V3_ENABLED: "false"
@@ -58,10 +59,13 @@ jobs:
           key=$(python -c "import secrets; print(secrets.token_urlsafe(36))")
           echo "::add-mask::$key"
           echo "SECRET_KEY=$key" >> "$GITHUB_ENV"
-      - name: Enable pg_trgm
-        run: psql "postgresql://postgres:postgres@localhost:5432/bookvane_test" -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"
-      - name: Migrate the test database to head
-        run: DATABASE_URL="$TEST_DATABASE_URL" python -m alembic upgrade head
+      - name: Create and migrate both databases
+        run: |
+          psql "postgresql://postgres:postgres@localhost:5432/postgres" -c "CREATE DATABASE bookvane_app"
+          for db in bookvane_app bookvane_test; do
+            psql "postgresql://postgres:postgres@localhost:5432/$db" -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"
+            DATABASE_URL="postgresql+psycopg2://postgres:postgres@localhost:5432/$db" python -m alembic upgrade head
+          done
       - name: Backend tests
         run: python -m pytest -q
 
