@@ -25,6 +25,6 @@ export default defineConfig({
     command: "npm run build -- --outDir dist-affiliate && npm run preview -- --outDir dist-affiliate --host 127.0.0.1 --port 5190 --strictPort",
     url: "http://127.0.0.1:5190",
     reuseExistingServer: false,
-    env: { VITE_API_BASE_URL: "http://127.0.0.1:5190/test-api", VITE_BOOKSHOP_AFFILIATE_ID: "130585", VITE_AMAZON_ASSOCIATE_TAG: "bookvane-20" },
+    env: { VITE_API_BASE_URL: "http://127.0.0.1:5190/test-api", VITE_BOOKSHOP_AFFILIATE_ID: "130585" },
   }],
 });

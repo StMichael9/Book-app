@@ -54,17 +54,15 @@ const test = base.extend({
   },
 });
 
-// The affiliate build (port 5490) has both the Bookshop id and the Amazon tag, so the reading page's About shows both links.
+// The affiliate build (port 5490) has the Bookshop id, so the reading page's About shows the link.
 test.use({ baseURL: "http://127.0.0.1:5490" });
 
-test("the reading page's About shows the same Get a copy links, without a heading, with the disclosure and the click events", async ({ page, app }) => {
+test("the reading page's About shows the same Get a copy link, without a heading, with the disclosure and the click events", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await page.getByText("About this book", { exact: true }).click();
   const about = page.locator(".bv-workspace-about");
   await expect(about.getByRole("link", { name: /^Bookshop\.org/ })).toHaveAttribute("href", "https://bookshop.org/search?keywords=Piranesi%20Susanna%20Clarke&affiliate=130585");
-  const amazon = about.getByRole("link", { name: /^Amazon/ });
-  await expect(amazon).toHaveAttribute("href", "https://www.amazon.com/s?k=Piranesi%20Susanna%20Clarke&tag=bookvane-20");
-  for (const link of [about.getByRole("link", { name: /^Bookshop\.org/ }), amazon]) {
+  for (const link of [about.getByRole("link", { name: /^Bookshop\.org/ })]) {
     await expect(link).toHaveAttribute("target", "_blank");
     expect((await link.getAttribute("rel")).split(" ").sort()).toEqual(["noopener", "sponsored"]);
     await expect(link.locator("svg")).toHaveCount(1);
@@ -73,6 +71,5 @@ test("the reading page's About shows the same Get a copy links, without a headin
   await expect(about.getByText("We may earn a small commission at no cost to you.")).toBeVisible();
   const beacon = async link => { await link.evaluate(node => node.addEventListener("click", event => event.preventDefault())); const [request] = await Promise.all([page.waitForRequest(item => item.url().endsWith("/test-api/events")), link.click()]); return JSON.parse(request.postData()); };
   expect(await beacon(about.getByRole("link", { name: /^Bookshop\.org/ }))).toEqual({ name: "get_copy_click", placement: "bookshop" });
-  expect(await beacon(amazon)).toEqual({ name: "get_copy_click", placement: "amazon" });
   expect(app.errors).toEqual([]);
 });
