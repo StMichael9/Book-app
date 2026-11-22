@@ -54,8 +54,8 @@ const test = base.extend({
   },
 });
 
-// The affiliate build (port 5490) has the Bookshop id, so the reading page's About shows the link.
-test.use({ baseURL: "http://127.0.0.1:5490" });
+// The affiliate build (PW_AFFILIATE_URL, port 5190 by default) has the Bookshop id, so the reading page's About shows the link.
+test.use({ baseURL: process.env.PW_AFFILIATE_URL || "http://127.0.0.1:5190" });
 
 test("the reading page's About shows the same Get a copy link, without a heading, with the disclosure and the click events", async ({ page, app }) => {
   await page.goto("/my-books/101");
