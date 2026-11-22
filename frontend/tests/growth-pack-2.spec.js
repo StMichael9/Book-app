@@ -312,6 +312,16 @@ test("the privacy page says visits and sign-ups are counted by where they came f
   await expect(page.getByText("We count visits and sign-ups by where they came from (for example TikTok), in daily totals only. Nothing is linked to you.", { exact: true })).toBeVisible();
 });
 
+test("the sign-up tips tick row is at least 44px tall and the submit button still sits within 520px at 375px", async ({ page, app }) => {
+  app.guest = true;
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/register");
+  const row = page.locator(".bv-register-form .bv-tick");
+  await expect(row).toBeVisible();
+  expect((await row.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  expect((await page.getByRole("button", { name: "Create account", exact: true }).boundingBox()).y).toBeLessThan(520);
+});
+
 // ---- layout ----------------------------------------------------------------------------------------------------------
 
 for (const scheme of ["light", "dark"]) for (const [width, zoom] of [[390, false], [320, false], [390, true]]) {

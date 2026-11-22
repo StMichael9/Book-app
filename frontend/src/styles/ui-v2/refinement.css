@@ -134,11 +134,11 @@
 .bv-root .bv-tick input { flex-shrink: 0; width: 22px; height: 22px; margin: 11px 0 0; accent-color: var(--bv-green); }
 .bv-root .bv-tick span { padding: 10px 0; }
 /* Sign-up form only: the tick adds a row, so the spacing is a little tighter and the button stays high on a phone. */
-.bv-root .bv-register-form .bv-field { margin: 10px 0; }
+.bv-root .bv-register-form .bv-field { margin: 8px 0; }
 .bv-root .bv-register-form .bv-field label { margin-bottom: 5px; }
-.bv-root .bv-register-form .bv-tick { min-height: 40px; margin: 0 0 8px; }
-.bv-root .bv-register-form .bv-tick input { margin-top: 9px; }
-.bv-root .bv-register-form .bv-tick span { padding: 8px 0; }
+.bv-root .bv-register-form .bv-tick { min-height: 44px; margin: 0 0 8px; }
+.bv-root .bv-register-form .bv-tick input { margin-top: 11px; }
+.bv-root .bv-register-form .bv-tick span { padding: 10px 0; }
 .bv-root .bv-tips-switch { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 52px; min-height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer; }
 .bv-root .bv-tips-switch:disabled { cursor: default; opacity: 0.6; }
 .bv-root .bv-tips-track { position: relative; width: 42px; height: 24px; border-radius: 999px; background: var(--bv-control); transition: background 120ms ease-out; }
