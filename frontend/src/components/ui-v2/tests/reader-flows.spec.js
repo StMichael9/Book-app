@@ -513,7 +513,7 @@ test("register and the save dialog reassure the reader at the point of decision"
   await page.goto("/register?bookId=1&save=want&returnTo=%2Fbook%2F1");
   await expect(page.getByText("Saves to Want to read as soon as your account is ready.")).toBeVisible();
   await expect(page.getByText("after you sign in")).toHaveCount(0);
-  await expect(page.getByText("Free. Your library is private. We only email you for password resets.")).toBeVisible();
+  await expect(page.getByText("Free. Your library is private.")).toBeVisible();
   await expect(page.locator(".bv-auth-card").getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
   await page.goto("/book/1");
   const want = page.getByRole("button", { name: "Add Pride and Prejudice to Want to read" });

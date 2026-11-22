@@ -125,7 +125,7 @@ export function AuthPage({ register = false }) {
         : covers.length > 0 && <div className="bv-auth-shelf" aria-hidden="true"><div className="bv-hero-covers">{covered}</div><div className="bv-shelf-rule" /></div>}
       <p>Keep track of the books you own and the ones you want to read.</p>
     </aside>
-    <div className="bv-auth-card"><PageHeading title={register ? "Create your account" : "Welcome back."}>{register ? <>Free. Your library is private. We only email you for password resets. <TextLink to="/privacy">Privacy</TextLink></> : "Your books are right where you left them."}</PageHeading>
+    <div className="bv-auth-card"><PageHeading title={register ? "Create your account" : "Welcome back."}>{register ? <>Free. Your library is private. <TextLink to="/privacy">Privacy</TextLink></> : "Your books are right where you left them."}</PageHeading>
       {intent && <div className="bv-pending-book">{pendingBook.data && <BookCover book={pendingBook.data} priority />}<p><strong>{pendingBook.data?.title || "Your chosen book"}</strong>{register ? `Saves to ${intent.status === "owned" ? "Owned" : "Want to read"} as soon as your account is ready.` : `Ready to save as ${intent.status === "owned" ? "Owned" : "Want to read"} after you sign in.`}</p></div>}
       <form className={register ? "bv-register-form" : undefined} onSubmit={submit} noValidate aria-busy={pending}>
         {errors.form && <p className="bv-field-error" role="alert">{errors.form === "mismatch" ? <>That email and password don’t match. Try again or <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>reset your password</TextLink>.</> : errors.form}</p>}
