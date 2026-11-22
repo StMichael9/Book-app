@@ -8,6 +8,7 @@ import { useReader } from "./readerState.js";
 import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import AuthorPage from "./AuthorPage.jsx";
+import BorrowerPage from "../lending/BorrowerPage.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
 import SearchSuggest from "./SearchSuggest.jsx";
@@ -25,6 +26,9 @@ import { useProfile } from "../profile/profileState.js";
 import { ProfileHubPage, ProfileListPage, ProfilePrompt, PublicListPage, PublicProfilePage } from "../profile/ProfilePages.jsx";
 import ReadingDraftProvider from "../reading/ReadingDraftProvider.jsx";
 import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx";
+import ClubPage from "../clubs/ClubPage.jsx";
+import ClubsListPage from "../clubs/ClubsListPage.jsx";
+import JoinClubPage from "../clubs/JoinClubPage.jsx";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 import "../../styles/ui-v2/search-suggest.css";
@@ -103,11 +107,12 @@ function Header() {
   const warmProps = to => ({ onPointerEnter: () => warm(to), onFocus: () => warm(to), onTouchStart: () => warm(to) });
   const location = useLocation();
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/") || location.pathname.startsWith("/author/");
-  const library = location.pathname.startsWith("/my-books");
+  const library = location.pathname.startsWith("/my-books") || location.pathname.startsWith("/clubs/");
   const home = location.pathname === "/home";
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
+  const loanLink = location.pathname.startsWith("/l/");
   const mobileNav = useRef(null);
   useLayoutEffect(() => {
     const nav = mobileNav.current, root = nav?.closest(".bv-root");
@@ -124,6 +129,7 @@ function Header() {
     measure();
     return () => { active = false; observer.disconnect(); root.style.removeProperty("--bv-mobile-nav-clearance"); };
   }, [publicLanding]);
+  if (loanLink) return <header className="bv-header"><div className="bv-container bv-header-inner"><Brand /></div></header>;
   return <><header className={`bv-header${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}</nav>
     <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}
@@ -236,9 +242,9 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/admin": "Admin" };
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/my-books/clubs": "Your clubs", "/admin": "Admin" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
-    if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
+    if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/clubs/") ? "Club" : location.pathname.startsWith("/c/") ? "Join a club" : location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
     let canonical = document.querySelector('link[rel="canonical"]');
     if (!canonical) { canonical = document.createElement("link"); canonical.rel = "canonical"; document.head.appendChild(canonical); }
@@ -277,10 +283,10 @@ function Shell() {
   }, []);
   const notFound = <section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>;
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme} data-library-revision={libraryRevision}>
-    <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
+    <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects />{location.pathname.startsWith("/c/") ? <header className="bv-club-minimal-header"><div className="bv-container"><Brand /></div></header> : <Header />}
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
-        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
+        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/l/:token" element={<BorrowerPage key={location.pathname} notFound={notFound} />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />
@@ -292,6 +298,9 @@ function Shell() {
         <Route path="/admin" element={<Suspense fallback={<section className="bv-container" aria-busy="true" />}><AdminPage notFound={notFound} /></Suspense>} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
+        <Route path="/my-books/clubs" element={<RequireAccount title="My Books"><ClubsListPage /></RequireAccount>} />
+        <Route path="/clubs/:clubId" element={<RequireAccount><ClubPage key={location.pathname} notFound={notFound} /></RequireAccount>} />
+        <Route path="/c/:token" element={<JoinClubPage key={location.pathname} notFound={notFound} />} />
         <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/preferences" element={<RequireAccount><PreferencesPage /></RequireAccount>} />
         <Route path="/onboarding" element={<Navigate replace to="/preferences" />} /><Route path="/discover" element={<Navigate replace to="/browse" />} /><Route path="/account" element={<Navigate replace to="/settings" />} /><Route path="/settings" element={<RequireAccount><SettingsPage /></RequireAccount>} />
@@ -299,7 +308,7 @@ function Shell() {
         <Route path="/u/:handle" element={<PublicProfilePage key={location.pathname} notFound={notFound} />} /><Route path="/u/:handle/lists/:id" element={<PublicListPage key={location.pathname} notFound={notFound} />} />
         <Route path="*" element={notFound} />
       </Routes></RouteErrorBoundary>
-    </main><Footer /><AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
+    </main>{!location.pathname.startsWith("/c/") && !location.pathname.startsWith("/l/") && <Footer />}<AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
   </div>;
 }
 

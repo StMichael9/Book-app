@@ -2,6 +2,7 @@ import { getBookById } from "../../api/books.js";
 import { getBookDescription, getEntryDescription } from "../../api/descriptions.js";
 import ClampedText from "../ui-v2/ClampedText.jsx";
 import DescriptionBody from "../ui-v2/DescriptionBody.jsx";
+import GetACopyBlock from "../ui-v2/GetACopyBlock.jsx";
 import { useDescription } from "../ui-v2/useDescription.js";
 import { Button, TextLink } from "../ui-v2/primitives.jsx";
 import { formatYear, useRequest } from "../ui-v2/data.js";
@@ -31,6 +32,7 @@ export function ReadingBookDetails({ bookId, description, entryId }) {
           {request.data.published_year != null && `Published ${formatYear(request.data.published_year)}`}{request.data.published_year != null && request.data.page_count > 0 && " · "}{request.data.page_count > 0 && `About ${request.data.page_count} pages · your copy may differ`}
         </p>}
         {shown}
+        <GetACopyBlock book={request.data} heading={false} />
       </>}
     {bookId && <TextLink to={`/book/${bookId}`}>Full book details</TextLink>}
   </section>;
