@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { addListBook, createList, deleteList, getList, getLists, getPublicList, getPublicProfile, getStats, orderList, removeListBook, updateList } from "../../api/profile.js";
 import { useReader } from "../ui-v2/readerState.js";
 import { ActionLink, BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
+import ShareButton from "../ui-v2/ShareButton.jsx";
 import Avatar from "./Avatar.jsx";
 import ListArt, { SpineBlock } from "./ListArt.jsx";
 import { EditProfileSheet, HandleField, MakePublicSheet, SheetFacts } from "./ProfileSheets.jsx";
@@ -34,6 +35,8 @@ function useLoad(load) {
   return { data: state.data, error: done ? state.error : null, loading: !done && !state.data, retry: () => setAttempt(value => value + 1),
     set: update => setState(previous => ({ ...previous, data: typeof update === "function" ? update(previous.data) : update })) };
 }
+
+const profileName = (person, handle) => person.display_name || `@${handle}`;
 
 function Failed({ children = "We couldn’t load this just now.", retry }) {
   return <div className="bv-notice bv-notice--error"><p role="alert">{children}</p>{retry && <Button variant="secondary" onClick={retry}>Try again</Button>}</div>;
@@ -146,6 +149,7 @@ export function ProfileHubPage() {
         <div className="bv-profile-actions">
           <Visibility profile={profile} announce={setAnnouncement} />
           <Button variant="secondary" className="bv-profile-pill" onClick={() => setEditing(true)}>Edit profile</Button>
+          {profile.profile_public && profile.handle && <ShareButton path={`/u/${profile.handle}`} title={profileName(profile, profile.handle)} text={`${profileName(profile, profile.handle)}'s reading on Bookvane`} />}
         </div>
       </Identity>
       <EditProfileSheet profile={profile} open={editing} onClose={() => setEditing(false)} />
@@ -270,7 +274,8 @@ export function ProfileListPage() {
     <p className="bv-profile-back"><TextLink to="/profile"><ChevronLeft aria-hidden="true" />Your lists</TextLink>
       {editing ? <Button onClick={() => setEditing(false)}>Done</Button> : <Button variant="quiet" className="bv-link-button" onClick={() => setEditing(true)}>Edit</Button>}</p>
     <ListArt tall items={artOf(list)} />
-    <h1>{list.name}</h1>
+    <div className="bv-share-row"><h1>{list.name}</h1>
+      {list.is_public && profile?.profile_public && profile.handle && <ShareButton path={`/u/${profile.handle}/lists/${list.id}`} title={list.name} text={`${list.name}, a list by ${profileName(profile, profile.handle)} on Bookvane`} />}</div>
     {list.description && <p className="bv-profile-bio">{list.description}</p>}
     <p className="bv-muted">{books(list.books.length)}{name ? ` · by ${name}` : ""}</p>
     {editing && <p className="bv-list-rename"><Button variant="quiet" className="bv-link-button" onClick={() => setRenaming(true)}>Rename or delete</Button></p>}
@@ -326,7 +331,8 @@ export function PublicProfilePage({ handle: given, notFound }) {
     : <p className="bv-muted">No public lists yet.</p>;
   return <section className="bv-container"><div className="bv-profile bv-profile--tabs">
     <div className="bv-profile-top">
-      <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}</Identity>
+      <Identity person={page} handle={handle} size={96}>{own && <p className="bv-help">This is how others see your profile.</p>}
+        <ShareButton path={`/u/${handle}`} title={profileName(page, handle)} text={`${profileName(page, handle)}'s reading on Bookvane`} /></Identity>
       {chart && <TabBar value={tab} onChange={setTab} />}
     </div>
     {chart ? <TabPanel key={tab} value={tab} settle={switched}>
@@ -346,7 +352,9 @@ export function PublicListPage({ notFound }) {
   return <section className="bv-container"><div className="bv-profile bv-profile-list">
     <p className="bv-profile-back"><TextLink to={`/u/${handle}`}><ChevronLeft aria-hidden="true" />{list.owner.display_name || `@${handle}`}</TextLink></p>
     <ListArt tall items={artOf(list)} />
-    <h1>{list.name}</h1>{list.description && <p className="bv-profile-bio">{list.description}</p>}
+    <div className="bv-share-row"><h1>{list.name}</h1>
+      <ShareButton path={`/u/${handle}/lists/${list.id ?? id}`} title={list.name} text={`${list.name}, a list by ${profileName(list.owner, handle)} on Bookvane`} /></div>
+    {list.description && <p className="bv-profile-bio">{list.description}</p>}
     <p className="bv-muted">{books(list.books.length)} · by {list.owner.display_name || `@${handle}`}</p>
     {list.books.length > 0 && <ol className="bv-list-books">{list.books.map((book, index) => <li key={book.id}>
       <span className="bv-list-number" aria-hidden="true">{index + 1}</span>

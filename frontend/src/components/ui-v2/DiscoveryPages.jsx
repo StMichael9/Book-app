@@ -15,6 +15,7 @@ import { useInstantBooks } from "./instantBooks.js";
 import { bookshopAffiliateUrl } from "../../api/affiliate.js";
 import AuthorLinks from "./AuthorLinks.jsx";
 import MoreByAuthor from "./MoreByAuthor.jsx";
+import ShareButton from "./ShareButton.jsx";
 import "../../styles/ui-v2/book-page.css";
 import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, repeatsTitle, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
@@ -340,6 +341,7 @@ export function BookPage() {
           <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
           {library.readingActions && <Link className="bv-open-link" to={`/my-books/start/${book.id}`}><span>Open or start your reading</span><ArrowRight aria-hidden="true" /></Link>}
           {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
+          <ShareButton path={`/book/${book.id}`} title={book.title} text={`${book.title}${book.authors?.[0]?.name ? ` by ${book.authors[0].name}` : ""} on Bookvane`} />
         </div>
         <div className="bv-book-about">
           {request.data ? <BookAbout key={book.id} book={book} />
