@@ -6,6 +6,7 @@ user, entry or attempt can never leak by accident.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
@@ -90,6 +91,40 @@ def _handle(value) -> str | None:
     if value in RESERVED_HANDLES:
         raise fail(422, "handle_reserved")
     return value
+
+
+def _slug(text: str | None) -> str:
+    """Lowercase a-z0-9 words joined by single hyphens, at most 30 characters, no hyphen at either end."""
+    ascii_text = unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")[:30].strip("-")
+
+
+def _handle_taken(db: Session, user: User, handle: str) -> bool:
+    return db.scalar(select(User.id).where(User.handle == handle, User.id != user.id)) is not None
+
+
+def suggest_handle(db: Session, user: User) -> dict:
+    """A free, valid handle from the display name, else the email local part; -2, -3 ... when taken."""
+    base = next((slug for slug in (_slug(user.display_name), _slug((user.email or "").split("@")[0]), "reader")
+                 if HANDLE_PATTERN.match(slug) and slug not in RESERVED_HANDLES), "reader")
+    candidate, number = base, 1
+    while _handle_taken(db, user, candidate):
+        number += 1
+        suffix = f"-{number}"
+        candidate = base[:30 - len(suffix)].rstrip("-") + suffix
+    return {"handle": candidate}
+
+
+def handle_available(db: Session, user: User, value: str) -> dict:
+    try:
+        handle = _handle(value)
+    except HTTPException as error:
+        return {"available": False, "reason": error.detail["code"]}
+    if handle is None:
+        return {"available": False, "reason": "handle_invalid"}
+    if _handle_taken(db, user, handle):
+        return {"available": False, "reason": "handle_taken"}
+    return {"available": True}
 
 
 def update_profile(db: Session, user: User, changes: dict) -> dict:
