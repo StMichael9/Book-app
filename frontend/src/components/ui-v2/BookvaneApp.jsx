@@ -33,6 +33,7 @@ import "../../styles/ui-v2/profile.css";
 
 const loadLibraryImportPage = () => import("../reading/imports/LibraryImportPage.jsx");
 const LibraryImportPage = lazy(loadLibraryImportPage);
+const AdminPage = lazy(() => import("./AdminPage.jsx"));
 // Once the page is idle, fetch the one split-off route so opening it later never waits on a download.
 const preloadRoutes = () => { loadLibraryImportPage().catch(() => {}); };
 
@@ -235,7 +236,7 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile" };
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/admin": "Admin" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
     if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
@@ -288,6 +289,7 @@ function Shell() {
         <Route path="/reading-life" element={<RequireAccount title="Your reading life"><ReadingGate title="Your reading life"><ReadingLifePage /></ReadingGate></RequireAccount>} />
         <Route path="/my-data" element={<RequireAccount><ReadingGate><ReadingDataPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/privacy" element={<ReadingPrivacyPage />} />
+        <Route path="/admin" element={<Suspense fallback={<section className="bv-container" aria-busy="true" />}><AdminPage notFound={notFound} /></Suspense>} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
