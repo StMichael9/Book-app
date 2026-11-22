@@ -106,8 +106,8 @@
 .bv-root .bv-undo-toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 4px; width: max-content; max-width: calc(100% - 40px); padding: 2px 4px 2px 16px; background: var(--bv-ink); color: var(--bv-paper); border-radius: 7px; box-shadow: var(--bv-shadow); animation: bv-avatar-in 160ms ease-out both; }
 .bv-root .bv-undo-toast button { color: var(--bv-paper); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 
-.bv-root .bv-profile-join { margin-top: 36px; padding: 20px; background: var(--bv-soft); border-radius: 8px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
-.bv-root .bv-profile-join p { margin: 0; font: 400 var(--bv-fs-card)/1.3 var(--bv-display); }
+/* Start your own shelf: one quiet line after the content, with a hairline above it. */
+.bv-root .bv-profile-join { margin-top: 36px; padding-top: 8px; border-top: 1px solid var(--bv-line); }
 
 .bv-root .bv-add-list { margin-top: 4px; }
 .bv-root .bv-add-list-panel { background: var(--bv-raised); border-radius: var(--bv-radius-sheet); padding: 12px 14px; margin-top: 6px; max-width: 360px; box-shadow: var(--bv-lift); }

@@ -1,6 +1,7 @@
 import { useProfile } from "../profile/profileState.js";
 import { useEffect, useRef, useState } from "react";
 import { knownSource, trackEvent } from "./events.js";
+import { forgetRef, storedRef } from "./refCapture.js";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -101,7 +102,7 @@ export function AuthPage({ register = false }) {
     if (problems.email || problems.password) { setErrors(problems); (problems.email ? emailRef : passwordRef).current?.focus(); return; }
     setPending(true); setErrors({});
     try {
-      if (register) await auth.register(credentials, { src: knownSource(params.get("src")) }); else await auth.login(credentials);
+      if (register) { await auth.register(credentials, { src: knownSource(params.get("src")), ref: storedRef(), emailTips: values.get("email_tips") === "on" }); forgetRef(); } else await auth.login(credentials);
       navigate(destination, { replace: true });
     } catch (requestError) {
       const status = requestError?.status;
@@ -130,6 +131,7 @@ export function AuthPage({ register = false }) {
         {errors.form && <p className="bv-field-error" role="alert">{errors.form === "mismatch" ? <>That email and password don’t match. Try again or <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>reset your password</TextLink>.</> : errors.form}</p>}
         <EmailField id="bv-auth-email" error={emailError} inputRef={emailRef} onInput={event => { setTyped(event.currentTarget.value.trim()); clear("email"); }} />
         <PasswordField creating={register} error={errors.password} inputRef={passwordRef} onInput={() => clear("password")} />
+        {register && <label className="bv-tick"><input type="checkbox" name="email_tips" /><span>Send me a few reading tips by email</span></label>}
         {!register && <TextLink to={forgotPath} state={typed ? { email: typed } : undefined}>Forgot password?</TextLink>}
         <Button type="submit" className="bv-full-width" disabled={pending}>{pending ? register ? "Creating your account…" : "Signing in…" : register ? "Create account" : "Sign in"}</Button>
       </form><p className="bv-auth-switch">{register ? "Already have an account? " : "New to Bookvane? "}<TextLink to={switchPath}>{register ? "Sign in" : "Create an account"}</TextLink></p>
@@ -266,11 +268,21 @@ export function SettingsPage() {
     setLoggingOut(true); setError("");
     try { await auth.logout(); } catch (requestError) { setError(errorText(requestError, "You couldn’t be signed out. Please try again.")); setLoggingOut(false); }
   }
-  const { profile } = useProfile() || {};
+  const { profile, save } = useProfile() || {};
+  // The reading-tips switch moves at once and goes back, with the error line, if saving fails.
+  const [tipsChoice, setTipsChoice] = useState(null);
+  const tipsOn = tipsChoice ?? Boolean(profile?.email_tips);
+  async function toggleTips() {
+    const next = !tipsOn;
+    setTipsChoice(next); setError("");
+    try { await save({ email_tips: next }); } catch (requestError) { setError(errorText(requestError, "Your choice couldn’t be saved. Please try again.")); } finally { setTipsChoice(null); }
+  }
   const signedInAs = profile?.display_name ? `Signed in as ${profile.display_name}` : profile?.handle ? `Signed in as @${profile.handle}` : "You’re signed in";
   const dataLinks = library.readingExport || library.privacyControls || library.libraryExport, importLink = library.libraryImport && !library.readOnly;
   return <section className="bv-container"><div className="bv-account"><PageHeading title="Settings" />
     <section className="bv-account-row" aria-labelledby="bv-set-genres"><div><h2 id="bv-set-genres" className="bv-account-heading">Favourite genres</h2><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></section>
+    <section className="bv-account-row" aria-labelledby="bv-set-tips"><div><h2 id="bv-set-tips" className="bv-account-heading">Reading tips by email</h2><span id="bv-set-tips-help">A few short emails in your first weeks. Turn off any time.</span></div>
+      <button type="button" role="switch" aria-checked={tipsOn} aria-labelledby="bv-set-tips" aria-describedby="bv-set-tips-help" className="bv-tips-switch" disabled={!profile} onClick={toggleTips}><span className="bv-tips-track" aria-hidden="true" /></button></section>
     {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete your account.</span></div>
       <div className="bv-account-links">{dataLinks && <TextLink to="/my-data">Your reading data</TextLink>}{importLink && <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink>}</div></section>}
     <section className="bv-account-row bv-theme-row" aria-labelledby="bv-set-theme"><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2>

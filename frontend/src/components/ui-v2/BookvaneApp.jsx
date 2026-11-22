@@ -1,4 +1,5 @@
 import { trackEvent } from "./events.js";
+import { useRefCapture } from "./refCapture.js";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight, BookOpen, Bookmark, House, Search, User } from "lucide-react";
@@ -268,6 +269,7 @@ function Shell() {
   const reader = useReader();
   const location = useLocation();
   const auth = useAuth();
+  useRefCapture();
   useEffect(() => {
     const idle = window.requestIdleCallback || (callback => setTimeout(callback, 1500));
     const cancel = window.cancelIdleCallback || clearTimeout;

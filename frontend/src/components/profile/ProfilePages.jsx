@@ -5,7 +5,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe, Lock, Plus, X } f
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { addListBook, createList, deleteList, getList, getLists, getPublicList, getPublicProfile, getStats, orderList, removeListBook, updateList } from "../../api/profile.js";
 import { useReader } from "../ui-v2/readerState.js";
-import { ActionLink, BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
 import Avatar from "./Avatar.jsx";
 import ListArt, { SpineBlock } from "./ListArt.jsx";
 import { EditProfileSheet, HandleField, MakePublicSheet, SheetFacts } from "./ProfileSheets.jsx";
@@ -305,7 +305,7 @@ export function ProfileListPage() {
 function GuestLine() {
   const auth = useAuth();
   if (auth.isLoading || auth.isAuthenticated) return null;
-  return <aside className="bv-profile-join"><p>Keep your own reading year on Bookvane.</p><ActionLink to="/register?src=profile">Create free account</ActionLink></aside>;
+  return <aside className="bv-profile-join"><TextLink to="/register?ref=share">Start your own shelf</TextLink></aside>;
 }
 
 export function PublicProfilePage({ handle: given, notFound }) {

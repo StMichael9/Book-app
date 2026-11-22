@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { BookCover, Button, NativeDialog } from "../../ui-v2/primitives.jsx";
+import { trackEvent } from "../../ui-v2/events.js";
 import { acceptScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
 import { isSaveable, saveRow, useScanList } from "./scanList.js";
 import "../../../styles/ui-v2/scan-sheet.css";
@@ -114,6 +115,12 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   }, [latest, cardSettled]);
   const showCard = Boolean(cardOpen && card);
   const { video, camera } = useCamera(open && wantCamera, accept);
+  // One count per opening of the camera sheet (the sheet is remounted each time it opens). Counting never blocks the sheet.
+  const counted = useRef(false);
+  useEffect(() => {
+    if (counted.current || !open || !wantCamera) return;
+    counted.current = true; trackEvent("scan_opened");
+  }, [open, wantCamera]);
   useEffect(() => {
     if (seeded.current) return;
     seeded.current = true;
@@ -134,6 +141,8 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     for (const row of saveable) {
       try { await saveRow(row, owned, row.requestId); list.remove(row.isbn); } catch { failed.push(row.isbn); }
     }
+    // How many books this Add saved (the server takes 1 to 100 per event).
+    if (saveable.length > failed.length) trackEvent("scan_added", { n: Math.min(100, saveable.length - failed.length) });
     library.readingChanged();
     setSaving(false);
     if (failed.length) { setSaveError("Some books couldn’t be added. Try again."); return; }
