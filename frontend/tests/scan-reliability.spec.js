@@ -55,7 +55,8 @@ const withCamera = (page, { caps = {}, permission, agent } = {}) => page.addInit
   };
   window.BarcodeDetector = class { static async getSupportedFormats() { return ["ean_13", "ean_8", "upc_a", "upc_e"]; } async detect() { return window.__codes.splice(0).map(rawValue => ({ rawValue })); } };
 }, { caps, permission, agent });
-const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
+// A real camera sees a barcode in many frames; each code is pushed twice, which is what the reader needs to confirm an ISBN.
+const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values, ...values), codes);
 const open = async (page, { clock = true } = {}) => {
   if (clock) await page.clock.install();
   await page.goto("/my-books");
@@ -244,14 +245,17 @@ test("classifyScan: ISBNs, add-ons, other barcodes and misreads", () => {
   expect(classifyScan(undefined)).toBe("ignore");
 });
 
-test("the zxing reader is set to try hard, allow the EAN add-ons and read EAN, UPC and nothing else", async () => {
-  let hints = null;
-  class Reader { constructor(given) { hints = given; } async decodeFromVideoElement(_video, callback) { callback({ getText: () => "52499" }); callback({ getText: () => EMMA }); return { stop() {} }; } }
-  const load = async () => ({ BrowserMultiFormatReader: Reader, BarcodeFormat: { EAN_13: "e13", EAN_8: "e8", UPC_A: "ua", UPC_E: "ue" }, DecodeHintType: { POSSIBLE_FORMATS: "formats", TRY_HARDER: "hard", ALLOWED_EAN_EXTENSIONS: "ext" } });
+test("the built-in reader gets the aiming region and an ISBN counts only on a second identical read within 1.5 s", async () => {
+  const times = [0, 2000, 4000, 4500];
+  const reads = [["9780141439518"], [], ["9780141439518"], [], ["9780743273565"], ["9780743273565"]];
+  const loadEngine = async () => ({ read: async () => reads.shift() || [], stop() {} });
   const codes = [];
-  await startDecoder({ readyState: 4 }, code => codes.push(code), { env: {}, load });
-  expect(Object.fromEntries(hints)).toEqual({ formats: ["e13", "e8", "ua", "ue"], hard: true, ext: [2, 5] });
-  expect(codes).toEqual([EMMA]);
+  const stop = await startDecoder({ readyState: 4 }, code => codes.push(code), { env: {}, loadEngine, grab: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }), now: () => times.shift() ?? 99999 });
+  await new Promise(done => setTimeout(done, 1500));
+  stop();
+  // 9780141439518 is read at 0 s and again at 2 s (too far apart, so not confirmed); the other is read twice within half a second.
+  expect(codes).toContain("9780743273565");
+  expect(codes.filter(code => code === "9780141439518")).toHaveLength(0);
 });
 
 test("the built-in detector is given the EAN and UPC formats it supports, and drops 5-digit and 2-digit results", async () => {
@@ -259,7 +263,7 @@ test("the built-in detector is given the EAN and UPC formats it supports, and dr
   class Detector {
     static async getSupportedFormats() { return ["ean_13", "upc_a", "qr_code"]; }
     constructor(options) { seen.push(options.formats); }
-    async detect() { return [{ rawValue: "52499" }, { rawValue: "12" }, { rawValue: EMMA }]; }
+    async detect() { return [{ rawValue: "52499" }, { rawValue: "12" }, { rawValue: EMMA }, { rawValue: EMMA }]; }
   }
   const codes = [];
   const stop = await startDecoder({ readyState: 4 }, code => codes.push(code), { env: { BarcodeDetector: Detector } });

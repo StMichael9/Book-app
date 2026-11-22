@@ -123,6 +123,14 @@ def test_scan_events_and_the_bounds_on_how_many_books_a_scan_adds(growth):
     assert [row for row in counts(growth) if row[0] == "scan_opened"] == [("scan_opened", "", "", 3)]    # n only widens scan_added
 
 
+def test_scan_reliability_counters_are_accepted_by_name_only(growth):
+    names = ("scan_timeout", "scan_non_isbn", "scan_typed", "scan_engine_native", "scan_engine_wasm")
+    for name in names:
+        assert growth.client.post("/events", json={"name": name}).status_code == 204
+    assert growth.client.post("/events", json={"name": "scan_engine_other"}).status_code == 204
+    assert counts(growth) == sorted((name, "", "", 1) for name in names)
+
+
 def test_register_counts_with_a_validated_ref_and_stores_nothing_on_the_user(growth):
     for n, (query, body_ref) in enumerate([("?ref=tt", None), ("?ref=tt&src=landing", None), ("?ref=nope", None), ("", "rd"), ("", "nope")]):
         body = {"email": f"ref{n}-{uuid.uuid4().hex[:6]}@growth-fixture.org", "password": "long enough password"}

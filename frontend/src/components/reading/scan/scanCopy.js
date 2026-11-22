@@ -1,5 +1,6 @@
 // Every word the scan sheet adds for a hard-to-read barcode, in one place (approved by Michael, 21 Nov), and the one-time camera tip's memory.
 export const SCAN_COPY = {
+  tapFocus: "Tap the barcode to focus.",
   lightOn: "Turn on the light", lightOff: "Turn off the light",
   notIsbn: "This barcode isn’t an ISBN.",
   notIsbnHelp: "Look for the barcode that starts with 978 or 979. It’s usually on the back cover. Or type the ISBN, which is often printed above the barcode or on the copyright page.",
