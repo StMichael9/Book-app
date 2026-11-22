@@ -4,7 +4,7 @@ import importlib.util
 import json
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -607,3 +607,67 @@ def test_email_tips_is_an_opt_in_chosen_at_sign_up_and_off_for_everyone_else(gro
 def test_the_welcome_migration_marks_accounts_already_older_than_30_days_as_finished(growth):
     path = ROOT / "backend" / "alembic" / "versions" / "c5d8f1b34e76_welcome_emails.py"
     assert "UPDATE users SET welcome_step = 3 WHERE created_at < now() - interval '30 days'" in path.read_text(encoding="utf-8")
+
+
+def test_admin_overview_headline_numbers_in_three_statements(growth):
+    models = growth.models
+    boss = growth.user("boss", 90)
+    growth.admin_as(boss)
+    tester = models.User(email=f"t-{uuid.uuid4().hex[:6]}@example.com", hashed_password="x", created_at=days_ago(1))
+    growth.db.add(tester)
+    growth.db.commit()
+    growth.made["users"].append(tester.id)
+    r1, r2, r3 = growth.user("r1", 3), growth.user("r2", 20), growth.user("r3", 60)
+    stamp(growth, r1, "user_books", days_ago(1))                      # r1 is the only active reader this week
+    entry = models.UserBook(user_id=r1.id, book_id=growth.book("Lent").id, is_owned=True)
+    growth.db.add(entry)
+    growth.db.commit()
+    for ended in (None, date.today()):
+        growth.db.add(models.Loan(user_book_id=entry.id, direction="lent" if ended is None else "borrowed", person_name="Pat",
+                                  request_id=uuid.uuid4(), ended_on=ended))
+    club_new = models.Club(name="Fresh", owner_id=r1.id)
+    club_post = models.Club(name="Posting", owner_id=r2.id)
+    club_idle = models.Club(name="Idle", owner_id=r3.id)
+    growth.db.add_all([club_new, club_post, club_idle])
+    growth.db.commit()
+    growth.db.add(models.ClubMember(club_id=club_new.id, user_id=r1.id, role="owner"))        # joined now: active
+    for club, owner in ((club_post, r2), (club_idle, r3)):
+        growth.db.add(models.ClubMember(club_id=club.id, user_id=owner.id, role="owner", joined_at=days_ago(50)))
+    growth.db.commit()
+    club_book = models.ClubBook(club_id=club_post.id, book_id=growth.book("Club read").id)
+    growth.db.add(club_book)
+    growth.db.commit()
+    growth.db.add(models.ClubPost(club_book_id=club_book.id, user_id=r2.id, body="hello"))   # a recent post: active
+    for when, phase in ((days_ago(2), "completed"), (days_ago(5), "completed_with_issues"), (days_ago(40), "completed")):
+        growth.db.execute(text("INSERT INTO library_import_runs (id, user_id, source, headers, creation_fingerprint, created_at, updated_at, phase) "
+                               "VALUES (:i, :u, 'goodreads', '{}', :f, :t, :t, :p)"),
+                          {"i": uuid.uuid4(), "u": r1.id, "f": uuid.uuid4().hex * 2, "t": when, "p": phase})
+    growth.db.commit()
+    statements = []
+    listener = lambda conn, cursor, statement, *args: statements.append(statement)  # noqa: E731
+    event.listen(growth.db.get_bind(), "before_cursor_execute", listener)
+    try:
+        response = growth.client.get("/admin/overview")
+    finally:
+        event.remove(growth.db.get_bind(), "before_cursor_execute", listener)
+        growth.db.rollback()
+        growth.db.execute(delete(models.ClubPost))
+        growth.db.execute(delete(models.ClubBook))
+        growth.db.execute(delete(models.Club))
+        growth.db.commit()
+    assert response.status_code == 200 and response.headers["cache-control"] == "private, no-store"
+    body = response.json()
+    assert body["readers"] == {"total": 3, "new_7d": 1, "new_30d": 2, "weekly_active": 1}     # not the admin, not the test account
+    assert body["clubs"] == {"total": 3, "active_30d": 2}
+    assert body["open_loans"] == 1 and body["imports_completed_30d"] == 2
+    assert body["subscriptions"] == {"active": {"patron": 0, "club_plus": 0}, "mrr_minor_units": {}}
+    own = [s for s in statements if not s.startswith("SELECT users.id AS users_id")]       # minus the test admin's own row refresh
+    assert len(own) == 3, own
+    assert "@" not in response.text and "Pat" not in response.text                              # counts only, nothing per person
+
+
+def test_admin_overview_is_admin_only(growth):
+    reader = growth.user("plain")
+    growth.admin_as(reader)
+    growth.settings.admin_emails = "someone@else.com"
+    assert growth.client.get("/admin/overview").status_code == 403
