@@ -47,6 +47,7 @@ const test = base.extend({
       }
       if (/\/description$/.test(path)) return reply(404, { detail: "Not found" });
       if (path === "/books/1") return reply(200, { ...book, description: "A house of endless halls.", published_year: 2020, isbn13: null });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });

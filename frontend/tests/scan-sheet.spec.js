@@ -58,6 +58,7 @@ const test = base.extend({
       }
       if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 900 + Number(path.split("/").pop()) }); }
       if (path === "/me/library/private" && method === "POST") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 800 + state.writes.length, book_id: null, book: null, private_title: body.title }); }
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });
@@ -206,7 +207,7 @@ test("a refused or missing camera falls back to typing, with one plain sentence"
     await withCamera(page, mode);
     await open(page);
     const dialog = page.getByRole("dialog", { name: "Scan books" });
-    await expect(dialog.getByText("Camera’s off. Type the ISBN instead.")).toBeVisible();
+    await expect(dialog.getByText(mode === "refused" ? "Your browser has blocked the camera. Allow it in your browser’s settings for bookvane.me, or type the ISBN." : "Camera’s off. Type the ISBN instead.")).toBeVisible();
     await expect(dialog.getByText("Fit the barcode in the box")).toHaveCount(0);
     await dialog.getByLabel("Type an ISBN").fill("0-14-143951-3");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();

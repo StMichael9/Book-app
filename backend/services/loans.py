@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import case, func, select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -143,9 +143,14 @@ def delete(db: Session, user: User, loan_id) -> None:
 
 def listing(db: Session, user: User, *, state: str | None = None, direction: str | None = None, entry_id: int | None = None,
             limit: int = LIST_LIMIT) -> list[dict]:
-    """The reader's loans with the book's title, open ones first (overdue, then by due date)."""
+    """The reader's loans with the book's title, id, cover and authors (a private entry: no id or cover, its own author), open ones first
+    (overdue, then by due date). One statement however many loans."""
     on = today()
-    query = (select(Loan, func.coalesce(Book.title, UserBook.private_title).label("title"))
+    authors = (select(func.array_agg(aggregate_order_by(Author.name, book_authors.c.author_id)).filter(Author.name.is_not(None)))
+               .select_from(book_authors.join(Author, Author.id == book_authors.c.author_id))
+               .where(book_authors.c.book_id == UserBook.book_id).correlate(UserBook).scalar_subquery())
+    query = (select(Loan, func.coalesce(Book.title, UserBook.private_title).label("title"), Book.id, Book.cover_image_url,
+                    authors.label("authors"), UserBook.private_author)
              .join(UserBook, UserBook.id == Loan.user_book_id).outerjoin(Book, Book.id == UserBook.book_id)
              .where(UserBook.user_id == user.id))
     if state == "open":
@@ -162,7 +167,9 @@ def listing(db: Session, user: User, *, state: str | None = None, direction: str
     else:
         query = query.order_by(Loan.ended_on.is_not(None), overdue_first, Loan.due_on.asc().nulls_last(), Loan.started_on.desc(), Loan.id)
     query = query.limit(min(limit, LIST_LIMIT))
-    return [{**view(loan, on).model_dump(mode="json"), "title": title} for loan, title in db.execute(query).all()]
+    return [{**view(loan, on).model_dump(mode="json"), "title": title, "book_id": book_id, "cover_image_url": cover,
+             "authors": list(names or []) if book_id is not None else ([private_author] if private_author else [])}
+            for loan, title, book_id, cover, names, private_author in db.execute(query).all()]
 
 
 def share(db: Session, user: User, loan_id) -> dict:
