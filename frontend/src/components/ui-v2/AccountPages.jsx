@@ -275,7 +275,7 @@ export function SettingsPage() {
   async function toggleTips() {
     const next = !tipsOn;
     setTipsChoice(next); setError("");
-    try { await save({ email_tips: next }); } catch (requestError) { setError(errorText(requestError, "Your choice couldn’t be saved. Please try again.")); } finally { setTipsChoice(null); }
+    try { await save({ email_tips: next }); } catch (requestError) { setError(errorText(requestError, "We couldn’t complete your request. Please try again.")); } finally { setTipsChoice(null); }
   }
   const signedInAs = profile?.display_name ? `Signed in as ${profile.display_name}` : profile?.handle ? `Signed in as @${profile.handle}` : "You’re signed in";
   const dataLinks = library.readingExport || library.privacyControls || library.libraryExport, importLink = library.libraryImport && !library.readOnly;
