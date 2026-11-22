@@ -12,7 +12,7 @@ import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
-import { bookshopAffiliateUrl } from "../../api/affiliate.js";
+import GetACopyBlock from "./GetACopyBlock.jsx";
 import AuthorLinks from "./AuthorLinks.jsx";
 import MoreByAuthor from "./MoreByAuthor.jsx";
 import "../../styles/ui-v2/book-page.css";
@@ -307,7 +307,6 @@ export function BookPage() {
   }, [completeFocusTransition]);
   const saved = reader.libraryReady && !library.loading && !library.error && library.booksById[bookId]?.status;
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
-  const copyUrl = bookshopAffiliateUrl(book);
   const sharedVisit = new URLSearchParams(location.search).get("src") === "share" && Boolean(book);
   if (continuingSave) signedInFrom.add(String(bookId));
   useEffect(() => { if (sharedVisit) trackEvent("share_visit", { src: "share" }); }, [sharedVisit, bookId]);
@@ -346,7 +345,7 @@ export function BookPage() {
             : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
           {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
           {book.tags?.some(tag => labelFor(tag.name)) && <div className="bv-book-tags">{book.tags.map((tag) => labelFor(tag.name) && <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{labelFor(tag.name)}</Link>)}</div>}
-          {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
+          <GetACopyBlock book={book} />
         </div>
       </div>
     </article>
