@@ -413,8 +413,9 @@ test("after an import the done screen counts down the books still being looked u
   const line = page.locator("[role=status][aria-live=polite]").filter({ hasText: "Finding covers" });
   await expect(line).toHaveText("Finding covers and descriptions for 3 books…");
   const revision = async () => Number(await page.locator(".bv-root").getAttribute("data-library-revision"));
-  // The done screen refreshes the library once itself; take the base after that refresh has landed, so only the upgrade is counted.
-  await page.waitForLoadState("networkidle");
+  // The done screen refreshes the library itself once its rows have loaded, which can be after the heading shows. The enrichment check
+  // runs every 5 seconds, so a revision that has not moved for 400 ms has had that refresh: count the upgrades from there.
+  await expect.poll(async () => { const first = await revision(); await page.waitForTimeout(400); return first > 0 && first === await revision(); }, { timeout: 4000 }).toBe(true);
   const base = await revision();
   await expect(line).toHaveText("Finding covers and descriptions for 1 book…", { timeout: 12000 });
   expect(await revision()).toBe(base + 1);
