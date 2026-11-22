@@ -279,7 +279,10 @@ def test_export_large_library_streams_fixed_query_count(context_entry, app_modul
             if record["type"] == "complete": counts = record["counts"]
         assert counts == {"entry": 10001, "reading": 1, "preference": 0}
         assert records == 10004 and maximum < 5000
-        assert len(queries) == 9  # settings, anchor, five fixed cursors (including private source context)
+        # Eleven, all constant (none per row): SET TRANSACTION READ ONLY, SET LOCAL statement_timeout, SET LOCAL
+        # idle_in_transaction_session_timeout, the snapshot-anchor SELECT 1, then one streamed cursor per kind:
+        # entry, reading (reading notes ride inside it), progress_day, preference, loan, imported_source, imported_read_link.
+        assert len(queries) == 11
     finally:
         event.remove(engine, "before_cursor_execute", observe)
 

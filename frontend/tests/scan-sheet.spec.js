@@ -58,6 +58,7 @@ const test = base.extend({
       }
       if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 900 + Number(path.split("/").pop()) }); }
       if (path === "/me/library/private" && method === "POST") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 800 + state.writes.length, book_id: null, book: null, private_title: body.title }); }
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });
