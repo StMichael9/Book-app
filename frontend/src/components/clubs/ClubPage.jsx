@@ -7,14 +7,14 @@ import { BookCover, Button, EmptyState, TextLink } from "../ui-v2/primitives.jsx
 import { useDocumentTitle, useRequest, validBookId } from "../ui-v2/data.js";
 import ClubMenu from "./ClubMenu.jsx";
 import { Discussion, NowReading, Schedule } from "./ClubSections.jsx";
-import { AddBookSheet, ClubFormSheet, InviteSheet, ScheduleSheet } from "./ClubSheets.jsx";
+import { AddBookSheet, ClubFormSheet, ConfirmSheet, InviteSheet, ScheduleSheet } from "./ClubSheets.jsx";
 import { clubColor, initialOf, named, members as memberCount, nextCheckpoint, pageOf, shareOf, shortDate } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
 const SEE_FIRST = 5, CAP_NOTICE_FROM = 20;
 
 function MemberRow({ member, club, pageCount, mod, owner, onChanged }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(false), [confirming, setConfirming] = useState(false);
   const share = member.shares_progress ? shareOf(member.progress, pageCount) : null;
   async function act(work) {
     if (busy) return;
@@ -24,13 +24,15 @@ function MemberRow({ member, club, pageCount, mod, owner, onChanged }) {
   }
   const items = member.me || member.role === "owner" ? [] : [
     ...(owner && member.role === "member" ? [{ label: "Make admin", onSelect: () => act(() => setMemberRole(club.id, member.user_id, "admin")) }] : []),
-    ...(owner || (mod && member.role === "member") ? [{ label: "Remove from club", danger: true, onSelect: () => act(() => removeMember(club.id, member.user_id)) }] : []),
+    ...(owner || (mod && member.role === "member") ? [{ label: "Remove from club", danger: true, onSelect: () => setConfirming(true) }] : []),
   ];
   return <li className="bv-club-member">
     <span className="bv-club-avatar" aria-hidden="true">{initialOf(member.name)}</span>
     <div className="bv-club-member-text"><p><strong>{member.name}</strong>{member.role !== "member" && <span className="bv-club-role"> {member.role}</span>}</p>
       {share != null && <span className="bv-club-bar is-thin" aria-hidden="true"><span className="bv-club-bar-fill" style={{ width: `${Math.round(share * 100)}%` }} /></span>}</div>
     <ClubMenu label={`More actions for ${member.name}`} items={items} />
+    {confirming && <ConfirmSheet title={`Remove ${member.name} from the club?`} text="They’ll need a new invite to rejoin." confirmLabel="Remove" pending={busy} onClose={() => setConfirming(false)}
+      onConfirm={async () => { await act(() => removeMember(club.id, member.user_id)); setConfirming(false); }} />}
   </li>;
 }
 
@@ -42,7 +44,7 @@ export default function ClubPage({ notFound }) {
   const data = club.data;
   const current = data?.books.find(book => book.status === "current"), upcoming = data?.books.find(book => book.status === "upcoming");
   useDocumentTitle(data?.name);
-  const [sheet, setSheet] = useState(null), [all, setAll] = useState(false), [leaveError, setLeaveError] = useState(""), [sharingError, setSharingError] = useState(""), [sharing, setSharing_] = useState(null);
+  const [sheet, setSheet] = useState(null), [all, setAll] = useState(false), [leaveError, setLeaveError] = useState(""), [leaving, setLeaving] = useState(false), [sharingError, setSharingError] = useState(""), [sharing, setSharing_] = useState(null);
   if (!id || club.error?.status === 404) return notFound;
   if (club.error) return <section className="bv-container"><EmptyState error title="This club couldn’t load." action={<Button onClick={club.retry}>Try again</Button>}>Nothing has changed.</EmptyState></section>;
   if (!data) return <section className="bv-container bv-club-page" aria-busy="true"><p className="bv-muted" role="status">Opening club…</p></section>;
@@ -61,8 +63,8 @@ export default function ClubPage({ notFound }) {
     setSharing_(null);
   }
   async function leave() {
-    setLeaveError("");
-    try { await leaveClub(id); navigate("/my-books/clubs", { replace: true }); } catch { setLeaveError("You couldn’t leave the club. Please try again."); }
+    setLeaveError(""); setLeaving(true);
+    try { await leaveClub(id); navigate("/my-books/clubs", { replace: true }); } catch { setLeaveError("You couldn’t leave the club. Please try again."); setLeaving(false); }
   }
   return <section className="bv-container bv-club-page" style={{ "--club": clubColor(data) }}>
     <TextLink to="/my-books/clubs">Clubs</TextLink>
@@ -89,10 +91,11 @@ export default function ClubPage({ notFound }) {
         {upcoming && <section aria-labelledby="bv-club-up-h"><h2 id="bv-club-up-h" className="bv-club-label">Up next</h2>
           <div className="bv-club-up"><div className="bv-club-cover is-small"><BookCover book={{ title: upcoming.title, cover_image_url: upcoming.cover_image_url, authors: [] }} size="small" decorative /></div>
             <div><p className="bv-club-title">{upcoming.title}</p>{upcoming.starts_on && <p className="bv-club-author">from {shortDate(upcoming.starts_on)}</p>}</div></div></section>}
-        {!owner && <div><Button variant="quiet" className="bv-club-leave" onClick={leave}>Leave club</Button>{leaveError && <p className="bv-field-error" role="alert">{leaveError}</p>}</div>}
+        {!owner && <div><Button variant="quiet" className="bv-club-leave" onClick={() => { setLeaveError(""); setSheet("leave"); }}>Leave club</Button></div>}
       </aside>
     </div>
     {sheet === "invite" && <InviteSheet open onClose={close} clubId={id} />}
+    {sheet === "leave" && <ConfirmSheet title={`Leave ${data.name}?`} text="You’ll need a new invite to rejoin." confirmLabel="Leave club" pending={leaving} error={leaveError} onClose={close} onConfirm={leave} />}
     {sheet === "edit" && <ClubFormSheet open club={data} onClose={close} onSaved={() => { close(); refresh(); }} />}
     {sheet === "book" && <AddBookSheet open onClose={close} clubId={id} hasCurrent={Boolean(current)} onSaved={() => { close(); refresh(); }} />}
     {sheet === "schedule" && <ScheduleSheet open onClose={close} clubId={id} books={data.books} onChanged={refresh} />}

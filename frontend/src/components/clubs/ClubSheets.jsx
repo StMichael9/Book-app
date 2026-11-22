@@ -7,6 +7,15 @@ import { CLUB_COLORS, clubColor, codeOf, positionLabel, shortDate } from "./club
 
 const SAVE_FAILED = "That couldn’t be saved. Please try again.";
 
+// Leave club and Remove from club ask first: these are the two things that need a new invite to undo.
+export function ConfirmSheet({ title, text, confirmLabel, onConfirm, onClose, pending = false, error = "" }) {
+  return <NativeDialog open onClose={() => { if (!pending) onClose(); }} title={title} className="bv-club-sheet">
+    <p className="bv-club-confirm">{text}</p>
+    {error && <p className="bv-field-error" role="alert">{error}</p>}
+    <div className="bv-form-actions"><Button onClick={onConfirm} disabled={pending}>{confirmLabel}</Button><Button variant="quiet" onClick={onClose} disabled={pending}>Cancel</Button></div>
+  </NativeDialog>;
+}
+
 // Start a club, or edit one: the same three fields.
 export function ClubFormSheet({ open, onClose, club, onSaved }) {
   const editing = Boolean(club);

@@ -227,6 +227,18 @@ test.describe("club page", () => {
     await expect(page.getByRole("menuitem")).toHaveText(["Make admin", "Remove from club"]);
     await page.getByRole("menuitem", { name: "Make admin" }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && /\/clubs\/5\/members\//.test(request.path))).toHaveLength(1);
+    // Remove from club asks first: Cancel does nothing, Remove acts.
+    await row.getByRole("button", { name: "More actions for Ana" }).click();
+    await page.getByRole("menuitem", { name: "Remove from club" }).click();
+    const ask = page.getByRole("dialog", { name: "Remove Ana from the club?" });
+    await expect(ask.getByText("They’ll need a new invite to rejoin.", { exact: true })).toBeVisible();
+    await ask.getByRole("button", { name: "Cancel" }).click();
+    await expect(ask).toHaveCount(0);
+    expect(app.requests.filter(request => request.method === "DELETE" && /\/clubs\/5\/members\//.test(request.path))).toHaveLength(0);
+    await row.getByRole("button", { name: "More actions for Ana" }).click();
+    await page.getByRole("menuitem", { name: "Remove from club" }).click();
+    await page.getByRole("dialog", { name: "Remove Ana from the club?" }).getByRole("button", { name: "Remove", exact: true }).click();
+    await expect.poll(() => app.requests.filter(request => request.method === "DELETE" && /\/clubs\/5\/members\//.test(request.path))).toHaveLength(1);
   });
 
   test("the cap shows to the owner only: n of 25 from 20 members, and the full message at 25 with no link while there is nowhere to send it", async ({ page, app }) => {
@@ -255,6 +267,14 @@ test.describe("club page", () => {
     await expect(page.getByRole("menuitem")).toHaveText(["Report"]);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Leave club" }).click();
+    const ask = page.getByRole("dialog", { name: "Leave Tuesday Readers?" });
+    await expect(ask.getByText("You’ll need a new invite to rejoin.", { exact: true })).toBeVisible();
+    await ask.getByRole("button", { name: "Cancel" }).click();
+    await expect(ask).toHaveCount(0);
+    expect(sent(app, "POST", "/clubs/5/leave")).toHaveLength(0);
+    await expect(page).toHaveURL(/\/clubs\/5$/);
+    await page.getByRole("button", { name: "Leave club" }).click();
+    await page.getByRole("dialog", { name: "Leave Tuesday Readers?" }).getByRole("button", { name: "Leave club" }).click();
     await expect(page).toHaveURL(/\/my-books\/clubs$/);
     expect(sent(app, "POST", "/clubs/5/leave")).toHaveLength(1);
   });

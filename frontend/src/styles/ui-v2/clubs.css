@@ -107,6 +107,7 @@
 .bv-root .bv-club-swatch input:checked + span { box-shadow: 0 0 0 2px var(--bv-sheet), 0 0 0 4px var(--bv-ink); }
 .bv-root .bv-club-swatch input:focus-visible + span { outline: 2px solid var(--bv-green); outline-offset: 5px; }
 .bv-root .bv-club-swatch svg { width: 16px; height: 16px; stroke-width: 2.5; }
+.bv-root .bv-club-confirm { margin: 0 0 18px; color: var(--bv-muted); }
 .bv-root .bv-club-invite { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .bv-root .bv-club-invite .bv-button svg { width: 18px; height: 18px; stroke-width: 2; }
 .bv-root .bv-club-link { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); font: inherit; }
