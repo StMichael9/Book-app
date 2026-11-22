@@ -130,7 +130,13 @@ IS_COMPLETE_SQL = (f"cover_image_url IS NOT NULL AND btrim(cover_image_url, {_BL
 class Book(Base):
     __tablename__ = 'books'
     __table_args__ = (CheckConstraint('quality_score IS NULL OR quality_score BETWEEN 0 AND 100', name='ck_books_quality_score'),
-                      Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'))
+                      Index('ix_books_popularity', text('popularity DESC NULLS LAST'), 'id'),
+                      # The indexes below are created by migrations (a1c4e8b27d56, b8e5f1c7d204, b2d5f9a31c68); declared here so
+                      # `alembic check` sees the models and the database agree.
+                      Index('ix_books_added_at', 'added_at', postgresql_where=text('added_at IS NOT NULL')),
+                      Index('ix_books_listed', 'id', postgresql_include=['page_count', 'source_id'], postgresql_where=text('is_listed')),
+                      Index('ix_books_title_key', 'title_key', postgresql_ops={'title_key': 'text_pattern_ops'}),
+                      Index('ix_books_title_key_trgm', 'title_key', postgresql_using='gin', postgresql_ops={'title_key': 'gin_trgm_ops'}))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -147,11 +153,12 @@ class Book(Base):
     preferred_edition_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("editions.id", ondelete="SET NULL", use_alter=True), nullable=True
     )
-    # Derived by the database; discovery shows only complete books (authors are guaranteed by the importer).
-    is_complete: Mapped[bool] = mapped_column(Boolean, Computed(IS_COMPLETE_SQL, persisted=True), nullable=False)
+    # Derived by the database (PostgreSQL reports a generated column as nullable); discovery shows only complete books (authors are
+    # guaranteed by the importer).
+    is_complete: Mapped[bool] = mapped_column(Boolean, Computed(IS_COMPLETE_SQL, persisted=True), nullable=True)
     # Discovery and search show listed books (cover, year, pages); the description is optional and may be fetched later.
-    is_listed: Mapped[bool] = mapped_column(Boolean, Computed(_LISTED_SQL, persisted=True), nullable=False)
-    has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=False)
+    is_listed: Mapped[bool] = mapped_column(Boolean, Computed(_LISTED_SQL, persisted=True), nullable=True)
+    has_description: Mapped[bool] = mapped_column(Boolean, Computed(_HAS_DESCRIPTION_SQL, persisted=True), nullable=True)
     # Open Library reading-log and ratings activity (see data/popularity.py); NULL until the importer has a score.
     popularity: Mapped[float | None] = mapped_column(Float, nullable=True)
     # 0-100 from data.cleaner.quality_score; below 60 the book is unlisted (never deleted). NULL = not scored yet.
@@ -192,6 +199,8 @@ class BookTitleAlias(Base):
         CheckConstraint("source IN ('openlibrary_edition')", name='ck_book_title_aliases_source'),
         Index('uq_book_title_alias', 'book_id', func.lower(text('title')), unique=True),
         Index('ix_book_title_aliases_book', 'book_id'),
+        Index('ix_book_title_aliases_title_key', 'title_key', postgresql_ops={'title_key': 'text_pattern_ops'}),
+        Index('ix_book_title_aliases_title_key_trgm', 'title_key', postgresql_using='gin', postgresql_ops={'title_key': 'gin_trgm_ops'}),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -784,7 +793,8 @@ class CatalogueImportIssue(Base):
 class CatalogueLookup(Base):
     """A book to find in Open Library once, then store for everyone. Holds no reader data."""
     __tablename__ = "catalogue_lookups"
-    __table_args__ = (CheckConstraint("status IN ('queued','done','rejected','failed')", name="ck_lookup_status"),)
+    __table_args__ = (CheckConstraint("status IN ('queued','done','rejected','failed')", name="ck_lookup_status"),
+                      Index("ix_catalogue_lookups_due", "next_try_at", postgresql_where=text("status IN ('queued','failed')")))
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String(60), nullable=False, unique=True)
@@ -801,6 +811,7 @@ class CatalogueLookup(Base):
 
 class CatalogueLookupWaiter(Base):
     __tablename__ = "catalogue_lookup_waiters"
+    __table_args__ = (Index("ix_lookup_waiters_entry", "user_book_id"),)
 
     lookup_id: Mapped[int] = mapped_column(Integer, ForeignKey("catalogue_lookups.id", ondelete="CASCADE"), primary_key=True)
     user_book_id: Mapped[int] = mapped_column(Integer, ForeignKey("user_books.id", ondelete="CASCADE"), primary_key=True)
