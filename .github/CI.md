@@ -5,7 +5,7 @@ Every pull request into `v3` or `main` (and every push to `v3`) runs these check
 | Job (workflow) | What it checks |
 |---|---|
 | `backend` (CI) | The full backend suite (`pytest -q`) against a throwaway Postgres 16. Two databases are migrated to Alembic head first: the test one and a separate "application" one, because some test modules import the app at collection time. |
-| `migration-check` (CI) | Exactly one Alembic head; a fresh database upgrades to head; `alembic check` (models match the migrations); the newest migration downgrades one step and upgrades again. |
+| `migration-check` (CI) | Exactly one Alembic head; a fresh database upgrades to head; `alembic check` (models match the migrations; report-only for now because v3 already has drift); the newest migration downgrades one step and upgrades again. |
 | `frontend-lint` (CI) | `npm run lint`. |
 | `frontend (1)` to `frontend (4)` (CI) | The mocked-API Playwright suite in Chromium, split into 4 shards. The report and traces upload as an artifact when a shard fails. The live-backend specs and the timing-sensitive speed baseline are not run in CI. |
 | `analyze` (CodeQL) | Security analysis of the JavaScript and Python code, on pull requests and weekly. |
