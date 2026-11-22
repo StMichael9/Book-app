@@ -9,7 +9,7 @@ const snapshot = JSON.parse(readFileSync(fileURLToPath(new URL("src/data/book-sn
 const plainTitle = title => Boolean(title) && /^[ -~‘’“”–—]+$/.test(title);
 const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
 const impression = items => items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
-const heroSnapshot = impression(snapshot.items).slice(0, 3);
+const firstSnapshot = impression(snapshot.items.slice(0, 20))[0]; // the first card Discover paints from the snapshot
 const PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
 
 const live = (label, cover) => Array.from({ length: 30 }, (_, index) => ({
@@ -56,7 +56,7 @@ const test = base.extend({
 });
 
 const holdRefresh = app => { let release; app.holdRefresh = new Promise(done => { release = () => { app.holdRefresh = null; done(); }; }); return release; };
-const heroLink = (page, title) => page.getByRole("link", { name: `Explore ${title}`, exact: true });
+const cardTitle = (page, title) => page.getByRole("heading", { level: 3, name: title, exact: true });
 
 test("snapshot covers are self-hosted webp files of card size", () => {
   expect(snapshot.items.length).toBeGreaterThan(0);
@@ -71,14 +71,14 @@ test("snapshot covers are self-hosted webp files of card size", () => {
   }
 });
 
-test("landing books are visible while /auth/refresh is still pending", async ({ page, app }) => {
+test("Discover's books are visible while /auth/refresh is still pending", async ({ page, app }) => {
   const release = holdRefresh(app);
-  await page.goto("/");
-  await expect(heroLink(page, heroSnapshot[0].title)).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
   await expect(page.getByText("Opening Bookvane…")).toHaveCount(0);
   await expect(page.getByRole("status", { name: "Loading books" })).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
 });
 
 test("a reader who was signed in last time still waits for the account check instead of flashing the guest page", async ({ page, app }) => {
@@ -89,7 +89,7 @@ test("a reader who was signed in last time still waits for the account check ins
   await expect(page.getByText("Opening Bookvane…")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await expect(page.getByText("Opening Bookvane…")).toHaveCount(0);
 });
 
 test("Discover's plain first page also paints before the account check returns", async ({ page, app }) => {
@@ -99,20 +99,15 @@ test("Discover's plain first page also paints before the account check returns",
   release();
 });
 
-test("hero snapshot covers use the self-hosted files and only the first hero cover is high priority", async ({ page, app }) => {
+test("Discover's snapshot covers use the self-hosted files and none is high priority", async ({ page, app }) => {
   const release = holdRefresh(app);
-  await page.goto("/");
-  for (const [index, book] of heroSnapshot.entries()) {
-    const image = heroLink(page, book.title).locator("img");
-    await expect(image).toHaveAttribute("src", `/covers/snapshot/${book.id}.webp`);
-    // The first cover is the largest paint, so it alone is high priority; the other two are still eager.
-    if (index === 0) await expect(image).toHaveAttribute("fetchpriority", "high"); else await expect(image).not.toHaveAttribute("fetchpriority", "high");
-    await expect(image).toHaveAttribute("loading", "eager");
-  }
+  await page.goto("/browse");
+  const first = page.locator(".bv-book-card").filter({ has: cardTitle(page, firstSnapshot.title) }).locator("img");
+  await expect(first).toHaveAttribute("src", `/covers/snapshot/${firstSnapshot.id}.webp`);
   const rowImages = page.locator(".bv-book-card img");
   expect(await rowImages.count()).toBeGreaterThan(0);
   expect(await rowImages.evaluateAll(nodes => nodes.filter(node => node.getAttribute("fetchpriority") === "high").length)).toBe(0);
-  const response = await page.request.get(`/covers/snapshot/${heroSnapshot[0].id}.webp`);
+  const response = await page.request.get(`/covers/snapshot/${firstSnapshot.id}.webp`);
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toBe("image/webp");
   release();

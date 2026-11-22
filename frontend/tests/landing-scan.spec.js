@@ -71,3 +71,13 @@ test("the pictures carry width, height and alt text, and nothing scrolls sideway
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${scheme} ${width}`).toBe(true);
   }
 });
+
+test("at 390px the page never scrolls sideways, even after scrolling to the bottom", async ({ page, app: _app }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await visit(page);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => window.scrollX)).toBe(0);
+});
