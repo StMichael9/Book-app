@@ -14,6 +14,7 @@ import { LETTERS, entryLetter, letterId } from "./library/libraryIndex.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
 import ScanEntry from "./scan/ScanEntry.jsx";
+import { MyBooksTabs } from "../clubs/ClubsListPage.jsx";
 import { FILTER_GROUPS, MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
 import "../../styles/ui-v2/library.css";
 
@@ -188,6 +189,7 @@ export default function LibraryPage() {
       <div><h1>My Books</h1>{page && <p className="bv-library-count" role="status">{filtered && unfiltered != null && unfiltered >= total ? `${total} of ${books(unfiltered)}` : books(total)}</p>}</div>
       {library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link">Import books</ActionLink>}
     </div>
+    <MyBooksTabs current="books" />
     <div className="bv-library-bar">
       <form className="bv-library-search bv-field" role="search" aria-label="Search your library" onSubmit={event => { event.preventDefault(); apply({ ...state, q: draft.trim() }); }}>
         <Search aria-hidden="true" />
