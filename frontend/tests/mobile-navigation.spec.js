@@ -105,7 +105,7 @@ test("keyboard shelf actions remain visible above the fixed mobile navigation", 
 test("landing first touch opens a real book at the top without a guest app toolbar", async ({ page, app }) => {
   app.realCover = true; app.detailDelay = 1000;
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Mobile navigation", exact: true })).toHaveCount(0);
   const cover = page.getByRole("link", { name: `Explore ${books[0].title}`, exact: true });
   await cover.tap();

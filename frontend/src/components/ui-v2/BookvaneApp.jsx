@@ -6,7 +6,8 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
 import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
-import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
+import { BookPage, BrowsePage } from "./DiscoveryPages.jsx";
+import LandingPage from "./landing/LandingPage.jsx";
 import AuthorPage from "./AuthorPage.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
@@ -142,7 +143,7 @@ function LandingRoute() {
   // During an outage the banner above says everything; an endless "Opening Bookvane…" under it would only look broken.
   if (serviceDown || auth.sessionError) return null;
   if ((auth.isLoading && wasSignedIn) || (auth.isAuthenticated && library.loading)) return <section className="bv-container bv-landing-loading" aria-busy="true"><p role="status">Opening Bookvane…</p><BookSkeletons count={3} /></section>;
-  return library.readingActions ? <Navigate to="/home" replace /> : <WelcomePage />;
+  return library.readingActions ? <Navigate to="/home" replace /> : <LandingPage />;
 }
 
 function Footer() {

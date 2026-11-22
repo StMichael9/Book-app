@@ -88,7 +88,7 @@ const signedIn = app => { app.authenticated = true; };
 
 test("no empty page on first load", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(await blanks(page)).toEqual([]);
 });

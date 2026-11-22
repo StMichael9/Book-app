@@ -87,7 +87,7 @@ test("a reader who was signed in last time still waits for the account check ins
   const release = holdRefresh(app);
   await page.goto("/");
   await expect(page.getByText("Opening Bookvane…")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toHaveCount(0);
   release();
   await expect(heroLink(page, "Live One 1")).toBeVisible();
 });

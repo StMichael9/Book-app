@@ -357,7 +357,7 @@ for (const theme of ["light", "dark"]) test(`minimalist landing is clear, respon
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
     await expect(page.locator(".bv-book-card")).toHaveCount(5);
     const explore = page.locator(".bv-landing-hero").getByRole("link", { name: "Start with one book", exact: true });
     await expect(explore).toHaveAttribute("href", "/browse");
@@ -402,7 +402,7 @@ test("minimalist root does not flash marketing during auth/capability checks and
 test("minimalist landing retains existing legacy fallback and scoped catalogue recovery", async ({ page, app }) => {
   app.authenticated = true; app.catalogueFails = true;
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
   // The committed book snapshot keeps the page populated when the catalogue request fails, so there is no error panel.
   await expect(page.getByRole("heading", { name: "The books are taking a moment.", exact: true })).toHaveCount(0);
   await expect(page.locator(".bv-book-card")).toHaveCount(5);
