@@ -77,6 +77,7 @@ const test = base.extend({
       if (/^\/books\/\d+$/.test(path)) return reply(200, { ...book(Number(path.split("/")[2]), "Live Book 1"), description: "A synthetic description.", tags: [] });
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });
