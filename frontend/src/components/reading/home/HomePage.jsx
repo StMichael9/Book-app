@@ -1,3 +1,5 @@
+import { OnLoanHome } from "../../lending/OnLoan.jsx";
+import { useOpenLoans } from "../../lending/useOpenLoans.js";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
@@ -63,6 +65,7 @@ function YearGlance({ stats }) {
 
 export default function ReadingHomePage() {
   const auth = useAuth(), library = useUserBooks(), { profile } = useProfile() || {};
+  const loans = useOpenLoans(library.readingActions && !library.readOnly, `${auth.sessionGeneration}:${library.revision}`);
   const key = `${auth.sessionGeneration}:${library.revision}`;
   const keys = homeKeys(key);
   const request = useRequest(getReadingHome, keys.home);
@@ -113,6 +116,7 @@ export default function ReadingHomePage() {
           {readingCount > reads.length && <p className="bv-more-reading"><TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink></p>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
+    {library.readingActions && !library.readOnly && <OnLoanHome loans={loans.loans} onChanged={loans.reload} />}
     {ready && <>
       <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
