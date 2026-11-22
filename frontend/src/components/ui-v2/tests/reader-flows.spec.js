@@ -29,6 +29,7 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       state.requests.push({ path, method, body, query: url.searchParams });
       const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/me/loans" && method === "GET") return reply(200, { items: [] }); // My Books and Home ask for open loans; none here
       if (path === "/me/reading-capabilities") { if (state.holdCapabilities) await state.holdCapabilities; return reply(200, { enabled: Boolean(state.v3), contract_version: 1, writable: true, features: { reading_actions: true } }); }
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
