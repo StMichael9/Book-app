@@ -45,6 +45,7 @@ const test = base.extend({
       if (path === "/auth/refresh") return reply(state.guest ? 401 : 200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: false } });
       if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null, facets: {}, index: null });
+      if (path === "/me/loans" && method === "GET") return reply(200, { items: [] }); // My Books asks for open loans (the On loan tab); none here
       if (path === "/me/library/lookup") return reply(200, { items: [] });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
