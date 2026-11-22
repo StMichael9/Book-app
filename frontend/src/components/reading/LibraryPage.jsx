@@ -1,3 +1,5 @@
+import { OnLoanView } from "../lending/OnLoan.jsx";
+import { useOpenLoans } from "../lending/useOpenLoans.js";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BookOpen, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, X } from "lucide-react";
@@ -60,6 +62,7 @@ export default function LibraryPage() {
   const location = useLocation();
   const navigation = useLibraryNavigation();
   const desktop = useDesktop();
+  const loans = useOpenLoans(library.readingActions && !library.readOnly, `${auth.sessionGeneration}:${library.revision}`);
   const paramsText = params.toString();
   // A new object only when the URL changes, so effects that depend on the state don't fire on every render.
   const state = useMemo(() => readLibraryState(new URLSearchParams(paramsText)), [paramsText]);
@@ -150,7 +153,7 @@ export default function LibraryPage() {
   const shelves = [["all", "All"], ...(library.readingActions ? [["reading", "Reading"]] : []), ["want", "Want to read"], ...(library.readingActions ? [["finished", "Finished"]] : [])];
   const moreShelves = library.readingActions ? [["paused", "Paused"], ["dnf", "Stopped"]] : [];
   const activeMore = moreShelves.find(([shelf]) => shelf === state.shelf);
-  const shelfButton = ([shelf, text]) => <button key={shelf} type="button" className="bv-shelf-tab" aria-pressed={state.shelf === shelf} onClick={() => apply({ ...state, shelf })}>{text}<small>{counts?.[shelf] ?? "…"}</small></button>;
+  const shelfButton = ([shelf, text]) => <button key={shelf} type="button" className="bv-shelf-tab" aria-pressed={state.shelf === shelf && !state.onLoan} onClick={() => apply({ ...state, shelf, onLoan: false })}>{text}<small>{counts?.[shelf] ?? "…"}</small></button>;
 
   const total = page?.total ?? 0;
   const items = page ? [...page.items, ...current.items] : [];
@@ -200,7 +203,7 @@ export default function LibraryPage() {
     </div>
     <div className="bv-shelf-row">
       <div className="bv-shelf-tabs">
-        <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}</div>
+        <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}{(loans.loans.length > 0 || state.onLoan) && <button type="button" className="bv-shelf-tab" aria-pressed={state.onLoan} onClick={() => apply({ ...state, onLoan: !state.onLoan })}>On loan<small>{loans.ready ? loans.loans.length : "…"}</small></button>}</div>
         {desktop && moreShelves.length > 0 && <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary>
           <div className="bv-more-menu">{moreShelves.filter(([shelf]) => shelf !== state.shelf).map(shelfButton)}</div></details>}
       </div>
@@ -216,7 +219,8 @@ export default function LibraryPage() {
       {desktop && <aside className="bv-facet-panel" aria-label="Filters">{facets}</aside>}
       <div className="bv-library-results" aria-busy={refreshing}>
         <h2 className="bv-sr-only" tabIndex={-1} ref={resultsHeading}>Your books</h2>
-        {!page && request.loading ? <BookSkeletons /> : !page ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved books haven’t changed.</EmptyState>
+        {state.onLoan ? <OnLoanView loans={loans.loans} ready={loans.ready} onChanged={loans.reload} />
+          : !page && request.loading ? <BookSkeletons /> : !page ? <EmptyState error icon={BookOpen} title="Your library couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your saved books haven’t changed.</EmptyState>
           : items.length ? <>
             {view === "list" ? <div className="bv-list-wrap">
               {page.index && <nav className="bv-az" aria-label="Jump to a letter">{LETTERS.map(letter => {
