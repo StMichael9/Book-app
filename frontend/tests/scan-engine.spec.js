@@ -59,7 +59,6 @@ const withCamera = (page, { engine = "native", caps = {} } = {}) => page.addInit
   else window.BarcodeDetector = class { static async getSupportedFormats() { return ["ean_13"]; } async detect() { return window.__codes.splice(0).map(rawValue => ({ rawValue })); } };
 }, { engine, caps, picture: FIXTURE });
 const scanOnce = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
-const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values, ...values), codes);
 const open = async (page, { clock = false } = {}) => {
   if (clock) await page.clock.install();
   await page.goto("/my-books");
