@@ -154,7 +154,16 @@ test("a lent and a borrowed loan show as two cards, the lent one first; Edit cha
   expect(state.requests.find(request => request.method === "PATCH").body).toEqual({ person_name: "Samuel" });
   await cards.last().getByRole("button", { name: /More actions for Borrowed from Ana/ }).click();
   await page.getByRole("menuitem", { name: "Delete" }).click();
+  const confirm = page.getByRole("dialog", { name: "Delete this loan?" });
+  await expect(confirm.getByText("This can’t be undone.")).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(cards).toHaveCount(2);
+  expect(state.requests.some(request => request.method === "DELETE" && request.path === "/me/loans/loan-b")).toBe(false);
+  await cards.last().getByRole("button", { name: /More actions for Borrowed from Ana/ }).click();
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await page.getByRole("dialog", { name: "Delete this loan?" }).getByRole("button", { name: "Delete", exact: true }).click();
   await expect(cards).toHaveCount(1);
+  expect(state.requests.some(request => request.method === "DELETE" && request.path === "/me/loans/loan-b")).toBe(true);
 });
 
 test("the sheet closes back to the button that opened it, and Escape cancels", async ({ page }) => {
@@ -295,4 +304,12 @@ test("the keyboard alone can lend: Enter opens the sheet, the name field has foc
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(state.requests.filter(request => request.method === "POST" && request.path === "/me/loans")).toHaveLength(1);
+});
+
+test("the borrower's page says A reader when the lender has no first name", async ({ page }) => {
+  await mock(page, { signedIn: false, publicLoan: publicLoan({ lender_first_name: null }) });
+  await page.goto("/l/the-token");
+  await expect(page.getByText("A reader lent you this on 3 Dec.")).toBeVisible();
+  await page.getByRole("button", { name: "I’ve given it back" }).click();
+  await expect(page.getByText("Thanks! A reader will see that it’s back.")).toBeVisible();
 });

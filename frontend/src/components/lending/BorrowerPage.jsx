@@ -27,7 +27,7 @@ export default function BorrowerPage({ notFound }) {
   if (!current) return <section className="bv-container bv-borrower" aria-busy="true"><p role="status" className="bv-sr-only">Opening</p></section>;
   const loan = state.loan;
   if (!loan) return <section className="bv-container bv-borrower"><p role="alert">Please try again.</p></section>;
-  const lender = loan.lender_first_name || "Someone", closed = loan.state === "closed", said = thanked || loan.said_back;
+  const lender = loan.lender_first_name || "A reader", closed = loan.state === "closed", said = thanked || loan.said_back;
   async function back() {
     setPending(true); setFailed(false);
     try { await loanGivenBack(token); setThanked(true); } catch { setFailed(true); } finally { setPending(false); }

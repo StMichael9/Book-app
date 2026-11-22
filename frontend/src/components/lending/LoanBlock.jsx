@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Ellipsis } from "lucide-react";
 import { deleteLoan, listLoans, revokeLoanShare, updateLoan } from "../../api/loans.js";
 import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
-import { Button } from "../ui-v2/primitives.jsx";
+import { Button, NativeDialog } from "../ui-v2/primitives.jsx";
 import { errorText } from "../ui-v2/data.js";
 import { LoanSheet } from "./LoanSheets.jsx";
 import { useLoanShare } from "./loanShare.jsx";
@@ -69,7 +69,7 @@ function LoanCard({ loan, busy, onReturn, onShare, onStop, onEdit, onDelete }) {
 export default function LoanBlock({ entryId, bookId, book, isOwned }) {
   const library = useUserBooks();
   const loans = useLoans(entryId);
-  const [sheet, setSheet] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [sheet, setSheet] = useState(null), [confirming, setConfirming] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const { reload } = loans;
   async function run(action) {
     setBusy(true); setError("");
@@ -89,10 +89,15 @@ export default function LoanBlock({ entryId, bookId, book, isOwned }) {
     {open.map(loan => <LoanCard key={loan.id} loan={loan} busy={busy}
       onReturn={() => run(async () => { await updateLoan(loan.id, { ended: true }); reload(); })}
       onShare={share} onStop={() => run(async () => { await revokeLoanShare(loan.id); reload(); })}
-      onEdit={() => setSheet({ mode: loan.direction, loan })} onDelete={() => run(async () => { await deleteLoan(loan.id); reload(); })} />)}
+      onEdit={() => setSheet({ mode: loan.direction, loan })} onDelete={() => setConfirming(loan)} />)}
     {error && <p role="alert" className="bv-field-error">{error}</p>}
     {loans.past.length > 0 && <div className="bv-loan-past"><h3>Past loans</h3><ul>{loans.past.map(loan => <li key={loan.id} className="bv-muted">{pastLine(loan)}</li>)}</ul></div>}
     {sheet && <LoanSheet key={sheet.loan?.id || sheet.mode} mode={sheet.mode} loan={sheet.loan} book={book} entryId={entryId} bookId={bookId} onClose={() => setSheet(null)} onSaved={saved} onShare={share} />}
+    {confirming && <NativeDialog open onClose={() => setConfirming(null)} title="Delete this loan?" className="bv-lend-sheet">
+      <p>This can’t be undone.</p>
+      <div className="bv-dialog-actions bv-loan-foot"><Button variant="secondary" onClick={() => setConfirming(null)}>Cancel</Button>
+        <Button variant="danger" onClick={() => { const loan = confirming; setConfirming(null); run(async () => { await deleteLoan(loan.id); reload(); }); }}>Delete</Button></div>
+    </NativeDialog>}
     {sharing.sheet}
   </section>;
 }
