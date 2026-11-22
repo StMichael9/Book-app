@@ -22,6 +22,8 @@ async function mock(page, { signedIn = true, shelf = { 5: { entry_id: 50, is_own
     if (path === "/me/home") return reply({ current_reads: [], reading_count: 0, paused_count: 0 });
     if (path === "/me/library/lookup") return reply({ items: JSON.parse(request.postData()).book_ids.map(id => ({ book_id: id, entry_id: null, version: null, is_owned: false, is_wanted: false, reading_state: null, ...(state.shelf[id] || {}), ...(state.shelf[id] ? { version: 1 } : {}) })) });
     if (path === "/me/books") return reply([]);
+    if (path === "/me/library/50/reading") return reply({ entry: { id: 50, book_id: 5, book: book(5), is_owned: true, is_wanted: false, version: 1, reading_state: null, private_title: null, private_author: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }, current_attempt: null, editions: [], imported_sources_count: 0 });
+    if (path === "/me/library/50/attempts") return reply({ items: [], next_cursor: null });
     if (path === "/me/library") return reply({ items: [{ id: 50, book_id: 5, book: book(5), is_owned: true, is_wanted: false, version: 1, reading_state: null, private_title: null, private_author: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }], counts: { all: 1, want: 0, owned: 1, reading: 0, finished: 0, paused: 0, dnf: 0 }, total: 1, next_cursor: null });
     if (/^\/books\/\d+$/.test(path)) return reply(book(Number(path.split("/")[2])));
     if (/^\/(books|me\/library)\/\d+\/description$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
@@ -257,3 +259,40 @@ for (const [name, width, height] of [["390", 390, 844], ["1440", 1440, 900]]) {
     });
   }
 }
+
+test("the reading page carries the loan block above About this book", async ({ page }) => {
+  await mock(page, { loans: [lent({ has_link: true })] });
+  await page.goto("/my-books/50");
+  await expect(block(page).getByText("Lent to Sam", { exact: true })).toBeVisible();
+  const loanTop = (await block(page).boundingBox()).y, aboutTop = (await page.getByText("About this book", { exact: true }).first().boundingBox()).y;
+  expect(loanTop).toBeLessThan(aboutTop);
+});
+
+test("320px at 200% text: nothing runs off the page, with the block and an open sheet", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await mock(page, { loans: [lent({ has_link: true, person_name: "Bartholomew Longname" }), borrowed()] });
+  await page.goto("/book/5");
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await expect(block(page).locator(".bv-loan-card")).toHaveCount(2);
+  const wide = () => page.evaluate(() => [...document.querySelectorAll("body *")].filter(node => !node.closest("dialog:not([open])") && node.getBoundingClientRect().right > window.innerWidth + 1 && getComputedStyle(node).position !== "fixed").map(node => `${node.tagName}.${node.className}`).slice(0, 5));
+  expect(await wide()).toEqual([]);
+  await block(page).getByRole("button", { name: /More actions for Lent to/ }).click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
+  await page.waitForTimeout(400);
+  expect(await wide()).toEqual([]);
+  await expect(page.getByRole("dialog", { name: "Edit" }).getByRole("button", { name: "Save" })).toBeVisible();
+});
+
+test("the keyboard alone can lend: Enter opens the sheet, the name field has focus, Enter saves", async ({ page }) => {
+  const state = await mock(page);
+  await page.goto("/book/5");
+  await block(page).getByRole("button", { name: "Lend this book" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByLabel("Who’s borrowing it?")).toBeFocused();
+  await page.keyboard.type("Kim");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Want Kim to have a link to it?")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(state.requests.filter(request => request.method === "POST" && request.path === "/me/loans")).toHaveLength(1);
+});
