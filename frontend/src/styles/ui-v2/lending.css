@@ -1,0 +1,49 @@
+/* Lending: the loan block, its sheets, the Home row and the borrower's page. Existing tokens only. */
+.bv-root .bv-loan-block { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--bv-line); display: grid; gap: 12px; }
+.bv-root .bv-loan-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+.bv-root .bv-loan-card { background: var(--bv-sheet); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; }
+.bv-root .bv-loan-card.is-back { border-left: 4px solid var(--bv-green); }
+.bv-root .bv-loan-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.bv-root .bv-loan-name { margin: 0; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; overflow-wrap: anywhere; }
+.bv-root .bv-loan-line { margin: 0; overflow-wrap: anywhere; }
+.bv-root .bv-loan-chip { display: inline-block; padding: 2px 10px; border-radius: var(--bv-radius-pill); font-size: 0.8125rem; font-weight: 700; color: var(--bv-rust); background: color-mix(in srgb, var(--bv-rust) 14%, var(--bv-sheet)); }
+.bv-root .bv-loan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+.bv-root .bv-loan-stop { align-self: start; justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--bv-green); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.bv-root[data-theme="dark"] .bv-loan-stop { color: var(--bv-ink); }
+.bv-root .bv-more.bv-loan-more { position: relative; top: auto; right: auto; flex: none; margin: -6px -10px 0 0; }
+.bv-root .bv-more.bv-loan-more .bv-more-menu { left: auto; right: 0; }
+.bv-root .bv-loan-past h3 { margin: 4px 0 6px; font-size: 1rem; }
+.bv-root .bv-loan-past ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.bv-root .bv-loan-past li { overflow-wrap: anywhere; }
+
+/* Sheets: a bottom sheet on a phone, the centred dialog on a wider screen. */
+.bv-root .bv-dialog.bv-lend-sheet { width: min(480px, calc(100% - 40px)); background: var(--bv-paper); padding: 20px; }
+.bv-root .bv-loan-book { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+.bv-root .bv-loan-book p { margin: 0; overflow-wrap: anywhere; }
+.bv-root .bv-loan-book-cover { width: 48px; flex: none; }
+.bv-root .bv-loan-foot { justify-content: flex-end; margin-top: 16px; padding-top: 0; border-top: 0; }
+.bv-root .bv-loan-after { background: var(--bv-sheet); border-radius: 14px; padding: 16px 18px; margin-top: 16px; display: grid; gap: 4px; }
+.bv-root .bv-loan-after p { margin: 0; }
+.bv-root .bv-loan-message { width: 100%; resize: none; min-height: 7rem; padding: 12px 14px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); font: inherit; }
+@media (max-width: 700px) {
+  .bv-root .bv-dialog.bv-lend-sheet { width: 100%; max-width: none; margin: auto 0 0; border-radius: 20px 20px 0 0; max-height: 92dvh; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  .bv-root .bv-dialog.bv-lend-sheet .bv-dialog-actions .bv-button { flex: 0 0 auto; }
+}
+
+/* My Books and Home. */
+.bv-root .bv-loan-tag { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 0.875rem; color: var(--bv-muted); overflow-wrap: anywhere; }
+.bv-root .bv-onloan { margin-top: 32px; }
+.bv-root .bv-onloan ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 14px; }
+.bv-root .bv-onloan-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 14px; align-items: center; }
+.bv-root .bv-onloan-row p { margin: 0; overflow-wrap: anywhere; }
+.bv-root .bv-onloan-title { font-weight: 700; }
+.bv-root .bv-onloan-row .bv-loan-actions { margin-top: 2px; }
+
+/* The borrower's page: the wordmark, one book, one tap. */
+.bv-root .bv-borrower { max-width: 440px; margin: 0 auto; padding: 32px 0 48px; display: grid; justify-items: center; text-align: center; gap: 10px; }
+.bv-root .bv-borrower-cover { width: 160px; margin-bottom: 8px; }
+.bv-root .bv-borrower h1 { margin: 0; font-size: var(--bv-fs-section); overflow-wrap: anywhere; }
+.bv-root .bv-borrower p { margin: 0; overflow-wrap: anywhere; }
+.bv-root .bv-borrower .bv-button { width: 100%; margin-top: 12px; justify-content: center; }
+.bv-root .bv-borrower-foot { width: 100%; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--bv-line); display: grid; gap: 4px; }
+.bv-root .bv-loan-tag--inline { display: inline-flex; margin: 0; font-size: inherit; vertical-align: baseline; }
