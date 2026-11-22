@@ -160,6 +160,7 @@ const test = base.extend({
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
+      if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
     });

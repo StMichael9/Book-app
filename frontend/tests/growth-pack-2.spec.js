@@ -21,7 +21,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/events") { state.events.push(JSON.parse(request.postData())); return route.fulfill({ status: 204, body: "" }); }
       const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
-      if (path === "/auth/refresh") return reply(state.guest ? 401 : 200, {});
+      if (path === "/auth/refresh") return reply(state.refreshStatus || (state.guest ? 401 : 200), {});
       if (path === "/auth/register") { state.registers.push(body); state.guest = false; return reply(200, {}); }
       if (path === "/auth/login") { state.guest = false; return reply(200, {}); }
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport } });
@@ -102,6 +102,19 @@ test("a visit with no ref still counts once, with no ref; an unknown ref is igno
   expect(await session(page, "bv-ref")).toBeNull();
   expect(app.events.filter(event => event.name === "landing_visit")).toEqual([{ name: "landing_visit" }]);
 });
+
+for (const [label, setup] of [["a signed-in reader", app => { app.guest = false; }], ["a reader whose account check can't be made", app => { app.refreshStatus = 503; }]]) {
+  test(`${label} is never counted as a visit, though a known ref is still kept and cleaned from the address`, async ({ page, app }) => {
+    setup(app);
+    const settled = page.waitForResponse(response => response.url().endsWith("/auth/refresh"));
+    await page.goto("/browse?ref=tt&q=dune");
+    await settled;
+    await expect(page).toHaveURL(url => url.search === "?q=dune");
+    expect(await session(page, "bv-ref")).toBe("tt");
+    await page.waitForTimeout(500);
+    expect(app.events.map(event => event.name)).not.toContain("landing_visit");
+  });
+}
 
 test("registering sends the stored ref and then forgets it; without a ref the body has no ref", async ({ page, app }) => {
   app.guest = true;
