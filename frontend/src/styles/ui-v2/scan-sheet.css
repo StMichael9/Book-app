@@ -69,8 +69,6 @@
 .bv-root .bv-scan-light { position: absolute; top: 10px; right: 10px; z-index: 3; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--bv-paper); color: var(--bv-ink); cursor: pointer; }
 .bv-root .bv-scan-light[aria-pressed="true"] { background: var(--bv-green); color: var(--bv-on-green); }
 .bv-root .bv-scan-light:focus-visible, .bv-root .bv-scan-trouble:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
-.bv-root .bv-scan-zoom { display: flex; align-items: center; gap: 12px; font-weight: 600; }
-.bv-root .bv-scan-zoom input { flex: 1; min-width: 0; accent-color: var(--bv-green); min-height: 44px; }
 .bv-root .bv-scan-notice { display: grid; gap: 8px; justify-items: start; }
 .bv-root .bv-scan-notice p { margin: 0; }
 .bv-root .bv-scan-tips { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; }

@@ -78,21 +78,18 @@ test("the camera is asked for 1080p, facing the book, and a device with zoom sta
   const applied = await page.evaluate(() => window.__applied);
   expect(applied).toContainEqual({ focusMode: "continuous" });
   expect(applied).toContainEqual({ zoom: 2 });
-  const slider = dialog.getByLabel("Zoom");
-  await expect(slider).toHaveValue("2");
-  await slider.fill("3");
-  expect(await page.evaluate(() => window.__applied.at(-1))).toEqual({ zoom: 3 });
+  await expect(dialog.getByText("Zoom")).toHaveCount(0);   // the reader gets no zoom control
+  await expect(dialog.locator('input[type="range"]')).toHaveCount(0);
 });
 
-test("a camera with a smaller zoom range is held to its range; one without zoom or focus shows no slider and applies nothing", async ({ page, app: _app }) => {
+test("a camera with a smaller zoom range is held to its range; one without zoom or focus applies nothing", async ({ page, app: _app }) => {
   await withCamera(page, { caps: { zoom: { min: 1, max: 1.5, step: 0.1 } } });
-  const dialog = await open(page);
-  await expect(dialog.getByLabel("Zoom")).toHaveValue("1.5");
+  await open(page);
+  expect(await page.evaluate(() => window.__applied)).toContainEqual({ zoom: 1.5 });
   await page.reload();
   await withCamera(page, { caps: {} });
   await page.reload();
-  const bare = await open(page, { clock: false });
-  await expect(bare.getByLabel("Zoom")).toHaveCount(0);
+  await open(page, { clock: false });
   expect(await page.evaluate(() => window.__applied)).toEqual([]);
 });
 
@@ -183,7 +180,23 @@ test("a read within 8 seconds keeps the tips away, and a read after them clears 
   await expect(dialog.getByRole("button", { name: "Having trouble?" })).toHaveCount(0);
 });
 
+// A device that has opened the camera before: the tip is for a later open, never the first.
+const openedBefore = page => page.addInitScript(() => { try { localStorage.setItem("bv-cam-opened", "1"); } catch { /* none */ } });
+
+test("a first open with a good barcode shows only the camera, the aiming box, the hint and the list: no tip, no zoom, no trouble line", async ({ page, app: _app }) => {
+  await withCamera(page, { permission: "prompt", caps: { zoom: { min: 1, max: 5, step: 0.1 }, torch: false } });
+  const dialog = await open(page);
+  await expect(dialog.getByText("Fit the barcode in the box")).toBeVisible();
+  await scan(page, EMMA);
+  await settle(page, 600);
+  await expect(dialog.locator(".bv-scan-row")).toHaveCount(1);
+  for (const text of ["Tip: you can let Bookvane use your camera without asking each time.", "Zoom", "Having trouble?", "This barcode isn’t an ISBN.", "Tap the barcode to focus."]) await expect(dialog.getByText(text)).toHaveCount(0);
+  await expect(dialog.locator('input[type="range"], .bv-scan-light, .bv-scan-notice')).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("bv-cam-opened"))).toBe("1");
+});
+
 test("the camera tip shows once after the permission prompt, with the line for the phone, and never again", async ({ page, app: _app }) => {
+  await openedBefore(page);
   await withCamera(page, { permission: "prompt", agent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1" });
   const dialog = await open(page);
   await expect(dialog.getByText("Tip: you can let Bookvane use your camera without asking each time.")).toBeVisible();
@@ -196,10 +209,11 @@ test("the camera tip shows once after the permission prompt, with the line for t
 });
 
 test("on Android the tip names the Android choice; a camera that was already allowed gets no tip", async ({ page, app: _app }) => {
+  await openedBefore(page);
   await withCamera(page, { permission: "prompt", agent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36" });
   const dialog = await open(page);
   await expect(dialog.getByText("On Android, choose “While using the site” when asked.")).toBeVisible();
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.removeItem("bv-cam-tip-done"); localStorage.setItem("bv-cam-opened", "1"); });
   await page.reload();
   await withCamera(page, { permission: "granted" });
   await page.reload();
