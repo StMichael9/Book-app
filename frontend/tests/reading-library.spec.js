@@ -505,6 +505,16 @@ test("filters show live counts, narrow the list and come off as chips", async ({
   await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
 });
 
+test("a filter group with nothing to choose draws no heading", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  app.facets = { subject: [{ value: 7, label: "Fantasy", count: 2 }], author: [], length: [] };
+  await page.goto("/my-books");
+  const panel = page.getByRole("complementary", { name: "Filters" });
+  await expect(panel.getByRole("group", { name: "Genre" })).toBeVisible();
+  await expect(panel.getByRole("group", { name: "Length" })).toHaveCount(0);
+  await expect(panel.getByText("Length", { exact: true })).toHaveCount(0);
+});
+
 test("the Genre filter shows genre names and never a key", async ({ page, app }) => {
   app.entries = new Map(books.slice(0, 6).map(book => [book.id, { ...row(book.id), book: { ...books[book.id - 1], tags: book.id <= 2 ? [{ id: 7, name: "art_music" }] : [] } }]));
   app.facets = { subject: [{ value: 7, label: "art_music", count: 2 }, { value: 9, label: "cosy_vibes", count: 1 }], author: [], length: [] };

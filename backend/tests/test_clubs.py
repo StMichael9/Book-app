@@ -176,7 +176,8 @@ def test_an_invite_link_is_a_32_byte_token_with_the_club_ref_and_previews_withou
     assert len(token) == 43
     world.client.app.dependency_overrides.pop(get_current_user, None)
     preview = world.client.get(f"/club-invites/{token}")
-    assert preview.status_code == 200 and preview.json() == {"name": "Secret Society", "description": None, "color": None, "member_count": 1, "full": False}
+    assert preview.status_code == 200 and preview.json() == {"name": "Secret Society", "description": None, "color": None, "member_count": 1, "full": False,
+                                                                  "owner_name": "A reader", "current_book": None}
     assert preview.headers["cache-control"] == "private, no-store" and "noindex" in preview.headers["x-robots-tag"]
     for bad in ("nope", "a" * 43, token + "x", "..", "a" * 200):
         assert world.client.get(f"/club-invites/{bad}").status_code == 404, bad
@@ -363,7 +364,8 @@ def test_a_post_is_hidden_from_members_who_have_not_reached_it(world):
     assert mine["anchor"] == {"unit": "pages", "value": 150} and mine["mine"] is True and mine["author"]["name"] == "Ann"
     post(world, owner, club_id, club_book, "Welcome everyone", anchor_unit="pages", anchor_value=0)            # the start: open to all
     items = {item["id"]: item for item in feed(world, ben, club_id, club_book)}            # Ben has no progress at all
-    assert items[mine["id"]] == {"id": mine["id"], "locked": True, "unlocks_at": {"unit": "pages", "value": 150}, "created_at": items[mine["id"]]["created_at"]}
+    assert items[mine["id"]] == {"id": mine["id"], "locked": True, "unlocks_at": {"unit": "pages", "value": 150}, "created_at": items[mine["id"]]["created_at"],
+                                  "author": {"name": "Ann"}}
     assert "body" not in items[mine["id"]] and "twist" not in str(items[mine["id"]])
     welcome = [item for item in items.values() if item.get("body") == "Welcome everyone"]
     assert len(welcome) == 1                                                                   # members with no progress see only what is anchored at the start
@@ -505,6 +507,63 @@ def test_patrons_get_a_badge_on_member_rows_and_posts(world):
     members = {m["name"]: m["patron"] for m in world.client.get(f"/clubs/{club_id}/members").json()["items"]}
     assert members["Ann"] is True and members["Ben"] is False
     assert feed(world, ben, club_id, club_book)[0]["author"]["patron"] is True
+
+
+def test_invite_preview_shows_the_owner_name_and_current_book_and_nothing_private(world):
+    owner = world.person("Olive Owner")
+    member = world.person("Secret Member")
+    club_id = world.club(owner, "Open Door")
+    world.add_member(club_id, member)
+    book = world.book("Preview Read")
+    club_book = world.current_book(owner, club_id, book)
+    post(world, member, club_id, club_book, "a private thought", anchor_unit="pages", anchor_value=0)
+    token = world.invite(owner, club_id)
+    world.client.app.dependency_overrides.pop(__import__("auth.dependencies", fromlist=["x"]).get_current_user, None)
+    response = world.client.get(f"/club-invites/{token}")
+    body = response.json()
+    assert response.status_code == 200 and body["owner_name"] == "Olive Owner"
+    assert body["current_book"] == {"book_id": book.id, "title": book.title, "authors": ["Club Author"],
+                                    "cover_image_url": "https://covers.openlibrary.org/b/id/1-L.jpg"}
+    assert response.headers["cache-control"] == "private, no-store" and "noindex" in response.headers["x-robots-tag"]
+    text_ = response.text
+    assert "club-fixture.org" not in text_ and "Secret Member" not in text_ and "private thought" not in text_  # no email, member or post
+    world.as_(owner)
+    invites = world.client.get(f"/clubs/{club_id}/invites").json()["items"]
+    world.client.delete(f"/clubs/{club_id}/invites/{invites[0]['id']}")
+    world.client.app.dependency_overrides.pop(__import__("auth.dependencies", fromlist=["x"]).get_current_user, None)
+    assert world.client.get(f"/club-invites/{token}").status_code == 404                       # a revoked link still errors
+
+
+def test_club_detail_books_carry_authors_in_a_constant_number_of_statements(world, app_modules):
+    owner = world.person()
+    club_id = world.club(owner)
+    engine = app_modules["database"].engine
+
+    def statements():
+        world.as_(owner)
+        world.db.commit()
+        world.db.expire_all()
+        seen = []
+        listener = lambda conn, cursor, statement, *a: seen.append(statement)
+        event.listen(engine, "before_cursor_execute", listener)
+        try:
+            response = world.client.get(f"/clubs/{club_id}")
+        finally:
+            event.remove(engine, "before_cursor_execute", listener)
+        return len(seen), response.json()["books"]
+
+    world.current_book(owner, club_id, world.book("First"))
+    one, books = statements()
+    assert [b["authors"] for b in books] == [["Club Author"]]
+    for index in range(4):
+        extra = world.book(f"More {index}")
+        extra.authors = [world.models.Author(name="Second Author"), extra.authors[0]]
+        world.db.commit()
+        world.as_(owner)
+        assert world.client.post(f"/clubs/{club_id}/books", json={"book_id": extra.id, "status": "upcoming"}).status_code == 201
+    many, books = statements()
+    assert len(books) == 5 and many == one
+    assert sorted(books[-1]["authors"]) == ["Club Author", "Second Author"]
 
 
 # --- statements, events, privacy ---------------------------------------------------------------------------------------------------------------------
