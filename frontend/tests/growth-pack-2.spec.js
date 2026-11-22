@@ -21,6 +21,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/events") { state.events.push(JSON.parse(request.postData())); return route.fulfill({ status: 204, body: "" }); }
       const body = ["POST", "PUT", "PATCH"].includes(method) ? request.postDataJSON() : null;
+      if (path === "/me/loans" && method === "GET") return reply(200, { items: [] }); // My Books and Home ask for open loans; none here
       if (path === "/auth/refresh") return reply(state.refreshStatus || (state.guest ? 401 : 200), {});
       if (path === "/auth/register") { state.registers.push(body); state.guest = false; return reply(200, {}); }
       if (path === "/auth/login") { state.guest = false; return reply(200, {}); }
