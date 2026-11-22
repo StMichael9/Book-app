@@ -15,8 +15,12 @@ from sqlalchemy.orm import Session
 from models import EventCount, User
 from services import growth_metrics
 
+# Scan phases B and C (T80, T81): how a scan ended, which engine read it, and which fallback a reader used.
+SCAN_PHASE_EVENTS = ("scan_timeout", "scan_non_isbn", "scan_typed", "scan_engine_native", "scan_engine_wasm",
+                     "scan_snap_isbn", "scan_snap_cover", "scan_library_code")
 CLIENT_NAMES = frozenset({"register_started", "save_prompt_shown", "guest_search_empty",
-                          "get_copy_click", "share_click", "share_visit", "landing_visit", "scan_opened", "scan_added"})
+                          "get_copy_click", "share_click", "share_visit", "landing_visit", "scan_opened", "scan_added",
+                          *SCAN_PHASE_EVENTS})
 SERVER_NAMES = frozenset({"register_completed", "search_run", "search_empty",
                           "loan_created", "loan_link_created", "loan_link_opened", "loan_back",
                           "checkout_started", "patron_started", "club_plus_started", "subscription_canceled",
@@ -128,14 +132,18 @@ def channels(rows) -> dict:
 
 
 def scans(rows) -> dict:
-    """Scan sheets opened, books added from them, and books per opened sheet, per day and in total."""
+    """Scan sheets opened, books added from them, and books per opened sheet, per day and in total; plus phase B/C event totals."""
     per_day: dict[str, list[int]] = {}
     for row in rows:
         if row.name in ("scan_opened", "scan_added"):
             per_day.setdefault(row.day.isoformat(), [0, 0])[0 if row.name == "scan_opened" else 1] += row.count
     opened = sum(v[0] for v in per_day.values())
     added = sum(v[1] for v in per_day.values())
-    return {"opened": opened, "added": added, "books_per_scan": _share(added, opened),
+    phase = {name: 0 for name in SCAN_PHASE_EVENTS}
+    for row in rows:
+        if row.name in phase:
+            phase[row.name] += row.count
+    return {"opened": opened, "added": added, "books_per_scan": _share(added, opened), "events": phase,
             "by_day": [{"day": day, "opened": o, "added": a, "books_per_scan": _share(a, o)} for day, (o, a) in sorted(per_day.items())]}
 
 
