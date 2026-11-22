@@ -206,7 +206,7 @@ test("a refused or missing camera falls back to typing, with one plain sentence"
     await withCamera(page, mode);
     await open(page);
     const dialog = page.getByRole("dialog", { name: "Scan books" });
-    await expect(dialog.getByText("Camera’s off. Type the ISBN instead.")).toBeVisible();
+    await expect(dialog.getByText(mode === "refused" ? "Your browser has blocked the camera. Allow it in your browser’s settings for bookvane.me, or type the ISBN." : "Camera’s off. Type the ISBN instead.")).toBeVisible();
     await expect(dialog.getByText("Fit the barcode in the box")).toHaveCount(0);
     await dialog.getByLabel("Type an ISBN").fill("0-14-143951-3");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
