@@ -3,7 +3,7 @@ import { Share2 } from "lucide-react";
 import { Button } from "./primitives.jsx";
 
 // The link carries ?ref=share so shares show up in the channel counts. Nothing personal is added to it.
-export function shareUrl(path) {
+function shareUrl(path) {
   const url = new URL(path, window.location.origin);
   url.searchParams.set("ref", "share");
   return url.toString();

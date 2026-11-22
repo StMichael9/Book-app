@@ -1,16 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Lock } from "lucide-react";
+import { checkHandle, getHandleSuggestion } from "../../api/profile.js";
 import { Button, NativeDialog } from "../ui-v2/primitives.jsx";
 import Avatar from "./Avatar.jsx";
 import { AVATAR_COLOURS, AVATAR_ICONS, DEFAULT_AVATAR_COLOUR, avatarInk } from "./avatarData.js";
 import { HANDLE, HANDLE_ERROR, isHandleError, saveMessage } from "./profileForm.js";
 import { useProfile } from "./profileState.js";
 
-export function HandleField({ value, onChange, error, id }) {
+export function HandleField({ value, onChange, error, id, status }) {
   return <div className="bv-field"><label htmlFor={id}>Username</label>
     <input id={id} value={value} maxLength={30} autoCapitalize="none" autoCorrect="off" spellCheck="false" autoComplete="off" aria-invalid={Boolean(error)} aria-describedby={`${id}-help`} onChange={event => onChange(event.target.value.toLowerCase())} />
     <small id={`${id}-help`}>3–30 lowercase letters, numbers or hyphens.</small>
-    {error && <p className="bv-field-error" role="alert">{error}</p>}</div>;
+    {error && <p className="bv-field-error" role="alert">{error}</p>}
+    {!error && status === "available" && <p className="bv-handle-status" role="status"><Check aria-hidden="true" size={18} strokeWidth={2} />Available</p>}
+    {!error && status === "taken" && <p className="bv-handle-status bv-handle-status--taken" role="status">Taken. Try another.</p>}</div>;
+}
+
+// Checks a typed handle 400 ms after the last key. The answer is kept with the handle it was for, so a late answer for an
+// older value is ignored. Nothing is asked for an invalid handle or for the one already saved.
+function useHandleCheck(handle, enabled, saved) {
+  const [result, setResult] = useState({ handle: "", status: null });
+  useEffect(() => {
+    if (!enabled || handle === saved || !HANDLE.test(handle)) return undefined;
+    let live = true;
+    const timer = setTimeout(() => {
+      checkHandle(handle).then(answer => { if (live) setResult({ handle, status: answer?.available ? "available" : answer?.reason === "handle_taken" ? "taken" : "unavailable" }); }, () => {});
+    }, 400);
+    return () => { live = false; clearTimeout(timer); };
+  }, [handle, enabled, saved]);
+  return result.handle === handle && enabled ? result.status : null;
 }
 
 // What a public profile shows and never shows; the same two lines on the one-time sheet and the Make public confirm.
@@ -66,14 +84,24 @@ export function EditProfileSheet({ profile, open, onClose }) {
 
 function PublicForm({ profile, onDone, onPublic }) {
   const { save } = useProfile();
-  const [handle, setHandle] = useState(profile.handle || ""), [error, setError] = useState(""), [pending, setPending] = useState(false);
-  const [needsHandle, setNeedsHandle] = useState(!profile.handle);
+  const saved = profile.handle || "";
+  const [handle, setHandle] = useState(saved), [error, setError] = useState(""), [pending, setPending] = useState(false);
+  const [changing, setChanging] = useState(false), [suggesting, setSuggesting] = useState(!saved);
+  // Someone with no handle gets a suggestion from their name, so Make public works in one tap. If it can't be fetched, they type one.
+  useEffect(() => {
+    if (saved) return undefined;
+    let live = true;
+    getHandleSuggestion().then(answer => { if (live && answer?.handle) setHandle(current => current || answer.handle); else if (live) setChanging(true); }, () => { if (live) setChanging(true); })
+      .finally(() => { if (live) setSuggesting(false); });
+    return () => { live = false; };
+  }, [saved]);
+  const status = useHandleCheck(handle, changing, saved);
   async function submit(event) {
     event.preventDefault();
-    if (needsHandle && !HANDLE.test(handle)) { setError(HANDLE_ERROR); return; }
+    if (handle !== saved && !HANDLE.test(handle)) { setChanging(true); setError(HANDLE_ERROR); return; }
     setPending(true); setError("");
-    try { await save({ ...(needsHandle ? { handle } : {}), profile_public: true }); onPublic(); onDone(); } catch (requestError) {
-      if (requestError?.detail?.code === "handle_required") setNeedsHandle(true); else setError(saveMessage(requestError));
+    try { await save({ ...(handle !== saved ? { handle } : {}), profile_public: true }); onPublic(); onDone(); } catch (requestError) {
+      if (requestError?.detail?.code === "handle_required") setChanging(true); else setError(saveMessage(requestError));
       setPending(false);
     }
   }
@@ -81,9 +109,10 @@ function PublicForm({ profile, onDone, onPublic }) {
   return <form onSubmit={submit} aria-busy={pending}>
     <p>A public profile lets people see your reading year and the lists you choose to share.</p>
     <SheetFacts />
-    {needsHandle && <HandleField id="bv-public-handle" value={handle} error={handleError} onChange={setHandle} />}
+    {handle && <p className="bv-handle-link">Your link: bookvane.me/u/{handle}{!changing && <Button variant="quiet" className="bv-link-button" onClick={() => setChanging(true)}>Change</Button>}</p>}
+    {changing && <HandleField id="bv-public-handle" value={handle} error={handleError} status={status} onChange={value => { setHandle(value); setError(""); }} />}
     {error && !handleError && <p className="bv-field-error" role="alert">{error}</p>}
-    <div className="bv-sheet-actions bv-sheet-actions--pinned"><Button type="submit" disabled={pending}>Make public</Button><Button variant="quiet" disabled={pending} onClick={onDone}>Cancel</Button></div>
+    <div className="bv-sheet-actions bv-sheet-actions--pinned"><Button type="submit" disabled={pending || suggesting}>Make public</Button><Button variant="quiet" disabled={pending} onClick={onDone}>Cancel</Button></div>
   </form>;
 }
 
