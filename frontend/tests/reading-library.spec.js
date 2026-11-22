@@ -107,6 +107,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);
@@ -502,6 +503,16 @@ test("filters show live counts, narrow the list and come off as chips", async ({
   await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
   await page.getByRole("button", { name: "Clear all", exact: true }).click();
   await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+});
+
+test("a filter group with nothing to choose draws no heading", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  app.facets = { subject: [{ value: 7, label: "Fantasy", count: 2 }], author: [], length: [] };
+  await page.goto("/my-books");
+  const panel = page.getByRole("complementary", { name: "Filters" });
+  await expect(panel.getByRole("group", { name: "Genre" })).toBeVisible();
+  await expect(panel.getByRole("group", { name: "Length" })).toHaveCount(0);
+  await expect(panel.getByText("Length", { exact: true })).toHaveCount(0);
 });
 
 test("the Genre filter shows genre names and never a key", async ({ page, app }) => {

@@ -1,3 +1,4 @@
+import LoanBlock from "../lending/LoanBlock.jsx";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { workspaceKey } from "../../api/earlyStart.js";
@@ -260,6 +261,7 @@ export function ReadingWorkspacePage() {
     {nextSection}
     {entry && attempt && <ReadingNotes key={attempt.id} entry={entry} attempt={attempt} readOnly={library.readOnly} minVersion={minVersion} onSaved={accept} />}
     {entry && <ReadingJournal entry={entry} attempt={attempt} entryId={entryId} workspace={workspace} visible={loaded} readOnly={library.readOnly} onEdit={onEdit} editor={editor} editing={editing} minVersion={minVersion} onSaved={accept} />}
+    {entry && loaded && !library.readOnly && <LoanBlock key={entry.id} entryId={entry.id} bookId={entry.book_id} isOwned={entry.is_owned} book={{ title: entry.book?.title || entry.private_title, cover_image_url: entry.book?.cover_image_url || entry.private_catalogue?.cover_image_url || null, authors: entry.book?.authors || [] }} />}
     <details hidden={!loaded} className="bv-reading-fold" open={manageOpen} onToggle={event => setManageOpen(event.currentTarget.open)}><summary><span className="bv-fold-title">About this book</span><span className="bv-fold-hint">Details, page count, remove</span><span className="bv-fold-chevron" aria-hidden="true">›</span></summary>
       {entry && <PageCountEdit entry={{ ...entry, version: Math.max(entry.version, minVersion) }} attempt={attempt} readOnly={library.readOnly} onSaved={accept} />}
       {entry && <ReadingBookDetails key={entry.book_id || `private:${entry.id}`} bookId={entry.book_id} description={entry.private_description} entryId={entry.id} />}
