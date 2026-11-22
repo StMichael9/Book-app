@@ -40,6 +40,8 @@ jobs:
       # URL, so the app URL spells the same local database as 127.0.0.1.
       DATABASE_URL: postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/bookvane_test
       BOOKVANE_TEST_DB_ISOLATED: "yes"
+      # Read when the app is first imported (collection time), before conftest sets it: no background catalogue worker in tests.
+      CATALOGUE_WORKER_ENABLED: "false"
       IS_DEV: "true"
       READING_V3_ENABLED: "false"
       READING_V3_USER_IDS: ""
