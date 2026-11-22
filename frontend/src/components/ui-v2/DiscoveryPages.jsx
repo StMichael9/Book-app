@@ -1,3 +1,4 @@
+import LoanBlock from "../lending/LoanBlock.jsx";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { trackEvent } from "./events.js";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -267,6 +268,7 @@ export function BookPage() {
   const { bookId } = useParams();
   const { labelFor } = useGenres();
   const library = useUserBooks();
+  const auth = useAuth();
   const reader = useReader();
   const location = useLocation();
   const navigate = useNavigate();
@@ -340,6 +342,7 @@ export function BookPage() {
           <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
           {library.readingActions && <Link className="bv-open-link" to={`/my-books/start/${book.id}`}><span>Open or start your reading</span><ArrowRight aria-hidden="true" /></Link>}
           {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
+          {auth.isAuthenticated && library.readingActions && !library.readOnly && reader.libraryReady && !library.loading && !library.error && library.booksById[book.id]?.known && <LoanBlock key={book.id} entryId={library.booksById[book.id]?.id ?? null} bookId={book.id} isOwned={Boolean(library.booksById[book.id]?.is_owned)} book={book} />}
         </div>
         <div className="bv-book-about">
           {request.data ? <BookAbout key={book.id} book={book} />

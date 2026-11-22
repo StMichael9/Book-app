@@ -8,6 +8,7 @@ import { useReader } from "./readerState.js";
 import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import AuthorPage from "./AuthorPage.jsx";
+import BorrowerPage from "../lending/BorrowerPage.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
 import SearchSuggest from "./SearchSuggest.jsx";
@@ -107,6 +108,7 @@ function Header() {
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
   const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
+  const loanLink = location.pathname.startsWith("/l/");
   const mobileNav = useRef(null);
   useLayoutEffect(() => {
     const nav = mobileNav.current, root = nav?.closest(".bv-root");
@@ -123,6 +125,7 @@ function Header() {
     measure();
     return () => { active = false; observer.disconnect(); root.style.removeProperty("--bv-mobile-nav-clearance"); };
   }, [publicLanding]);
+  if (loanLink) return <header className="bv-header"><div className="bv-container bv-header-inner"><Brand /></div></header>;
   return <><header className={`bv-header${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}</nav>
     <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}
@@ -279,7 +282,7 @@ function Shell() {
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects /><Header />
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
-        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
+        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/l/:token" element={<BorrowerPage key={location.pathname} notFound={notFound} />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />
@@ -297,7 +300,7 @@ function Shell() {
         <Route path="/u/:handle" element={<PublicProfilePage key={location.pathname} notFound={notFound} />} /><Route path="/u/:handle/lists/:id" element={<PublicListPage key={location.pathname} notFound={notFound} />} />
         <Route path="*" element={notFound} />
       </Routes></RouteErrorBoundary>
-    </main><Footer /><AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
+    </main>{!location.pathname.startsWith("/l/") && <Footer />}<AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
   </div>;
 }
 
