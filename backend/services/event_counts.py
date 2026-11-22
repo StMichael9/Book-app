@@ -25,7 +25,7 @@ SOURCES = frozenset({"landing", "noresults", "saveprompt", "share", "import", "p
 # Where a visit came from (the `ref` of a shared link). Anything else counts as no ref.
 REFS = frozenset({"tt", "ig", "rd", "ph", "yt", "x", "club", "share", "email", "loan"})
 MAX_SCAN_ADDED = 100
-PLACEMENTS = frozenset({"book_page", "want_card"})
+PLACEMENTS = frozenset({"book_page", "want_card", "bookshop", "amazon"})
 MAX_EVENTS_PER_MINUTE = 600
 MAX_BODY_BYTES = 1024
 
