@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user, get_current_user_optional
 from database import get_db, settings
 from models import User
-from services import catalogue_health, event_counts
+from services import billing, catalogue_health, event_counts
 
 router = APIRouter(tags=["events"])
 
@@ -54,7 +54,7 @@ def admin_or_service_key(request: Request, user: User | None = Depends(get_curre
 @router.get("/admin/metrics")
 def admin_metrics(days: int = Query(30, ge=1, le=366), _admin: User = Depends(require_admin),
                   db: Session = Depends(get_db)):
-    return {**event_counts.metrics(db, days), "catalogue": catalogue_health.catalogue_block(db, days)}
+    return {**event_counts.metrics(db, days), "catalogue": catalogue_health.catalogue_block(db, days), "billing": billing.billing_block(db)}
 
 
 @router.get("/admin/catalogue/metrics")
