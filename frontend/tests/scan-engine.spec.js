@@ -23,6 +23,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/auth/refresh") return reply(200, {});
       if (path === "/events") { state.events.push(JSON.parse(request.postData()).name); return route.fulfill({ status: 204, body: "" }); }
+      if (path === "/me/loans" && request.method() === "GET") return reply(200, { items: [] }); // My Books and Home ask for open loans; none here
       if (path === "/genres") return reply(200, GENRES);
       if (path === "/autocomplete/tags/batch") return reply(200, []);
       if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
