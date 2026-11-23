@@ -97,7 +97,8 @@ const withCamera = (page, mode = "ok") => page.addInitScript(mode => {
     async detect() { this.calls += 1; return window.__codes.splice(0).map(rawValue => ({ rawValue })); }
   };
 }, mode);
-const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
+// Each code is pushed twice: the reader confirms an ISBN on a second identical read.
+const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values, ...values), codes);
 const open = async page => { await page.goto("/my-books"); await page.getByRole("button", { name: "Scan books", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Scan books" })).toBeVisible(); };
 
 test.use({ viewport: { width: 390, height: 844 } });

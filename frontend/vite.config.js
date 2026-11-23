@@ -7,5 +7,6 @@ const buildId = process.env.VITE_BUILD_ID || Date.now().toString(36);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  worker: { format: "es" },
   define: { __BUILD_ID__: JSON.stringify(buildId) },
 });
