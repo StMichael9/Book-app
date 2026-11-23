@@ -41,7 +41,7 @@ const ratio = (a, b) => { const x = luminance(a), y = luminance(b); return (Math
 const style = (locator, property) => locator.evaluate((node, property) => getComputedStyle(node)[property], property);
 const visit = async page => { await page.goto("/"); await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible(); await expect(page.locator(".bv-landing-hero")).toBeVisible(); };
 const SIGNUP = "/register?src=landing";
-const IMPORT = "/register?src=landing&returnTo=%2Fmy-books%2Fimport";
+const IMPORT = "/switch";
 
 test("paper top: no band, the header is on paper, and the hero holds the approved words and both doors", async ({ page, app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -72,12 +72,12 @@ test("Create a free account carries the source; Browse books first lands on Disc
 test("desktop is two columns with the phone on the right; the phone stacks it under the text", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await visit(page);
-  let copy = await box(page.locator(".bv-landing-copy")), phone = await box(page.locator(".bv-landing-hero .bv-landing-phone"));
+  let copy = await box(page.locator(".bv-landing-copy")), phone = await box(page.locator(".bv-landing-hero .bv-landing-shot"));
   expect(phone.left).toBeGreaterThan(copy.right - 1);
-  expect(phone.width).toBeLessThanOrEqual(301);
+  expect(phone.width).toBeLessThanOrEqual(423);
   await page.setViewportSize({ width: 390, height: 844 });
   await visit(page);
-  copy = await box(page.locator(".bv-landing-copy")); phone = await box(page.locator(".bv-landing-hero .bv-landing-phone"));
+  copy = await box(page.locator(".bv-landing-copy")); phone = await box(page.locator(".bv-landing-hero .bv-landing-shot"));
   expect(phone.top).toBeGreaterThanOrEqual(copy.bottom - 1);
   for (const door of await page.locator(".bv-landing-hero .bv-landing-doors .bv-button").all()) expect((await door.boundingBox()).width).toBeGreaterThan(300);
 });
@@ -117,7 +117,7 @@ test("dark: the landing text keeps AA contrast and the dark captures load", asyn
   for (const [label, locator] of [["heading", page.locator(".bv-landing-copy h1")], ["line", page.locator(".bv-landing-lead")]]) expect(ratio(await style(locator, "color"), paper), label).toBeGreaterThanOrEqual(4.5);
   const primary = page.locator(".bv-landing-hero").getByRole("link", { name: "Create a free account", exact: true });
   expect(ratio(await style(primary, "color"), await style(primary, "backgroundColor"))).toBeGreaterThanOrEqual(4.5);
-  await expect(page.locator(".bv-landing-hero img")).toHaveAttribute("src", "/landing/scan-hero-dark.webp");
+  await expect(page.locator(".bv-landing-hero img")).toHaveAttribute("src", "/landing/scan-hero-dark@2x.png");
 });
 
 test("focus is visible on the doors, in both themes", async ({ page, app: _app }) => {

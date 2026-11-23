@@ -28,7 +28,7 @@ test("with the default flags nothing that is not live appears", async ({ page, a
   const main = page.locator(".bv-landing-hero, .bv-landing-block, .bv-landing-paid, .bv-landing-faq, .bv-landing-final");
   const text = (await main.allInnerTexts()).join("\n"), html = (await main.evaluateAll(nodes => nodes.map(node => node.innerHTML))).join("\n");
   for (const word of [/lend|loan/i, /\bclubs?\b/i, /Club Plus/, /Patron/]) expect(text, String(word)).not.toMatch(word);
-  expect(html).not.toContain("/switch");
+  expect(html).toContain('href="/switch"');   // /switch is live: the library door goes there
   expect(text).toContain("Bookvane is free to use. Some book links go to Bookshop.org. If you buy, Bookvane may earn a small commission, at no cost to you, and each link says so. We don’t show ads, and we don’t sell your data.");
   expect(text).toContain("Your notes and reactions are never sent to AI services.");
   for (const word of [/forever/i, /honest/i, /about a minute/i, /paid AI/i]) expect(text, String(word)).not.toMatch(word);
@@ -54,7 +54,7 @@ test("the FAQPage data lists exactly the visible questions, once", async ({ page
 });
 
 test("a flag switches its line on, and only that line", () => {
-  expect(LIVE).toEqual({ switchPage: false, lending: false, clubs: false, patron: false, clubPlus: false });
+  expect(LIVE).toEqual({ switchPage: true, lending: false, clubs: false, patron: false, clubPlus: false });
   expect(paidText(LIVE)).not.toMatch(/Patron|Club Plus/);
   expect(paidText({ ...LIVE, patron: true })).toContain("Readers who want to support Bookvane can become Patrons.");
   expect(paidText({ ...LIVE, clubPlus: true })).toContain("Reading clubs can add Club Plus for extra club features.");
@@ -67,8 +67,8 @@ test("the pictures carry width, height and alt text, and nothing scrolls sideway
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width, height: 900 });
     await visit(page);
-    expect(await page.locator(".bv-landing-still").count()).toBe(4);
-    for (const image of await page.locator(".bv-landing-still").all()) {
+    expect(await page.locator(".bv-landing-shot img").count()).toBe(3);
+    for (const image of await page.locator(".bv-landing-shot img").all()) {
       expect(Number(await image.getAttribute("width"))).toBeGreaterThan(0);
       expect(Number(await image.getAttribute("height"))).toBeGreaterThan(0);
       expect((await image.getAttribute("alt")).length).toBeGreaterThan(10);

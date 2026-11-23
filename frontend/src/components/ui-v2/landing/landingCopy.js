@@ -1,7 +1,7 @@
 // Every reader-facing word on the landing page, in one place. Michael approved the order and the answers (21 Nov 2026) and the review's
 // edits (22 Nov). Nothing that is not live goes on the page: each LIVE flag stays false until that feature ships, and gated lines render
 // only when it is true.
-export const LIVE = { switchPage: false, lending: false, clubs: false, patron: false, clubPlus: false };
+export const LIVE = { switchPage: true, lending: false, clubs: false, patron: false, clubPlus: false };
 
 export const COPY = {
   title: "Bookvane: a private reading tracker you scan with your phone",
@@ -15,12 +15,11 @@ export const COPY = {
   faqHeading: "Questions",
   final: { heading: "Start your shelf." },
   alt: {
-    scan: "The Bookvane scan sheet on a phone, with a barcode inside the aiming box.",
-    scanned: "The scan sheet after a barcode was read: the book appears with “Added · 1 scanned”.",
-    library: "The import review on a phone: a book to check, with the choices for it.",
-    note: "A private note on a book, on the reading page.",
+    scan: "The Scan books sheet: a barcode inside the aiming box with a green tick, a card reading Added, 3 scanned, and the scanned books with their covers listed below.",
+    library: "The import review asks which Alice’s Adventures in Wonderland is yours, with two editions and their covers to choose from.",
+    note: "A book page for A Room of One’s Own: page 64 of 128, a saved note, and the days read.",
   },
-};
+};;
 
 // The money paragraph. Patron and Club Plus add one plain sentence each, only when live.
 export function paidText(live = LIVE) {

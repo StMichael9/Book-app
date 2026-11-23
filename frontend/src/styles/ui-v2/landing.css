@@ -1,6 +1,6 @@
 /* The signed-out landing page: it leads with the barcode scan. Paper top, Caslon headings, Source Sans body, green actions.
    The pictures are real captures of the app (public/landing), set on the page with a shadow only, never on a panel. Tokens only. */
-.bv-root .bv-landing-hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 72px; align-items: center; justify-content: space-between; padding-top: 48px; }
+.bv-root .bv-landing-hero { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 72px; align-items: center; justify-content: space-between; padding-top: 48px; }
 .bv-root .bv-landing-copy { min-width: 0; }
 .bv-root .bv-landing-copy h1 { font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.04; margin-bottom: 0; max-width: 12em; }
 .bv-root .bv-landing-lead { color: var(--bv-muted); font-size: 1.1875rem; line-height: 1.5; max-width: 35rem; margin: 18px 0 0; }
@@ -8,10 +8,6 @@
 .bv-root .bv-landing-free { color: var(--bv-muted); font-size: 0.9375rem; margin: 14px 0 0; }
 
 /* A phone: a plain rounded rectangle, 9 by 19.5, with the capture inside it. */
-.bv-root .bv-landing-phone { width: 100%; max-width: 300px; aspect-ratio: 9 / 19.5; border-radius: 36px; overflow: hidden; box-shadow: var(--bv-shadow-sheet); border: 1px solid var(--bv-line); background: var(--bv-paper); min-width: 0; }
-.bv-root .bv-landing-hero .bv-landing-phone { box-shadow: var(--bv-lift); justify-self: end; }
-.bv-root .bv-landing-block .bv-landing-phone { justify-self: center; }
-.bv-root .bv-landing-still { display: block; width: 100%; height: auto; }
 
 /* The picture sections: 120px apart on a desktop, alternating sides; text and a picture, body copy at most 60 characters wide. */
 .bv-root .bv-landing-block, .bv-root .bv-landing-paid, .bv-root .bv-landing-faq, .bv-root .bv-landing-final { padding-top: 112px; }
@@ -44,7 +40,6 @@
 
 @media (max-width: 899px) {
   .bv-root .bv-landing-hero { grid-template-columns: minmax(0, 1fr); gap: 36px; padding-top: 28px; }
-  .bv-root .bv-landing-hero .bv-landing-phone { justify-self: center; }
   .bv-root .bv-landing-block, .bv-root .bv-landing-block--flip { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .bv-root .bv-landing-block--flip .bv-landing-text { order: 0; }
 }
@@ -57,3 +52,10 @@
   .bv-root .bv-landing-text .bv-button { justify-self: stretch; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-landing-faq summary svg { transition: none; } }
+
+/* The pictures are finished cards with 16px of shadow room: shown at their own size, never in a frame. */
+.bv-root .bv-landing-shot { display: block; width: 100%; max-width: 390px; min-width: 0; justify-self: center; margin-inline: -16px; width: calc(100% + 32px); }
+.bv-root .bv-landing-shot img { display: block; width: 100%; height: auto; }
+.bv-root .bv-landing-hero .bv-landing-shot { justify-self: end; }
+.bv-root .bv-landing-block--text { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 899px) { .bv-root .bv-landing-hero .bv-landing-shot { justify-self: center; } }

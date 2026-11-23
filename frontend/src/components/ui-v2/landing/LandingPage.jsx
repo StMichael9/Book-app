@@ -6,16 +6,17 @@ import { useReader } from "../readerState.js";
 import { ActionLink, TextLink } from "../primitives.jsx";
 import { COPY, LIVE, faqItems, paidText } from "./landingCopy.js";
 
-const SIZES = { phone: [390, 844], desktop: [1440, 900] };
+const SIZES = { "scan-hero": [390, 560], "import-review": [390, 544], "private-notes": [390, 589] };
 
-// A real capture of the running app, one file per theme. The reader's own theme choice picks the file; only that one is requested.
-function Still({ name, kind, alt, eager = false }) {
+// A real capture of the running app, one file per theme and density. The reader's own theme choice picks the files; WebP first, PNG as the fallback.
+function Shot({ name, alt, eager = false }) {
   const theme = useReader().theme === "dark" ? "dark" : "light";
-  const [width, height] = SIZES[kind];
-  return <img className={`bv-landing-still bv-landing-still--${kind}`} src={`/landing/${name}-${theme}.webp`} width={width} height={height} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" {...(eager ? { fetchpriority: "high" } : {})} />;
+  const [width, height] = SIZES[name], base = `/landing/${name}-${theme}`;
+  return <picture className="bv-landing-shot">
+    <source type="image/webp" srcSet={`${base}@1x.webp 1x, ${base}@2x.webp 2x`} />
+    <img src={`${base}@2x.png`} width={width} height={height} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" {...(eager ? { fetchpriority: "high" } : {})} />
+  </picture>;
 }
-
-function Phone({ children }) { return <div className="bv-landing-phone">{children}</div>; }
 
 function useNarrow() {
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 700px)").matches);
@@ -75,22 +76,21 @@ export default function LandingPage({ live = LIVE }) {
         {doors()}
         {auth.isAuthenticated && <p className="bv-landing-free">{COPY.signedIn.line}</p>}
       </div>
-      <Phone><Still name="scan-hero" kind="phone" alt={COPY.alt.scan} eager /></Phone>
+      <Shot name="scan-hero" alt={COPY.alt.scan} eager />
     </section>
 
-    <section className="bv-container bv-landing-block" aria-labelledby="bv-landing-scan">
+    <section className="bv-container bv-landing-block bv-landing-block--text" aria-labelledby="bv-landing-scan">
       <div className="bv-landing-text"><h2 id="bv-landing-scan">{COPY.scan.heading}</h2><p>{COPY.scan.line}</p><p className="bv-landing-small">{COPY.scan.small}</p><ActionLink to={scanTarget}>{COPY.scan.cta}</ActionLink></div>
-      <Phone><Still name="scan-tick" kind="phone" alt={COPY.alt.scanned} /></Phone>
     </section>
 
     <section className="bv-container bv-landing-block bv-landing-block--flip" aria-labelledby="bv-landing-library">
       <div className="bv-landing-text"><h2 id="bv-landing-library">{COPY.library.heading}</h2><p>{COPY.library.line}</p><ActionLink to={importTarget}>{COPY.library.cta}</ActionLink></div>
-      <Phone><Still name="import" kind="phone" alt={COPY.alt.library} /></Phone>
+      <Shot name="import-review" alt={COPY.alt.library} />
     </section>
 
     <section className="bv-container bv-landing-block" aria-labelledby="bv-landing-private">
       <div className="bv-landing-text"><h2 id="bv-landing-private">{COPY.priv.heading}</h2><p>{COPY.priv.line}</p><p>{COPY.priv.ai}</p><TextLink to="/privacy">{COPY.priv.link}</TextLink></div>
-      <Phone><Still name="private-note" kind="phone" alt={COPY.alt.note} /></Phone>
+      <Shot name="private-notes" alt={COPY.alt.note} />
     </section>
 
     <section className="bv-container bv-landing-paid" aria-labelledby="bv-landing-paid">

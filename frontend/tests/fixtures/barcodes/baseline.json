@@ -1,0 +1,7 @@
+{
+  "note": "Read rates over the 51 drawn frames in manifest.json (see scripts/make-barcode-fixtures.mjs). wasmRate is the built-in reader (zxing-wasm 3.1.6 with the clean-up in frameClean.js), recorded 22 Nov 2026; oldRate is the engine it replaced (zxing-js, EAN-13 only, no clean-up) over the same frames. The benchmark fails if the rate drops below minRate. Re-record after a deliberate change to the set or the pipeline: node scripts/scan-bench.mjs.",
+  "total": 51,
+  "wasmRate": 0.9412,
+  "oldRate": 0.7647,
+  "minRate": 0.92
+}

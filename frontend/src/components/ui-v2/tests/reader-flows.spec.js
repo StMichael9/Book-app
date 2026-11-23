@@ -496,8 +496,8 @@ test("the landing page invites guests to join free and carries its source", asyn
   app.authenticated = false;
   await page.goto("/"); await expect(page.locator(".bv-landing-hero")).toBeVisible();
   await expect(page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true })).toHaveAttribute("href", "/register?src=landing");
-  // Import my library: sign up first (the source is carried), then straight to the import.
-  for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/register?src=landing&returnTo=%2Fmy-books%2Fimport");
+  // Import my library: signed out it opens /switch, which signs them up (src=switch) with the import next.
+  for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/switch");
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const header = page.locator(".bv-header");
