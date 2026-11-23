@@ -69,8 +69,8 @@ export function WelcomePage() {
   const { hero: heroBooks, row: rowBooks } = landingSelection(items);
   const { genres: allGenres, labelFor } = useGenres();
   const subjects = (allGenres || []).slice(0, 4).map(genre => genre.key);
-  // The import needs an account: signed out, sign up first (the source is carried), then straight to the import.
-  const importTarget = auth.isAuthenticated ? "/my-books/import" : `/register?${new URLSearchParams({ src: "landing", returnTo: "/my-books/import" })}`;
+    // Signed out it opens /switch, which explains the move and then sends them to sign up with the import next.
+  const importTarget = auth.isAuthenticated ? "/my-books/import" : "/switch";
   return <>
     <section className="bv-container bv-landing-hero" aria-label="Welcome">
       <div className="bv-landing-copy">

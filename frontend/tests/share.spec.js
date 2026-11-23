@@ -86,7 +86,7 @@ test("a copy that fails says Couldn’t copy the link.", async ({ page }) => {
   await expect(page.getByRole("button", SHARE)).toBeVisible({ timeout: 4000 });
 });
 
-test("a public profile and a public list can be shared; the text names the reader", async ({ page }) => {
+test("a public profile can be shared; the text names the reader (lists share as a picture)", async ({ page }) => {
   await stub(page, { share: true });
   const origin = () => new URL(page.url()).origin;
   await page.goto("/u/ada");
@@ -94,10 +94,6 @@ test("a public profile and a public list can be shared; the text names the reade
   await expect(page.locator(".bv-profile-head").getByRole("button", SHARE)).toBeVisible();
   await page.getByRole("button", SHARE).click();
   await expect.poll(async () => (await recorded(page)).shared).toEqual([{ title: "Ada Reader", text: "Ada Reader's reading on Bookvane", url: `${origin()}/u/ada?ref=share` }]);
-  await page.goto("/u/ada/lists/3");
-  await expect(page.getByRole("heading", { name: "Shared list" })).toBeVisible();
-  await page.getByRole("button", SHARE).click();
-  await expect.poll(async () => (await recorded(page)).shared).toEqual([{ title: "Shared list", text: "Shared list, a list by Ada Reader on Bookvane", url: `${origin()}/u/ada/lists/3?ref=share` }]);
 });
 
 test("your own profile shows Share only when it is public", async ({ page, app }) => {
@@ -112,18 +108,6 @@ test("your own profile shows Share only when it is public", async ({ page, app }
   await expect(page.getByRole("button", SHARE)).toHaveCount(0);
 });
 
-test("your own lists: Share on a public one, none on a private one", async ({ page, app }) => {
-  app.signedIn = true;
-  await stub(page);
-  await page.goto("/profile/lists/8");
-  await expect(page.getByRole("heading", { name: "Secret list" })).toBeVisible();
-  await expect(page.getByRole("button", SHARE)).toHaveCount(0);
-  await page.goto("/profile/lists/7");
-  await expect(page.getByRole("heading", { name: "Winter reads" })).toBeVisible();
-  await page.getByRole("button", SHARE).click();
-  await expect.poll(async () => (await recorded(page)).copied).toEqual([`${new URL(page.url()).origin}/u/stmichael/lists/7?ref=share`]);
-});
-
 test("share screenshots", async ({ page }) => {
   test.skip(!process.env.BV_SHOTS_DIR, "set BV_SHOTS_DIR to export screenshots");
   const dir = process.env.BV_SHOTS_DIR; mkdirSync(dir, { recursive: true });
@@ -133,7 +117,7 @@ test("share screenshots", async ({ page }) => {
     await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
     for (const [width, height] of [[390, 844], [1440, 1000]]) {
       await page.setViewportSize({ width, height });
-      for (const [name, path] of [["share-book", "/book/1"], ["share-profile", "/u/ada"], ["share-list", "/u/ada/lists/3"]]) {
+      for (const [name, path] of [["share-book", "/book/1"], ["share-profile", "/u/ada"]]) {
         await page.goto(path); await expect(page.getByRole("button", SHARE)).toBeVisible();
         await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(300);
         await page.screenshot({ path: `${dir}/${name}-${width}-${theme}.png`, fullPage: true });

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Flashlight, X } from "lucide-react";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
 import { BookCover, Button, NativeDialog } from "../../ui-v2/primitives.jsx";
-import { classifyScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
+import { trackEvent } from "../../ui-v2/events.js";
+import { aimRegion, classifyScan, createRepeatGuard, startDecoder, typedIsbn } from "./decoder.js";
 import { SCAN_COPY, markTipDone, platformTip, shouldOfferTip } from "./scanCopy.js";
 import { isSaveable, saveRow, useScanList } from "./scanList.js";
 import "../../../styles/ui-v2/scan-sheet.css";
 
-const DEFAULT_ZOOM = 2, TROUBLE_MS = 8000;
+const DEFAULT_ZOOM = 2, TROUBLE_MS = 8000, FOCUS_HINT_MS = 6000;
 const stateLine = row => ({
   looking: "Looking up…", waiting: "Looking up…",
   found: row.authors?.join(", ") || "",
@@ -18,10 +19,10 @@ const stateLine = row => ({
 
 // The camera: asks for permission, reads barcodes while the sheet is open and the page is showing, and stops every track otherwise.
 function useCamera(enabled, onCode) {
-  const video = useRef(null), onCodeRef = useRef(onCode);
+  const video = useRef(null), aim = useRef(null), onCodeRef = useRef(onCode);
   const [camera, setCamera] = useState(enabled ? "asking" : "off");
   const track = useRef(null);
-  const [tools, setTools] = useState({ torch: false, torchOn: false, tip: false });
+  const [tools, setTools] = useState({ torch: false, torchOn: false, tip: false, focus: false, continuous: false });
   useEffect(() => { onCodeRef.current = onCode; });
   useEffect(() => {
     if (!enabled) return undefined;
@@ -33,7 +34,7 @@ function useCamera(enabled, onCode) {
       stop?.(); stop = null;
       stopTracks(stream); stream = null; track.current = null;
       if (video.current) video.current.srcObject = null;
-      setTools(current => ({ ...current, torch: false, torchOn: false }));
+      setTools(current => ({ ...current, torch: false, torchOn: false, focus: false }));
     };
     async function open() {
       if (!navigator.mediaDevices?.getUserMedia) { setCamera("none"); return; }
@@ -57,12 +58,12 @@ function useCamera(enabled, onCode) {
         // Continuous focus, and about 2x zoom so the phone can be held 20 to 30 cm away, where it can focus.
         if (capabilities.focusMode?.includes?.("continuous")) apply({ focusMode: "continuous" });
         if (capabilities.zoom) apply({ zoom: Math.min(capabilities.zoom.max, Math.max(capabilities.zoom.min, DEFAULT_ZOOM)) });
-        setTools({ torch: Boolean(capabilities.torch), torchOn: false, tip: offerTip });
-        if (offerTip) markTipDone();
+        const focusModes = capabilities.focusMode || [];
+        setTools({ torch: Boolean(capabilities.torch), torchOn: false, tip: offerTip, focus: Boolean(capabilities.pointsOfInterest) || focusModes.includes("single-shot"), continuous: focusModes.includes("continuous") });
         video.current.srcObject = opened;
         await video.current.play().catch(() => {});
         if (stale()) { abandon(); return; }
-        decoderStop = await startDecoder(video.current, code => onCodeRef.current(code));
+        decoderStop = await startDecoder(video.current, code => onCodeRef.current(code), { getRegion: () => aimRegion(video.current, aim.current), onEngine: engine => trackEvent(`scan_engine_${engine}`) });
         if (stale()) { abandon(); return; }
         stop = decoderStop; setCamera("on");
       } catch (failure) {
@@ -82,7 +83,14 @@ function useCamera(enabled, onCode) {
     return { ...current, torchOn };
   });
   const dismissTip = () => { markTipDone(); setTools(current => ({ ...current, tip: false })); };
-  return { video, camera, tools, toggleTorch, dismissTip };
+  // Tap to focus: one focus at the tapped point, then back to continuous focus.
+  const focusAt = (x, y) => {
+    const found = track.current;
+    if (!found) return;
+    Promise.resolve(found.applyConstraints?.({ advanced: [{ focusMode: "single-shot", pointsOfInterest: [{ x, y }] }] })).catch(() => {});
+    if (tools.continuous) setTimeout(() => { Promise.resolve(track.current?.applyConstraints?.({ advanced: [{ focusMode: "continuous" }] })).catch(() => {}); }, 2000);
+  };
+  return { video, aim, camera, tools, toggleTorch, dismissTip, focusAt };
 }
 
 // What the card over the camera says about the latest scan. The words are the list's own, so the card and the row never disagree.
@@ -116,6 +124,7 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   const [owned, setOwned] = useState(true), [typed, setTyped] = useState(""), [typedError, setTypedError] = useState(""), [saving, setSaving] = useState(false), [saveError, setSaveError] = useState("");
   // The latest accepted scan: a tick on the aiming box for 0.6 s, and a card over the camera until 3 s after its answer (or the next scan).
   const [latest, setLatest] = useState(null), [flash, setFlash] = useState(0), [cardOpen, setCardOpen] = useState(false), scanId = useRef(0);
+  const [focusHint, setFocusHint] = useState(false), hinted = useRef(false);
   const [notIsbn, setNotIsbn] = useState(false), [trouble, setTrouble] = useState(false), [troubleOpen, setTroubleOpen] = useState(false), [idleStamp, setIdleStamp] = useState(0), misread = useRef({ code: "", at: 0 });
   const accept = code => {
     const kind = classifyScan(code);
@@ -123,11 +132,11 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     if (kind === "non_isbn") {
       const now = Date.now(), seen = misread.current;
       misread.current = { code, at: now };
-      if (seen.code === code && now - seen.at < 2000) setNotIsbn(true);
+      if (seen.code === code && now - seen.at < 2000) setNotIsbn(on => { if (!on) trackEvent("scan_non_isbn"); return true; });
       return;
     }
     if (kind !== "isbn" || !guard.current(code)) return;
-    setNotIsbn(false); setTrouble(false); setTroubleOpen(false); setIdleStamp(Date.now());
+    setNotIsbn(false); setTrouble(false); setTroubleOpen(false); setIdleStamp(Date.now()); setFocusHint(false);
     try { navigator.vibrate?.(30); } catch { /* not every device can */ }
     list.add(code);
     scanId.current += 1;
@@ -147,11 +156,11 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     return () => clearTimeout(timer);
   }, [latest, cardSettled]);
   const showCard = Boolean(cardOpen && card);
-  const { video, camera, tools, toggleTorch, dismissTip } = useCamera(open && wantCamera, accept);
+  const { video, aim, camera, tools, toggleTorch, dismissTip, focusAt } = useCamera(open && wantCamera, accept);
   // Eight seconds of the camera running with nothing read: offer the tips.
   useEffect(() => {
     if (camera !== "on") return undefined;
-    const timer = setTimeout(() => setTrouble(true), TROUBLE_MS);
+    const timer = setTimeout(() => { setTrouble(true); trackEvent("scan_timeout"); }, TROUBLE_MS);
     return () => clearTimeout(timer);
   }, [camera, idleStamp]);
   useEffect(() => {
@@ -159,6 +168,19 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     const timer = setTimeout(() => setNotIsbn(false), 8000);
     return () => clearTimeout(timer);
   }, [notIsbn]);
+  // "Tap the barcode to focus." once per sheet, where tap to focus works: until the first tap, the first read, or a few seconds.
+  useEffect(() => {
+    if (camera !== "on" || !tools.focus || hinted.current) return undefined;
+    hinted.current = true; setFocusHint(true);
+    const timer = setTimeout(() => setFocusHint(false), FOCUS_HINT_MS);
+    return () => clearTimeout(timer);
+  }, [camera, tools.focus]);
+  const tapToFocus = event => {
+    if (!tools.focus || event.target.closest("button")) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    setFocusHint(false);
+    focusAt(Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)), Math.min(1, Math.max(0, (event.clientY - box.top) / box.height)));
+  };
   const typeIt = () => { document.getElementById("bv-scan-isbn")?.focus(); };
   useEffect(() => {
     if (seeded.current) return;
@@ -173,6 +195,7 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
     const isbn = typedIsbn(typed);
     if (!isbn) { setTypedError("Enter a valid ISBN."); return; }
     setTypedError(""); setTyped(""); list.add(isbn);
+    if (wantCamera) trackEvent("scan_typed");
   }
   async function addAll() {
     setSaving(true); setSaveError("");
@@ -188,10 +211,10 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
   return <NativeDialog open={open} onClose={() => { if (!saving) onClose(); }} title="Scan books" className="bv-scan-sheet">
     <div className="bv-scan-body">
       <div className="bv-scan-top">
-      {wantCamera && <div className={`bv-scan-camera is-${camera}${flash ? " is-flash" : ""}${showCard ? " has-card" : ""}`}>
+      {wantCamera && <div className={`bv-scan-camera is-${camera}${flash ? " is-flash" : ""}${showCard ? " has-card" : ""}`} onPointerUp={tapToFocus}>
         <video ref={video} muted playsInline aria-hidden="true" />
         {tools.torch && <button type="button" className="bv-scan-light" aria-label={tools.torchOn ? SCAN_COPY.lightOff : SCAN_COPY.lightOn} aria-pressed={tools.torchOn} onClick={toggleTorch}><Flashlight size={18} strokeWidth={2} aria-hidden="true" /></button>}
-        <div className="bv-scan-aim" aria-hidden="true"><span className="bv-scan-tick"><Check /></span></div>
+        <div className="bv-scan-aim" ref={aim} aria-hidden="true"><span className="bv-scan-tick"><Check /></span></div>
         {camera !== "refused" && camera !== "none" && <p className="bv-scan-hint">Fit the barcode in the box</p>}
         <div className={`bv-scan-card${showCard ? " is-open" : ""}`} aria-hidden="true">
           <div className="bv-scan-cover">{latestRow?.title ? <BookCover book={{ title: latestRow.title, cover_image_url: latestRow.cover, authors: [] }} size="small" decorative /> : <span className="bv-scan-cover-blank" />}</div>
@@ -199,6 +222,7 @@ export default function ScanSheet({ open, onClose, camera: wantCamera, initialIs
         </div>
       </div>}
       <p className="bv-sr-only" role="status" aria-live="polite">{showCard && card?.settled ? `${card.title}. ${card.line}` : ""}</p>
+      {wantCamera && focusHint && camera === "on" && <p className="bv-scan-notice">{SCAN_COPY.tapFocus}</p>}
       {wantCamera && camera === "refused" && <div className="bv-scan-notice" role="status"><p>{SCAN_COPY.blocked}</p><Button variant="secondary" onClick={typeIt}>{SCAN_COPY.type}</Button></div>}
       {wantCamera && camera === "none" && <p className="bv-scan-notice" role="status">Camera’s off. Type the ISBN instead.</p>}
       {wantCamera && tools.tip && camera === "on" && <div className="bv-scan-notice bv-scan-tip" role="status"><p>{SCAN_COPY.tip}</p>{platformTip() && <p>{platformTip()}</p>}<Button variant="secondary" onClick={dismissTip}>{SCAN_COPY.gotIt}</Button></div>}

@@ -236,3 +236,6 @@
 .bv-root .bv-handle-link { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 16px 0 0; overflow-wrap: anywhere; }
 .bv-root .bv-handle-status { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: var(--bv-fs-helper); color: var(--bv-green); font-weight: 600; }
 .bv-root .bv-handle-status--taken { color: var(--bv-ink); }
+.bv-root .bv-profile-back-actions { display: inline-flex; align-items: center; gap: 12px; }
+.bv-root .bv-share-list svg { width: 18px; height: 18px; }
+.bv-root .bv-share-error { margin: 0 8px; padding: 6px 10px; }

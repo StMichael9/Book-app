@@ -1,7 +1,7 @@
 import { test as base, expect } from "@playwright/test";
 import { greyBehindCovers } from "./support/cover-bg.js";
 import { installGenres } from "./support/genres.js";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 
 // Browser fixtures only: every API request is intercepted, including the profile endpoints (the T24 contract).
 const book = (id, title) => ({ id, title, authors: [{ id: 1, name: "Fixture Author" }], tags: [], cover_image_url: null, english_title: null, page_count: 200 });
@@ -1002,7 +1002,7 @@ test("Settings has the four sections, Sign out only there, and /account goes to 
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   for (const name of ["Favourite genres", "Your data", "Theme"]) await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Signed in as /, level: 2 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
+  await expect(page.locator("main").getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
   await expect(page.getByText("Download your books and notes, or delete your account.")).toBeVisible();
   await expect(page.locator(".bv-year-chevron")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Choose genres" })).toHaveAttribute("href", "/preferences");
@@ -1075,4 +1075,90 @@ test("handle sheet screenshots", async ({ page, app: _app }) => {
       await page.screenshot({ path: `${dir}/handle-available-${width}-${theme}.png` });
     }
   }
+// ---- Share a list as a picture (T74 item 5) ----------------------------------------------------------------------------------------------
+
+const SHARE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="#3c7dc9"/></svg>';
+// A device whose share sheet takes files: it keeps what it was given for the test to look at.
+const withShareSheet = page => page.addInitScript(() => {
+  Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
+  Object.defineProperty(navigator, "share", { configurable: true, value: async data => { const file = data.files[0]; window.__shared = { name: file.name, type: file.type, title: data.title, bytes: Array.from(new Uint8Array(await file.arrayBuffer())) }; } });
+});
+const withoutShareSheet = page => page.addInitScript(() => { Object.defineProperty(navigator, "share", { value: undefined, configurable: true }); Object.defineProperty(navigator, "canShare", { value: undefined, configurable: true }); });
+// Reads the picture the share sheet received: its size, and the colour of a few pixels.
+const readShared = page => page.evaluate(async () => {
+  const bitmap = await createImageBitmap(new Blob([new Uint8Array(window.__shared.bytes)], { type: "image/png" }));
+  const canvas = document.createElement("canvas"); canvas.width = bitmap.width; canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d"); ctx.drawImage(bitmap, 0, 0);
+  const pixel = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data).slice(0, 3);
+  return { name: window.__shared.name, type: window.__shared.type, title: window.__shared.title, width: bitmap.width, height: bitmap.height, corner: pixel(4, 4), cover: pixel(160, 400), footer: pixel(540, 1180) };
+});
+
+test("Share on a list draws a 1080 by 1350 picture and offers it to the share sheet", async ({ page, app }) => {
+  app.lists[0].books = [1, 2, 3].map(id => detail(id, { cover_image_url: "/test-cover/a.svg" }));
+  await page.route("**/test-cover/*", route => route.fulfill({ status: 200, contentType: "image/svg+xml", body: SHARE_SVG }));
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const picture = await readShared(page);
+  expect(picture).toMatchObject({ name: "bookvane-list.png", type: "image/png", title: "Christie, in order", width: 1080, height: 1350 });
+  expect(picture.corner).toEqual([243, 238, 227]);                      // the paper
+  expect(picture.cover[2]).toBeGreaterThan(picture.cover[0]);          // a (blue) cover was drawn where the first cover goes
+  expect(await page.getByRole("button", { name: "Share", exact: true }).isEnabled()).toBe(true);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("the picture is drawn in the same light colours in the dark theme", async ({ page, app: _app }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  expect((await readShared(page)).corner).toEqual([243, 238, 227]);
+});
+
+test("without a share sheet the picture is downloaded as bookvane-list.png", async ({ page, app: _app }) => {
+  await withoutShareSheet(page);
+  await page.goto("/profile/lists/7");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("bookvane-list.png");
+  const bytes = readFileSync(await file.path());
+  expect(Array.from(bytes.subarray(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);   // a PNG
+  expect(bytes.length).toBeGreaterThan(5000);
+});
+
+test("covers from another site draw without tainting the picture: a reachable cover is used, one that cannot be had gets the jacket", async ({ page, app }) => {
+  app.lists[0].books = [1, 2, 3].map(id => detail(id, { cover_image_url: `https://covers.openlibrary.org/b/id/${id}-M.jpg` }));
+  let reachable = false;   // a cover that cannot be had (blocked, or refused for lack of CORS) must give the jacket, never a tainted picture
+  await page.route("https://wsrv.nl/**", route => reachable ? route.fulfill({ status: 200, contentType: "image/svg+xml", headers: { "access-control-allow-origin": "*" }, body: SHARE_SVG }) : route.abort());
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const plain = await readShared(page);
+  expect(plain.cover[2] - plain.cover[0]).toBeLessThan(40);                            // no blue: the cover could not be had, so the jacket was drawn
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  reachable = true;
+  await page.evaluate(() => { window.__shared = null; });
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const real = await readShared(page);
+  expect(real.cover[2]).toBeGreaterThan(real.cover[0]);                  // the real cover is on the picture
+});
+
+test("a list with no books has no Share button, and a public list has one for guests", async ({ page, app }) => {
+  app.lists[0].books = [];
+  await page.goto("/profile/lists/7");
+  await expect(page.getByRole("heading", { name: "Christie, in order", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
+  app.guest = true;
+  await withoutShareSheet(page);
+  await page.goto("/u/ada/lists/3");
+  await expect(page.getByRole("heading", { name: "Shared list", level: 1 })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  expect((await download).suggestedFilename()).toBe("bookvane-list.png");
 });

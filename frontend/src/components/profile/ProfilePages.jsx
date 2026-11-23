@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import AuthorLinks from "../ui-v2/AuthorLinks.jsx";
+import ShareListButton from "../share/ShareListButton.jsx";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe, Lock, Plus, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -272,10 +273,10 @@ export function ProfileListPage() {
   }
   return <section className="bv-container"><div className={`bv-profile bv-profile-list${editing ? " is-editing" : ""}`}>
     <p className="bv-profile-back"><TextLink to="/profile"><ChevronLeft aria-hidden="true" />Your lists</TextLink>
-      {editing ? <Button onClick={() => setEditing(false)}>Done</Button> : <Button variant="quiet" className="bv-link-button" onClick={() => setEditing(true)}>Edit</Button>}</p>
+      <span className="bv-profile-back-actions">{!editing && <ShareListButton list={list} name={name || (profile?.handle ? `@${profile.handle}` : "")} />}
+        {editing ? <Button onClick={() => setEditing(false)}>Done</Button> : <Button variant="quiet" className="bv-link-button" onClick={() => setEditing(true)}>Edit</Button>}</span></p>
     <ListArt tall items={artOf(list)} />
-    <div className="bv-share-row"><h1>{list.name}</h1>
-      {list.is_public && profile?.profile_public && profile.handle && <ShareButton path={`/u/${profile.handle}/lists/${list.id}`} title={list.name} text={`${list.name}, a list by ${profileName(profile, profile.handle)} on Bookvane`} />}</div>
+    <h1>{list.name}</h1>
     {list.description && <p className="bv-profile-bio">{list.description}</p>}
     <p className="bv-muted">{books(list.books.length)}{name ? ` · by ${name}` : ""}</p>
     {editing && <p className="bv-list-rename"><Button variant="quiet" className="bv-link-button" onClick={() => setRenaming(true)}>Rename or delete</Button></p>}
@@ -350,10 +351,10 @@ export function PublicListPage({ notFound }) {
   if (!load.data) return <section className="bv-container" aria-busy="true"><div className="bv-profile"><p role="status" className="bv-muted">Opening list…</p></div></section>;
   const list = load.data;
   return <section className="bv-container"><div className="bv-profile bv-profile-list">
-    <p className="bv-profile-back"><TextLink to={`/u/${handle}`}><ChevronLeft aria-hidden="true" />{list.owner.display_name || `@${handle}`}</TextLink></p>
+    <p className="bv-profile-back"><TextLink to={`/u/${handle}`}><ChevronLeft aria-hidden="true" />{list.owner.display_name || `@${handle}`}</TextLink>
+      <ShareListButton list={list} name={list.owner.display_name || `@${handle}`} /></p>
     <ListArt tall items={artOf(list)} />
-    <div className="bv-share-row"><h1>{list.name}</h1>
-      <ShareButton path={`/u/${handle}/lists/${list.id ?? id}`} title={list.name} text={`${list.name}, a list by ${profileName(list.owner, handle)} on Bookvane`} /></div>
+    <h1>{list.name}</h1>
     {list.description && <p className="bv-profile-bio">{list.description}</p>}
     <p className="bv-muted">{books(list.books.length)} · by {list.owner.display_name || `@${handle}`}</p>
     {list.books.length > 0 && <ol className="bv-list-books">{list.books.map((book, index) => <li key={book.id}>
