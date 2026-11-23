@@ -150,6 +150,13 @@ def test_metrics_report_counts_and_the_three_saves_in_a_week_cohort(client, db_s
     assert client.get("/admin/metrics?days=3").json()["new_accounts_with_3_saves_in_7_days"] == 1
 
 
+def test_per_shop_copy_clicks_are_counted_by_placement(client, db_session, counters):
+    models, _ = counters
+    for placement in ("bookshop", "amazon"):
+        assert client.post("/events", json={"name": "get_copy_click", "placement": placement}).status_code == 204
+    assert {row[2] for row in rows(db_session, models) if row[0] == "get_copy_click"} >= {"bookshop", "amazon"}
+
+
 SCAN_PHASE_EVENTS = ("scan_timeout", "scan_non_isbn", "scan_typed", "scan_engine_native", "scan_engine_wasm",
                      "scan_snap_isbn", "scan_snap_cover", "scan_library_code")
 
