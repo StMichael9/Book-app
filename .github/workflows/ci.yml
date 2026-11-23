@@ -66,8 +66,12 @@ jobs:
         run: |
           psql "postgresql://postgres:postgres@localhost:5432/bookvane_test" -c "CREATE EXTENSION IF NOT EXISTS pg_trgm"
           python -m alembic upgrade head
+      # Wall-clock performance tests (@pytest.mark.perf) and the wall-clock bound inside the 2,000-entry library tests are skipped on
+      # shared runners (too noisy); the statement-count assertions still run. The laptop runs everything.
       - name: Backend tests
-        run: python -m pytest -q
+        run: python -m pytest -q -m "not perf"
+        env:
+          BOOKVANE_SKIP_WALL_CLOCK: "yes"
 
   frontend-lint:
     runs-on: ubuntu-latest
