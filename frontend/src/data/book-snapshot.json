@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-10-27T04:48:28.940Z",
+  "generatedAt": "2026-11-23T15:58:38.680Z",
   "source": "https://api.bookvane.me/books?size=30",
-  "total": 44075,
+  "total": 61952,
   "items": [
     {
       "id": 1769,
@@ -16,7 +16,7 @@
       "cover_image_url": "/covers/snapshot/1769.webp",
       "published_year": 1982,
       "page_count": 416,
-      "english_title": null
+      "english_title": "A Is For Alibi"
     },
     {
       "id": 1770,
@@ -24,18 +24,18 @@
       "subtitle": null,
       "authors": [
         {
-          "id": 1234,
-          "name": "Walter Carruthers Sellar"
-        },
-        {
           "id": 47083,
           "name": "Robert Julian Yeatman"
+        },
+        {
+          "id": 1234,
+          "name": "Walter Carruthers Sellar"
         }
       ],
       "cover_image_url": "/covers/snapshot/1770.webp",
       "published_year": 1930,
       "page_count": 125,
-      "english_title": null
+      "english_title": "1066 and all that."
     },
     {
       "id": 1771,
@@ -50,7 +50,7 @@
       "cover_image_url": "/covers/snapshot/1771.webp",
       "published_year": 1880,
       "page_count": 38,
-      "english_title": null
+      "english_title": "Mark Twain's Date, 1601"
     },
     {
       "id": 1772,
@@ -65,17 +65,13 @@
       "cover_image_url": "/covers/snapshot/1772.webp",
       "published_year": 1957,
       "page_count": 189,
-      "english_title": null
+      "english_title": "4.50 from Paddington"
     },
     {
       "id": 1773,
       "title": "A Christmas Carol",
       "subtitle": null,
       "authors": [
-        {
-          "id": 1237,
-          "name": "Charles Dickens"
-        },
         {
           "id": 2333,
           "name": "Charles Dickens"
@@ -99,7 +95,7 @@
       "cover_image_url": "/covers/snapshot/1774.webp",
       "published_year": 1889,
       "page_count": 64,
-      "english_title": null
+      "english_title": "Connecticut Yankee in King Arthur's Court"
     },
     {
       "id": 1776,
@@ -114,7 +110,7 @@
       "cover_image_url": "/covers/snapshot/1776.webp",
       "published_year": 1950,
       "page_count": 221,
-      "english_title": null
+      "english_title": "Murder Is Announced"
     },
     {
       "id": 1777,
@@ -122,30 +118,14 @@
       "subtitle": null,
       "authors": [
         {
-          "id": 1239,
-          "name": "James Joyce"
-        },
-        {
           "id": 9720,
           "name": "James Joyce"
-        },
-        {
-          "id": 47593,
-          "name": "James Joyce"
-        },
-        {
-          "id": 48024,
-          "name": "james joyce"
-        },
-        {
-          "id": 48450,
-          "name": "J Joyce"
         }
       ],
       "cover_image_url": "/covers/snapshot/1777.webp",
       "published_year": 1818,
       "page_count": 284,
-      "english_title": null
+      "english_title": "Portrait of the Artist As a Young Man"
     },
     {
       "id": 1779,
@@ -160,7 +140,7 @@
       "cover_image_url": "/covers/snapshot/1779.webp",
       "published_year": 1929,
       "page_count": 114,
-      "english_title": null
+      "english_title": "Room of One's Own"
     },
     {
       "id": 1781,
@@ -175,7 +155,7 @@
       "cover_image_url": "/covers/snapshot/1781.webp",
       "published_year": 1887,
       "page_count": 200,
-      "english_title": null
+      "english_title": "Study in Scarlet"
     },
     {
       "id": 1782,
@@ -190,17 +170,13 @@
       "cover_image_url": "/covers/snapshot/1782.webp",
       "published_year": 2004,
       "page_count": 56,
-      "english_title": null
+      "english_title": "Tale of Three Lions"
     },
     {
       "id": 1783,
       "title": "A Tale of Two Cities",
       "subtitle": null,
       "authors": [
-        {
-          "id": 1237,
-          "name": "Charles Dickens"
-        },
         {
           "id": 2333,
           "name": "Charles Dickens"
@@ -209,7 +185,7 @@
       "cover_image_url": "/covers/snapshot/1783.webp",
       "published_year": 1800,
       "page_count": 64,
-      "english_title": null
+      "english_title": "Tale of Two Cities"
     },
     {
       "id": 1785,
@@ -224,7 +200,7 @@
       "cover_image_url": "/covers/snapshot/1785.webp",
       "published_year": 2003,
       "page_count": 939,
-      "english_title": null
+      "english_title": "Short History Of Nearly Everything"
     },
     {
       "id": 1786,
@@ -254,7 +230,7 @@
       "cover_image_url": "/covers/snapshot/1787.webp",
       "published_year": 1481,
       "page_count": 328,
-      "english_title": null
+      "english_title": "Livy"
     },
     {
       "id": 1788,
@@ -284,7 +260,22 @@
       "cover_image_url": "/covers/snapshot/1790.webp",
       "published_year": 1885,
       "page_count": 224,
-      "english_title": null
+      "english_title": "After London Illustrated"
+    },
+    {
+      "id": 1791,
+      "title": "Alcatraz",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 1251,
+          "name": "Frederick Faust"
+        }
+      ],
+      "cover_image_url": "/covers/snapshot/1791.webp",
+      "published_year": 1922,
+      "page_count": 158,
+      "english_title": "Alcatraz Annotated"
     },
     {
       "id": 1792,
@@ -322,10 +313,6 @@
       "subtitle": null,
       "authors": [
         {
-          "id": 1238,
-          "name": "William Shakespeare"
-        },
-        {
           "id": 2294,
           "name": "William Shakespeare"
         }
@@ -348,7 +335,7 @@
       "cover_image_url": "/covers/snapshot/1795.webp",
       "published_year": 2011,
       "page_count": 526,
-      "english_title": null
+      "english_title": "Allegiant Collector's Edition"
     },
     {
       "id": 1797,
@@ -356,22 +343,18 @@
       "subtitle": null,
       "authors": [
         {
-          "id": 1237,
-          "name": "Charles Dickens"
+          "id": 47429,
+          "name": "Diana C. Archibald"
         },
         {
           "id": 2333,
           "name": "Charles Dickens"
-        },
-        {
-          "id": 47429,
-          "name": "Diana C. Archibald"
         }
       ],
       "cover_image_url": "/covers/snapshot/1797.webp",
       "published_year": 1800,
       "page_count": 256,
-      "english_title": null
+      "english_title": "American Notes for General Circulation"
     },
     {
       "id": 1798,
@@ -386,7 +369,7 @@
       "cover_image_url": "/covers/snapshot/1798.webp",
       "published_year": 2006,
       "page_count": 227,
-      "english_title": null
+      "english_title": "Abundance of Katherines"
     },
     {
       "id": 1800,
@@ -401,7 +384,7 @@
       "cover_image_url": "/covers/snapshot/1800.webp",
       "published_year": 1887,
       "page_count": 376,
-      "english_title": null
+      "english_title": "An unsocial socialist."
     },
     {
       "id": 1803,
@@ -411,20 +394,27 @@
         {
           "id": 1260,
           "name": "Ayn Rand"
-        },
-        {
-          "id": 47161,
-          "name": "Spectrum Spectrum Classics"
-        },
-        {
-          "id": 47294,
-          "name": "classics jifara"
         }
       ],
       "cover_image_url": "/covers/snapshot/1803.webp",
       "published_year": 1936,
       "page_count": 92,
-      "english_title": null
+      "english_title": "ANTHEM by Ayn Rand"
+    },
+    {
+      "id": 1805,
+      "title": "Arcadian adventures with the idle rich",
+      "subtitle": null,
+      "authors": [
+        {
+          "id": 46136,
+          "name": "Stephen Leacock"
+        }
+      ],
+      "cover_image_url": "/covers/snapshot/1805.webp",
+      "published_year": 1914,
+      "page_count": 157,
+      "english_title": "Arcadian adventures with the idle rich."
     },
     {
       "id": 1806,
@@ -439,7 +429,7 @@
       "cover_image_url": "/covers/snapshot/1806.webp",
       "published_year": 1970,
       "page_count": 124,
-      "english_title": null
+      "english_title": "Are You There God? It's Me, Margaret."
     },
     {
       "id": 1807,
@@ -454,7 +444,7 @@
       "cover_image_url": "/covers/snapshot/1807.webp",
       "published_year": 1866,
       "page_count": 672,
-      "english_title": null
+      "english_title": "Armadale."
     },
     {
       "id": 1809,
@@ -469,41 +459,7 @@
       "cover_image_url": "/covers/snapshot/1809.webp",
       "published_year": 1871,
       "page_count": 272,
-      "english_title": null
-    },
-    {
-      "id": 1810,
-      "title": "At the Earth's Core",
-      "subtitle": null,
-      "authors": [
-        {
-          "id": 1240,
-          "name": "Edgar Rice Burroughs"
-        },
-        {
-          "id": 8840,
-          "name": "Edgar Rice Burroughs"
-        }
-      ],
-      "cover_image_url": "/covers/snapshot/1810.webp",
-      "published_year": 1914,
-      "page_count": 128,
-      "english_title": null
-    },
-    {
-      "id": 1811,
-      "title": "Barchester Towers",
-      "subtitle": null,
-      "authors": [
-        {
-          "id": 1266,
-          "name": "Anthony Trollope"
-        }
-      ],
-      "cover_image_url": "/covers/snapshot/1811.webp",
-      "published_year": 1815,
-      "page_count": 432,
-      "english_title": null
+      "english_title": "At the Back of the North Wind:(Annotated)"
     }
   ]
 }
