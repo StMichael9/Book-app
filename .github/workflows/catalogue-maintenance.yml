@@ -151,7 +151,7 @@ jobs:
           esac
       - name: Keep the author merge report
         if: ${{ always() && startsWith(inputs.task, 'author_merge_') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-author-merge-report
           path: ${{ runner.temp }}/author-merge-report.md
@@ -159,7 +159,7 @@ jobs:
           retention-days: 14
       - name: Keep the author report
         if: ${{ always() && startsWith(inputs.task, 'author_bios_') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-author-report
           path: ${{ runner.temp }}/author-report.md
@@ -167,7 +167,7 @@ jobs:
           retention-days: 14
       - name: Keep the description report
         if: ${{ always() && startsWith(inputs.task, 'fill_descriptions_') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-description-report
           path: ${{ runner.temp }}/fill-report.md
@@ -175,13 +175,13 @@ jobs:
           retention-days: 14
       - name: Keep the genre report
         if: ${{ always() && startsWith(inputs.task, 'retag_genres_') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-genre-report
           path: ${{ runner.temp }}/retag-report.md
       - name: Keep the description re-clean report
         if: ${{ always() && (startsWith(inputs.task, 'reclean_descriptions_') || startsWith(inputs.task, 'reclean_stored_')) }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-reclean-report
           path: ${{ runner.temp }}/reclean-report.md
@@ -189,7 +189,7 @@ jobs:
           retention-days: 14
       - name: Keep the cleaning report
         if: ${{ always() && startsWith(inputs.task, 'clean_') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalogue-clean-report
           path: ${{ runner.temp }}/clean-report.md
