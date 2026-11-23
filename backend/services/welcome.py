@@ -4,7 +4,7 @@ Day 0, day 3 and day 10 after sign-up, one call to action each, no countdowns, n
 account and at most MAX_PER_RUN in total. Accounts that switched `email_tips` off, accounts older than 30 days, and any email
 that is more than LATE_DAYS overdue (a long pause in the schedule) are skipped without sending.
 
-THE WORDING BELOW IS A PLACEHOLDER DRAFT. Every reader-visible word goes to Michael before release (the growth lead drafts it).
+The wording below is the growth lead's edited copy, approved by Michael (.local-dev/growth/landing-review.md, "Welcome emails").
 
 Mail goes through the existing Resend sender settings (`RESEND_API_KEY`, `PASSWORD_RESET_FROM`). Tests replace `send_email`.
 """
@@ -14,6 +14,7 @@ import hashlib
 import hmac
 import html
 import uuid
+from email.utils import formataddr, parseaddr
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -29,15 +30,19 @@ ACCOUNT_MAX_AGE_DAYS = 30
 LATE_DAYS = 5
 MAX_CONSECUTIVE_FAILURES = 3
 
-# (subject, line, call-to-action label, path on the site). PLACEHOLDER DRAFTS pending Michael's approval.
+# (subject, line, call-to-action label, path on the site). Approved copy; every path is /my-books.
 COPY = (
-    ("Start your Bookvane shelf", "Your shelf is empty for now. Scan the books on your shelves or bring your library over from "
-     "Goodreads or StoryGraph, and it is yours to keep in one place.", "Start your shelf", "/my-books/import"),
-    ("What are you reading now?", "Add the book you are reading and, if you like, a note only you can see.",
-     "Add what you're reading", "/my-books"),
-    ("Make a list you may share", "A list is a handful of books you want to remember or pass on. It stays private unless you "
-     "choose to share it.", "Make a list", "/my-books"),
+    ("Your Bookvane shelf", "Thanks for joining. The quickest way to fill your shelf: open Bookvane on your phone, tap Scan books, "
+     "and point the camera at the barcode on the back of each book. Have a Goodreads or StoryGraph export instead? You can upload "
+     "that. Everything you add is private.", "Open My Books", "/my-books"),
+    ("What are you reading right now?", "If you’re partway through a book, add it with the page you’re on. A note is optional, "
+     "and only you can see it.", "Add a book", "/my-books"),
+    ("A short list of books", "A list is a few books you want to remember or pass on. It stays private unless you choose to "
+     "share it.", "Make a list", "/my-books"),
 )
+REPLY_LINE = "Reply if something isn’t working."      # day 0 only: replies reach the support inbox
+SENDER_NAME = "Michael at Bookvane"
+REPLY_TO = "support@bookvane.me"
 
 
 class NotConfigured(Exception):
@@ -74,6 +79,8 @@ def unsubscribe_url(user_id: uuid.UUID) -> str:
 def build_email(step: int, user_id: uuid.UUID) -> dict:
     """The Resend payload parts for welcome email `step` (1 to 3): subject, text, html and the unsubscribe headers."""
     subject, line, label, path = COPY[step - 1]
+    if step == 1:
+        line = f"{line} {REPLY_LINE}"
     link = f"{(settings.frontend_base_url or 'https://bookvane.me').rstrip('/')}{path}"
     opt_out = unsubscribe_url(user_id)
     plain = f"{line}\n\n{label}: {link}\n\nYou get these tips because you joined Bookvane. Stop them with one click: {opt_out}\n"
@@ -84,6 +91,11 @@ def build_email(step: int, user_id: uuid.UUID) -> dict:
             "headers": {"List-Unsubscribe": f"<{opt_out}>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}}
 
 
+def sender() -> str:
+    """"Michael at Bookvane" on the address (and so the domain) of the existing password-reset sender."""
+    return formataddr((SENDER_NAME, parseaddr(settings.password_reset_from or "")[1]))
+
+
 def send_email(to: str, parts: dict) -> None:
     """One message through Resend, as the password-reset email is sent. Raises on failure."""
     if not all((settings.resend_api_key, settings.password_reset_from, settings.frontend_base_url)):
@@ -91,7 +103,7 @@ def send_email(to: str, parts: dict) -> None:
     response = httpx.post(
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-        json={"from": settings.password_reset_from, "to": [to], **parts},
+        json={"from": sender(), "reply_to": REPLY_TO, "to": [to], **parts},
         timeout=10,
     )
     response.raise_for_status()

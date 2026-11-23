@@ -410,7 +410,7 @@ def test_the_right_step_goes_to_the_right_account_one_per_run_and_the_steps_prog
     box = Mailbox()
     first = due(growth, box)
     assert first["sent"] == 3 and first["skipped_late"] == 0
-    assert {parts["subject"] for to, parts in box.sent} == {"Start your Bookvane shelf"}
+    assert {parts["subject"] for to, parts in box.sent} == {"Your Bookvane shelf"}
     growth.db.expire_all()
     assert [growth.db.get(growth.models.User, u.id).welcome_step for u in (day0, day3, day10)] == [1, 1, 1]
     # a run sends one email per account: the 3- and 4-day-old accounts are also due for step 2, which goes in the NEXT run
@@ -492,6 +492,36 @@ def test_the_sender_stops_after_three_failures_in_a_row(growth):
     assert result["failed"] == 3 and Down.calls == 3 and result["sent"] == 0
 
 
+def test_the_approved_welcome_copy_paths_reply_line_and_footer(growth):
+    from services import welcome
+    person = growth.user("copy", 0)
+    expected = (
+        ("Your Bookvane shelf", "Open My Books", "Thanks for joining. The quickest way to fill your shelf: open Bookvane on your phone, tap "
+         "Scan books, and point the camera at the barcode on the back of each book. Have a Goodreads or StoryGraph export instead? You can "
+         "upload that. Everything you add is private."),
+        ("What are you reading right now?", "Add a book", "If you’re partway through a book, add it with the page you’re on. A note "
+         "is optional, and only you can see it."),
+        ("A short list of books", "Make a list", "A list is a few books you want to remember or pass on. It stays private unless you "
+         "choose to share it."))
+    for step, (subject, label, line) in enumerate(expected, start=1):
+        parts = welcome.build_email(step, person.id)
+        reply = "Reply if something isn’t working."
+        assert parts["subject"] == subject
+        assert (line + " " + reply) in parts["text"] if step == 1 else (line in parts["text"] and reply not in parts["text"])
+        assert (reply in parts["html"]) == (step == 1)
+        assert f"{label}: https://bookvane.me/my-books" + chr(10) in parts["text"]                       # every path is /my-books
+        assert "You get these tips because you joined Bookvane. Stop them with one click" in parts["text"]    # the footer stays
+        assert "/switch" not in parts["text"] and "lend" not in parts["text"].lower()
+
+
+def test_the_sender_is_michael_at_bookvane_on_the_reset_address_with_replies_to_support(growth, monkeypatch):
+    from services import welcome
+    monkeypatch.setattr(growth.settings, "password_reset_from", "Bookvane <hello@bookvane.me>")
+    assert welcome.sender() == "Michael at Bookvane <hello@bookvane.me>" and welcome.REPLY_TO == "support@bookvane.me"
+    monkeypatch.setattr(growth.settings, "password_reset_from", "hello@bookvane.me")
+    assert welcome.sender() == "Michael at Bookvane <hello@bookvane.me>"
+
+
 def test_each_email_has_one_link_plain_text_html_and_an_unsubscribe_header(growth):
     from services import welcome
     person = growth.user("mail", 0)
@@ -557,7 +587,8 @@ def test_the_send_endpoint_needs_the_service_key_and_a_configured_mailer(growth,
     response = growth.client.post("/admin/send-welcome", headers={"x-admin-key": "service-key-123"})
     assert response.status_code == 200 and response.json()["sent"] >= 1
     mine = [kwargs for url, kwargs in posts if kwargs["json"]["to"] == [person.email]]
-    assert len(mine) == 1 and mine[0]["json"]["from"] == "Bookvane <hello@example.com>" and "List-Unsubscribe" in mine[0]["json"]["headers"]
+    assert len(mine) == 1 and mine[0]["json"]["from"] == "Michael at Bookvane <hello@example.com>" and "List-Unsubscribe" in mine[0]["json"]["headers"]
+    assert mine[0]["json"]["reply_to"] == "support@bookvane.me"
     assert growth.client.post("/admin/send-welcome?limit=201", headers={"x-admin-key": "service-key-123"}).status_code == 422
 
 
