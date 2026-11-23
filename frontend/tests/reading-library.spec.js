@@ -329,14 +329,14 @@ for (const legacy of [true, false]) {
     }
   }
 
-  test(`Welcome isolates pending personalized results across ${legacy ? "V2" : "V3"} sessions`, async ({ page, app }) => {
+  test(`Discover isolates pending personalized results across ${legacy ? "V2" : "V3"} sessions`, async ({ page, app }) => {
     Object.assign(app, { legacy, accountFixtures: true, account: "A" });
     let release;
     app.holdCatalogue = new Promise(resolve => { release = resolve; });
     try {
-      await page.goto("/");
+      await page.goto("/browse");   // the landing no longer loads books; Discover keeps the same per-session scope
       await expect.poll(() => app.heldStarted).toBe(true);
-      await expireAndSignInAsB(page, app, "/");
+      await expireAndSignInAsB(page, app, "/browse");
       await expect.poll(() => app.requests.filter(r => r.path === "/books" && r.account === "B").length).toBe(1);
       await expect(page.locator(".bv-book-card")).toHaveCount(1);
       release();

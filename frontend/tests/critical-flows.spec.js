@@ -419,9 +419,9 @@ test("direct author search updates a category URL", async ({ page, app }) => {
   expect(app.requests.filter((item) => item.path === "/books").at(-1).query.get("author")).toBe("Another Author");
 });
 
-test("science-fiction landing links and discovery requests use the actual catalogue tag", async ({ page, app }) => {
-  await page.goto("/");
-  await page.getByRole("link", { name: /^Science fiction/ }).click();
+test("science-fiction genre links and discovery requests use the actual catalogue tag", async ({ page, app }) => {
+  await page.goto("/browse");   // the genre links moved from the landing to the Discover chip row
+  await page.getByRole("radiogroup", { name: "Browse genres" }).getByRole("radio", { name: /^Science fiction/ }).click();
   await expect(page).toHaveURL(/tag=science_fiction/);
   await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Science Fiction"]);
   await page.getByRole("navigation", { name: "Main navigation", exact: true }).getByRole("link", { name: "Discover", exact: true }).click();
