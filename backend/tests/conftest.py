@@ -21,6 +21,10 @@ def _resolve_test_database_url() -> str | None:
     return os.getenv("TEST_DATABASE_URL")
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "perf: wall-clock performance test; CI runs `pytest -m \"not perf\"` (shared runners are too noisy), the laptop runs it")
+
+
 MIGRATION_TRIGGERS = (
     "bookvane_library_compatibility",
     "bookvane_import_entry_removal",
