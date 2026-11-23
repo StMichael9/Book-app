@@ -186,12 +186,13 @@ test.describe("scan events", () => {
     const dialog = page.getByRole("dialog", { name: "Scan books" });
     await expect(dialog).toBeVisible();
     await expect.poll(() => names(app)).toEqual(["scan_opened"]);
-    await page.evaluate(code => window.__codes.push(code), ISBN);
+    // The reader needs two matching reads before it takes a code (T80), as a real scan would give.
+    await page.evaluate(code => { window.__codes.push(code); window.__codes.push(code); }, ISBN);
     await expect(dialog.locator(".bv-scan-row")).toHaveCount(1);
     await expect(dialog.getByRole("button", { name: "Add 1 book" })).toBeEnabled();
     await dialog.getByRole("button", { name: "Add 1 book" }).click();
     await expect(dialog).toHaveCount(0);
-    await expect.poll(() => names(app)).toEqual(["scan_opened", "scan_added"]);
+    await expect.poll(() => names(app)).toEqual(["scan_opened", "scan_engine_native", "scan_added"]);
     expect(app.events.find(event => event.name === "scan_added")).toEqual({ name: "scan_added", n: 1 });
   });
 
