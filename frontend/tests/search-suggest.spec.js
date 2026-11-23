@@ -140,7 +140,10 @@ test.describe("with SEARCH_SUGGEST on", () => {
     await input.press("Enter");
     await expect(page).toHaveURL(/\/browse\?q=dune$/);
     await page.goBack();
+    await expect(page).toHaveURL(/\/book\/9001$/);
+    await header(page).fill(""); // Back can bring the field back with "dune" still in it; type into an empty field
     await typeSlowly(header(page), "dune");
+    await expect(header(page)).toHaveValue("dune");
     await list(page).getByRole("option", { name: /See all results/ }).click();
     await expect(page).toHaveURL(/\/browse\?q=dune$/);
   });

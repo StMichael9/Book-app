@@ -138,8 +138,10 @@ test("a card's book is prefetched once, however often it is hovered, and fills t
   await page.goto("/browse");
   await expect(card(page, "Nav Book 12")).toBeVisible();
   const fetched = () => app.requests.filter(path => path === "/books/9012").length;
+  const prefetched = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/books/9012"));
   await card(page, "Nav Book 12").hover();
   await expect.poll(fetched).toBe(1);
+  await prefetched;
   await card(page, "Nav Book 1").hover();
   await card(page, "Nav Book 12").hover();
   await page.waitForTimeout(300);

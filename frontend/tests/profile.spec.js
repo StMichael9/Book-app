@@ -380,8 +380,7 @@ test("the year shelf draws a spine per finished book up to what fits, shows +N f
   const box = await page.locator(".bv-shelf").boundingBox();
   for (const spine of await page.locator(".bv-shelf-spine").all()) { const rect = await spine.boundingBox(); expect(rect.x + rect.width).toBeLessThanOrEqual(box.x + box.width + 0.5); }
   await page.setViewportSize({ width: 1280, height: 800 });
-  const wide = await shelf();
-  expect(wide[6].spines).toBeGreaterThan(fits);
+  await expect.poll(async () => (await shelf())[6].spines).toBeGreaterThan(fits);
   const wideWidths = await page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => spine.getBoundingClientRect().width));
   expect(Math.min(...wideWidths)).toBeGreaterThanOrEqual(7.9);
 });
