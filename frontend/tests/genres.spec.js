@@ -56,7 +56,8 @@ test("the chip row works from the keyboard: arrows choose, and the choice is the
   await expect(page.getByRole("radio", { name: "Science fiction", exact: true })).toBeChecked();
   await expect(page).toHaveURL(/tag=science_fiction$/);
   await expect(page.getByRole("heading", { name: "Science fiction", level: 2 })).toBeVisible();
-  await page.getByRole("radio", { name: "All genres" }).check({ force: true });
+  await page.getByRole("radio", { name: "All genres" }).click({ force: true });
+  await expect(page.getByRole("radio", { name: "All genres" })).toBeChecked();
   await expect(page).toHaveURL(/\/browse$/);
 });
 
@@ -67,8 +68,10 @@ test("the filters are the same genres under Fiction and Nonfiction and more, as 
   await expect(dialog.getByRole("group", { name: "Fiction", exact: true }).getByRole("checkbox")).toHaveCount(15);
   await expect(dialog.getByRole("group", { name: "Nonfiction and more", exact: true }).getByRole("checkbox")).toHaveCount(13);
   await expect(dialog.getByText(/\(\d+\)|\b\d{2,}\b/)).toHaveCount(0);
-  await dialog.getByRole("checkbox", { name: "Fantasy", exact: true }).check({ force: true });
-  await dialog.getByRole("checkbox", { name: "Poetry", exact: true }).check({ force: true });
+  await dialog.getByRole("checkbox", { name: "Fantasy", exact: true }).click({ force: true });
+  await expect(dialog.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
+  await dialog.getByRole("checkbox", { name: "Poetry", exact: true }).click({ force: true });
+  await expect(dialog.getByRole("checkbox", { name: "Poetry", exact: true })).toBeChecked();
   await dialog.getByRole("button", { name: "Apply filters" }).click();
   await expect.poll(() => app.requests.filter(request => request.path === "/books").at(-1).tags).toEqual(["fantasy", "poetry"]);
   await expect(page.getByRole("heading", { name: "Fantasy + Poetry", level: 2 })).toBeVisible();
@@ -103,8 +106,10 @@ test("Favourite genres uses the same grouped picker, and saving sends the genres
   await expect(page.getByRole("group", { name: "Fiction", exact: true }).getByRole("checkbox")).toHaveCount(15);
   await expect(page.getByRole("group", { name: "Nonfiction and more", exact: true }).getByRole("checkbox")).toHaveCount(13);
   await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
-  await page.getByRole("checkbox", { name: "Travel", exact: true }).check({ force: true });
-  await page.getByRole("checkbox", { name: "Fantasy", exact: true }).uncheck({ force: true });
+  await page.getByRole("checkbox", { name: "Travel", exact: true }).click({ force: true });
+  await expect(page.getByRole("checkbox", { name: "Travel", exact: true })).toBeChecked();
+  await page.getByRole("checkbox", { name: "Fantasy", exact: true }).click({ force: true });
+  await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).not.toBeChecked();
   await page.getByRole("button", { name: "Save genres" }).click();
   await expect.poll(() => app.requests.find(request => request.path === "/me/preferences" && request.method === "POST")?.body?.tag_ids).toEqual([9001, genreId("travel")]);
 });
@@ -180,7 +185,8 @@ test("when the genre list carries each genre's id, saving uses it and makes no t
   app.authenticated = true; app.genresWithIds = true;
   await page.goto("/preferences");
   await expect(page.getByRole("checkbox", { name: "Fantasy", exact: true })).toBeChecked();
-  await page.getByRole("checkbox", { name: "Travel", exact: true }).check({ force: true });
+  await page.getByRole("checkbox", { name: "Travel", exact: true }).click({ force: true });
+  await expect(page.getByRole("checkbox", { name: "Travel", exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Save genres" }).click();
   await expect.poll(() => app.requests.find(request => request.path === "/me/preferences" && request.method === "POST")?.body?.tag_ids).toEqual([9001, genreId("fantasy"), genreId("travel")]);
   expect(app.requests.filter(request => request.path === "/autocomplete/tags/batch")).toHaveLength(0);

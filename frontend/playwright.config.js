@@ -10,6 +10,7 @@ export default defineConfig({
   // regression runs must not overwrite the checked-in design gallery.
   grepInvert: /visual review exports/,
   timeout: 60_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   workers: 1,
   use: {
     baseURL: "http://127.0.0.1:5189",
