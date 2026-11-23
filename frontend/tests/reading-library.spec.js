@@ -376,9 +376,13 @@ test("coming back from a book restores how far Show more had got", async ({ page
   await page.getByRole("button", { name: "Show more", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
   await page.locator(".bv-book-card h3 a").nth(27).click();
+  // Only the requests from coming back count: the first-page prefetch (limit 24) may also land after it on a slow machine, so the check is
+  // that the reload on Back asked for all 30 at once, not that it was the last request.
+  const before = app.requests.length;
   await page.goBack();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
-  await expect.poll(() => app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+  await expect.poll(() => app.requests.slice(before).some(r => r.path === "/me/library" && !r.query.get("cursor") && r.query.get("limit") === "30")).toBe(true);
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
 });
 
 test("the Covers / List choice is remembered on this device", async ({ page, app }) => {
