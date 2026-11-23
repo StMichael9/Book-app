@@ -29,6 +29,7 @@ const test = base.extend({
       const body = method === "POST" ? request.postDataJSON() : null;
       state.requests.push({ path, method, body, query: url.searchParams });
       const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/me/loans" && method === "GET") return reply(200, { items: [] }); // My Books and Home ask for open loans; none here
       if (path === "/me/reading-capabilities") { if (state.holdCapabilities) await state.holdCapabilities; return reply(200, { enabled: Boolean(state.v3), contract_version: 1, writable: true, features: { reading_actions: true } }); }
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
@@ -531,8 +532,8 @@ test("the landing page invites guests to join free and carries its source", asyn
   await page.goto("/"); await expect(page.locator(".bv-book-card").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Private by default", exact: true })).toBeVisible();
   await expect(page.locator(".bv-header").getByRole("link", { name: "Join free", exact: true })).toHaveAttribute("href", "/register?src=landing");
-  // Import my library: sign up first (the source is carried), then straight to the import.
-  for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/register?src=landing&returnTo=%2Fmy-books%2Fimport");
+  // Import my library: signed out it opens /switch, which signs them up (src=switch) with the import next.
+  for (const link of await page.getByRole("link", { name: "Import my library", exact: true }).all()) await expect(link).toHaveAttribute("href", "/switch");
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     const header = page.locator(".bv-header");

@@ -26,6 +26,7 @@ const test = base.extend({
       if (path === "/auth/refresh") return reply(200, {});
       if (path === "/me/profile") return reply(200, { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
       if (path === "/me/lists") return state.down ? reply(503, { detail: "down" }) : reply(200, []);
+      if (path === "/me/loans" && method === "GET") return reply(200, { items: [] }); // My Books and Home ask for open loans; none here
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: state.readingActions, private_context: state.readingActions } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (/^\/books\/\d+$/.test(path)) return reply(200, books[Number(path.split("/").at(-1)) - 1]);
