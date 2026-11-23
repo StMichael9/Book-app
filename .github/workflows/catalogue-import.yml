@@ -205,7 +205,7 @@ jobs:
           echo "state_run_id=$state_run" >> "$GITHUB_OUTPUT"
       - name: Restore the popularity file
         if: ${{ steps.source.outputs.run_id != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: catalogue-state-${{ steps.source.outputs.run_id }}
           path: ${{ runner.temp }}/catalogue-state
@@ -213,7 +213,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Restore the staging tables from the previous segment
         if: ${{ steps.source.outputs.run_id != '' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: catalogue-stage-${{ steps.source.outputs.run_id }}
           path: ${{ runner.temp }}/catalogue-stage
