@@ -20,7 +20,7 @@ const test = base.extend({
       stats: stats(),
       lists: [{ id: 7, name: "Christie, in order", description: null, is_public: false, book_count: 3, covers: [],
         books: [detail(1, { status: "owned", finished_month: "2026-03" }), detail(2, { status: "want" }), detail(3)] }],
-      takenHandles: ["taken"], nextListId: 8,
+      takenHandles: ["taken"], suggestion: "st-michael", nextListId: 8,
       publicProfile: { display_name: "Ada Reader", initials: "AR", avatar_icon: "feather", avatar_color: "plum", bio: "Quiet reader.", reading_since: 2025, stats: stats({ books_finished: 2, pages_read: 400, by_month: month(1, 1), biggest_month: 1, top_genres: [] }),
         lists: [{ id: 3, name: "Shared list", description: null, book_count: 2, covers: [] }],
         // Extra fields a mistaken payload might carry; the page must never show them.
@@ -60,6 +60,11 @@ const test = base.extend({
         if ("profile_public" in body) { if (body.profile_public && !next.handle) return fail(422, "handle_required"); next.profile_public = body.profile_public; }
         if (body.prompted) next.show_prompt = false;
         state.profile = next; return reply(200, next);
+      }
+      if (path === "/me/profile/handle-suggestion") { if (state.suggestionFails) return fail(500, "down"); return reply(200, { handle: state.profile.handle || state.suggestion }); }
+      if (path === "/me/profile/handle-available") {
+        const handle = url.searchParams.get("h");
+        return reply(200, !/^[a-z0-9-]{3,30}$/.test(handle) ? { available: false, reason: "handle_invalid" } : handle === "admin" ? { available: false, reason: "handle_reserved" } : state.takenHandles.includes(handle) ? { available: false, reason: "handle_taken" } : { available: true });
       }
       if (path === "/me/stats") return reply(200, state.stats);
       if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [], previews: books.slice(0, 4).map(item => ({ id: item.id, cover_image_url: item.cover_image_url })) })));
@@ -172,35 +177,73 @@ test("the profile is private by default and the You tab opens it, with a link to
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
 });
 
-test("Make public opens a confirm sheet that asks for a username, reports taken ones, then goes public and back to private", async ({ page, app }) => {
+test("Make public works in one tap with the suggested handle, then goes back to private", async ({ page, app }) => {
   await page.goto("/profile");
   await page.getByRole("button", { name: "Make public" }).click();
   const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
   await expect(sheet.getByText("Shown: your name, bio, yearly stats, and shared lists")).toBeVisible();
   await expect(sheet.getByText("Always private: notes, ratings, reading history, and private lists")).toBeVisible();
+  await expect(sheet.getByText("Your link: bookvane.me/u/st-michael")).toBeVisible();
+  await expect(sheet.getByLabel("Username")).toHaveCount(0);
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
-  await sheet.getByLabel("Username").fill("taken");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("That username is taken.")).toBeVisible();
-  await sheet.getByLabel("Username").fill("admin");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("That username isn’t available.")).toBeVisible();
-  await sheet.getByLabel("Username").fill("Bad Name!");
-  await expect(sheet.getByLabel("Username")).toHaveValue("bad name!");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
-  await sheet.getByLabel("Username").fill("stmichael");
   await sheet.getByRole("button", { name: "Make public" }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
-  await expect(page.getByText("bookvane.me/u/stmichael")).toBeVisible();
-  await expect(page.getByText("@stmichael · Reading since 2026")).toBeVisible();
-  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
+  await expect(page.getByText("bookvane.me/u/st-michael")).toBeVisible();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "st-michael", profile_public: true });
   await expect(page.getByRole("status").filter({ hasText: "Your profile is now public." })).toBeAttached();
   await page.getByRole("button", { name: "Make private" }).click();
   await expect(page.getByText("Only you can see your profile")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ profile_public: false });
-  await expect(page.getByRole("status").filter({ hasText: "Your profile is now private." })).toBeAttached();
+});
+
+test("Change reveals the username field with a 400 ms availability check: Available, Taken. Try another., and the existing errors", async ({ page, app }) => {
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Make public" }).click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await sheet.getByRole("button", { name: "Change" }).click();
+  await expect(sheet.getByRole("button", { name: "Change" })).toHaveCount(0);
+  const field = sheet.getByLabel("Username");
+  await expect(field).toHaveValue("st-michael");
+  const checks = () => app.requests.filter(request => request.path.startsWith("/me/profile/handle-available"));
+  const before = checks().length;
+  await field.fill("t");
+  await field.pressSequentially("aken", { delay: 30 });
+  await expect(sheet.getByText("Taken. Try another.")).toBeVisible();
+  expect(checks().length - before).toBe(1); // typing quickly asks once
+  expect(checks().at(-1).path).toBe("/me/profile/handle-available?h=taken");
+  await field.fill("Bad Name!");
+  await expect(field).toHaveValue("bad name!");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
+  expect(checks().at(-1).path).toBe("/me/profile/handle-available?h=taken"); // an invalid handle is never sent to the check
+  await field.fill("admin");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username isn’t available.")).toBeVisible();
+  await field.fill("michael-reads");
+  const available = sheet.getByRole("status").filter({ hasText: "Available" });
+  await expect(available).toBeVisible();
+  await expect(available.locator("svg")).toHaveAttribute("width", "18");
+  await expect(sheet.getByText("Your link: bookvane.me/u/michael-reads")).toBeVisible();
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "michael-reads", profile_public: true });
+  await expect(page.getByText("@michael-reads · Reading since 2026")).toBeVisible();
+});
+
+test("if the suggestion can't be fetched the sheet asks for a username as before", async ({ page, app }) => {
+  app.suggestionFails = true;
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Make public" }).click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await expect(sheet.getByLabel("Username")).toBeVisible();
+  await sheet.getByLabel("Username").fill("taken");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username is taken.")).toBeVisible();
+  await sheet.getByLabel("Username").fill("stmichael");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
 });
 
 test("the Make public sheet needs no username once one is set, Cancel and Esc send nothing, and focus returns to the button", async ({ page, app }) => {
@@ -210,6 +253,7 @@ test("the Make public sheet needs no username once one is set, Cancel and Esc se
   await open.click();
   const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
   await expect(sheet.getByLabel("Username")).toHaveCount(0);
+  await expect(sheet.getByText("Your link: bookvane.me/u/ready")).toBeVisible();
   await sheet.getByRole("button", { name: "Cancel" }).click();
   await expect(sheet).toBeHidden();
   await expect(open).toBeFocused();
@@ -1005,6 +1049,31 @@ test("a profile list's art slots, empty or filled, have no grey fill: outline on
     await expect(page.locator(".bv-art-slot").first()).toBeVisible();
     expect(await greyBehindCovers(page)).toEqual([]);
     for (const slot of await page.locator(".bv-art-slot").all()) expect(await slot.evaluate(node => getComputedStyle(node).boxShadow)).toMatch(/inset/);
+  }
+});
+
+test("handle sheet screenshots", async ({ page, app: _app }) => {
+  test.skip(!process.env.BV_SHOTS_DIR, "set BV_SHOTS_DIR to export screenshots");
+  const dir = process.env.BV_SHOTS_DIR; mkdirSync(dir, { recursive: true });
+  for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    for (const [width, height] of [[390, 844], [1440, 1000]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto("/profile");
+      await page.getByRole("button", { name: "Make public" }).click();
+      const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+      await expect(sheet.getByText("Your link: bookvane.me/u/st-michael")).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `${dir}/handle-suggested-${width}-${theme}.png` });
+      await sheet.getByRole("button", { name: "Change" }).click();
+      await sheet.getByLabel("Username").fill("taken");
+      await expect(sheet.getByText("Taken. Try another.")).toBeVisible();
+      await page.screenshot({ path: `${dir}/handle-taken-${width}-${theme}.png` });
+      await sheet.getByLabel("Username").fill("michael-reads");
+      await expect(sheet.getByText("Available")).toBeVisible();
+      await page.screenshot({ path: `${dir}/handle-available-${width}-${theme}.png` });
+    }
   }
 });
 

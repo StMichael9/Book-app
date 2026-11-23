@@ -5,6 +5,8 @@ const list = id => `/me/lists/${Number(id)}`;
 
 export const getProfile = () => apiRequest("/me/profile");
 export const updateProfile = changes => apiRequest("/me/profile", send("PATCH", changes));
+export const getHandleSuggestion = () => apiRequest("/me/profile/handle-suggestion");
+export const checkHandle = handle => apiRequest(`/me/profile/handle-available?h=${encodeURIComponent(handle)}`);
 export const getStats = year => apiRequest(year ? `/me/stats?year=${Number(year)}` : "/me/stats");
 
 export const getLists = bookId => apiRequest(bookId ? `/me/lists?book_id=${Number(bookId)}` : "/me/lists");

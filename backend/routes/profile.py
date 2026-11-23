@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Body, Depends, Query, Response
+from fastapi import APIRouter, Body, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
 from models import User
+from rate_limit import limiter
 from services import profile as service
 from services.reading_life import reading_life
 
@@ -23,6 +24,20 @@ def get_profile(current_user: User = Depends(get_current_user)):
 def patch_profile(changes: dict = Body(...), current_user: User = Depends(get_current_user),
                   db: Session = Depends(get_db)):
     return service.update_profile(db, current_user, {key: value for key, value in changes.items() if key in PROFILE_FIELDS})
+
+
+@router.get("/me/profile/handle-suggestion")
+def handle_suggestion(response: Response, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.suggest_handle(db, current_user)
+
+
+@router.get("/me/profile/handle-available")
+@limiter.limit("60/minute")
+def handle_available(request: Request, response: Response, h: str = Query("", max_length=100),
+                     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    return service.handle_available(db, current_user, h)
 
 
 @router.get("/me/stats")
