@@ -298,6 +298,7 @@ def test_without_any_copy_of_the_site_the_answer_is_a_503_not_a_broken_page(seo)
     assert seo.client.get(f"/seo/book/{book.id}").status_code == 503        # a page without the app's root is refused
 
 
+@pytest.mark.perf
 def test_a_warm_book_page_is_fast(seo):
     book = seo.make_book(description="word " * 200)
     seo.client.get(f"/seo/book/{book.id}")
