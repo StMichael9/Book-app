@@ -6,7 +6,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Globe, Lock, Plus, X } f
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { addListBook, createList, deleteList, getList, getLists, getPublicList, getPublicProfile, getStats, orderList, removeListBook, updateList } from "../../api/profile.js";
 import { useReader } from "../ui-v2/readerState.js";
-import { ActionLink, BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, NativeDialog, TextLink } from "../ui-v2/primitives.jsx";
 import ShareButton from "../ui-v2/ShareButton.jsx";
 import Avatar from "./Avatar.jsx";
 import ListArt, { SpineBlock } from "./ListArt.jsx";
