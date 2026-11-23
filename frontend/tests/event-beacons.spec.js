@@ -28,7 +28,7 @@ const test = base.extend({
     expect(state.errors).toEqual([]);
   },
 });
-const names = app => app.events.map(event => event.body.name);
+const names = app => app.events.map(event => event.body.name).filter(name => name !== "landing_visit"); // the once-per-session visit count is tested in growth-pack-2.spec.js
 
 test("registering sends register_started once, with the source and nothing else", async ({ page, app }) => {
   await page.context().addCookies([{ name: "probe", value: "1", url: page.url() === "about:blank" ? (process.env.PW_BASE_URL || "http://127.0.0.1:5189") : page.url() }]);
@@ -37,9 +37,10 @@ test("registering sends register_started once, with the source and nothing else"
   await page.getByLabel("Password", { exact: true }).fill("valid-password");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect.poll(() => names(app)).toEqual(["register_started"]);
-  expect(app.events[0].body).toEqual({ name: "register_started", src: "landing" });
-  expect(app.events[0].type).toContain("text/plain");
-  expect(app.events[0].cookie).toBeUndefined();
+  const started = app.events.find(event => event.body.name === "register_started");
+  expect(started.body).toEqual({ name: "register_started", src: "landing" });
+  expect(started.type).toContain("text/plain");
+  expect(started.cookie).toBeUndefined();
   expect(app.registerUrl).toBe("?src=landing");
 });
 
@@ -58,7 +59,9 @@ test("the guest save dialog and an empty guest search each send their event once
 test("the book page has no share-image button, and a book opened from an older shared link still sends share_visit", async ({ page, app }) => {
   await page.goto("/book/1");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("button", { name: /share/i })).toHaveCount(0);
+  // The only share control on a book page is the plain Share button (F5); the old share-image button stays gone.
+  await expect(page.getByRole("button", { name: /share/i })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toBeVisible();
   await page.goto("/book/1?src=share");
   await expect.poll(() => app.events.filter(event => event.body.name === "share_visit")).toEqual([{ type: expect.stringContaining("text/plain"), body: { name: "share_visit", src: "share" } }]);
 });

@@ -362,6 +362,51 @@ def test_loans_add_no_statement_to_the_library_list_or_the_workspace(lending, ap
     assert [count(path) for path in paths] == before
 
 
+def test_loan_list_items_carry_the_book_id_cover_and_authors_in_constant_statements(lending, app_modules):
+    models, engine = lending.models, app_modules["database"].engine
+    catalogue = make(lending.client, lending.saved).json()
+    private = models.UserBook(user_id=lending.owner.id, private_title="Handwritten Copy", private_author="Ada Private", status="want",
+                              is_owned=True, is_wanted=False, version=1)
+    lending.db.add(private)
+    lending.db.commit()
+    private_loan = make(lending.client, {"id": private.id}, direction="borrowed", person_name="Ana").json()
+    ended = make(lending.client, lending.saved, direction="borrowed", person_name="Old").json()
+    assert lending.client.patch(f"/me/loans/{ended['id']}", json={"ended": True}).status_code == 200
+
+    def items(query=""):
+        return {item["id"]: item for item in lending.client.get(f"/me/loans{query}").json()["items"]}
+
+    book = lending.db.get(models.Book, lending.saved["book_id"])
+    expected_authors = sorted(author.name for author in book.authors)
+    listed = items()
+    open_item = listed[catalogue["id"]]
+    assert open_item["book_id"] == book.id and open_item["cover_image_url"] == book.cover_image_url
+    assert sorted(open_item["authors"]) == expected_authors and expected_authors
+    assert listed[private_loan["id"]]["book_id"] is None and listed[private_loan["id"]]["cover_image_url"] is None
+    assert listed[private_loan["id"]]["authors"] == ["Ada Private"]
+    assert items("?state=closed")[ended["id"]]["book_id"] == book.id                      # closed loans carry them too
+
+    def count():
+        seen = []
+        listener = lambda conn, cursor, statement, *a: seen.append(statement)
+        lending.db.commit()
+        lending.db.expire_all()
+        event.listen(engine, "before_cursor_execute", listener)
+        try:
+            assert lending.client.get("/me/loans").status_code == 200
+        finally:
+            event.remove(engine, "before_cursor_execute", listener)
+        return len(seen)
+
+    before = count()
+    for index in range(6):                                  # six more entries, each with its own open loan
+        more = models.UserBook(user_id=lending.owner.id, private_title=f"Extra {index}", status="want", is_owned=True, is_wanted=False, version=1)
+        lending.db.add(more)
+        lending.db.commit()
+        assert make(lending.client, {"id": more.id}, person_name=f"P{index}").status_code == 201
+    assert len(items()) > 4 and count() == before
+
+
 # --- events, exports ------------------------------------------------------------------------------------------------------------
 
 def test_events_are_daily_totals_with_no_loan_detail_and_loan_is_a_ref(lending):

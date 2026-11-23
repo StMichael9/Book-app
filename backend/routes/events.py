@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from auth.dependencies import get_current_user, get_current_user_optional
 from database import get_db, settings
 from models import User
-from services import billing, catalogue_health, event_counts
+from services import admin_overview, billing, catalogue_health, event_counts
 
 router = APIRouter(tags=["events"])
 
@@ -49,6 +49,12 @@ def admin_or_service_key(request: Request, user: User | None = Depends(get_curre
     if user.email.casefold() not in _admin_emails():
         raise HTTPException(status_code=403, detail="Not allowed")
     return user
+
+
+@router.get("/admin/overview")
+def get_admin_overview(response: Response, _admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    return admin_overview.overview(db)
 
 
 @router.get("/admin/metrics")

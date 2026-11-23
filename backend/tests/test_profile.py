@@ -1,5 +1,6 @@
 """Profile v1: profile settings, yearly stats, reading lists and the public pages."""
 import json
+import re
 import uuid
 from datetime import date
 
@@ -125,6 +126,86 @@ def test_a_handle_can_be_cleared_while_private(world):
     world.act_as(world.make_user())
     world.client.patch("/me/profile", json={"handle": "going-away"})
     assert world.client.patch("/me/profile", json={"handle": ""}).json()["handle"] is None
+
+
+def test_handle_suggestion_comes_from_the_display_name_never_the_email(world):
+    named = world.make_user(display_name="  Ada Lovelace!  ")
+    world.act_as(named)
+    r = world.client.get("/me/profile/handle-suggestion")
+    assert r.status_code == 200 and r.json() == {"handle": "ada-lovelace"}
+    assert r.headers["cache-control"] == "private, no-store"
+    for name in (None, "Al"):  # no name, or too short to be a handle
+        user = world.make_user(display_name=name, email=f"jo.secret{uuid.uuid4().hex[:6]}@example.test")
+        world.act_as(user)
+        handle = world.client.get("/me/profile/handle-suggestion").json()["handle"]
+        assert re.match(r"^reader-\d{4}$", handle) and "secret" not in handle
+
+
+def test_an_existing_handle_is_returned_as_is(world):
+    world.act_as(world.make_user(display_name="Someone Else", handle="already-mine"))
+    assert world.client.get("/me/profile/handle-suggestion").json() == {"handle": "already-mine"}
+
+
+def test_the_reader_fallback_retries_when_taken(world, monkeypatch):
+    from services import profile
+    world.make_user(handle="reader-0001")
+    draws = iter([1, 1, 2])
+    monkeypatch.setattr(profile.secrets, "randbelow", lambda n: next(draws))
+    world.act_as(world.make_user(display_name="!!!"))
+    assert world.client.get("/me/profile/handle-suggestion").json() == {"handle": "reader-0002"}
+
+
+def service_ok(handle):
+    import re
+    return bool(re.match(r"^[a-z0-9-]{3,30}$", handle)) and not handle.startswith("-") and not handle.endswith("-")
+
+
+def test_a_taken_suggestion_gets_a_numeric_suffix_and_never_collides(world):
+    base = "taken-" + uuid.uuid4().hex[:8]
+    world.make_user(handle=base)
+    world.make_user(handle=base + "-2")
+    me = world.make_user(display_name=base.replace("-", " "))
+    world.act_as(me)
+    assert world.client.get("/me/profile/handle-suggestion").json() == {"handle": base + "-3"}
+    long = world.make_user(display_name="x" * 40)
+    world.act_as(long)
+    first = world.client.get("/me/profile/handle-suggestion").json()["handle"]
+    assert first == "x" * 30
+    world.make_user(handle=first)
+    second = world.client.get("/me/profile/handle-suggestion").json()["handle"]
+    assert second == "x" * 28 + "-2" and len(second) <= 30
+
+
+def test_a_reserved_or_symbol_only_name_still_yields_a_valid_free_handle(world):
+    for name in ("Admin", "!!!", "日本語"):
+        world.act_as(world.make_user(display_name=name, email=f"q{uuid.uuid4().hex[:8]}@example.test"))
+        handle = world.client.get("/me/profile/handle-suggestion").json()["handle"]
+        assert service_ok(handle) and handle != "admin"
+
+
+def test_handle_availability_reports_valid_taken_reserved_and_invalid(world):
+    other = world.make_user(handle="somebody-else")
+    me = world.make_user(handle="my-own-handle")
+    world.act_as(me)
+
+    def check(h):
+        r = world.client.get("/me/profile/handle-available", params={"h": h})
+        assert r.status_code == 200 and r.headers["cache-control"] == "private, no-store"
+        return r.json()
+
+    assert check("fresh-handle-1") == {"available": True}
+    assert check("Fresh-Handle-1") == {"available": True}  # case-insensitive, like saving
+    assert check("my-own-handle") == {"available": True}  # your own handle is not a clash
+    assert check("somebody-else") == {"available": False, "reason": "handle_taken"}
+    assert check("SOMEBODY-ELSE") == {"available": False, "reason": "handle_taken"}
+    assert check("admin") == {"available": False, "reason": "handle_reserved"}
+    assert check("ab") == {"available": False, "reason": "handle_invalid"}
+    assert check("has space") == {"available": False, "reason": "handle_invalid"}
+    assert check("") == {"available": False, "reason": "handle_invalid"}
+    assert other.handle == "somebody-else"
+    world.anonymous()
+    assert world.client.get("/me/profile/handle-available", params={"h": "x-free"}).status_code == 401
+    assert world.client.get("/me/profile/handle-suggestion").status_code == 401
 
 
 # --- stats -------------------------------------------------------------------------------------------------------

@@ -1,0 +1,362 @@
+{
+ "note": "Drawn and degraded by scripts/make-barcode-fixtures.mjs (seeded), not photographed.",
+ "frames": [
+  {
+   "file": "01-clean.jpg",
+   "kind": "clean",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "02-clean.jpg",
+   "kind": "clean",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "03-clean.jpg",
+   "kind": "clean",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "04-small.jpg",
+   "kind": "small",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "05-small.jpg",
+   "kind": "small",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "06-small.jpg",
+   "kind": "small",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "07-small.jpg",
+   "kind": "small",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "08-blur.jpg",
+   "kind": "blur",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "09-blur.jpg",
+   "kind": "blur",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "10-blur.jpg",
+   "kind": "blur",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "11-low_contrast.jpg",
+   "kind": "low_contrast",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "12-low_contrast.jpg",
+   "kind": "low_contrast",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "13-low_contrast.jpg",
+   "kind": "low_contrast",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "14-low_light.jpg",
+   "kind": "low_light",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "15-low_light.jpg",
+   "kind": "low_light",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "16-low_light.jpg",
+   "kind": "low_light",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "17-glare.jpg",
+   "kind": "glare",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "18-glare.jpg",
+   "kind": "glare",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "19-glare.jpg",
+   "kind": "glare",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "20-glare.jpg",
+   "kind": "glare",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "21-sideways.jpg",
+   "kind": "sideways",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "22-sideways.jpg",
+   "kind": "sideways",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "23-sideways.jpg",
+   "kind": "sideways",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "24-tilted.jpg",
+   "kind": "tilted",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "25-tilted.jpg",
+   "kind": "tilted",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "26-tilted.jpg",
+   "kind": "tilted",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "27-tilted.jpg",
+   "kind": "tilted",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "28-upside_down.jpg",
+   "kind": "upside_down",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "29-upside_down.jpg",
+   "kind": "upside_down",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "30-curved.jpg",
+   "kind": "curved",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "31-curved.jpg",
+   "kind": "curved",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "32-curved.jpg",
+   "kind": "curved",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "33-curved.jpg",
+   "kind": "curved",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "34-worn.jpg",
+   "kind": "worn",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "35-worn.jpg",
+   "kind": "worn",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "36-worn.jpg",
+   "kind": "worn",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "37-worn.jpg",
+   "kind": "worn",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "38-glossy.jpg",
+   "kind": "glossy",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "39-glossy.jpg",
+   "kind": "glossy",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "40-glossy.jpg",
+   "kind": "glossy",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "41-glossy.jpg",
+   "kind": "glossy",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": null
+  },
+  {
+   "file": "42-add_on.jpg",
+   "kind": "add_on",
+   "expected": "9780141439518",
+   "isbn": true,
+   "addon": "52499"
+  },
+  {
+   "file": "43-add_on.jpg",
+   "kind": "add_on",
+   "expected": "9780743273565",
+   "isbn": true,
+   "addon": "51995"
+  },
+  {
+   "file": "44-add_on.jpg",
+   "kind": "add_on",
+   "expected": "9780451524935",
+   "isbn": true,
+   "addon": "53995"
+  },
+  {
+   "file": "45-add_on.jpg",
+   "kind": "add_on",
+   "expected": "9780061120084",
+   "isbn": true,
+   "addon": "50000"
+  },
+  {
+   "file": "46-add_on.jpg",
+   "kind": "add_on",
+   "expected": "9780385333481",
+   "isbn": true,
+   "addon": "54995"
+  },
+  {
+   "file": "47-upc_a.jpg",
+   "kind": "upc_a",
+   "expected": "036000291452",
+   "isbn": false,
+   "addon": null
+  },
+  {
+   "file": "48-upc_a.jpg",
+   "kind": "upc_a",
+   "expected": "012345678905",
+   "isbn": false,
+   "addon": null
+  },
+  {
+   "file": "49-upc_a.jpg",
+   "kind": "upc_a",
+   "expected": "042100005264",
+   "isbn": false,
+   "addon": null
+  },
+  {
+   "file": "50-shop_ean.jpg",
+   "kind": "shop_ean",
+   "expected": "5012345678900",
+   "isbn": false,
+   "addon": null
+  },
+  {
+   "file": "51-shop_ean.jpg",
+   "kind": "shop_ean",
+   "expected": "4006381333931",
+   "isbn": false,
+   "addon": null
+  }
+ ]
+}

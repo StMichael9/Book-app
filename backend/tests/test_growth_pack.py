@@ -4,7 +4,7 @@ import importlib.util
 import json
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -410,7 +410,7 @@ def test_the_right_step_goes_to_the_right_account_one_per_run_and_the_steps_prog
     box = Mailbox()
     first = due(growth, box)
     assert first["sent"] == 3 and first["skipped_late"] == 0
-    assert {parts["subject"] for to, parts in box.sent} == {"Start your Bookvane shelf"}
+    assert {parts["subject"] for to, parts in box.sent} == {"Your Bookvane shelf"}
     growth.db.expire_all()
     assert [growth.db.get(growth.models.User, u.id).welcome_step for u in (day0, day3, day10)] == [1, 1, 1]
     # a run sends one email per account: the 3- and 4-day-old accounts are also due for step 2, which goes in the NEXT run
@@ -492,6 +492,36 @@ def test_the_sender_stops_after_three_failures_in_a_row(growth):
     assert result["failed"] == 3 and Down.calls == 3 and result["sent"] == 0
 
 
+def test_the_approved_welcome_copy_paths_reply_line_and_footer(growth):
+    from services import welcome
+    person = growth.user("copy", 0)
+    expected = (
+        ("Your Bookvane shelf", "Open My Books", "Thanks for joining. The quickest way to fill your shelf: open Bookvane on your phone, tap "
+         "Scan books, and point the camera at the barcode on the back of each book. Have a Goodreads or StoryGraph export instead? You can "
+         "upload that. Everything you add is private."),
+        ("What are you reading right now?", "Add a book", "If you’re partway through a book, add it with the page you’re on. A note "
+         "is optional, and only you can see it."),
+        ("A short list of books", "Make a list", "A list is a few books you want to remember or pass on. It stays private unless you "
+         "choose to share it."))
+    for step, (subject, label, line) in enumerate(expected, start=1):
+        parts = welcome.build_email(step, person.id)
+        reply = "Reply if something isn’t working."
+        assert parts["subject"] == subject
+        assert (line + " " + reply) in parts["text"] if step == 1 else (line in parts["text"] and reply not in parts["text"])
+        assert (reply in parts["html"]) == (step == 1)
+        assert f"{label}: https://bookvane.me/my-books" + chr(10) in parts["text"]                       # every path is /my-books
+        assert "You get these tips because you joined Bookvane. Stop them with one click" in parts["text"]    # the footer stays
+        assert "/switch" not in parts["text"] and "lend" not in parts["text"].lower()
+
+
+def test_the_sender_is_michael_at_bookvane_on_the_reset_address_with_replies_to_support(growth, monkeypatch):
+    from services import welcome
+    monkeypatch.setattr(growth.settings, "password_reset_from", "Bookvane <hello@bookvane.me>")
+    assert welcome.sender() == "Michael at Bookvane <hello@bookvane.me>" and welcome.REPLY_TO == "support@bookvane.me"
+    monkeypatch.setattr(growth.settings, "password_reset_from", "hello@bookvane.me")
+    assert welcome.sender() == "Michael at Bookvane <hello@bookvane.me>"
+
+
 def test_each_email_has_one_link_plain_text_html_and_an_unsubscribe_header(growth):
     from services import welcome
     person = growth.user("mail", 0)
@@ -557,7 +587,8 @@ def test_the_send_endpoint_needs_the_service_key_and_a_configured_mailer(growth,
     response = growth.client.post("/admin/send-welcome", headers={"x-admin-key": "service-key-123"})
     assert response.status_code == 200 and response.json()["sent"] >= 1
     mine = [kwargs for url, kwargs in posts if kwargs["json"]["to"] == [person.email]]
-    assert len(mine) == 1 and mine[0]["json"]["from"] == "Bookvane <hello@example.com>" and "List-Unsubscribe" in mine[0]["json"]["headers"]
+    assert len(mine) == 1 and mine[0]["json"]["from"] == "Michael at Bookvane <hello@example.com>" and "List-Unsubscribe" in mine[0]["json"]["headers"]
+    assert mine[0]["json"]["reply_to"] == "support@bookvane.me"
     assert growth.client.post("/admin/send-welcome?limit=201", headers={"x-admin-key": "service-key-123"}).status_code == 422
 
 
@@ -607,3 +638,67 @@ def test_email_tips_is_an_opt_in_chosen_at_sign_up_and_off_for_everyone_else(gro
 def test_the_welcome_migration_marks_accounts_already_older_than_30_days_as_finished(growth):
     path = ROOT / "backend" / "alembic" / "versions" / "c5d8f1b34e76_welcome_emails.py"
     assert "UPDATE users SET welcome_step = 3 WHERE created_at < now() - interval '30 days'" in path.read_text(encoding="utf-8")
+
+
+def test_admin_overview_headline_numbers_in_three_statements(growth):
+    models = growth.models
+    boss = growth.user("boss", 90)
+    growth.admin_as(boss)
+    tester = models.User(email=f"t-{uuid.uuid4().hex[:6]}@example.com", hashed_password="x", created_at=days_ago(1))
+    growth.db.add(tester)
+    growth.db.commit()
+    growth.made["users"].append(tester.id)
+    r1, r2, r3 = growth.user("r1", 3), growth.user("r2", 20), growth.user("r3", 60)
+    stamp(growth, r1, "user_books", days_ago(1))                      # r1 is the only active reader this week
+    entry = models.UserBook(user_id=r1.id, book_id=growth.book("Lent").id, is_owned=True)
+    growth.db.add(entry)
+    growth.db.commit()
+    for ended in (None, date.today()):
+        growth.db.add(models.Loan(user_book_id=entry.id, direction="lent" if ended is None else "borrowed", person_name="Pat",
+                                  request_id=uuid.uuid4(), ended_on=ended))
+    club_new = models.Club(name="Fresh", owner_id=r1.id)
+    club_post = models.Club(name="Posting", owner_id=r2.id)
+    club_idle = models.Club(name="Idle", owner_id=r3.id)
+    growth.db.add_all([club_new, club_post, club_idle])
+    growth.db.commit()
+    growth.db.add(models.ClubMember(club_id=club_new.id, user_id=r1.id, role="owner"))        # joined now: active
+    for club, owner in ((club_post, r2), (club_idle, r3)):
+        growth.db.add(models.ClubMember(club_id=club.id, user_id=owner.id, role="owner", joined_at=days_ago(50)))
+    growth.db.commit()
+    club_book = models.ClubBook(club_id=club_post.id, book_id=growth.book("Club read").id)
+    growth.db.add(club_book)
+    growth.db.commit()
+    growth.db.add(models.ClubPost(club_book_id=club_book.id, user_id=r2.id, body="hello"))   # a recent post: active
+    for when, phase in ((days_ago(2), "completed"), (days_ago(5), "completed_with_issues"), (days_ago(40), "completed")):
+        growth.db.execute(text("INSERT INTO library_import_runs (id, user_id, source, headers, creation_fingerprint, created_at, updated_at, phase) "
+                               "VALUES (:i, :u, 'goodreads', '{}', :f, :t, :t, :p)"),
+                          {"i": uuid.uuid4(), "u": r1.id, "f": uuid.uuid4().hex * 2, "t": when, "p": phase})
+    growth.db.commit()
+    statements = []
+    listener = lambda conn, cursor, statement, *args: statements.append(statement)  # noqa: E731
+    event.listen(growth.db.get_bind(), "before_cursor_execute", listener)
+    try:
+        response = growth.client.get("/admin/overview")
+    finally:
+        event.remove(growth.db.get_bind(), "before_cursor_execute", listener)
+        growth.db.rollback()
+        growth.db.execute(delete(models.ClubPost))
+        growth.db.execute(delete(models.ClubBook))
+        growth.db.execute(delete(models.Club))
+        growth.db.commit()
+    assert response.status_code == 200 and response.headers["cache-control"] == "private, no-store"
+    body = response.json()
+    assert body["readers"] == {"total": 3, "new_7d": 1, "new_30d": 2, "weekly_active": 1}     # not the admin, not the test account
+    assert body["clubs"] == {"total": 3, "active_30d": 2}
+    assert body["open_loans"] == 1 and body["imports_completed_30d"] == 2
+    assert body["subscriptions"] == {"active": {"patron": 0, "club_plus": 0}, "mrr_minor_units": {}}
+    own = [s for s in statements if not s.startswith("SELECT users.id AS users_id")]       # minus the test admin's own row refresh
+    assert len(own) == 3, own
+    assert "@" not in response.text and "Pat" not in response.text                              # counts only, nothing per person
+
+
+def test_admin_overview_is_admin_only(growth):
+    reader = growth.user("plain")
+    growth.admin_as(reader)
+    growth.settings.admin_emails = "someone@else.com"
+    assert growth.client.get("/admin/overview").status_code == 403

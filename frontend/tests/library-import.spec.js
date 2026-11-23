@@ -81,6 +81,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: { detail: "Unhandled engineering fixture" } });
     });
@@ -412,6 +413,9 @@ test("after an import the done screen counts down the books still being looked u
   const line = page.locator("[role=status][aria-live=polite]").filter({ hasText: "Finding covers" });
   await expect(line).toHaveText("Finding covers and descriptions for 3 books…");
   const revision = async () => Number(await page.locator(".bv-root").getAttribute("data-library-revision"));
+  // The done screen refreshes the library itself once its rows have loaded, which can be after the heading shows. The enrichment check
+  // runs every 5 seconds, so a revision that has not moved for 400 ms has had that refresh: count the upgrades from there.
+  await expect.poll(async () => { const first = await revision(); await page.waitForTimeout(400); return first > 0 && first === await revision(); }, { timeout: 4000 }).toBe(true);
   const base = await revision();
   await expect(line).toHaveText("Finding covers and descriptions for 1 book…", { timeout: 12000 });
   expect(await revision()).toBe(base + 1);

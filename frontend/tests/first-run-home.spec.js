@@ -20,6 +20,7 @@ const test = base.extend({
       const body = ["POST", "PUT", "PATCH"].includes(method) ? route.request().postDataJSON() : null;
       state.requests.push({ path, method, body });
       const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") return reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
@@ -42,6 +43,7 @@ const test = base.extend({
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);
@@ -61,15 +63,15 @@ test("an account with no books gets a first-run Home with a few books to pick, i
   await expect(page.getByRole("link", { name: "Tell us what you like (optional)" })).toHaveAttribute("href", "/preferences");
   const pickTop = (await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y;
   expect((await page.getByRole("link", { name: "Tell us what you like (optional)" }).boundingBox()).y).toBeLessThan(pickTop);
-  await expect(page.getByRole("link", { name: /Import from Goodreads or StoryGraph/ })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("link", { name: /Import from Goodreads or StoryGraph/ })).toHaveCount(0);
   expect(app.requests.some(request => request.path.startsWith("/me/library/books/"))).toBe(false);
 });
 
 test("the import path shows only when library import is on", async ({ page, app }) => {
   app.libraryImport = true;
   await page.goto("/home");
-  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
-  expect((await page.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
+  await expect(page.getByRole("main").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ })).toHaveAttribute("href", "/my-books/import");
+  expect((await page.getByRole("main").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
 });
 
 test("after three saves the page says the shelf is started and offers My Books", async ({ page, app }) => {

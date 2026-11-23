@@ -58,6 +58,7 @@ const test = base.extend({
       }
       if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 900 + Number(path.split("/").pop()) }); }
       if (path === "/me/library/private" && method === "POST") { state.writes.push({ path, method, body }); return reply(200, { ...state.entry, id: 800 + state.writes.length, book_id: null, book: null, private_title: body.title }); }
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });
@@ -96,7 +97,8 @@ const withCamera = (page, mode = "ok") => page.addInitScript(mode => {
     async detect() { this.calls += 1; return window.__codes.splice(0).map(rawValue => ({ rawValue })); }
   };
 }, mode);
-const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values), codes);
+// Each code is pushed twice: the reader confirms an ISBN on a second identical read.
+const scan = (page, ...codes) => page.evaluate(values => window.__codes.push(...values, ...values), codes);
 const open = async page => { await page.goto("/my-books"); await page.getByRole("button", { name: "Scan books", exact: true }).click(); await expect(page.getByRole("dialog", { name: "Scan books" })).toBeVisible(); };
 
 test.use({ viewport: { width: 390, height: 844 } });
@@ -206,7 +208,7 @@ test("a refused or missing camera falls back to typing, with one plain sentence"
     await withCamera(page, mode);
     await open(page);
     const dialog = page.getByRole("dialog", { name: "Scan books" });
-    await expect(dialog.getByText("Camera’s off. Type the ISBN instead.")).toBeVisible();
+    await expect(dialog.getByText(mode === "refused" ? "Your browser has blocked the camera. Allow it in your browser’s settings for bookvane.me, or type the ISBN." : "Camera’s off. Type the ISBN instead.")).toBeVisible();
     await expect(dialog.getByText("Fit the barcode in the box")).toHaveCount(0);
     await dialog.getByLabel("Type an ISBN").fill("0-14-143951-3");
     await dialog.getByRole("button", { name: "Add", exact: true }).click();

@@ -524,3 +524,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-work-card[aria-busy="true"] .bv-cover { opacity: .5; }
 .bv-root .bv-work-card :is(.bv-work-cover, .bv-work-title):disabled { cursor: progress; }
 .bv-root .bv-book-grid { align-content: start; }
+
+/* Share button: a quiet pill with an 18px icon; the label swaps to "Link copied" for two seconds. */
+.bv-root .bv-share { gap: 8px; min-height: 44px; flex: none; }
+.bv-root .bv-share svg { flex: none; }
+.bv-root .bv-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }

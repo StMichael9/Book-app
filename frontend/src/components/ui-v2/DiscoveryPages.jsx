@@ -1,3 +1,4 @@
+import LoanBlock from "../lending/LoanBlock.jsx";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { trackEvent } from "./events.js";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -12,9 +13,10 @@ import SaveContinuation from "./SaveContinuation.jsx";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { useReader } from "./readerState.js";
 import { useInstantBooks } from "./instantBooks.js";
-import { bookshopAffiliateUrl } from "../../api/affiliate.js";
+import GetACopyBlock from "./GetACopyBlock.jsx";
 import AuthorLinks from "./AuthorLinks.jsx";
 import MoreByAuthor from "./MoreByAuthor.jsx";
+import ShareButton from "./ShareButton.jsx";
 import "../../styles/ui-v2/book-page.css";
 import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, repeatsTitle, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
@@ -67,8 +69,8 @@ export function WelcomePage() {
   const { hero: heroBooks, row: rowBooks } = landingSelection(items);
   const { genres: allGenres, labelFor } = useGenres();
   const subjects = (allGenres || []).slice(0, 4).map(genre => genre.key);
-  // The import needs an account: signed out, sign up first (the source is carried), then straight to the import.
-  const importTarget = auth.isAuthenticated ? "/my-books/import" : `/register?${new URLSearchParams({ src: "landing", returnTo: "/my-books/import" })}`;
+    // Signed out it opens /switch, which explains the move and then sends them to sign up with the import next.
+  const importTarget = auth.isAuthenticated ? "/my-books/import" : "/switch";
   return <>
     <section className="bv-container bv-landing-hero" aria-label="Welcome">
       <div className="bv-landing-copy">
@@ -267,6 +269,7 @@ export function BookPage() {
   const { bookId } = useParams();
   const { labelFor } = useGenres();
   const library = useUserBooks();
+  const auth = useAuth();
   const reader = useReader();
   const location = useLocation();
   const navigate = useNavigate();
@@ -307,7 +310,6 @@ export function BookPage() {
   }, [completeFocusTransition]);
   const saved = reader.libraryReady && !library.loading && !library.error && library.booksById[bookId]?.status;
   const continuingSave = ["want", "owned"].includes(new URLSearchParams(location.search).get("save"));
-  const copyUrl = bookshopAffiliateUrl(book);
   const sharedVisit = new URLSearchParams(location.search).get("src") === "share" && Boolean(book);
   if (continuingSave) signedInFrom.add(String(bookId));
   useEffect(() => { if (sharedVisit) trackEvent("share_visit", { src: "share" }); }, [sharedVisit, bookId]);
@@ -340,13 +342,15 @@ export function BookPage() {
           <ShelfActions book={book} hideError={continuingSave} /><PinToUpNext bookId={bookId} /><SaveContinuation />
           {library.readingActions && <Link className="bv-open-link" to={`/my-books/start/${book.id}`}><span>Open or start your reading</span><ArrowRight aria-hidden="true" /></Link>}
           {saved && <TextLink to="/my-books">View My Books <ArrowRight aria-hidden="true" /></TextLink>}
+          <ShareButton path={`/book/${book.id}`} title={book.title} text={`${book.title}${book.authors?.[0]?.name ? ` by ${book.authors[0].name}` : ""} on Bookvane`} />
+          {auth.isAuthenticated && library.readingActions && !library.readOnly && reader.libraryReady && !library.loading && !library.error && library.booksById[book.id]?.known && <LoanBlock key={book.id} entryId={library.booksById[book.id]?.id ?? null} bookId={book.id} isOwned={Boolean(library.booksById[book.id]?.is_owned)} book={book} />}
         </div>
         <div className="bv-book-about">
           {request.data ? <BookAbout key={book.id} book={book} />
             : <section className="bv-description" aria-busy="true"><h2>About this book</h2><div className="bv-description-pending" aria-hidden="true"><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line" /><div className="bv-skeleton bv-skeleton--line bv-skeleton--short" /></div></section>}
           {!request.data && <div className="bv-book-tags bv-book-tags--pending" aria-hidden="true" />}
           {book.tags?.some(tag => labelFor(tag.name)) && <div className="bv-book-tags">{book.tags.map((tag) => labelFor(tag.name) && <Link key={tag.id} to={`/browse?tag=${encodeURIComponent(tag.name)}`}>{labelFor(tag.name)}</Link>)}</div>}
-          {copyUrl && <div className="bv-get-copy"><h2>Get a copy</h2><a href={copyUrl} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackEvent("get_copy_click", { placement: "book_page" })}>Find it at Bookshop.org</a><p className="bv-help">Bookvane may earn a small commission.</p></div>}
+          <GetACopyBlock book={book} />
         </div>
       </div>
     </article>

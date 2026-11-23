@@ -1,7 +1,7 @@
 import { test as base, expect } from "@playwright/test";
 import { greyBehindCovers } from "./support/cover-bg.js";
 import { installGenres } from "./support/genres.js";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync } from "node:fs";
 
 // Browser fixtures only: every API request is intercepted, including the profile endpoints (the T24 contract).
 const book = (id, title) => ({ id, title, authors: [{ id: 1, name: "Fixture Author" }], tags: [], cover_image_url: null, english_title: null, page_count: 200 });
@@ -20,7 +20,7 @@ const test = base.extend({
       stats: stats(),
       lists: [{ id: 7, name: "Christie, in order", description: null, is_public: false, book_count: 3, covers: [],
         books: [detail(1, { status: "owned", finished_month: "2026-03" }), detail(2, { status: "want" }), detail(3)] }],
-      takenHandles: ["taken"], nextListId: 8,
+      takenHandles: ["taken"], suggestion: "st-michael", nextListId: 8,
       publicProfile: { display_name: "Ada Reader", initials: "AR", avatar_icon: "feather", avatar_color: "plum", bio: "Quiet reader.", reading_since: 2025, stats: stats({ books_finished: 2, pages_read: 400, by_month: month(1, 1), biggest_month: 1, top_genres: [] }),
         lists: [{ id: 3, name: "Shared list", description: null, book_count: 2, covers: [] }],
         // Extra fields a mistaken payload might carry; the page must never show them.
@@ -60,6 +60,11 @@ const test = base.extend({
         if ("profile_public" in body) { if (body.profile_public && !next.handle) return fail(422, "handle_required"); next.profile_public = body.profile_public; }
         if (body.prompted) next.show_prompt = false;
         state.profile = next; return reply(200, next);
+      }
+      if (path === "/me/profile/handle-suggestion") { if (state.suggestionFails) return fail(500, "down"); return reply(200, { handle: state.profile.handle || state.suggestion }); }
+      if (path === "/me/profile/handle-available") {
+        const handle = url.searchParams.get("h");
+        return reply(200, !/^[a-z0-9-]{3,30}$/.test(handle) ? { available: false, reason: "handle_invalid" } : handle === "admin" ? { available: false, reason: "handle_reserved" } : state.takenHandles.includes(handle) ? { available: false, reason: "handle_taken" } : { available: true });
       }
       if (path === "/me/stats") return reply(200, state.stats);
       if (path === "/me/lists" && method === "GET") return reply(200, state.lists.map(({ books, ...row }) => ({ ...row, has_book: books.some(item => item.id === Number(url.searchParams.get("book_id"))), book_count: books.length, covers: [], previews: books.slice(0, 4).map(item => ({ id: item.id, cover_image_url: item.cover_image_url })) })));
@@ -172,35 +177,73 @@ test("the profile is private by default and the You tab opens it, with a link to
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
 });
 
-test("Make public opens a confirm sheet that asks for a username, reports taken ones, then goes public and back to private", async ({ page, app }) => {
+test("Make public works in one tap with the suggested handle, then goes back to private", async ({ page, app }) => {
   await page.goto("/profile");
   await page.getByRole("button", { name: "Make public" }).click();
   const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
   await expect(sheet.getByText("Shown: your name, bio, yearly stats, and shared lists")).toBeVisible();
   await expect(sheet.getByText("Always private: notes, ratings, reading history, and private lists")).toBeVisible();
+  await expect(sheet.getByText("Your link: bookvane.me/u/st-michael")).toBeVisible();
+  await expect(sheet.getByLabel("Username")).toHaveCount(0);
   expect(sent(app, "PATCH", "/me/profile")).toHaveLength(0);
-  await sheet.getByLabel("Username").fill("taken");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("That username is taken.")).toBeVisible();
-  await sheet.getByLabel("Username").fill("admin");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("That username isn’t available.")).toBeVisible();
-  await sheet.getByLabel("Username").fill("Bad Name!");
-  await expect(sheet.getByLabel("Username")).toHaveValue("bad name!");
-  await sheet.getByRole("button", { name: "Make public" }).click();
-  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
-  await sheet.getByLabel("Username").fill("stmichael");
   await sheet.getByRole("button", { name: "Make public" }).click();
   await expect(sheet).toBeHidden();
   await expect(page.getByText("Anyone with your link can see your profile")).toBeVisible();
-  await expect(page.getByText("bookvane.me/u/stmichael")).toBeVisible();
-  await expect(page.getByText("@stmichael · Reading since 2026")).toBeVisible();
-  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
+  await expect(page.getByText("bookvane.me/u/st-michael")).toBeVisible();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "st-michael", profile_public: true });
   await expect(page.getByRole("status").filter({ hasText: "Your profile is now public." })).toBeAttached();
   await page.getByRole("button", { name: "Make private" }).click();
   await expect(page.getByText("Only you can see your profile")).toBeVisible();
   expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ profile_public: false });
-  await expect(page.getByRole("status").filter({ hasText: "Your profile is now private." })).toBeAttached();
+});
+
+test("Change reveals the username field with a 400 ms availability check: Available, Taken. Try another., and the existing errors", async ({ page, app }) => {
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Make public" }).click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await sheet.getByRole("button", { name: "Change" }).click();
+  await expect(sheet.getByRole("button", { name: "Change" })).toHaveCount(0);
+  const field = sheet.getByLabel("Username");
+  await expect(field).toHaveValue("st-michael");
+  const checks = () => app.requests.filter(request => request.path.startsWith("/me/profile/handle-available"));
+  const before = checks().length;
+  await field.fill("t");
+  await field.pressSequentially("aken", { delay: 30 });
+  await expect(sheet.getByText("Taken. Try another.")).toBeVisible();
+  expect(checks().length - before).toBe(1); // typing quickly asks once
+  expect(checks().at(-1).path).toBe("/me/profile/handle-available?h=taken");
+  await field.fill("Bad Name!");
+  await expect(field).toHaveValue("bad name!");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("Use 3–30 lowercase letters, numbers or hyphens.", { exact: true }).first()).toBeVisible();
+  expect(checks().at(-1).path).toBe("/me/profile/handle-available?h=taken"); // an invalid handle is never sent to the check
+  await field.fill("admin");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username isn’t available.")).toBeVisible();
+  await field.fill("michael-reads");
+  const available = sheet.getByRole("status").filter({ hasText: "Available" });
+  await expect(available).toBeVisible();
+  await expect(available.locator("svg")).toHaveAttribute("width", "18");
+  await expect(sheet.getByText("Your link: bookvane.me/u/michael-reads")).toBeVisible();
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "michael-reads", profile_public: true });
+  await expect(page.getByText("@michael-reads · Reading since 2026")).toBeVisible();
+});
+
+test("if the suggestion can't be fetched the sheet asks for a username as before", async ({ page, app }) => {
+  app.suggestionFails = true;
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Make public" }).click();
+  const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+  await expect(sheet.getByLabel("Username")).toBeVisible();
+  await sheet.getByLabel("Username").fill("taken");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet.getByText("That username is taken.")).toBeVisible();
+  await sheet.getByLabel("Username").fill("stmichael");
+  await sheet.getByRole("button", { name: "Make public" }).click();
+  await expect(sheet).toBeHidden();
+  expect(sent(app, "PATCH", "/me/profile").at(-1).body).toEqual({ handle: "stmichael", profile_public: true });
 });
 
 test("the Make public sheet needs no username once one is set, Cancel and Esc send nothing, and focus returns to the button", async ({ page, app }) => {
@@ -210,6 +253,7 @@ test("the Make public sheet needs no username once one is set, Cancel and Esc se
   await open.click();
   const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
   await expect(sheet.getByLabel("Username")).toHaveCount(0);
+  await expect(sheet.getByText("Your link: bookvane.me/u/ready")).toBeVisible();
   await sheet.getByRole("button", { name: "Cancel" }).click();
   await expect(sheet).toBeHidden();
   await expect(open).toBeFocused();
@@ -380,8 +424,7 @@ test("the year shelf draws a spine per finished book up to what fits, shows +N f
   const box = await page.locator(".bv-shelf").boundingBox();
   for (const spine of await page.locator(".bv-shelf-spine").all()) { const rect = await spine.boundingBox(); expect(rect.x + rect.width).toBeLessThanOrEqual(box.x + box.width + 0.5); }
   await page.setViewportSize({ width: 1280, height: 800 });
-  const wide = await shelf();
-  expect(wide[6].spines).toBeGreaterThan(fits);
+  await expect.poll(async () => (await shelf())[6].spines).toBeGreaterThan(fits);
   const wideWidths = await page.locator(".bv-shelf-spine").evaluateAll(spines => spines.map(spine => spine.getBoundingClientRect().width));
   expect(Math.min(...wideWidths)).toBeGreaterThanOrEqual(7.9);
 });
@@ -846,7 +889,7 @@ test("Add to list is not offered to guests, and book cards never carry it", asyn
   await expect(page.getByRole("button", { name: "Add to list" })).toHaveCount(0);
 });
 
-test("a public profile shows only the public fields, and a guest is invited to join with src=profile", async ({ page, app }) => {
+test("a public profile shows only the public fields, and a guest gets one quiet Start your own shelf line with ref=share", async ({ page, app }) => {
   app.guest = true;
   await page.goto("/u/ada");
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
@@ -859,8 +902,7 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
   const text = await page.locator("main").innerText();
   for (const hidden of ["ada@example.com", "Secret note", "Want to read", "Owned", "Edit", "Make private", "Make public", "Only you", "Private list", "Account settings", "Sign out", "Edit profile"]) expect(text).not.toContain(hidden);
-  await expect(page.getByText("Keep your own reading year on Bookvane.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create free account" })).toHaveAttribute("href", "/register?src=profile");
+  await expect(page.getByRole("link", { name: "Start your own shelf", exact: true })).toHaveAttribute("href", "/register?ref=share");
   expect(app.requests.some(request => /^\/me\/(profile|stats|lists)/.test(request.path))).toBe(false);
   await page.goto("/u/ada/lists/3");
   await expect(page.getByRole("heading", { name: "Shared list", level: 1 })).toBeVisible();
@@ -870,15 +912,16 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.locator(".bv-list-books li")).toHaveCount(2);
 });
 
-test("the guest invitation carries src=profile through to the sign-up request", async ({ page, app }) => {
+test("the guest invitation carries ref=share through to the sign-up request (the address itself is cleaned)", async ({ page, app }) => {
   app.guest = true;
   await page.goto("/u/ada");
-  await page.getByRole("link", { name: "Create free account" }).click();
-  await expect(page).toHaveURL(/\/register\?src=profile$/);
+  await page.getByRole("link", { name: "Start your own shelf", exact: true }).click();
+  await expect(page).toHaveURL(/\/register$/);
   await page.getByLabel("Email address", { exact: true }).fill("reader@example.com");
   await page.getByLabel("Password", { exact: true }).fill("valid-password");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect.poll(() => sent(app, "POST", "/auth/register?src=profile").length).toBe(1);
+  await expect.poll(() => sent(app, "POST", "/auth/register").length).toBe(1);
+  expect(sent(app, "POST", "/auth/register")[0].body.ref).toBe("share");
 });
 
 test("a missing or private public page shows the not-found page with its own tab title, and your own page says how others see it", async ({ page, app }) => {
@@ -888,7 +931,7 @@ test("a missing or private public page shows the not-found page with its own tab
   app.profile.handle = "ada"; app.profile.profile_public = true;
   await page.goto("/u/ada");
   await expect(page.getByText("This is how others see your profile.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create free account" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Start your own shelf" })).toHaveCount(0);
 });
 
 test("the header shows the avatar as the profile entry, with the accessible name Your profile", async ({ page, app: _app }) => {
@@ -959,7 +1002,7 @@ test("Settings has the four sections, Sign out only there, and /account goes to 
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   for (const name of ["Favourite genres", "Your data", "Theme"]) await expect(page.getByRole("heading", { name, level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Signed in as /, level: 2 })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
+  await expect(page.locator("main").getByRole("link", { name: "Import from Goodreads or StoryGraph" })).toHaveAttribute("href", "/my-books/import");
   await expect(page.getByText("Download your books and notes, or delete your account.")).toBeVisible();
   await expect(page.locator(".bv-year-chevron")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Choose genres" })).toHaveAttribute("href", "/preferences");
@@ -1007,4 +1050,117 @@ test("a profile list's art slots, empty or filled, have no grey fill: outline on
     expect(await greyBehindCovers(page)).toEqual([]);
     for (const slot of await page.locator(".bv-art-slot").all()) expect(await slot.evaluate(node => getComputedStyle(node).boxShadow)).toMatch(/inset/);
   }
+});
+
+test("handle sheet screenshots", async ({ page, app: _app }) => {
+  test.skip(!process.env.BV_SHOTS_DIR, "set BV_SHOTS_DIR to export screenshots");
+  const dir = process.env.BV_SHOTS_DIR; mkdirSync(dir, { recursive: true });
+  for (const theme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: theme });
+    await page.addInitScript(value => localStorage.setItem("bookvane-theme", value), theme);
+    for (const [width, height] of [[390, 844], [1440, 1000]]) {
+      await page.setViewportSize({ width, height });
+      await page.goto("/profile");
+      await page.getByRole("button", { name: "Make public" }).click();
+      const sheet = page.getByRole("dialog", { name: "Make your profile public?" });
+      await expect(sheet.getByText("Your link: bookvane.me/u/st-michael")).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.screenshot({ path: `${dir}/handle-suggested-${width}-${theme}.png` });
+      await sheet.getByRole("button", { name: "Change" }).click();
+      await sheet.getByLabel("Username").fill("taken");
+      await expect(sheet.getByText("Taken. Try another.")).toBeVisible();
+      await page.screenshot({ path: `${dir}/handle-taken-${width}-${theme}.png` });
+      await sheet.getByLabel("Username").fill("michael-reads");
+      await expect(sheet.getByText("Available")).toBeVisible();
+      await page.screenshot({ path: `${dir}/handle-available-${width}-${theme}.png` });
+    }
+  }
+});
+
+// ---- Share a list as a picture (T74 item 5) ----------------------------------------------------------------------------------------------
+
+const SHARE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="#3c7dc9"/></svg>';
+// A device whose share sheet takes files: it keeps what it was given for the test to look at.
+const withShareSheet = page => page.addInitScript(() => {
+  Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
+  Object.defineProperty(navigator, "share", { configurable: true, value: async data => { const file = data.files[0]; window.__shared = { name: file.name, type: file.type, title: data.title, bytes: Array.from(new Uint8Array(await file.arrayBuffer())) }; } });
+});
+const withoutShareSheet = page => page.addInitScript(() => { Object.defineProperty(navigator, "share", { value: undefined, configurable: true }); Object.defineProperty(navigator, "canShare", { value: undefined, configurable: true }); });
+// Reads the picture the share sheet received: its size, and the colour of a few pixels.
+const readShared = page => page.evaluate(async () => {
+  const bitmap = await createImageBitmap(new Blob([new Uint8Array(window.__shared.bytes)], { type: "image/png" }));
+  const canvas = document.createElement("canvas"); canvas.width = bitmap.width; canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d"); ctx.drawImage(bitmap, 0, 0);
+  const pixel = (x, y) => Array.from(ctx.getImageData(x, y, 1, 1).data).slice(0, 3);
+  return { name: window.__shared.name, type: window.__shared.type, title: window.__shared.title, width: bitmap.width, height: bitmap.height, corner: pixel(4, 4), cover: pixel(160, 400), footer: pixel(540, 1180) };
+});
+
+test("Share on a list draws a 1080 by 1350 picture and offers it to the share sheet", async ({ page, app }) => {
+  app.lists[0].books = [1, 2, 3].map(id => detail(id, { cover_image_url: "/test-cover/a.svg" }));
+  await page.route("**/test-cover/*", route => route.fulfill({ status: 200, contentType: "image/svg+xml", body: SHARE_SVG }));
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const picture = await readShared(page);
+  expect(picture).toMatchObject({ name: "bookvane-list.png", type: "image/png", title: "Christie, in order", width: 1080, height: 1350 });
+  expect(picture.corner).toEqual([243, 238, 227]);                      // the paper
+  expect(picture.cover[2]).toBeGreaterThan(picture.cover[0]);          // a (blue) cover was drawn where the first cover goes
+  expect(await page.getByRole("button", { name: "Share", exact: true }).isEnabled()).toBe(true);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test("the picture is drawn in the same light colours in the dark theme", async ({ page, app: _app }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.addInitScript(() => localStorage.setItem("bookvane-theme", "dark"));
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  expect((await readShared(page)).corner).toEqual([243, 238, 227]);
+});
+
+test("without a share sheet the picture is downloaded as bookvane-list.png", async ({ page, app: _app }) => {
+  await withoutShareSheet(page);
+  await page.goto("/profile/lists/7");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("bookvane-list.png");
+  const bytes = readFileSync(await file.path());
+  expect(Array.from(bytes.subarray(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);   // a PNG
+  expect(bytes.length).toBeGreaterThan(5000);
+});
+
+test("covers from another site draw without tainting the picture: a reachable cover is used, one that cannot be had gets the jacket", async ({ page, app }) => {
+  app.lists[0].books = [1, 2, 3].map(id => detail(id, { cover_image_url: `https://covers.openlibrary.org/b/id/${id}-M.jpg` }));
+  let reachable = false;   // a cover that cannot be had (blocked, or refused for lack of CORS) must give the jacket, never a tainted picture
+  await page.route("https://wsrv.nl/**", route => reachable ? route.fulfill({ status: 200, contentType: "image/svg+xml", headers: { "access-control-allow-origin": "*" }, body: SHARE_SVG }) : route.abort());
+  await withShareSheet(page);
+  await page.goto("/profile/lists/7");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const plain = await readShared(page);
+  expect(plain.cover[2] - plain.cover[0]).toBeLessThan(40);                            // no blue: the cover could not be had, so the jacket was drawn
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  reachable = true;
+  await page.evaluate(() => { window.__shared = null; });
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => Boolean(window.__shared))).toBe(true);
+  const real = await readShared(page);
+  expect(real.cover[2]).toBeGreaterThan(real.cover[0]);                  // the real cover is on the picture
+});
+
+test("a list with no books has no Share button, and a public list has one for guests", async ({ page, app }) => {
+  app.lists[0].books = [];
+  await page.goto("/profile/lists/7");
+  await expect(page.getByRole("heading", { name: "Christie, in order", level: 1 })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share", exact: true })).toHaveCount(0);
+  app.guest = true;
+  await withoutShareSheet(page);
+  await page.goto("/u/ada/lists/3");
+  await expect(page.getByRole("heading", { name: "Shared list", level: 1 })).toBeVisible();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Share", exact: true }).click();
+  expect((await download).suggestedFilename()).toBe("bookvane-list.png");
 });

@@ -137,6 +137,7 @@ const test = base.extend({
       if (path === "/me/library" || path === "/me/library/lookup" || path === "/me/home" || /^\/me\/library\/\d+\/reading$/.test(path)) return route.fulfill({ status: 404, json: { detail: "Not found" } });
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });
@@ -171,8 +172,11 @@ test("M6 recovery preserves safe save/discovery intent but not token parameters"
   await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
   await page.getByRole("button", { name: "Send reset link", exact: true }).click();
   await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  // The recovery page keeps its own Email field until the sign-in page replaces it: fill only once the sign-in page is the one showing.
+  await expect(page.getByRole("heading", { name: "Welcome back.", level: 1 })).toBeVisible();
   await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
   await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
+  await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("synthetic-recovery@example.com");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want to read", exact: true })).toBeEnabled();
   await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?tag=fantasy");
@@ -432,9 +436,11 @@ test("signed-out phone visitors can reach sign in and registration directly from
   await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toHaveCount(0);
   await expect(page.getByRole("banner").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
   await page.locator(".bv-landing-hero").getByRole("link", { name: "Import my library", exact: true }).click();
-  await expect(page).toHaveURL(/\/register[?]src=landing&returnTo=%2Fmy-books%2Fimport$/);
+  await expect(page).toHaveURL(/\/switch$/);                                   // Import my library opens the page about moving over
+  await page.getByRole("link", { name: "Start your import" }).first().click();
+  await expect(page).toHaveURL(/\/register[?]src=switch&returnTo=%2Fmy-books%2Fimport$/);
   await page.getByRole("link", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(/\/login[?]src=landing&returnTo=%2Fmy-books%2Fimport$/);
+  await expect(page).toHaveURL(/\/login[?]src=switch&returnTo=%2Fmy-books%2Fimport$/);
 });
 
 test("registration, onboarding, logout and protected routes remain connected", async ({ page, app }) => {

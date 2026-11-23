@@ -155,3 +155,21 @@ def test_per_shop_copy_clicks_are_counted_by_placement(client, db_session, count
     for placement in ("bookshop", "amazon"):
         assert client.post("/events", json={"name": "get_copy_click", "placement": placement}).status_code == 204
     assert {row[2] for row in rows(db_session, models) if row[0] == "get_copy_click"} >= {"bookshop", "amazon"}
+
+
+SCAN_PHASE_EVENTS = ("scan_timeout", "scan_non_isbn", "scan_typed", "scan_engine_native", "scan_engine_wasm",
+                     "scan_snap_isbn", "scan_snap_cover", "scan_library_code")
+
+
+def test_scan_phase_events_are_counted_and_reported_in_the_scans_block(client, db_session, signed_in, counters, app_modules, monkeypatch):
+    models, _ = counters
+    monkeypatch.setattr(app_modules["database"].settings, "admin_emails", "boss@example.com")
+    db_session.execute(delete(models.EventCount))
+    db_session.commit()
+    for name in SCAN_PHASE_EVENTS:
+        assert client.post("/events", json={"name": name}).status_code == 204
+    client.post("/events", json={"name": "scan_typed"})
+    client.post("/events", json={"name": "scan_opened"})
+    scans = client.get("/admin/metrics").json()["scans"]
+    assert scans["events"] == {name: 1 for name in SCAN_PHASE_EVENTS} | {"scan_typed": 2}
+    assert scans["opened"] == 1

@@ -45,6 +45,7 @@ const test = base.extend({
       if (path === "/me/profile") return route.fulfill({ status: 200, json: { display_name: null, bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 } });
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled ${path}`); return route.fulfill({ status: 500, json: {} });
     });
     await installGenres(page, state);
@@ -61,7 +62,7 @@ test('manual fallback keeps bibliographic input and distinguishes CSV import', a
   await expect(page.getByLabel('Author (optional)')).toHaveValue('Someone');
   await expect(page.getByRole('link', { name: 'Back to search' })).toHaveAttribute('href', '/browse?book=My%20missing%20title&author=Someone');
   expect(await page.evaluate(() => JSON.stringify(history.state))).not.toContain('My missing title');
-  await page.getByRole('link', { name: 'Import from Goodreads or StoryGraph', exact: true }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Import from Goodreads or StoryGraph', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Import from Goodreads or StoryGraph' })).toBeVisible();
   await expect(page.locator('#import-file')).toHaveAttribute('accept', '.csv,.tsv,text/csv,text/tab-separated-values');
   await page.locator('#import-file').setInputFiles({ name: 'library.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('not an accepted CSV') });

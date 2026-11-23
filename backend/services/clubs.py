@@ -17,13 +17,13 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import and_, case, func, select, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import and_, case, func, select, text, update
+from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from database import settings
-from models import (Book, Club, ClubBook, ClubCheckpoint, ClubInvite, ClubMember, ClubPost, ClubReport, ReadingAttempt, User, UserBook)
+from models import (Author, Book, Club, ClubBook, ClubCheckpoint, ClubInvite, ClubMember, ClubPost, ClubReport, ReadingAttempt, User, UserBook, book_authors)
 from services import entitlements
 from services.event_counts import record_event
 from services.profile import initials
@@ -118,7 +118,9 @@ def detail(db: Session, club_id: int, user: User) -> dict:
     club = db.get(Club, club_id)
     count = _member_count(db, club_id)
     plus = entitlements.club_plus(db, club_id)
-    books = db.execute(select(ClubBook, Book.title, Book.cover_image_url, Book.page_count).join(Book, Book.id == ClubBook.book_id)
+    authors = (select(func.coalesce(func.array_agg(aggregate_order_by(Author.name, book_authors.c.author_id)), text("ARRAY[]::text[]")))
+               .select_from(book_authors.join(Author)).where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery())
+    books = db.execute(select(ClubBook, Book.title, Book.cover_image_url, Book.page_count, authors).join(Book, Book.id == ClubBook.book_id)
                        .where(ClubBook.club_id == club_id).order_by(ClubBook.status != "current", ClubBook.starts_on.nulls_last(), ClubBook.id)).all()
     ids = [row[0].id for row in books]
     checkpoints: dict[int, list] = {}
@@ -129,8 +131,8 @@ def detail(db: Session, club_id: int, user: User) -> dict:
             "me": {"role": me.role, "share_progress": me.share_progress},
             "member_count": count, "club_plus": plus, "cap": {"free_limit": FREE_CAP, "full": count >= FREE_CAP and not plus},
             "books": [{"id": cb.id, "book_id": cb.book_id, "title": title, "cover_image_url": cover, "page_count": pages, "status": cb.status,
-                       "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
-                      for cb, title, cover, pages in books]}
+                       "authors": list(names or []), "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
+                      for cb, title, cover, pages, names in books]}
 
 
 def update_club(db: Session, club_id: int, user: User, changes: dict) -> dict:
@@ -275,11 +277,19 @@ def _valid_invite(db: Session, token: str, *, lock: bool = False) -> ClubInvite:
 
 
 def invite_preview(db: Session, token: str) -> dict:
-    """What the invite page may show before joining: the club's name, description and colour, never its members or discussion."""
+    """What the invite page may show before joining: the club's name, description, colour, the owner's display name and the current
+    book, never its members, emails or discussion."""
     invite = _valid_invite(db, token)
     club = db.get(Club, invite.club_id)
     count = _member_count(db, club.id)
-    return {"name": club.name, "description": club.description, "color": club.color, "member_count": count, "full": _full(db, club.id, count)}
+    owner_name = db.scalar(select(User.display_name).where(User.id == club.owner_id))
+    authors = (select(func.coalesce(func.array_agg(aggregate_order_by(Author.name, book_authors.c.author_id)), text("ARRAY[]::text[]")))
+               .select_from(book_authors.join(Author)).where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery())
+    current = db.execute(select(Book.id, Book.title, Book.cover_image_url, authors).join(ClubBook, ClubBook.book_id == Book.id)
+                         .where(ClubBook.club_id == club.id, ClubBook.status == "current").order_by(ClubBook.id).limit(1)).first()
+    return {"name": club.name, "description": club.description, "color": club.color, "member_count": count, "full": _full(db, club.id, count),
+            "owner_name": owner_name or "A reader",
+            "current_book": {"book_id": current[0], "title": current[1], "cover_image_url": current[2], "authors": list(current[3] or [])} if current else None}
 
 
 def join(db: Session, user: User, token: str) -> dict:
@@ -452,7 +462,8 @@ def list_posts(db: Session, club_id: int, user: User, club_book_id: int, before:
         if post.hidden_at is not None and not mod:
             items.append({"id": post.id, "hidden": True})
         elif not mine and not mod and not reached(progress, post.anchor_unit, post.anchor_value, cb.page_count):
-            items.append({"id": post.id, "locked": True, "unlocks_at": {"unit": post.anchor_unit, "value": post.anchor_value}, "created_at": post.created_at})
+            items.append({"id": post.id, "locked": True, "unlocks_at": {"unit": post.anchor_unit, "value": post.anchor_value}, "created_at": post.created_at,
+                          "author": {"name": _name(name)}})
         else:
             items.append(_post_view(post, name, user.id, patrons, reports if mod else None))
     return {"items": items, "next_before": page[-1][0].id if more and page else None}

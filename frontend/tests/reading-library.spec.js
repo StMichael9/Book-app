@@ -107,6 +107,8 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
+      if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);
@@ -257,7 +259,8 @@ test("pilot library stays usable on a phone in both themes", async ({ page, app 
   await page.screenshot({ path: "../backend/.v3-test-runtime/m1-library-phone-final.png", fullPage: true });
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "You", exact: true }).click();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).check({ force: true });
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).click({ force: true });
+  await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toBeChecked();
   await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "My Books", exact: true }).click();
   await expect(page.getByLabel("Search title or author")).toBeVisible();
   await expect(page.locator(".bv-book-card")).toHaveCount(1);
@@ -375,7 +378,7 @@ test("coming back from a book restores how far Show more had got", async ({ page
   await page.locator(".bv-book-card h3 a").nth(27).click();
   await page.goBack();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
-  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+  await expect.poll(() => app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
 });
 
 test("the Covers / List choice is remembered on this device", async ({ page, app }) => {
@@ -475,7 +478,7 @@ test("shelves, Owned and sort combine, and the URL holds the view", async ({ pag
   await page.getByRole("button", { name: "Sort: Recently added" }).click();
   await page.getByRole("menuitemradio", { name: "Title" }).click();
   await expect(page).toHaveURL(/sort=title/);
-  expect(app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("sort")).toBe("title");
+  await expect.poll(() => app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("sort")).toBe("title");
   await page.goBack();
   await expect(page).not.toHaveURL(/sort=title/);
   await expect(page.getByRole("button", { name: "Sort: Recently added" })).toBeVisible();
@@ -492,16 +495,28 @@ test("filters show live counts, narrow the list and come off as chips", async ({
   const panel = page.getByRole("complementary", { name: "Filters" });
   await expect(panel.getByRole("checkbox", { name: /Fantasy/ })).toBeVisible();
   await expect(panel.getByRole("checkbox", { name: /Poetry/ })).toBeDisabled();
-  await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await panel.getByRole("checkbox", { name: /Fantasy/ }).click();
+  await expect(panel.getByRole("checkbox", { name: /Fantasy/ })).toBeChecked();
   await expect(page).toHaveURL(/subject=7/);
   await expect(page.locator(".bv-book-card")).toHaveCount(2);
   await expect(page.getByText("2 of 6 books", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Remove filter: Fantasy" }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(6);
   await expect(page).not.toHaveURL(/subject=/);
-  await panel.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await panel.getByRole("checkbox", { name: /Fantasy/ }).click();
+  await expect(panel.getByRole("checkbox", { name: /Fantasy/ })).toBeChecked();
   await page.getByRole("button", { name: "Clear all", exact: true }).click();
   await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
+});
+
+test("a filter group with nothing to choose draws no heading", async ({ page, app }) => {
+  app.entries = new Map(books.slice(0, 3).map(book => [book.id, row(book.id)]));
+  app.facets = { subject: [{ value: 7, label: "Fantasy", count: 2 }], author: [], length: [] };
+  await page.goto("/my-books");
+  const panel = page.getByRole("complementary", { name: "Filters" });
+  await expect(panel.getByRole("group", { name: "Genre" })).toBeVisible();
+  await expect(panel.getByRole("group", { name: "Length" })).toHaveCount(0);
+  await expect(panel.getByText("Length", { exact: true })).toHaveCount(0);
 });
 
 test("the Genre filter shows genre names and never a key", async ({ page, app }) => {
@@ -510,7 +525,8 @@ test("the Genre filter shows genre names and never a key", async ({ page, app })
   await page.goto("/my-books");
   const genre = page.getByRole("complementary", { name: "Filters" }).getByRole("group", { name: "Genre" });
   await expect(genre.getByRole("checkbox")).toHaveCount(1);
-  await genre.getByRole("checkbox", { name: /Art & music/ }).check();
+  await genre.getByRole("checkbox", { name: /Art & music/ }).click();
+  await expect(genre.getByRole("checkbox", { name: /Art & music/ })).toBeChecked();
   await expect(page).toHaveURL(/subject=7/);
   await expect(page.getByRole("button", { name: "Remove filter: Art & music" })).toBeVisible();
   await expect(page.getByText(/art_music|cosy_vibes/)).toHaveCount(0);
@@ -531,7 +547,8 @@ test("the filter panel holds Genre, Author and Length, and nothing else", async 
   await expect(panel.getByText(/Imported from|Just imported|Year finished|Has my note|Goodreads|2026/)).toHaveCount(0);
   // Each of the three still narrows the list and comes off as a chip.
   for (const [name, param, chip] of [[/Fantasy/, /subject=7/, "Fantasy"], [/Author 1/, /author=author\+1/, "Author 1"], [/Short/, /length=short/, "Short"]]) {
-    await panel.getByRole("checkbox", { name }).check();
+    await panel.getByRole("checkbox", { name }).click();
+    await expect(panel.getByRole("checkbox", { name })).toBeChecked();
     await expect(page).toHaveURL(param);
     await page.getByRole("button", { name: `Remove filter: ${chip}` }).click();
     await expect(page.getByRole("group", { name: "Active filters" })).toHaveCount(0);
@@ -566,7 +583,8 @@ test("on a phone the filters open in a sheet that shows the result count", async
   await expect(page.getByRole("complementary", { name: "Filters" })).toHaveCount(0);
   await page.getByRole("button", { name: /^Filters/ }).click();
   const sheet = page.getByRole("dialog", { name: "Filters" });
-  await sheet.getByRole("checkbox", { name: /Fantasy/ }).check();
+  await sheet.getByRole("checkbox", { name: /Fantasy/ }).click();
+  await expect(sheet.getByRole("checkbox", { name: /Fantasy/ })).toBeChecked();
   await expect(sheet.getByRole("button", { name: "Show 2 books", exact: true })).toBeVisible();
   await sheet.getByRole("button", { name: "Show 2 books", exact: true }).click();
   await expect(page.getByRole("button", { name: /^Filters/ })).toContainText("1");
