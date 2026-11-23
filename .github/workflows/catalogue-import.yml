@@ -71,7 +71,7 @@ jobs:
     outputs:
       proceed: ${{ steps.compute.outputs.proceed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: backend/data/compute_guard.py
           sparse-checkout-cone-mode: false
@@ -163,7 +163,7 @@ jobs:
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ steps.source.outputs.sha }}
           persist-credentials: false

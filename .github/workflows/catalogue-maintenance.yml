@@ -79,7 +79,7 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
       SKIP_EMPTY: ${{ inputs.skip_empty }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
