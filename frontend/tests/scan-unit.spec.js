@@ -46,44 +46,46 @@ test("a lookup answer becomes one of the row states", () => {
   expect(["on_shelf", "looking", "waiting", "failed"].some(state => isSaveable({ state }))).toBe(false);
 });
 
-// Which engine reads the barcodes: BarcodeDetector only where it says it reads ean_13, otherwise zxing (loaded on demand).
+// Which engine reads the barcodes: BarcodeDetector only where it says it reads ean_13, otherwise the built-in WebAssembly reader (loaded on demand).
 function stand({ formats, throws = false, hasDetector = true }) {
-  const log = { detectors: 0, loads: 0, zxingStopped: 0, zxingElement: null, codes: [] };
+  const log = { detectors: 0, loads: 0, engineStopped: 0, grabbed: [], codes: [], engines: [], frames: [] };
   class Detector {
     static async getSupportedFormats() { if (throws) throw new Error("not supported"); return formats; }
     constructor() { log.detectors += 1; }
     async detect() { return [{ rawValue: "9780141439518" }]; }
   }
-  class Reader {
-    async decodeFromVideoElement(video, callback) { log.zxingElement = video; callback({ getText: () => "9780743273565" }); return { stop: () => { log.zxingStopped += 1; } }; }
-  }
-  const load = async () => { log.loads += 1; return { BrowserMultiFormatReader: Reader, BarcodeFormat: { EAN_13: "ean13" }, DecodeHintType: { POSSIBLE_FORMATS: "formats" } }; };
-  return { log, env: hasDetector ? { BarcodeDetector: Detector } : {}, load, onCode: code => log.codes.push(code) };
+  const loadEngine = async () => { log.loads += 1; return { read: async (_pixels, frame) => { log.frames.push(frame); return ["9780743273565"]; }, stop: () => { log.engineStopped += 1; } }; };
+  const grab = (video, region) => { log.grabbed.push([video, region]); return { data: new Uint8ClampedArray(16), width: 2, height: 2 }; };
+  return { log, env: hasDetector ? { BarcodeDetector: Detector } : {}, loadEngine, grab, onCode: code => log.codes.push(code), onEngine: name => log.engines.push(name) };
 }
 
-test("a BarcodeDetector without ean_13 is not used: zxing is loaded instead", async () => {
+test("a BarcodeDetector without ean_13 is not used: the built-in reader is loaded instead", async () => {
   for (const options of [{ formats: ["qr_code", "code_128"] }, { formats: [], throws: true }, { formats: [], hasDetector: false }]) {
-    const { log, env, load, onCode } = stand(options), video = { readyState: 4 };
+    const { log, env, loadEngine, grab, onCode, onEngine } = stand(options), video = { readyState: 4 };
     expect(await canDetectEan13(env)).toBe(false);
-    const stop = await startDecoder(video, onCode, { env, load });
+    const stop = await startDecoder(video, onCode, { env, loadEngine, grab, onEngine, getRegion: () => ({ sx: 1, sy: 2, sw: 3, sh: 4 }) });
+    await new Promise(done => setTimeout(done, 500));
+    stop();
     expect(log.detectors).toBe(0);
     expect(log.loads).toBe(1);
-    expect(log.zxingElement).toBe(video);
-    expect(log.codes).toEqual(["9780743273565"]);
-    stop();
-    expect(log.zxingStopped).toBe(1);
+    expect(log.engines).toEqual(["wasm"]);
+    expect(log.grabbed[0]).toEqual([video, { sx: 1, sy: 2, sw: 3, sh: 4 }]);
+    expect(log.frames.slice(0, 3)).toEqual([0, 1, 2]);   // the frame number alternates the clean-up variant
+    expect(new Set(log.codes)).toEqual(new Set(["9780743273565"]));
+    expect(log.engineStopped).toBe(1);
   }
 });
 
-test("a BarcodeDetector that reads ean_13 is used, and zxing is never loaded", async () => {
-  const { log, env, load, onCode } = stand({ formats: ["qr_code", "ean_13"] });
+test("a BarcodeDetector that reads ean_13 is used, and the built-in reader is never loaded", async () => {
+  const { log, env, loadEngine, onCode, onEngine } = stand({ formats: ["qr_code", "ean_13"] });
   expect(await canDetectEan13(env)).toBe(true);
-  const stop = await startDecoder({ readyState: 4 }, onCode, { env, load });
+  const stop = await startDecoder({ readyState: 4 }, onCode, { env, loadEngine, onEngine });
   await new Promise(done => setTimeout(done, 400));
   stop();
   const seen = log.codes.length;
   expect(log.detectors).toBe(1);
   expect(log.loads).toBe(0);
+  expect(log.engines).toEqual(["native"]);
   expect(seen).toBeGreaterThan(0);
   await new Promise(done => setTimeout(done, 400));
   expect(log.codes.length).toBe(seen);   // stopped means stopped
