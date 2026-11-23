@@ -172,8 +172,11 @@ test("M6 recovery preserves safe save/discovery intent but not token parameters"
   await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
   await page.getByRole("button", { name: "Send reset link", exact: true }).click();
   await page.getByRole("link", { name: "Back to sign in", exact: true }).click();
+  // The recovery page keeps its own Email field until the sign-in page replaces it: fill only once the sign-in page is the one showing.
+  await expect(page.getByRole("heading", { name: "Welcome back.", level: 1 })).toBeVisible();
   await page.getByLabel("Email address", { exact: true }).fill("synthetic-recovery@example.com");
   await page.getByLabel("Password", { exact: true }).fill("Synthetic-login-password");
+  await expect(page.getByLabel("Email address", { exact: true })).toHaveValue("synthetic-recovery@example.com");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove Test-only Fantasy from Want to read", exact: true })).toBeEnabled();
   await expect(page.getByRole("link", { name: "Back", exact: true })).toHaveAttribute("href", "/browse?tag=fantasy");
