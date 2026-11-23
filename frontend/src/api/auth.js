@@ -2,10 +2,10 @@ import { apiRequest, refreshSession, withSessionChange } from "./client.js";
 
 export { refreshSession };
 
-export function registerUser(credentials, src = "") {
+export function registerUser(credentials, src = "", { ref = "", emailTips = false } = {}) {
   return apiRequest(`/auth/register${src ? `?src=${encodeURIComponent(src)}` : ""}`, {
     method: "POST",
-    body: JSON.stringify(credentials),
+    body: JSON.stringify({ ...credentials, ...(ref ? { ref } : {}), ...(emailTips ? { email_tips: true } : {}) }),
     skipRefresh: true,
   });
 }

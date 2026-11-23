@@ -101,14 +101,14 @@ export function AuthProvider({ children }) {
           if (version === sessionVersion.current) setIsLoading(false);
         }
       },
-      async register(credentials, { src } = {}) {
+      async register(credentials, { src, ref, emailTips } = {}) {
         clearBookCache(); clearRequestCache();
         const version = ++sessionVersion.current;
         setSessionGeneration(version);
         setSessionError(null);
         try {
           await startupRefresh.current?.catch(() => {});
-          await registerUser(credentials, src);
+          await registerUser(credentials, src, { ref, emailTips });
           await loginUser(credentials);
           if (version === sessionVersion.current) setIsAuthenticated(true);
         } finally {

@@ -311,7 +311,7 @@ export function ProfileListPage() {
 function GuestLine() {
   const auth = useAuth();
   if (auth.isLoading || auth.isAuthenticated) return null;
-  return <aside className="bv-profile-join"><p>Keep your own reading year on Bookvane.</p><ActionLink to="/register?src=profile">Create free account</ActionLink></aside>;
+  return <aside className="bv-profile-join"><TextLink to="/register?ref=share">Start your own shelf</TextLink></aside>;
 }
 
 export function PublicProfilePage({ handle: given, notFound }) {

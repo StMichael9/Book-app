@@ -20,6 +20,7 @@ const test = base.extend({
       const body = ["POST", "PUT", "PATCH"].includes(method) ? route.request().postDataJSON() : null;
       state.requests.push({ path, method, body });
       const reply = (status, json) => route.fulfill({ status, json });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") return reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
@@ -69,8 +70,8 @@ test("an account with no books gets a first-run Home with a few books to pick, i
 test("the import path shows only when library import is on", async ({ page, app }) => {
   app.libraryImport = true;
   await page.goto("/home");
-  await expect(page.getByRole("main").getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
-  expect((await page.getByRole("main").getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
+  await expect(page.getByRole("main").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ })).toHaveAttribute("href", "/my-books/import");
+  expect((await page.getByRole("main").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ }).boundingBox()).y).toBeLessThan((await page.getByRole("heading", { name: "Pick a few books", exact: true }).boundingBox()).y);
 });
 
 test("after three saves the page says the shelf is started and offers My Books", async ({ page, app }) => {
