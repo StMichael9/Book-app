@@ -233,10 +233,13 @@ export function PageHeading({ title, children }) {
 export function NativeDialog({ open, onClose, title, children, className = "", focusTitle = false }) {
   const ref = useRef(null);
   const id = useId();
+  // What had focus when the dialog first rendered, before anything moves focus into it: a dialog that mounts open still gives focus back.
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
   useEffect(() => {
     const dialog = ref.current;
     if (!open) { if (dialog.open) dialog.close(); return undefined; }
-    const trigger = document.activeElement;
+    const active = document.activeElement;
+    const trigger = active && active !== document.body ? active : opener;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     if (!dialog.open) dialog.showModal();
@@ -244,9 +247,13 @@ export function NativeDialog({ open, onClose, title, children, className = "", f
     return () => {
       if (dialog.open) dialog.close();
       document.body.style.overflow = previous;
-      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true });
+      // Closing a dialog can move focus once more as the browser settles (Chromium on Linux does), so focus is given back again on the next
+      // frame, but only if nothing else has taken it since.
+      const restore = () => { if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true }); };
+      restore();
+      requestAnimationFrame(() => { const now = document.activeElement; if (!now || now === document.body) restore(); });
     };
-  }, [open, focusTitle]);
+  }, [open, focusTitle, opener]);
   return <dialog ref={ref} className={`bv-dialog ${className}`} aria-labelledby={id}
     onKeyDown={(event) => {
       if (event.key !== "Tab") return;
