@@ -9,14 +9,6 @@ import { ClubFormSheet } from "./ClubSheets.jsx";
 import { clubColor, members as memberCount, nextCheckpoint, pageOf, positionLabel, shortDate } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
-// "Books | Clubs" under the My Books title.
-export function MyBooksTabs({ current }) {
-  return <nav className="bv-club-tabs" aria-label="My Books sections">
-    <Link to="/my-books" aria-current={current === "books" ? "page" : undefined}>Books</Link>
-    <Link to="/my-books/clubs" aria-current={current === "clubs" ? "page" : undefined}>Clubs</Link>
-  </nav>;
-}
-
 // One club: a colour rule, the current book's cover, the name, who and what, and what is next. The club's own answers are the ones the
 // club page asks for, so opening it afterwards is instant.
 function ClubCard({ club, generation }) {
@@ -40,14 +32,11 @@ export default function ClubsListPage() {
   const clubs = request.data?.items || [];
   const start = <Button className="bv-club-start" onClick={() => setStarting(true)}><Plus aria-hidden="true" />Start a club</Button>;
   return <section className="bv-container bv-clubs">
-    <div className="bv-club-pagehead"><h1>My Books</h1></div>
-    <MyBooksTabs current="clubs" />
+    <div className="bv-club-pagehead"><h1>Your clubs</h1>{clubs.length > 0 && start}</div>
     {request.loading ? <p className="bv-muted" role="status">Opening your clubs…</p>
       : request.error ? <EmptyState error icon={Users} title="Your clubs couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Nothing has changed.</EmptyState>
-        : clubs.length ? <>
-          <div className="bv-club-listhead"><h2>Your clubs</h2>{start}</div>
-          <ul className="bv-club-cards">{clubs.map(club => <ClubCard key={club.id} club={club} generation={auth.sessionGeneration} />)}</ul>
-        </> : <EmptyState icon={Users} title="Read together with friends." action={start}>Clubs are private and invite-only.</EmptyState>}
+        : clubs.length ? <ul className="bv-club-cards">{clubs.map(club => <ClubCard key={club.id} club={club} generation={auth.sessionGeneration} />)}</ul>
+          : <EmptyState icon={Users} title="Read together with friends." action={start}>Clubs are private and invite-only.</EmptyState>}
     {starting && <ClubFormSheet open onClose={() => setStarting(false)} onSaved={saved => { setStarting(false); request.retry(); navigate(`/clubs/${saved.id}`, { state: { highlightInvite: true } }); }} />}
   </section>;
 }

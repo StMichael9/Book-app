@@ -2,7 +2,7 @@ import { trackEvent } from "./events.js";
 import { useRefCapture } from "./refCapture.js";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { ArrowRight, BookOpen, Bookmark, House, Search, User } from "lucide-react";
+import { ArrowRight, BookOpen, Bookmark, House, Search, User, Users } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { ReaderProvider } from "./ReaderContext.jsx";
 import { useReader } from "./readerState.js";
@@ -31,6 +31,9 @@ import LibraryNavigationProvider from "../reading/LibraryNavigationProvider.jsx"
 import ClubPage from "../clubs/ClubPage.jsx";
 import ClubsListPage from "../clubs/ClubsListPage.jsx";
 import JoinClubPage from "../clubs/JoinClubPage.jsx";
+import ScanButton from "./ScanButton.jsx";
+import ScanProvider from "./ScanProvider.jsx";
+import { NAV_CLUBS } from "./findabilityCopy.js";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 import "../../styles/ui-v2/search-suggest.css";
@@ -109,7 +112,8 @@ function Header() {
   const warmProps = to => ({ onPointerEnter: () => warm(to), onFocus: () => warm(to), onTouchStart: () => warm(to) });
   const location = useLocation();
   const discover = ["/", "/browse"].includes(location.pathname) || location.pathname.startsWith("/book/") || location.pathname.startsWith("/author/");
-  const library = location.pathname.startsWith("/my-books") || location.pathname.startsWith("/clubs/");
+  const library = location.pathname.startsWith("/my-books");
+  const clubs = location.pathname === "/clubs" || location.pathname.startsWith("/clubs/");
   const home = location.pathname === "/home";
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
@@ -133,12 +137,12 @@ function Header() {
   }, [publicLanding]);
   if (loanLink) return <header className="bv-header"><div className="bv-container bv-header-inner"><Brand /></div></header>;
   return <><header className={`bv-header${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
-    <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}</nav>
-    <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}
+    <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}{signedIn && <Link className={clubs ? "bv-active" : ""} aria-current={clubs ? "page" : undefined} to="/clubs" {...warmProps("/clubs")}>{NAV_CLUBS}</Link>}</nav>
+    <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}{signedIn && !authScreen && <ScanButton />}
       {!authScreen && (auth.isLoading && auth.sessionError ? <span className="bv-header-check" role="status">Account unavailable</span> : signedIn ? <Link className="bv-header-avatar" to="/profile" aria-label="Your profile"><HeaderAvatar /></Link> : auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : <><TextLink to="/login">Sign in</TextLink><ActionLink variant="secondary" to={publicLanding ? `/register?src=${location.pathname === "/switch" ? "switch" : "landing"}` : "/register"}>Join free</ActionLink></>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${signedIn ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
-    {[...(signedIn ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/profile", "You", YouIcon, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+    {[...(signedIn ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ...(signedIn ? [["/clubs", NAV_CLUBS, Users, clubs]] : []), ["/profile", "You", YouIcon, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
   </nav>}</>;
 }
 
@@ -244,7 +248,7 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/switch": "Move from Goodreads or StoryGraph to Bookvane", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/my-books/clubs": "Your clubs", "/admin": "Admin" };
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/switch": "Move from Goodreads or StoryGraph to Bookvane", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/clubs": "Your clubs", "/admin": "Admin" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
     if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/clubs/") ? "Club" : location.pathname.startsWith("/c/") ? "Join a club" : location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
@@ -301,7 +305,8 @@ function Shell() {
         <Route path="/admin" element={<Suspense fallback={<section className="bv-container" aria-busy="true" />}><AdminPage notFound={notFound} /></Suspense>} />
         <Route path="/my-books/private" element={<RequireAccount><ReadingGate><PrivateBookPage key={`${auth.sessionGeneration}:${location.key}`} /></ReadingGate></RequireAccount>} />
         <Route path="/my-books/start/:bookId" element={<RequireAccount><ReadingGate><StartReadingPage key={location.pathname} /></ReadingGate></RequireAccount>} />
-        <Route path="/my-books/clubs" element={<RequireAccount title="My Books"><ClubsListPage /></RequireAccount>} />
+        <Route path="/clubs" element={<RequireAccount title="Your clubs"><ClubsListPage /></RequireAccount>} />
+        <Route path="/my-books/clubs" element={<Navigate replace to="/clubs" />} />
         <Route path="/clubs/:clubId" element={<RequireAccount><ClubPage key={location.pathname} notFound={notFound} /></RequireAccount>} />
         <Route path="/c/:token" element={<JoinClubPage key={location.pathname} notFound={notFound} />} />
         <Route path="/my-books/:entryId" element={<RequireAccount title="Your reading"><ReadingGate title="Your reading"><ReadingWorkspacePage key={location.pathname} /></ReadingGate></RequireAccount>} />
@@ -316,4 +321,4 @@ function Shell() {
 }
 
 // Uses the existing Router, AuthProvider and UserBooksProvider supplied by main.
-export default function BookvaneApp() { return <ReaderProvider><ProfileProvider><ReadingDraftProvider><LibraryNavigationProvider><Shell /></LibraryNavigationProvider></ReadingDraftProvider></ProfileProvider></ReaderProvider>; }
+export default function BookvaneApp() { return <ReaderProvider><ProfileProvider><ReadingDraftProvider><LibraryNavigationProvider><ScanProvider><Shell /></ScanProvider></LibraryNavigationProvider></ReadingDraftProvider></ProfileProvider></ReaderProvider>; }

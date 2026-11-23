@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: ".",
   // Globs, so a new spec is picked up without editing this line. The live-backend specs belong to the integration configs, and the
   // visual-export spec is excluded by grepInvert below. In CI the timing-sensitive speed baseline is skipped too (the laptop keeps it).
-  testMatch: ["tests/**/*.spec.js", "src/**/tests/*.spec.js"],
+  testMatch: ["tests/findability.spec.js", "tests/**/*.spec.js", "src/**/tests/*.spec.js"],
   testIgnore: ["**/*-live.spec.js", "**/live-local-auth.spec.js", ...(process.env.CI ? ["**/speed-baseline.spec.js"] : [])],
   // Screenshot export remains available via the isolated UI config; normal
   // regression runs must not overwrite the checked-in design gallery.

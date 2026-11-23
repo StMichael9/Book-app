@@ -1,4 +1,5 @@
 import { OnLoanView } from "../lending/OnLoan.jsx";
+import { SWITCH_MY_BOOKS } from "../ui-v2/findabilityCopy.js";
 import { useOpenLoans } from "../lending/useOpenLoans.js";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -14,7 +15,6 @@ import { LETTERS, entryLetter, letterId } from "./library/libraryIndex.js";
 import { useLibraryNavigation } from "./libraryNavigationState.js";
 import LibraryFilters from "./library/LibraryFilters.jsx";
 import ScanEntry from "./scan/ScanEntry.jsx";
-import { MyBooksTabs } from "../clubs/ClubsListPage.jsx";
 import { FILTER_GROUPS, MAX_RESTORE, PAGE_SIZE, SORTS, activeFilterCount, clearFilters, defaultLibraryState, isFiltered, libraryKey, loadLibraryPage, readLibraryState, writeLibraryState } from "./library/libraryQuery.js";
 import "../../styles/ui-v2/library.css";
 
@@ -189,7 +189,6 @@ export default function LibraryPage() {
       <div><h1>My Books</h1>{page && <p className="bv-library-count" role="status">{filtered && unfiltered != null && unfiltered >= total ? `${total} of ${books(unfiltered)}` : books(total)}</p>}</div>
       {library.libraryImport && !library.readOnly && <ActionLink to="/my-books/import" variant="secondary" className="bv-button bv-button--secondary bv-import-link">Import books</ActionLink>}
     </div>
-    <MyBooksTabs current="books" />
     <div className="bv-library-bar">
       <form className="bv-library-search bv-field" role="search" aria-label="Search your library" onSubmit={event => { event.preventDefault(); apply({ ...state, q: draft.trim() }); }}>
         <Search aria-hidden="true" />
@@ -203,7 +202,7 @@ export default function LibraryPage() {
     </div>
     <div className="bv-shelf-row">
       <div className="bv-shelf-tabs">
-        <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}{(loans.loans.length > 0 || state.onLoan) && <button type="button" className="bv-shelf-tab" aria-pressed={state.onLoan} onClick={() => apply({ ...state, onLoan: !state.onLoan })}>On loan<small>{loans.ready ? loans.loans.length : "…"}</small></button>}</div>
+        <div className="bv-shelf-scroll" role="group" aria-label="Shelf">{[...shelves, ...(activeMore ? [activeMore] : [])].map(shelfButton)}{library.readingActions && !library.readOnly && <button type="button" className="bv-shelf-tab" aria-pressed={state.onLoan} onClick={() => apply({ ...state, onLoan: !state.onLoan })}>On loan<small>{loans.ready ? loans.loans.length : "…"}</small></button>}</div>
         {desktop && moreShelves.length > 0 && <details className="bv-library-more"><summary>More filters<ChevronDown aria-hidden="true" /></summary>
           <div className="bv-more-menu">{moreShelves.filter(([shelf]) => shelf !== state.shelf).map(shelfButton)}</div></details>}
       </div>
@@ -245,6 +244,7 @@ export default function LibraryPage() {
       </div>
     </div>
     {library.readingActions && !library.readOnly && <div className="bv-library-tools"><TextLink to="/my-books/private">Add a book</TextLink><ScanEntry /></div>}
+    {library.readingActions && !library.readOnly && <p className="bv-find-switch"><TextLink to="/switch">{SWITCH_MY_BOOKS}</TextLink></p>}
     {!desktop && <NativeDialog open={sheet} onClose={() => setSheet(false)} title="Filters" className="bv-sheet">
       <div className="bv-sheet-body">
         {moreShelves.length > 0 && <fieldset className="bv-facet-group"><legend>Other shelves</legend>

@@ -86,6 +86,9 @@
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
   /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
   .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
+  /* Five items (signed in): equal columns that can shrink, so at 320px and 200% text nothing leaves the screen; a label breaks inside a word only when it must. */
+  .bv-root .bv-mobile-nav.bv-mobile-nav--reading { grid-auto-columns: minmax(0, 1fr); }
+  .bv-root .bv-mobile-nav.bv-mobile-nav--reading a span { overflow-wrap: anywhere; }
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }

@@ -222,7 +222,7 @@ test.describe("Start your shelf", () => {
     await expect(rows.nth(0)).toContainText("Point your camera at the barcodes");
     await expect(rows.nth(1)).toContainText("Import from Goodreads or StoryGraph");
     await expect(rows.nth(1)).toContainText("Bring your shelves, reading dates and notes");
-    await expect(rows.nth(1)).toHaveAttribute("href", "/my-books/import");
+    await expect(rows.nth(1)).toHaveAttribute("href", "/switch");
     await expect(rows.nth(2)).toContainText("Search");
     await expect(rows.nth(2)).toContainText("Find a book by title or author");
     await expect(page.locator(".bv-first-run-paths")).toHaveCount(0);
