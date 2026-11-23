@@ -9,6 +9,7 @@ import { useReader } from "./readerState.js";
 import { SettingsPage, AuthPage, MyBooksPage, PreferencesPage, RecoveryPage, RequireAccount } from "./AccountPages.jsx";
 import { BookPage, BrowsePage, WelcomePage } from "./DiscoveryPages.jsx";
 import AuthorPage from "./AuthorPage.jsx";
+import SwitchPage from "./SwitchPage.jsx";
 import BorrowerPage from "../lending/BorrowerPage.jsx";
 import { ActionLink, BookCover, BookSkeletons, Button, EmptyState, LibraryWarning, NativeDialog, TextLink } from "./primitives.jsx";
 import { safeReturnTo } from "./data.js";
@@ -111,7 +112,7 @@ function Header() {
   const home = location.pathname === "/home";
   const account = location.pathname === "/profile" || location.pathname.startsWith("/profile/") || location.pathname === "/settings";
   const authScreen = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname);
-  const publicLanding = location.pathname === "/" && !auth.isAuthenticated;
+  const publicLanding = ["/", "/switch"].includes(location.pathname) && !auth.isAuthenticated;
   const loanLink = location.pathname.startsWith("/l/");
   const mobileNav = useRef(null);
   useLayoutEffect(() => {
@@ -133,7 +134,7 @@ function Header() {
   return <><header className={`bv-header${hidden ? " is-hidden" : ""}`}><div className="bv-container bv-header-inner"><Brand />
     <nav className="bv-desktop-nav" aria-label="Main navigation">{signedIn && <Link className={home ? "bv-active" : ""} aria-current={home ? "page" : undefined} to="/home" {...warmProps("/home")}>Home</Link>}<Link className={discover && !publicLanding ? "bv-active" : ""} aria-current={discover && !publicLanding ? "page" : undefined} to="/browse" {...warmProps("/browse")}>Discover</Link>{!publicLanding && <Link className={library ? "bv-active" : ""} aria-current={library ? "page" : undefined} to="/my-books" {...warmProps("/my-books")}>My Books</Link>}</nav>
     <div className={`bv-header-actions${signedIn ? "" : " bv-header-actions--guest"}`}>{/* Discover has its own search box, so the header leaves it out there. */}{!authScreen && !["/", "/browse"].includes(location.pathname) && <HeaderSearch />}
-      {!authScreen && (auth.isLoading && auth.sessionError ? <span className="bv-header-check" role="status">Account unavailable</span> : signedIn ? <Link className="bv-header-avatar" to="/profile" aria-label="Your profile"><HeaderAvatar /></Link> : auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : <><TextLink to="/login">Sign in</TextLink><ActionLink variant="secondary" to={publicLanding ? "/register?src=landing" : "/register"}>Join free</ActionLink></>)}
+      {!authScreen && (auth.isLoading && auth.sessionError ? <span className="bv-header-check" role="status">Account unavailable</span> : signedIn ? <Link className="bv-header-avatar" to="/profile" aria-label="Your profile"><HeaderAvatar /></Link> : auth.isLoading ? <span className="bv-header-check" role="status">{auth.sessionError ? "Account unavailable" : "Checking account…"}</span> : <><TextLink to="/login">Sign in</TextLink><ActionLink variant="secondary" to={publicLanding ? `/register?src=${location.pathname === "/switch" ? "switch" : "landing"}` : "/register"}>Join free</ActionLink></>)}
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${signedIn ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
     {[...(signedIn ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ["/profile", "You", YouIcon, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
@@ -153,7 +154,7 @@ function LandingRoute() {
 }
 
 function Footer() {
-  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><TextLink to="/privacy">Privacy</TextLink></div></footer>;
+  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><nav className="bv-footer-links" aria-label="Footer"><TextLink to="/switch">Import from Goodreads or StoryGraph</TextLink><TextLink to="/privacy">Privacy</TextLink></nav></div></footer>;
 }
 
 function useServiceDown() {
@@ -242,7 +243,7 @@ function RouteEffects() {
       heading?.setAttribute("tabindex", "-1"); heading?.focus({ preventScroll: true });
     }
     first.current = false;
-    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/my-books/clubs": "Your clubs" };
+    const titles = { "/": "Your personal reading home", "/browse": "Discover", "/switch": "Move from Goodreads or StoryGraph to Bookvane", "/home": "Your reading home", "/my-books": "My Books", "/my-books/private": "Add a book", "/preferences": "Favourite genres", "/login": "Sign in", "/register": "Create account", "/settings": "Settings", "/forgot-password": "Password recovery", "/reset-password": "Reset password", "/profile": "Your profile", "/my-books/clubs": "Your clubs" };
     // A book's own page sets its title (and the rest of its head) from the book once it has loaded.
     if (!location.pathname.startsWith("/book/")) document.title = `${titles[location.pathname] || ({ "/my-data": "Your reading data", "/reading-life": "Your reading life", "/privacy": "Privacy", "/my-books/import": "Bring your library" })[location.pathname] || (location.pathname.startsWith("/clubs/") ? "Club" : location.pathname.startsWith("/c/") ? "Join a club" : location.pathname.startsWith("/my-books/") ? "Your reading" : location.pathname.startsWith("/profile/") ? "Your list" : location.pathname.startsWith("/u/") ? "Reader profile" : "Page not found")} · Bookvane`;
     // One canonical address per page, always on bookvane.me (the Render hostname serves the same pages).
@@ -287,7 +288,7 @@ function Shell() {
     <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects />{location.pathname.startsWith("/c/") ? <header className="bv-club-minimal-header"><div className="bv-container"><Brand /></div></header> : <Header />}
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
-        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/l/:token" element={<BorrowerPage key={location.pathname} notFound={notFound} />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
+        <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/switch" element={<SwitchPage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/l/:token" element={<BorrowerPage key={location.pathname} notFound={notFound} />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
         <Route path="/login" element={<AuthPage />} /><Route path="/register" element={<AuthPage register />} />
         <Route path="/forgot-password" element={<RecoveryPage key="forgot" />} /><Route path="/reset-password" element={<RecoveryPage key="reset" reset />} />
         <Route path="/my-books" element={<RequireAccount title="My Books"><MyBooksPage /></RequireAccount>} />

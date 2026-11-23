@@ -2,7 +2,7 @@ import { API_BASE_URL } from "../../api/client.js";
 
 // Aggregate counters only: a name plus an optional source or placement. No cookies, IDs or account data.
 // The server drops a whole event whose source or placement it does not know, so only its known values are sent.
-const sources = new Set(["landing", "noresults", "saveprompt", "share", "import", "profile"]);
+const sources = new Set(["landing", "noresults", "saveprompt", "share", "import", "profile", "switch"]);
 const placements = new Set(["book_page", "want_card", "bookshop"]);
 // Where a visit came from: the `ref` of a shared link. The server counts anything else as no ref.
 const refs = new Set(["tt", "ig", "rd", "ph", "yt", "x", "club", "share", "email", "loan"]);
