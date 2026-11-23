@@ -78,6 +78,7 @@ const test = base.extend({
       if (path === "/health") return reply(200, { status: "ok" });  // the outage banner's "Check again"
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
       app.errors.push(`Unhandled API: ${path}`); return reply(500, {});
     });
     await installGenres(page, app);

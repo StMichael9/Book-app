@@ -28,7 +28,7 @@ const test = base.extend({
     expect(state.errors).toEqual([]);
   },
 });
-const names = app => app.events.map(event => event.body.name);
+const names = app => app.events.map(event => event.body.name).filter(name => name !== "landing_visit"); // the once-per-session visit count is tested in growth-pack-2.spec.js
 
 test("registering sends register_started once, with the source and nothing else", async ({ page, app }) => {
   await page.context().addCookies([{ name: "probe", value: "1", url: page.url() === "about:blank" ? (process.env.PW_BASE_URL || "http://127.0.0.1:5189") : page.url() }]);
@@ -37,9 +37,10 @@ test("registering sends register_started once, with the source and nothing else"
   await page.getByLabel("Password", { exact: true }).fill("valid-password");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   await expect.poll(() => names(app)).toEqual(["register_started"]);
-  expect(app.events[0].body).toEqual({ name: "register_started", src: "landing" });
-  expect(app.events[0].type).toContain("text/plain");
-  expect(app.events[0].cookie).toBeUndefined();
+  const started = app.events.find(event => event.body.name === "register_started");
+  expect(started.body).toEqual({ name: "register_started", src: "landing" });
+  expect(started.type).toContain("text/plain");
+  expect(started.cookie).toBeUndefined();
   expect(app.registerUrl).toBe("?src=landing");
 });
 
