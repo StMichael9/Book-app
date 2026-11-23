@@ -1075,6 +1075,8 @@ test("handle sheet screenshots", async ({ page, app: _app }) => {
       await page.screenshot({ path: `${dir}/handle-available-${width}-${theme}.png` });
     }
   }
+});
+
 // ---- Share a list as a picture (T74 item 5) ----------------------------------------------------------------------------------------------
 
 const SHARE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="#3c7dc9"/></svg>';
