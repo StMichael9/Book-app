@@ -44,7 +44,7 @@ jobs:
       LIMIT: ${{ inputs.limit || '400' }}
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-python@v5
