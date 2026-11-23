@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useReader } from "../readerState.js";
 import { ActionLink, TextLink } from "../primitives.jsx";
-import { COPY, LIVE, faqItems, paidItems } from "./landingCopy.js";
+import { COPY, LIVE, faqItems, paidText } from "./landingCopy.js";
 
 const SIZES = { phone: [390, 844], desktop: [1440, 900] };
 
@@ -16,7 +16,6 @@ function Still({ name, kind, alt, eager = false }) {
 }
 
 function Phone({ children }) { return <div className="bv-landing-phone">{children}</div>; }
-function Browser({ children }) { return <div className="bv-landing-browser"><div className="bv-landing-browser-bar" aria-hidden="true"><i /><i /><i /></div>{children}</div>; }
 
 function useNarrow() {
   const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 700px)").matches);
@@ -59,7 +58,7 @@ function useLandingSeo(faq) {
 
 export default function LandingPage({ live = LIVE }) {
   const auth = useAuth(), narrow = useNarrow();
-  const faq = faqItems(live), paid = paidItems(live);
+  const faq = faqItems(live);
   useLandingSeo(faq);
   const signup = returnTo => `/register?${new URLSearchParams({ src: "landing", ...(returnTo ? { returnTo } : {}) })}`;
   const importTarget = auth.isAuthenticated ? "/my-books/import" : live.switchPage ? "/switch" : signup("/my-books/import");
@@ -74,36 +73,28 @@ export default function LandingPage({ live = LIVE }) {
         <h1>{COPY.hero.heading}</h1>
         <p className="bv-landing-lead">{COPY.hero.line}</p>
         {doors()}
-        <p className="bv-landing-free">{auth.isAuthenticated ? "Your books are right where you left them." : COPY.hero.quiet}</p>
+        {auth.isAuthenticated && <p className="bv-landing-free">{COPY.signedIn.line}</p>}
       </div>
       <Phone><Still name="scan-hero" kind="phone" alt={COPY.alt.scan} eager /></Phone>
     </section>
 
     <section className="bv-container bv-landing-block" aria-labelledby="bv-landing-scan">
       <div className="bv-landing-text"><h2 id="bv-landing-scan">{COPY.scan.heading}</h2><p>{COPY.scan.line}</p><p className="bv-landing-small">{COPY.scan.small}</p><ActionLink to={scanTarget}>{COPY.scan.cta}</ActionLink></div>
-      <div className="bv-landing-row" role="group" aria-label="Scanning, step by step">
-        {[["scan-aim", COPY.alt.aim], ["scan-tick", COPY.alt.tick], ["scan-add", COPY.alt.add]].map(([name, alt]) => <Phone key={name}><Still name={name} kind="phone" alt={alt} /></Phone>)}
-      </div>
+      <Phone><Still name="scan-tick" kind="phone" alt={COPY.alt.scanned} /></Phone>
     </section>
 
     <section className="bv-container bv-landing-block bv-landing-block--flip" aria-labelledby="bv-landing-library">
       <div className="bv-landing-text"><h2 id="bv-landing-library">{COPY.library.heading}</h2><p>{COPY.library.line}</p><ActionLink to={importTarget}>{COPY.library.cta}</ActionLink></div>
-      <Browser><Still name="import" kind="desktop" alt={COPY.alt.library} /></Browser>
+      <Phone><Still name="import" kind="phone" alt={COPY.alt.library} /></Phone>
     </section>
 
     <section className="bv-container bv-landing-block" aria-labelledby="bv-landing-private">
       <div className="bv-landing-text"><h2 id="bv-landing-private">{COPY.priv.heading}</h2><p>{COPY.priv.line}</p><p>{COPY.priv.ai}</p><TextLink to="/privacy">{COPY.priv.link}</TextLink></div>
-      <div className="bv-landing-row bv-landing-row--two"><Phone><Still name="private-note" kind="phone" alt={COPY.alt.note} /></Phone><Phone><Still name="private-thumbs" kind="phone" alt={COPY.alt.thumbs} /></Phone></div>
-    </section>
-
-    <section className="bv-container bv-landing-block bv-landing-block--flip" aria-labelledby="bv-landing-track">
-      <div className="bv-landing-text"><h2 id="bv-landing-track">{COPY.track.heading}</h2><p>{COPY.track.line}</p></div>
-      <Browser><Still name="track" kind="desktop" alt={COPY.alt.track} /></Browser>
+      <Phone><Still name="private-note" kind="phone" alt={COPY.alt.note} /></Phone>
     </section>
 
     <section className="bv-container bv-landing-paid" aria-labelledby="bv-landing-paid">
-      <h2 id="bv-landing-paid">{COPY.paid.heading}</h2><p className="bv-landing-paid-line">{COPY.paid.line}</p>
-      <ul className="bv-landing-promises">{paid.map(item => <li key={item.key}><b>{item.title}</b><span>{item.text}</span></li>)}</ul>
+      <h2 id="bv-landing-paid">{COPY.paid.heading}</h2><p className="bv-landing-paid-line">{paidText(live)}</p>
       <TextLink to="/privacy">{COPY.paid.link}</TextLink>
     </section>
 
@@ -113,7 +104,7 @@ export default function LandingPage({ live = LIVE }) {
     </section>
 
     <section className="bv-container bv-landing-final" aria-labelledby="bv-landing-final">
-      <h2 id="bv-landing-final">{COPY.final.heading}</h2><p>{COPY.final.line}</p>{doors()}
+      <h2 id="bv-landing-final">{COPY.final.heading}</h2>{doors()}
     </section>
   </>;
 }

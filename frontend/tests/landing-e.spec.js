@@ -50,8 +50,8 @@ test("paper top: no band, the header is on paper, and the hero holds the approve
   expect(await style(page.locator(".bv-header"), "backgroundColor")).toBe("rgb(243, 238, 227)");
   const hero = page.locator(".bv-landing-hero");
   await expect(hero.getByRole("heading", { level: 1, name: "Your reading life, kept private." })).toBeVisible();
-  await expect(hero.getByText("Scan the books on your shelf with your phone. Free forever, with nothing public unless you choose.")).toBeVisible();
-  await expect(hero.getByText("No card. No feed. Nothing public by default.")).toBeVisible();
+  await expect(hero.getByText("Scan the barcodes on your books with your phone. Free to use, and private unless you choose to share.")).toBeVisible();
+  await expect(page.getByText("No card. No feed. Nothing public by default.")).toHaveCount(0);
   await expect(hero.getByRole("link", { name: "Create a free account", exact: true })).toHaveAttribute("href", SIGNUP);
   await expect(hero.getByRole("link", { name: "Browse books first", exact: true })).toHaveAttribute("href", "/browse");
   expect(app.errors).toEqual([]);
@@ -85,7 +85,7 @@ test("desktop is two columns with the phone on the right; the phone stacks it un
 test("the sections come in the approved order, and the old sections are gone", async ({ page, app: _app }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await visit(page);
-  expect(await page.locator(".bv-landing-block h2, .bv-landing-paid h2, .bv-landing-faq h2, .bv-landing-final h2").allInnerTexts()).toEqual(["Scan a stack in a minute.", "Moving from Goodreads or StoryGraph?", "Only you can see your notes.", "Keep your place, and your thoughts.", "Free, and honest about money.", "Questions", "Start your shelf."]);
+  expect(await page.locator(".bv-landing-block h2, .bv-landing-paid h2, .bv-landing-faq h2, .bv-landing-final h2").allInnerTexts()).toEqual(["Scan a stack of books at once.", "Moving from Goodreads or StoryGraph?", "Only you can see your notes.", "How Bookvane is paid for", "Questions", "Start your shelf."]);
   for (const gone of ["Two ways to begin", "Open a new chapter", "Every book you’ve read, own and want, in one quiet place."]) await expect(page.getByText(gone)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Scan your first books" })).toHaveAttribute("href", SIGNUP);
   await page.setViewportSize({ width: 390, height: 844 });
@@ -114,7 +114,7 @@ test("dark: the landing text keeps AA contrast and the dark captures load", asyn
   await page.setViewportSize({ width: 1440, height: 900 });
   await visit(page);
   const paper = await style(page.locator(".bv-root"), "backgroundColor");
-  for (const [label, locator] of [["heading", page.locator(".bv-landing-copy h1")], ["line", page.locator(".bv-landing-lead")], ["quiet", page.locator(".bv-landing-free")]]) expect(ratio(await style(locator, "color"), paper), label).toBeGreaterThanOrEqual(4.5);
+  for (const [label, locator] of [["heading", page.locator(".bv-landing-copy h1")], ["line", page.locator(".bv-landing-lead")]]) expect(ratio(await style(locator, "color"), paper), label).toBeGreaterThanOrEqual(4.5);
   const primary = page.locator(".bv-landing-hero").getByRole("link", { name: "Create a free account", exact: true });
   expect(ratio(await style(primary, "color"), await style(primary, "backgroundColor"))).toBeGreaterThanOrEqual(4.5);
   await expect(page.locator(".bv-landing-hero img")).toHaveAttribute("src", "/landing/scan-hero-dark.webp");

@@ -81,15 +81,12 @@ async function save(page, name, theme) {
   console.log("wrote", `${name}-${theme}.webp`, Math.round(webp.length * 0.75 / 1024), "KB");
 }
 
-const phone = { width: 390, height: 844 }, desktop = { width: 1440, height: 900 };
+const phone = { width: 390, height: 844 };
 const scenes = [
-  { names: ["scan-aim"], viewport: phone, camera: true, run: async page => { await open(page); } },
   { names: ["scan-tick"], viewport: phone, camera: true, run: async page => { await open(page); await scan(page, "9780141439518"); await page.locator(".bv-scan-row").first().waitFor(); } },
-  { names: ["scan-add", "scan-hero"], viewport: phone, camera: true, run: async page => { await open(page); await scan(page, "9780141439518", "9780743273565", "9780451524935"); await page.locator(".bv-scan-row").nth(2).waitFor(); await page.waitForTimeout(300); } },
-  { names: ["import"], viewport: desktop, run: async page => { await page.goto(`${BASE}/my-books/import`); await page.getByRole("button", { name: "Continue", exact: true }).click(); await page.getByRole("button", { name: /^Review 1 book first$/ }).click(); await page.locator(".bv-import-row").first().waitFor(); } },
-  { names: ["track"], viewport: desktop, run: async page => { await page.goto(`${BASE}/my-books/101`); await page.getByRole("textbox", { name: /^Page or %/ }).waitFor(); } },
+  { names: ["scan-hero"], viewport: phone, camera: true, run: async page => { await open(page); await scan(page, "9780141439518", "9780743273565", "9780451524935"); await page.locator(".bv-scan-row").nth(2).waitFor(); await page.waitForTimeout(300); } },
+  { names: ["import"], viewport: phone, run: async page => { await page.goto(`${BASE}/my-books/import`); await page.getByRole("button", { name: "Continue", exact: true }).click(); await page.getByRole("button", { name: /^Review 1 book first$/ }).click(); await page.locator(".bv-import-row").first().waitFor(); await page.locator(".bv-import-row").first().evaluate(node => node.scrollIntoView({ block: "center" })); } },
   { names: ["private-note"], viewport: phone, run: async page => { await page.goto(`${BASE}/my-books/101`); await page.locator(".bv-notes").scrollIntoViewIfNeeded(); await page.evaluate(() => document.querySelector(".bv-notes")?.scrollIntoView({ block: "center" })); } },
-  { names: ["private-thumbs"], viewport: phone, attempt: { progress_value: 360 }, run: async page => { await page.goto(`${BASE}/my-books/101`); await page.getByRole("textbox", { name: /^Page or %/ }).fill("360"); await page.getByRole("button", { name: "Save page", exact: true }).click(); await page.getByRole("button", { name: "Yes, finished" }).click(); await page.getByText("How was it?").first().waitFor(); await page.getByText("How was it?").first().scrollIntoViewIfNeeded(); } },
 ];
 const open = async page => { await page.goto(`${BASE}/my-books`); await page.getByRole("button", { name: "Scan books", exact: true }).click(); await page.getByRole("dialog", { name: "Scan books" }).waitFor(); await page.waitForTimeout(500); };
 

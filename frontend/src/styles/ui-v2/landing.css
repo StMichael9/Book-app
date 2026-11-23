@@ -10,9 +10,7 @@
 /* A phone: a plain rounded rectangle, 9 by 19.5, with the capture inside it. */
 .bv-root .bv-landing-phone { width: 100%; max-width: 300px; aspect-ratio: 9 / 19.5; border-radius: 36px; overflow: hidden; box-shadow: var(--bv-shadow-sheet); border: 1px solid var(--bv-line); background: var(--bv-paper); min-width: 0; }
 .bv-root .bv-landing-hero .bv-landing-phone { box-shadow: var(--bv-lift); justify-self: end; }
-.bv-root .bv-landing-browser { border-radius: 12px; overflow: hidden; box-shadow: var(--bv-lift); border: 1px solid var(--bv-line); min-width: 0; background: var(--bv-paper); }
-.bv-root .bv-landing-browser-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--bv-line); }
-.bv-root .bv-landing-browser-bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--bv-line); }
+.bv-root .bv-landing-block .bv-landing-phone { justify-self: center; }
 .bv-root .bv-landing-still { display: block; width: 100%; height: auto; }
 
 /* The picture sections: 120px apart on a desktop, alternating sides; text and a picture, body copy at most 60 characters wide. */
@@ -25,17 +23,10 @@
 .bv-root .bv-landing-text p, .bv-root .bv-landing-paid-line { margin: 0; }
 .bv-root .bv-landing-text .bv-landing-small { color: var(--bv-muted); font-size: 0.9375rem; }
 .bv-root .bv-landing-text .bv-button { margin-top: 6px; }
-.bv-root .bv-landing-row { display: flex; gap: 20px; justify-content: center; min-width: 0; }
-.bv-root .bv-landing-row .bv-landing-phone { flex: 1 1 0; max-width: 220px; }
-.bv-root .bv-landing-row--two .bv-landing-phone { max-width: 250px; }
 
 /* How it is paid for: one headline, one line, short items. */
 .bv-root .bv-landing-paid h2 { margin-bottom: 12px; }
 .bv-root .bv-landing-paid-line { max-width: 60ch; color: var(--bv-muted); }
-.bv-root .bv-landing-promises { list-style: none; margin: 20px 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.bv-root .bv-landing-promises li { border-top: 1px solid var(--bv-line); padding-top: 12px; max-width: 60ch; }
-.bv-root .bv-landing-promises b { display: block; font-weight: 600; }
-.bv-root .bv-landing-promises span { color: var(--bv-muted); font-size: 0.9375rem; }
 
 /* Questions: plain disclosure rows with a rotating chevron. */
 .bv-root .bv-landing-faq-list { margin-top: 20px; max-width: 60rem; border-bottom: 1px solid var(--bv-line); }
@@ -64,10 +55,5 @@
   .bv-root .bv-landing-lead { font-size: 1.0625rem; }
   .bv-root .bv-landing-doors > .bv-button { flex: 1 1 100%; }
   .bv-root .bv-landing-text .bv-button { justify-self: stretch; text-align: center; }
-  /* Three stills scroll sideways in a snapping row, the next one peeking in. */
-  .bv-root .bv-landing-row { justify-content: flex-start; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 0 20px; scrollbar-width: none; max-width: 100%; }
-  .bv-root .bv-landing-row .bv-landing-phone { flex: 0 0 68%; max-width: 260px; scroll-snap-align: center; }
-  .bv-root .bv-landing-row--two { justify-content: flex-start; }
-  .bv-root .bv-landing-row--two .bv-landing-phone { flex-basis: 62%; max-width: 240px; }
 }
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-landing-faq summary svg { transition: none; } }

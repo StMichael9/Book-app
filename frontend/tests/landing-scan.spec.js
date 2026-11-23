@@ -1,6 +1,6 @@
 import { test as base, expect } from "@playwright/test";
 import { GENRES } from "./support/genres.js";
-import { COPY, LIVE, faqItems, paidItems } from "../src/components/ui-v2/landing/landingCopy.js";
+import { COPY, LIVE, faqItems, paidText } from "../src/components/ui-v2/landing/landingCopy.js";
 
 // The scan-first landing page: what shows with the default flags, what stays off the page, and the FAQ data that mirrors the visible answers.
 const test = base.extend({
@@ -29,8 +29,9 @@ test("with the default flags nothing that is not live appears", async ({ page, a
   const text = (await main.allInnerTexts()).join("\n"), html = (await main.evaluateAll(nodes => nodes.map(node => node.innerHTML))).join("\n");
   for (const word of [/lend|loan/i, /\bclubs?\b/i, /Club Plus/, /Patron/]) expect(text, String(word)).not.toMatch(word);
   expect(html).not.toContain("/switch");
-  expect(text).toContain("Book links");
-  expect(text).toContain("Bookvane is free forever. Here’s how it’s paid for, and none of it is selling your reading.");
+  expect(text).toContain("Bookvane is free to use. Some book links go to Bookshop.org. If you buy, Bookvane may earn a small commission, at no cost to you, and each link says so. We don’t show ads, and we don’t sell your data.");
+  expect(text).toContain("Your notes and reactions are never sent to AI services.");
+  for (const word of [/forever/i, /honest/i, /about a minute/i, /paid AI/i]) expect(text, String(word)).not.toMatch(word);
   await page.locator(".bv-landing-faq summary", { hasText: "How is Bookvane free?" }).click();
   await expect(page.getByText("We don’t show ads.")).toBeVisible();
   await expect(page.locator(".bv-landing-faq details", { hasText: "Do you sell my data?" })).toContainText("No.");
@@ -43,7 +44,9 @@ test("the FAQPage data lists exactly the visible questions, once", async ({ page
   expect(ld["@type"]).toBe("FAQPage");
   const visible = await page.locator(".bv-landing-faq summary span").allInnerTexts();
   expect(ld.mainEntity.map(item => item.name)).toEqual(visible);
-  expect(visible).toHaveLength(11);
+  expect(visible).toEqual(["How is Bookvane free?", "Do you sell my data?", "What happens to my data?", "Is anything public?", "Can I take my data or delete it?", "What if a book isn’t found?"]);
+  expect(JSON.stringify(ld)).not.toMatch(/forever/i);
+  expect(await page.locator('meta[name="description"]').getAttribute("content")).not.toMatch(/forever/i);
   expect(await page.locator("script#bv-landing-faq").count()).toBe(1);
   expect(await page.locator('link[rel="canonical"]').getAttribute("href")).toBe("https://bookvane.me/");
   expect(await page.title()).toBe(COPY.title);
@@ -52,8 +55,9 @@ test("the FAQPage data lists exactly the visible questions, once", async ({ page
 
 test("a flag switches its line on, and only that line", () => {
   expect(LIVE).toEqual({ switchPage: false, lending: false, clubs: false, patron: false, clubPlus: false });
-  expect(paidItems(LIVE).map(item => item.key)).toEqual(["links"]);
-  expect(paidItems({ ...LIVE, patron: true, clubPlus: true }).map(item => item.key)).toEqual(["patron", "links", "clubPlus"]);
+  expect(paidText(LIVE)).not.toMatch(/Patron|Club Plus/);
+  expect(paidText({ ...LIVE, patron: true })).toContain("Readers who want to support Bookvane can become Patrons.");
+  expect(paidText({ ...LIVE, clubPlus: true })).toContain("Reading clubs can add Club Plus for extra club features.");
   expect(faqItems(LIVE)[0].a).toBe("Bookvane is free to use. It’s paid for by a small commission on some Bookshop.org links if you buy. We don’t show ads.");
   expect(faqItems({ ...LIVE, patron: true, clubPlus: true })[0].a).toContain("readers who choose to be Patrons, a small commission on some Bookshop.org links if you buy, and Club Plus for reading clubs");
 });
@@ -63,6 +67,7 @@ test("the pictures carry width, height and alt text, and nothing scrolls sideway
     await page.emulateMedia({ colorScheme: scheme });
     await page.setViewportSize({ width, height: 900 });
     await visit(page);
+    expect(await page.locator(".bv-landing-still").count()).toBe(4);
     for (const image of await page.locator(".bv-landing-still").all()) {
       expect(Number(await image.getAttribute("width"))).toBeGreaterThan(0);
       expect(Number(await image.getAttribute("height"))).toBeGreaterThan(0);
