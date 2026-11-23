@@ -41,7 +41,7 @@ const luminance = colour => { const [r, g, b] = channels(colour).map(value => { 
 const ratio = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 const style = (locator, property) => locator.evaluate((node, property) => getComputedStyle(node)[property], property);
 const visit = async page => { await page.goto("/"); await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeVisible(); await expect(page.locator(".bv-landing-hero")).toBeVisible(); await expect(page.locator(".bv-landing-covers a").first()).toBeVisible(); };
-const IMPORT = "/register?src=landing&returnTo=%2Fmy-books%2Fimport";
+const IMPORT = "/switch";
 const DARK_SHEET = "rgb(47, 42, 35)";
 
 test("paper top: no band, the header is on paper, and the hero holds the approved words and both doors", async ({ page, app }) => {
@@ -62,7 +62,7 @@ test("Import my library signs up first and carries the source; Start with one bo
   await page.setViewportSize({ width: 1440, height: 900 });
   await visit(page);
   await page.locator(".bv-landing-hero").getByRole("link", { name: "Import my library", exact: true }).click();
-  await expect(page).toHaveURL(/\/register\?src=landing&returnTo=%2Fmy-books%2Fimport$/);
+  await expect(page).toHaveURL(/\/switch$/);
   await visit(page);
   await page.locator(".bv-landing-hero").getByRole("link", { name: "Start with one book", exact: true }).click();
   await expect(page).toHaveURL(/\/browse$/);

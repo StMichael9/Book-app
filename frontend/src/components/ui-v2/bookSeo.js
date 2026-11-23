@@ -32,7 +32,7 @@ export function bookSeo(book) {
   return { title: `${book.title}${by} · Bookvane`, description, image, ld };
 }
 
-function setMeta(attribute, key, content) {
+export function setMeta(attribute, key, content) {
   let node = document.head.querySelector(`meta[${attribute}="${key}"]`);
   const created = !node;
   if (!node) { node = document.createElement("meta"); node.setAttribute(attribute, key); document.head.appendChild(node); }
