@@ -376,12 +376,12 @@ test("coming back from a book restores how far Show more had got", async ({ page
   await page.getByRole("button", { name: "Show more", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
   await page.locator(".bv-book-card h3 a").nth(27).click();
-  // Only the requests from coming back count: the first-page prefetch (limit 24) may also land after it on a slow machine, so the check is
-  // that the reload on Back asked for all 30 at once, not that it was the last request.
-  const before = app.requests.length;
+  await expect(page).not.toHaveURL(/\/my-books$/);
+  // Back may restore from the cache with no request at all, or reload; either way the reader must still see all 30 once every request has
+  // settled. A reload that asked for one page (24) would drop the list back to 24 here.
   await page.goBack();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
-  await expect.poll(() => app.requests.slice(before).some(r => r.path === "/me/library" && !r.query.get("cursor") && r.query.get("limit") === "30")).toBe(true);
+  await page.waitForLoadState("networkidle");
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
 });
 
