@@ -376,9 +376,13 @@ test("coming back from a book restores how far Show more had got", async ({ page
   await page.getByRole("button", { name: "Show more", exact: true }).click();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
   await page.locator(".bv-book-card h3 a").nth(27).click();
+  await expect(page).not.toHaveURL(/\/my-books$/);
+  // Back may restore from the cache with no request at all, or reload; either way the reader must still see all 30 once every request has
+  // settled. A reload that asked for one page (24) would drop the list back to 24 here.
   await page.goBack();
   await expect(page.locator(".bv-book-card")).toHaveCount(30);
-  await expect.poll(() => app.requests.filter(r => r.path === "/me/library" && r.query.get("limit") !== "1").at(-1).query.get("limit")).toBe("30");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator(".bv-book-card")).toHaveCount(30);
 });
 
 test("the Covers / List choice is remembered on this device", async ({ page, app }) => {
