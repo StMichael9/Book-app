@@ -190,7 +190,7 @@ test("the approved wording on sign-up and sign-in, and nothing else changed", as
   await page.goto("/register");
   await expect(page.getByRole("heading", { name: "Create your account", level: 1 })).toBeVisible();
   const heading = page.locator(".bv-auth-card header");
-  await expect(heading).toContainText("Free. Your library is private. We only email you for password resets. Privacy");
+  await expect(heading).toContainText("Free. Your library is private. Privacy");
   await expect(heading.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
   await expect(page.getByText("At least 8 characters.", { exact: true })).toBeVisible();
   await expect(page.locator(".bv-auth-trust")).toHaveCount(0);

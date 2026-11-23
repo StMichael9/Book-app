@@ -107,6 +107,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });

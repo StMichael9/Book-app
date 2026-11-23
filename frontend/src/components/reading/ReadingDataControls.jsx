@@ -142,6 +142,7 @@ export function ReadingPrivacyPage() {
       <li>If a book has no description, we may show one from Google Books, with a link back. We don’t keep it.</li>
       <li>Some book links go to Bookshop.org. If you buy, Bookvane may earn a small commission at no cost to you.</li>
       <li>We get an error report when something breaks, and we count visits without cookies. Cookies only keep you signed in.</li>
+      <li>We count visits and sign-ups by where they came from (for example TikTok), in daily totals only. Nothing is linked to you.</li>
     </ul></section>
     <section className="bv-section"><h2>Download or delete</h2><ul className="bv-plain-list">
       <li>Download everything from <TextLink to="/my-data">Your reading data</TextLink>. It’s a full backup file, and we don’t keep a copy.</li>

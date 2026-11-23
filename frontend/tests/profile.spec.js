@@ -845,7 +845,7 @@ test("Add to list is not offered to guests, and book cards never carry it", asyn
   await expect(page.getByRole("button", { name: "Add to list" })).toHaveCount(0);
 });
 
-test("a public profile shows only the public fields, and a guest is invited to join with src=profile", async ({ page, app }) => {
+test("a public profile shows only the public fields, and a guest gets one quiet Start your own shelf line with ref=share", async ({ page, app }) => {
   app.guest = true;
   await page.goto("/u/ada");
   await expect(page.getByRole("heading", { name: "Ada Reader", level: 1 })).toBeVisible();
@@ -858,8 +858,7 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.locator(".bv-profile-head .bv-avatar")).toHaveCSS("background-color", "rgb(107, 63, 94)");
   const text = await page.locator("main").innerText();
   for (const hidden of ["ada@example.com", "Secret note", "Want to read", "Owned", "Edit", "Make private", "Make public", "Only you", "Private list", "Account settings", "Sign out", "Edit profile"]) expect(text).not.toContain(hidden);
-  await expect(page.getByText("Keep your own reading year on Bookvane.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create free account" })).toHaveAttribute("href", "/register?src=profile");
+  await expect(page.getByRole("link", { name: "Start your own shelf", exact: true })).toHaveAttribute("href", "/register?ref=share");
   expect(app.requests.some(request => /^\/me\/(profile|stats|lists)/.test(request.path))).toBe(false);
   await page.goto("/u/ada/lists/3");
   await expect(page.getByRole("heading", { name: "Shared list", level: 1 })).toBeVisible();
@@ -869,15 +868,16 @@ test("a public profile shows only the public fields, and a guest is invited to j
   await expect(page.locator(".bv-list-books li")).toHaveCount(2);
 });
 
-test("the guest invitation carries src=profile through to the sign-up request", async ({ page, app }) => {
+test("the guest invitation carries ref=share through to the sign-up request (the address itself is cleaned)", async ({ page, app }) => {
   app.guest = true;
   await page.goto("/u/ada");
-  await page.getByRole("link", { name: "Create free account" }).click();
-  await expect(page).toHaveURL(/\/register\?src=profile$/);
+  await page.getByRole("link", { name: "Start your own shelf", exact: true }).click();
+  await expect(page).toHaveURL(/\/register$/);
   await page.getByLabel("Email address", { exact: true }).fill("reader@example.com");
   await page.getByLabel("Password", { exact: true }).fill("valid-password");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  await expect.poll(() => sent(app, "POST", "/auth/register?src=profile").length).toBe(1);
+  await expect.poll(() => sent(app, "POST", "/auth/register").length).toBe(1);
+  expect(sent(app, "POST", "/auth/register")[0].body.ref).toBe("share");
 });
 
 test("a missing or private public page shows the not-found page with its own tab title, and your own page says how others see it", async ({ page, app }) => {
@@ -887,7 +887,7 @@ test("a missing or private public page shows the not-found page with its own tab
   app.profile.handle = "ada"; app.profile.profile_public = true;
   await page.goto("/u/ada");
   await expect(page.getByText("This is how others see your profile.")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Create free account" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Start your own shelf" })).toHaveCount(0);
 });
 
 test("the header shows the avatar as the profile entry, with the accessible name Your profile", async ({ page, app: _app }) => {
