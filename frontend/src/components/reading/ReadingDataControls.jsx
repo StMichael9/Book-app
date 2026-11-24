@@ -11,7 +11,7 @@ export function ReadingRemovalDialog({ entry, attempt, onClose, onRemoved }) {
   const memory = useReadingDrafts();
   const title = entry.book?.title || entry.private_title;
   const state = attempt && ({ reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" })[attempt.state];
-  const record = attempt ? `${state} · ${attempt.started_on || "Start date unknown"}${attempt.ended_on ? ` → ${attempt.ended_on}` : ""}` : null;
+  const record = attempt ? `${state} · ${attempt.started_on || "Start date unknown"}${attempt.ended_on ? ` to ${attempt.ended_on}` : ""}` : null;
   async function remove(assertCurrent) {
     if (!attempt) {
       try { await forgetLibraryEntry(entry.id, entry.version); }
