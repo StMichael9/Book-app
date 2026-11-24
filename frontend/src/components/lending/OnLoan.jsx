@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { updateLoan } from "../../api/loans.js";
 import { BookCover, Button } from "../ui-v2/primitives.jsx";
 import { errorText } from "../ui-v2/data.js";
+import { ON_LOAN_EMPTY } from "../ui-v2/findabilityCopy.js";
 import { useLoanShare } from "./loanShare.jsx";
 import { day, who } from "./loanText.js";
 import "../../styles/ui-v2/lending.css";
@@ -49,5 +50,5 @@ export function OnLoanHome({ loans, onChanged }) {
 
 // My Books: every open loan, in place of the paged list.
 export function OnLoanView({ loans, ready, onChanged }) {
-  return <section className="bv-onloan bv-onloan--view" aria-label="On loan">{!ready ? null : <List loans={loans} onChanged={onChanged} label="On loan" />}</section>;
+  return <section className="bv-onloan bv-onloan--view" aria-label="On loan">{!ready ? null : loans.length ? <List loans={loans} onChanged={onChanged} label="On loan" /> : <p className="bv-muted">{ON_LOAN_EMPTY}</p>}</section>;
 }

@@ -64,10 +64,10 @@ export default function ClubPage({ notFound }) {
   }
   async function leave() {
     setLeaveError(""); setLeaving(true);
-    try { await leaveClub(id); navigate("/my-books/clubs", { replace: true }); } catch { setLeaveError("You couldn’t leave the club. Please try again."); setLeaving(false); }
+    try { await leaveClub(id); navigate("/clubs", { replace: true }); } catch { setLeaveError("You couldn’t leave the club. Please try again."); setLeaving(false); }
   }
   return <section className="bv-container bv-club-page" style={{ "--club": clubColor(data) }}>
-    <TextLink to="/my-books/clubs">Clubs</TextLink>
+    <TextLink to="/clubs">Clubs</TextLink>
     <header className="bv-club-head">
       <div className="bv-club-head-text"><h1>{data.name}</h1><p>{memberCount(data.member_count)} · private, invite-only</p></div>
       <div className="bv-club-head-actions">

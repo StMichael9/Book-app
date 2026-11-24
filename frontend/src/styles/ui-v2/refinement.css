@@ -86,6 +86,11 @@
   .bv-root .bv-mobile-nav a { min-width: 0; padding-inline: 2px; overflow-wrap: normal; }
   /* A label never ellipsises: at large text it wraps to a second line and the nav grows. */
   .bv-root .bv-mobile-nav a span { max-width: 100%; text-align: center; line-height: 1.15; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
+  /* Whole words, always. Where the five words cannot fit at the current text size, useMenuFit() sets data-icons on the menu and the whole menu
+     shows icons only; each link keeps its name (the label is visually hidden, not removed), the 44px target and its green current state. */
+  .bv-root .bv-nav-probe { position: absolute; left: 0; top: 0; width: 1rem; height: 1px; visibility: hidden; pointer-events: none; }
+  .bv-root .bv-mobile-nav[data-icons] a { min-height: 44px; }
+  .bv-root .bv-mobile-nav[data-icons] a > span:last-child { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
 /* Short intro lines avoid a single orphaned word on narrow screens. */
 .bv-root :is(.bv-page-heading, .bv-section-heading) p { text-wrap: pretty; }

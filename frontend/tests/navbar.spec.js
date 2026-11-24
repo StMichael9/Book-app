@@ -47,7 +47,7 @@ test("a signed-in reader sees the same links before and after the reading capabi
   const desktop = page.getByRole("navigation", { name: "Main navigation" });
   await expect(page.getByRole("link", { name: "Your profile", exact: true })).toBeVisible();
   const before = await links(desktop);
-  expect(before).toEqual(["Home", "Discover", "My Books"]);
+  expect(before).toEqual(["Home", "Discover", "My Books", "Clubs"]);
   caps.release();
   await expect.poll(() => app.requests.some(request => request.path === "/me/reading-capabilities")).toBe(true);
   await page.waitForTimeout(600);
@@ -60,7 +60,7 @@ test("a signed-in reader sees the same links before and after the reading capabi
   const bottom = page.getByRole("navigation", { name: "Mobile navigation" });
   await expect(bottom.getByRole("link", { name: "Discover" })).toBeVisible();
   const phoneBefore = await links(bottom);
-  expect(phoneBefore).toEqual(["Home", "Discover", "My Books", "You"]);
+  expect(phoneBefore).toEqual(["Home", "Discover", "My Books", "Clubs", "You"]);
   phoneCaps.release();
   await page.waitForTimeout(600);
   expect(await links(bottom)).toEqual(phoneBefore);

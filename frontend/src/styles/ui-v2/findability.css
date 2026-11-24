@@ -1,0 +1,5 @@
+/* The findability build: the Scan button and the plain links to /switch. Every class is prefixed bv-find-. */
+.bv-root .bv-find-scan { display: inline-grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0; border: 0; border-radius: 50%; background: var(--bv-soft); color: var(--bv-ink); cursor: pointer; }
+.bv-root .bv-find-scan svg { width: 18px; height: 18px; stroke-width: 2; }
+.bv-root .bv-find-scan:hover { background: var(--bv-line); }
+.bv-root .bv-find-switch { margin: 4px 0 0; }

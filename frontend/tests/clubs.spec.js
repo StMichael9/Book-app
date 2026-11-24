@@ -91,14 +91,9 @@ const sent = (app, method, path) => app.requests.filter(request => request.metho
 
 // ---- the list ---------------------------------------------------------------------------------------------------------
 
-test("My Books has Books and Clubs tabs; the list shows each club with its book, next checkpoint and the reader's page", async ({ page, app: _app }) => {
-  await page.goto("/my-books");
-  const tabs = page.getByRole("navigation", { name: "My Books sections" });
-  await expect(tabs.getByRole("link", { name: "Books" })).toHaveAttribute("aria-current", "page");
-  await tabs.getByRole("link", { name: "Clubs" }).click();
-  await expect(page).toHaveURL(/\/my-books\/clubs$/);
-  await expect(tabs.getByRole("link", { name: "Clubs" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { name: "Your clubs", level: 2 })).toBeVisible();
+test("the clubs list is at /clubs and shows each club with its book, next checkpoint and the reader's page", async ({ page, app: _app }) => {
+  await page.goto("/clubs");
+  await expect(page.getByRole("heading", { name: "Your clubs", level: 1 })).toBeVisible();
   const card = page.locator(".bv-club-card");
   await expect(card).toContainText("Tuesday Readers");
   await expect(card).toContainText("8 members · Now reading Middlemarch");
@@ -109,7 +104,7 @@ test("My Books has Books and Clubs tabs; the list shows each club with its book,
 
 test("with no clubs the list says what clubs are, and Start a club makes one and opens it with Invite highlighted", async ({ page, app }) => {
   app.clubs = [];
-  await page.goto("/my-books/clubs");
+  await page.goto("/clubs");
   await expect(page.getByText("Read together with friends.", { exact: true })).toBeVisible();
   await expect(page.getByText("Clubs are private and invite-only.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Start a club" })).toHaveCount(1);
@@ -276,7 +271,7 @@ test.describe("club page", () => {
     await expect(page).toHaveURL(/\/clubs\/5$/);
     await page.getByRole("button", { name: "Leave club" }).click();
     await page.getByRole("dialog", { name: "Leave Tuesday Readers?" }).getByRole("button", { name: "Leave club" }).click();
-    await expect(page).toHaveURL(/\/my-books\/clubs$/);
+    await expect(page).toHaveURL(/\/clubs$/);
     expect(sent(app, "POST", "/clubs/5/leave")).toHaveLength(1);
   });
 
@@ -359,7 +354,7 @@ for (const scheme of ["light", "dark"]) for (const [width, height] of [[390, 844
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path} scrolls sideways`).toBe(true);
       if (shots) await page.screenshot({ path: `${shots}/${name}-${width}-${scheme}.png`, fullPage: true });
     };
-    await check("/my-books/clubs", "list", () => expect(page.locator(".bv-club-card")).toContainText("Next: p. 240"));
+    await check("/clubs", "list", () => expect(page.locator(".bv-club-card")).toContainText("Next: p. 240"));
     await check("/clubs/5", "club", () => expect(page.locator(".bv-club-post")).toHaveCount(3));
     app.guest = true;
     await check(`/c/${TOKEN}`, "join", () => expect(page.getByRole("link", { name: "Sign up to join" })).toBeVisible());
