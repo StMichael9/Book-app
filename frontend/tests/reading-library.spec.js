@@ -676,12 +676,14 @@ for (const theme of ["light", "dark"]) for (const width of [320, 390, 768, 1440]
       const nav = page.getByRole("navigation", { name: "Mobile navigation", exact: true });
       const discover = nav.getByRole("link", { name: "Discover", exact: true });
       // A label never ellipsises or clips: at large text it may wrap to a second line and the nav grows.
-      const label = await discover.locator("span").evaluate(node => {
+      // Where whole words cannot fit at this text size the menu shows icons only (approved by Michael): the label is then visually hidden but
+      // still names the link, so the checks are the name and the target, not clipping.
+      const label = await discover.locator("span").last().evaluate(node => {
         const style = getComputedStyle(node);
-        return { overflow: style.textOverflow, clipped: node.scrollWidth > node.clientWidth + 1 };
+        return { overflow: style.textOverflow, clipped: node.scrollWidth > node.clientWidth + 1, iconsOnly: style.position === "absolute" && node.getBoundingClientRect().width <= 1 };
       });
       expect(label.overflow).not.toBe("ellipsis");
-      expect(label.clipped).toBe(false);
+      if (!label.iconsOnly) expect(label.clipped).toBe(false);
       const navTops = await nav.getByRole("link").evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().top));
       expect(Math.max(...navTops) - Math.min(...navTops)).toBeLessThan(2);
       const box = await discover.boundingBox();

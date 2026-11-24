@@ -7,7 +7,7 @@ import { useUserBooks } from "../../hooks/UserBooksContext.jsx";
 import { catalogueResponse, firstImpressionOrder, useRequest } from "../ui-v2/data.js";
 import { BookGrid, BookSkeletons, Button, EmptyState, PageHeading, TextLink, ActionLink } from "../ui-v2/primitives.jsx";
 import { useNarrow } from "./home/homeLogic.js";
-import ScanSheet from "./scan/ScanSheet.jsx";
+import { useScan } from "../ui-v2/scanKit.js";
 
 const PICKS = 10, HIDDEN_KEY = "bv-start-hidden";
 const readHidden = () => { try { return localStorage.getItem(HIDDEN_KEY) !== null; } catch { return false; } };
@@ -24,7 +24,7 @@ function Row({ icon: Icon, title, line, tile, ...props }) {
 // Start your shelf: the ways to fill a first shelf, as one card. Scan is for phones with a camera; Import shows only when import is on.
 function StartShelf({ narrow }) {
   const library = useUserBooks(), navigate = useNavigate();
-  const [hidden, setHidden] = useState(readHidden), [scanning, setScanning] = useState(null);
+  const [hidden, setHidden] = useState(readHidden), { openScan } = useScan();
   const canScan = narrow && Boolean(navigator.mediaDevices?.getUserMedia);
   if (hidden) return null;
   const hide = () => { try { localStorage.setItem(HIDDEN_KEY, "1"); } catch { /* the choice just won't be kept */ } setHidden(true); };
@@ -36,11 +36,10 @@ function StartShelf({ narrow }) {
   return <section className="bv-start-shelf" aria-labelledby="bv-start-shelf-title">
     <div className="bv-start-head"><h2 id="bv-start-shelf-title">Start your shelf</h2><button type="button" className="bv-start-hide" onClick={hide}>Hide</button></div>
     <div className="bv-start-rows">
-      {canScan && <Row icon={ScanBarcode} tile title="Scan books" line="Point your camera at the barcodes" onClick={() => setScanning({ at: Date.now() })} />}
-      {library.libraryImport && !library.readOnly && <Row icon={Download} title="Import from Goodreads or StoryGraph" line="Bring your shelves, reading dates and notes" to="/my-books/import" />}
+      {canScan && <Row icon={ScanBarcode} tile title="Scan books" line="Point your camera at the barcodes" onClick={() => openScan()} />}
+      {library.libraryImport && !library.readOnly && <Row icon={Download} title="Import from Goodreads or StoryGraph" line="Bring your shelves, reading dates and notes" to="/switch" />}
       <Row icon={Search} title="Search" line="Find a book by title or author" onClick={search} />
     </div>
-    {scanning && <ScanSheet key={scanning.at} open onClose={() => setScanning(null)} camera initialIsbns={[]} />}
   </section>;
 }
 
