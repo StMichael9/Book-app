@@ -23,6 +23,9 @@ const test = base.extend({
       state.requests.push({ path, method, body });
       const reply = json => route.fulfill({ status: 200, json });
       const current = () => state.attempts.find(item => ['reading','paused'].includes(item.state)) || state.attempts[0] || null;
+      // What the app is shown when it asks. A test that changes the library behind the app's back sets seenEntry first, so no background refresh
+      // (which the app does after its own writes) can hand the app the new version before the click: the app stays stale, as the test means it to.
+      const seen = () => state.seenEntry || state.entry;
       if (path === '/auth/refresh') return reply({});
       if (path === '/me/reading-capabilities') return reply({ enabled: true, writable: !state.readOnly, contract_version: 1,
         features: { reading_actions: true, private_context: true, privacy_controls: true, library_import: true } });
@@ -32,13 +35,13 @@ const test = base.extend({
         const readingState = current()?.state || null, facet = url.searchParams.get('facet') || 'all';
         const counts = { all: 1, owned: Number(state.entry.is_owned), want: Number(state.entry.is_wanted) };
         for (const value of ['reading', 'paused', 'finished', 'dnf']) counts[value] = Number(readingState === value);
-        return reply({ items: counts[facet] ? [{ ...state.entry, reading_state: readingState }] : [], total: counts[facet] || 0, counts, next_cursor: null });
+        return reply({ items: counts[facet] ? [{ ...seen(), reading_state: readingState }] : [], total: counts[facet] || 0, counts, next_cursor: null });
       }
-      if (path === '/me/library/101/reading') return reply({ entry: state.entry, current_attempt: current(), editions: [], imported_sources_count: 0 });
+      if (path === '/me/library/101/reading') return reply({ entry: seen(), current_attempt: current(), editions: [], imported_sources_count: 0 });
       if (path === '/me/library/101/attempts') return reply({ items: state.attempts, next_cursor: null });
       if (path.startsWith('/me/reading-attempts/')) {
         const id = path.split('/').at(-1), selected = state.attempts.find(x=>x.id===id);
-        if (method === 'GET') return selected ? reply({ entry: state.entry, attempt: selected }) : route.fulfill({ status: 404, json: {} });
+        if (method === 'GET') return selected ? reply({ entry: seen(), attempt: selected }) : route.fulfill({ status: 404, json: {} });
         if (state.holdWrite) await state.holdWrite;
         if (state.failWrite) return route.fulfill({ status: 503, json: { detail: 'Could not confirm the change.' } });
         if (body.expected_version !== state.entry.version) return route.fulfill({ status: 409, json: { detail: 'Your library changed. Reload before trying again.' } });
@@ -166,6 +169,7 @@ test('current Reading entry is absent from Finished while earlier finishes remai
 test('failed or stale reread retains visible history and captured version rather than rebasing', async ({ page, app }) => {
   await page.goto('/my-books/101');
   await page.getByRole('button', { name: 'Read it again', exact: true }).click();
+  app.seenEntry = { ...app.entry }; // the app keeps the version it has seen
   app.entry.version++;
   await page.getByRole('button', { name: 'Start a new reading', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible();
@@ -290,6 +294,7 @@ test('stale Mark as reading does not retry or silently create a reread', async (
   await page.goto('/my-books/101');
   const mark = page.getByRole('button', { name: 'Mark as reading', exact: true });
   await expect(mark).toBeVisible();
+  app.seenEntry = { ...app.entry }; // the app keeps the version it has seen
   app.entry.version++;
   await mark.click();
   await expect(page.getByRole('alert')).toBeVisible();
@@ -336,6 +341,7 @@ test('a stale undo from the finish moment shows the conflict and keeps the finis
   await page.getByRole('button', { name: 'Finish book', exact: true }).click();
   const moment = page.locator('.bv-finish-moment');
   await expect(moment.getByRole('button', { name: 'Mark as reading', exact: true })).toBeEnabled();
+  app.seenEntry = { ...app.entry }; // the app keeps the version it has seen
   app.entry.version++;
   await moment.getByRole('button', { name: 'Mark as reading', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();

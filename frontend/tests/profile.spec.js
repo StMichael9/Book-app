@@ -46,6 +46,7 @@ const test = base.extend({
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, reading_export: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
+      if (path === "/me/up-next") return reply(200, []); // the Home pins: the page warmers may prefetch them from any page, depending on timing
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => ({ book_id: id, entry_id: null, version: null, is_owned: false, is_wanted: false, reading_state: null })) });
       if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null });
       if (/^\/books\/\d+$/.test(path)) return reply(200, BOOKS[Number(path.split("/").at(-1)) - 1] || BOOKS[0]);
