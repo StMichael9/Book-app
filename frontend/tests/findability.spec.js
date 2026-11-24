@@ -244,7 +244,7 @@ for (const scheme of ["light", "dark"]) for (const [width, height] of [[320, 700
         const box = await link.boundingBox();
         expect(box.height).toBeGreaterThanOrEqual(44); expect(box.width).toBeGreaterThanOrEqual(44);
         expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
-        expect(await link.locator("span").last().evaluate(node => node.getBoundingClientRect().height < 1.6 * parseFloat(getComputedStyle(node).fontSize)), `${await link.textContent()} wraps`).toBe(true); // one line
+        expect(await link.locator("span").last().evaluate(node => { const box = node.getBoundingClientRect(); return box.width > 2 && box.height < 1.6 * parseFloat(getComputedStyle(node).fontSize); }), `${await link.textContent()} is hidden or wraps`).toBe(true); // one line
       }
     }
     app.guest = true;

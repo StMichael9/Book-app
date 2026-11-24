@@ -46,6 +46,7 @@ const test = base.extend({
       if (path === "/auth/refresh") return state.guest ? reply(401, {}) : reply(200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, reading_export: true, library_import: true } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
+      if (path === "/me/up-next") return reply(200, []); // the Home pins: the page warmers may prefetch them from any page, depending on timing
       if (path === "/me/library/lookup") return reply(200, { items: body.book_ids.map(id => ({ book_id: id, entry_id: null, version: null, is_owned: false, is_wanted: false, reading_state: null })) });
       if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null });
       if (/^\/books\/\d+$/.test(path)) return reply(200, BOOKS[Number(path.split("/").at(-1)) - 1] || BOOKS[0]);
@@ -501,35 +502,47 @@ test("list cards are two across, one under 340px, and the lists heading and New 
   expect(button.height).toBeLessThan(line * 2.2);
 });
 
-test("at large text the mobile nav labels never ellipsise, clip or break inside a word; where a word cannot fit, the menu is icons only with its names kept", async ({ page, app: _app }) => {
-  await page.setViewportSize({ width: 375, height: 800 });
+// The phone menu keeps whole words. Where five whole words cannot fit the width at the current text size, the whole menu is icons only (the
+// names stay for screen readers). Measured: the widest words are Home, Discover, Books, Clubs and You, about 13.1 times the label font size
+// in all (bold), plus 36px of padding and gaps, so they fit in the 320 to 430px phones at 100% and 120% text and at 200% only on a 430px
+// phone (need about 351px of the 414px inside the menu); at 200% on a 320px phone (304px inside) the menu is icons only. A 375px phone at 200%
+// (359px inside) is a close call, so either mode is right there as long as the menu is all one mode and that mode's rules hold.
+for (const [zoom, width, iconsOnly] of [
+  ["100%", 320, false], ["100%", 375, false], ["100%", 430, false],
+  ["120%", 320, false], ["120%", 375, false], ["120%", 430, false],
+  ["200%", 320, true], ["200%", 375, null], ["200%", 430, false],
+]) test(`at ${zoom} text on a ${width}px phone the mobile nav ${iconsOnly === null ? "is all icons or all whole labels" : iconsOnly ? "is icons only, with its names and 44px targets" : "shows every label whole: never an ellipsis, clipped or broken inside a word"}`, async ({ page, app: _app }) => {
+  await page.setViewportSize({ width, height: 800 });
   await page.goto("/profile");
   const nav = page.getByRole("navigation", { name: "Mobile navigation" });
   const names = ["Home", "Discover", "My Books", "Clubs", "You"];
-  // 120%: the labels still fit, so they show, each word whole. 200%: five whole words cannot fit 375px, so the menu is icons only.
-  for (const [zoom, iconsOnly] of [["120%", false], ["200%", true]]) {
-    await page.evaluate(value => { document.documentElement.style.fontSize = value; }, zoom);
-    await page.waitForTimeout(150);
-    const links = await nav.locator("a").evaluateAll(nodes => nodes.map(node => {
-      const label = [...node.querySelectorAll("span")].at(-1), style = getComputedStyle(label), box = label.getBoundingClientRect(), link = node.getBoundingClientRect();
-      return { text: label.textContent.trim(), shown: box.width > 2 && box.height > 2, overflow: style.textOverflow, wrap: style.overflowWrap, clipped: label.scrollWidth > label.clientWidth, wider: box.width > link.width + 1, linkW: link.width, linkH: link.height };
-    }));
-    expect(links.map(link => link.text), zoom).toEqual(names);
-    for (const link of links) {
-      expect(link.shown, `${link.text} at ${zoom}`).toBe(!iconsOnly);
-      // Visible labels: never an ellipsis, never clipped, never wider than their link, and words are not broken (overflow-wrap stays normal).
-      if (link.shown) { expect(link.overflow).not.toBe("ellipsis"); expect(link.wrap).toBe("normal"); expect(link.clipped, link.text).toBe(false); expect(link.wider, link.text).toBe(false); }
-      // Either way the item is a 44px target, and keeps its accessible name.
-      expect(link.linkH, `${link.text} height`).toBeGreaterThanOrEqual(44); expect(link.linkW, `${link.text} width`).toBeGreaterThanOrEqual(44);
-    }
-    for (const name of names) await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
-    // The current page keeps its green state in both modes.
-    await expect(nav.getByRole("link", { name: "You", exact: true })).toHaveAttribute("aria-current", "page");
-    const colour = name => nav.getByRole("link", { name, exact: true }).evaluate(node => getComputedStyle(node).color);
-    expect(await colour("You"), `the current item is coloured apart from the rest at ${zoom}`).not.toBe(await colour("Home"));
-    expect(await nav.evaluate(node => node.scrollWidth <= node.clientWidth + 1), zoom).toBe(true);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), zoom).toBe(true);
+  await expect(nav.getByRole("link")).toHaveCount(5);
+  await page.evaluate(value => { document.documentElement.style.fontSize = value; }, zoom);
+  // Web-first: fonts loaded, two frames for layout, then wait for the shown state instead of a fixed pause.
+  await page.evaluate(async () => { await document.fonts.ready; await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))); });
+  const shown = () => nav.locator("a").evaluateAll(nodes => nodes.map(node => { const box = [...node.querySelectorAll("span")].at(-1).getBoundingClientRect(); return box.width > 2 && box.height > 2; }));
+  // All or nothing: the five labels switch together.
+  if (iconsOnly === null) await expect.poll(async () => new Set(await shown()).size, { message: `mixed icons and labels at ${zoom} on ${width}px` }).toBe(1);
+  else await expect.poll(shown, { message: `labels ${iconsOnly ? "hidden" : "shown"} at ${zoom} on ${width}px` }).toEqual(Array(5).fill(!iconsOnly));
+  const icons = !(await shown())[0];
+  // Stable: over about a second the menu never changes mode (no flipping back and forth), and the sampled state stays what was settled.
+  for (let sample = 0; sample < 6; sample += 1) { await page.waitForTimeout(200); expect(await shown(), `sample ${sample}`).toEqual(Array(5).fill(!icons)); }
+  const links = await nav.locator("a").evaluateAll(nodes => nodes.map(node => {
+    const label = [...node.querySelectorAll("span")].at(-1), style = getComputedStyle(label), link = node.getBoundingClientRect();
+    return { text: label.textContent.trim(), overflow: style.textOverflow, wrap: style.overflowWrap, clipped: label.scrollWidth > label.clientWidth, wider: label.getBoundingClientRect().width > link.width + 1, linkW: link.width, linkH: link.height };
+  }));
+  expect(links.map(link => link.text)).toEqual(names);
+  for (const link of links) {
+    if (!icons) { expect(link.overflow).not.toBe("ellipsis"); expect(link.wrap).toBe("normal"); expect(link.clipped, link.text).toBe(false); expect(link.wider, link.text).toBe(false); }
+    expect(link.linkH, `${link.text} height`).toBeGreaterThanOrEqual(44); expect(link.linkW, `${link.text} width`).toBeGreaterThanOrEqual(44);
   }
+  for (const name of names) await expect(nav.getByRole("link", { name, exact: true })).toBeVisible();
+  // The current page keeps its green state in both modes.
+  await expect(nav.getByRole("link", { name: "You", exact: true })).toHaveAttribute("aria-current", "page");
+  const colour = name => nav.getByRole("link", { name, exact: true }).evaluate(node => getComputedStyle(node).color);
+  expect(await colour("You"), "the current item is coloured apart from the rest").not.toBe(await colour("Home"));
+  expect(await nav.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
 test("every spine shows up to what fits, in light, dark and 200% text", async ({ page, app }) => {
