@@ -6,7 +6,7 @@ import { useReader } from "../readerState.js";
 import { ActionLink, TextLink } from "../primitives.jsx";
 import { COPY, LIVE, faqItems, paidText } from "./landingCopy.js";
 
-const SIZES = { "scan-hero": [390, 560], "import-review": [390, 544], "private-notes": [390, 589] };
+const SIZES = { "scan-hero": [390, 538], "import-review": [390, 544], "private-notes": [390, 713] };
 
 // A real capture of the running app, one file per theme and density. The reader's own theme choice picks the files; WebP first, PNG as the fallback.
 function Shot({ name, alt, eager = false }) {

@@ -17,7 +17,7 @@ export const COPY = {
   alt: {
     scan: "The Scan books sheet: a barcode inside the aiming box with a green tick, a card reading Added, 3 scanned, and the scanned books with their covers listed below.",
     library: "The import review asks which Alice’s Adventures in Wonderland is yours, with two editions and their covers to choose from.",
-    note: "A book page for A Room of One’s Own: page 64 of 128, a saved note, and the days read.",
+    note: "A book page for A Room of One’s Own: page 64 of 128, the line “Only you can see your notes.”, a saved note, and the days read.",
   },
 };;
 

@@ -107,7 +107,7 @@ test("My Books entry and real local CSV parser preserve Unicode, quotes and embe
   expect(app.requests.some(request => request.path.endsWith("/confirm"))).toBe(false);
   await page.getByRole("button", { name: "Add my books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Brought home 2 books.", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Pick what to read next →", exact: true })).toHaveAttribute("href", "/home");
+  await expect(page.getByRole("link", { name: "Pick what to read next", exact: true })).toHaveAttribute("href", "/home");
   expect(app.requests.filter(request => request.path.endsWith("/confirm"))).toHaveLength(1);
   expect(await page.evaluate(() => Object.keys(localStorage).filter(key => /import|csv|review/i.test(key)))).toEqual([]);
 });
@@ -241,7 +241,7 @@ test("one click adds everything: the preview summary comes from the run and conf
   await page.getByRole("button", { name: "Add my books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Brought home 2 books.", exact: true })).toBeVisible();
   expect(app.requests.filter(request => request.path.endsWith("/confirm")).map(request => request.body)).toEqual([expect.objectContaining({ accept_warnings: true, approve_private: true, skip_unresolved: true })]);
-  await expect(page.getByRole("link", { name: "Pick what to read next →", exact: true })).toHaveAttribute("href", "/home");
+  await expect(page.getByRole("link", { name: "Pick what to read next", exact: true })).toHaveAttribute("href", "/home");
   await expect(page.getByRole("link", { name: "Open My Books", exact: true })).toHaveAttribute("href", "/my-books");
   await expect(page.getByRole("button", { name: "Download your results (CSV)", exact: true })).toBeVisible();
   expect((await page.locator("#bv-main").innerText()).match(bannedWords)).toBeNull();

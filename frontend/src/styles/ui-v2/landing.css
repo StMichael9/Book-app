@@ -54,8 +54,9 @@
 @media (prefers-reduced-motion: reduce) { .bv-root .bv-landing-faq summary svg { transition: none; } }
 
 /* The pictures are finished cards with 16px of shadow room: shown at their own size, never in a frame. */
-.bv-root .bv-landing-shot { display: block; width: 100%; max-width: 390px; min-width: 0; justify-self: center; margin-inline: -16px; width: calc(100% + 32px); }
+.bv-root .bv-landing-shot { display: block; width: 100%; max-width: 390px; min-width: 0; justify-self: center; margin-inline: -20px; width: calc(100% + 40px); }
 .bv-root .bv-landing-shot img { display: block; width: 100%; height: auto; }
 .bv-root .bv-landing-hero .bv-landing-shot { justify-self: end; }
 .bv-root .bv-landing-block--text { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 899px) { .bv-root .bv-landing-hero .bv-landing-shot { justify-self: center; } }
+@media (max-width: 359px) { .bv-root .bv-landing-shot { margin-inline: -16px; width: calc(100% + 32px); } }

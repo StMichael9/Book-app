@@ -108,6 +108,7 @@ export function ReadingNotes({ entry, attempt, readOnly, minVersion = 0, onSaved
   }
   return <section className="bv-notes" aria-labelledby="bv-notes-title">
     <h2 id="bv-notes-title">Notes</h2>
+    <p className="bv-help">Only you can see your notes.</p>
     <form className="bv-notes-form" onSubmit={add}>
       <label className="bv-sr-only" htmlFor="bv-note-new">Write a thought about this book</label>
       <textarea ref={area} id="bv-note-new" className="bv-note-input" rows={3} maxLength={2000} placeholder="Write a thought about this book" value={text} disabled={readOnly}
@@ -140,12 +141,12 @@ export default function ReadingJournal({ entry, attempt, entryId, workspace, vis
     if (attempt.started_on) add("started", attempt.started_on, "Started", { kind: "progress", attempt });
   }
   // Days with saved progress, from the workspace's `progress_days` (T55): {day, unit, first_value, last_value}, newest first.
-  // Missing or empty means no lines ("14 Nov · Page 14 → 52").
+  // Missing or empty means no lines ("14 Nov · Page 14 to 52").
   const days = workspace?.progress_days;
   for (const { day: on, unit, first_value: from, last_value: to } of Array.isArray(days) ? days : []) {
     if (from == null || to == null || !on || from === to) continue; // a day with no movement says nothing
     const mark = value => unit === "percent" ? `${value}%` : value;
-    add(`day-${on}`, on, unit === "percent" ? `${mark(from)} → ${mark(to)}` : `Page ${from} → ${to}`);
+    add(`day-${on}`, on, unit === "percent" ? `${mark(from)} to ${mark(to)}` : `Page ${from} to ${to}`);
   }
   if (entry?.save_note) add("saved", entry.created_at, `Saved it: ${entry.save_note}`, { kind: "save_note" });
   for (const past of history.data?.items || []) {
