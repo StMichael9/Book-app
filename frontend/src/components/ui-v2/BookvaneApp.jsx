@@ -290,7 +290,8 @@ function Shell() {
   }, []);
   const notFound = <section className="bv-container"><EmptyState title="This page isn’t on the shelf." action={<ActionLink to="/browse">Discover books <ArrowRight aria-hidden="true" /></ActionLink>}>{auth.isAuthenticated ? "Try discovery or return to your library." : "Try discovery to find your next book."}</EmptyState></section>;
   return <div className={`bv-root${location.pathname === "/" && !auth.isAuthenticated ? " bv-root--landing" : ""}`} data-theme={reader.theme} data-library-revision={libraryRevision}>
-    <a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects />{location.pathname.startsWith("/c/") ? <header className="bv-club-minimal-header"><div className="bv-container"><Brand /></div></header> : <Header />}
+    {/* The one Scan books sheet lives inside .bv-root, where its styles apply. */}
+    <ScanProvider><a className="bv-skip" href="#bv-main">Skip to content</a><RouteEffects />{location.pathname.startsWith("/c/") ? <header className="bv-club-minimal-header"><div className="bv-container"><Brand /></div></header> : <Header />}
     <main id="bv-main" tabIndex={-1}>{serviceDown ? <ServiceStatus /> : <SessionStatus />}<div className="bv-container"><LibraryWarning /></div>
       <RouteErrorBoundary resetKey={location.key}><Routes>
         <Route path="/" element={<LandingRoute />} /><Route path="/browse" element={<BrowsePage />} /><Route path="/switch" element={<SwitchPage />} /><Route path="/book/:bookId" element={<BookPage />} /><Route path="/l/:token" element={<BorrowerPage key={location.pathname} notFound={notFound} />} /><Route path="/author/:id" element={<AuthorPage key={location.pathname} notFound={notFound} />} />
@@ -317,8 +318,9 @@ function Shell() {
         <Route path="*" element={notFound} />
       </Routes></RouteErrorBoundary>
     </main>{!location.pathname.startsWith("/c/") && !location.pathname.startsWith("/l/") && <Footer />}<AccountPrompt /><ProfilePrompt /><div className={`bv-toast${reader.quietToast ? " bv-toast--quiet" : ""}`} role="status" aria-live="polite" aria-atomic="true">{reader.message}</div>
+    </ScanProvider>
   </div>;
 }
 
 // Uses the existing Router, AuthProvider and UserBooksProvider supplied by main.
-export default function BookvaneApp() { return <ReaderProvider><ProfileProvider><ReadingDraftProvider><LibraryNavigationProvider><ScanProvider><Shell /></ScanProvider></LibraryNavigationProvider></ReadingDraftProvider></ProfileProvider></ReaderProvider>; }
+export default function BookvaneApp() { return <ReaderProvider><ProfileProvider><ReadingDraftProvider><LibraryNavigationProvider><Shell /></LibraryNavigationProvider></ReadingDraftProvider></ProfileProvider></ReaderProvider>; }
