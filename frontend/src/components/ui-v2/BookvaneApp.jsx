@@ -34,6 +34,7 @@ import JoinClubPage from "../clubs/JoinClubPage.jsx";
 import ScanButton from "./ScanButton.jsx";
 import ScanProvider from "./ScanProvider.jsx";
 import { NAV_CLUBS } from "./findabilityCopy.js";
+import { useMenuFit } from "./useMenuFit.js";
 import "../../styles/ui-v2/bookvane.css";
 import "../../styles/ui-v2/refinement.css";
 import "../../styles/ui-v2/search-suggest.css";
@@ -120,6 +121,7 @@ function Header() {
   const publicLanding = ["/", "/switch"].includes(location.pathname) && !auth.isAuthenticated;
   const loanLink = location.pathname.startsWith("/l/");
   const mobileNav = useRef(null);
+  useMenuFit(mobileNav, [publicLanding, signedIn]);
   useLayoutEffect(() => {
     const nav = mobileNav.current, root = nav?.closest(".bv-root");
     if (!nav || !root) return undefined;
@@ -143,6 +145,7 @@ function Header() {
     </div>
   </div></header>{!publicLanding && <nav ref={mobileNav} className={`bv-mobile-nav${signedIn ? " bv-mobile-nav--reading" : ""}`} aria-label="Mobile navigation">
     {[...(signedIn ? [["/home", "Home", House, home]] : []), ["/browse", "Discover", Search, discover], ["/my-books", "My Books", BookOpen, library], ...(signedIn ? [["/clubs", NAV_CLUBS, Users, clubs]] : []), ["/profile", "You", YouIcon, account]].map(([to, label, Icon, active]) => <Link key={to} to={to} className={active ? "bv-active" : ""} aria-current={active ? "page" : undefined} {...warmProps(to)}><Icon aria-hidden="true" /><span>{label}</span></Link>)}
+    <i className="bv-nav-probe" aria-hidden="true" />
   </nav>}</>;
 }
 
