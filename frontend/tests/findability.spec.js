@@ -24,7 +24,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") return reply(state.guest ? 401 : 200, {});
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport } });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport, reading_export: state.readingExport } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/library") return reply(200, { items: state.entries, counts: { all: state.entries.length, owned: state.entries.length, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: state.entries.length, next_cursor: null, facets: {}, index: null });
       if (path === "/me/library/lookup") return reply(200, { items: [] });
@@ -203,10 +203,12 @@ test.describe("the /switch links", () => {
     await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
     await expect(data.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
     app.libraryImport = false;
+    app.readingExport = true;   // the section still shows for the data links, so the /switch guide takes the import link's place
     await page.goto("/settings");
     await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
     await expect(data.getByRole("link", { name: SWITCH_YOU, exact: true })).toHaveAttribute("href", "/switch");
     app.libraryImport = true;
+    app.readingExport = false;
     app.entries = [];
     await page.goto("/home");
     await expect(page.locator(".bv-start-shelf").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ })).toHaveAttribute("href", "/switch");

@@ -97,15 +97,15 @@ test("a near-2:3 cover fills its frame with object-fit: cover; an off-ratio one 
   expect(new Set(bottoms).size).toBe(1);
 });
 
-test("only artwork within about 7% of 2:3 is cropped to fill, and the crop keeps the top of the cover (the title)", async ({ page, app }) => {
-  // 300x500 (0.60) and 360x480 (0.75) used to be cropped by up to 13%; they are now shown whole.
-  app.browseItems = await withCovers(page, [[300, 450], [300, 500], [360, 480], [310, 440]]);
+test("artwork from 0.58 to 0.76 is cropped to fill, split evenly top and bottom, and anything else is shown whole", async ({ page, app }) => {
+  // 270x500 (0.54) and 400x500 (0.80) are outside the range and stay whole; 300x450 (0.67) and 310x440 (0.70) fill the frame.
+  app.browseItems = await withCovers(page, [[300, 450], [270, 500], [400, 500], [310, 440]]);
   await page.goto("/browse");
   const frames = page.locator(".bv-book-card .bv-cover--ready");
   await expect(frames).toHaveCount(4);
   for (const index of [0, 3]) {
     await expect(frames.nth(index)).not.toHaveClass(/bv-cover--free/);
-    await expect(frames.nth(index).locator("img")).toHaveCSS("object-position", "50% 0%");
+    await expect(frames.nth(index).locator("img")).toHaveCSS("object-position", "50% 50%");
   }
   for (const index of [1, 2]) await expect(frames.nth(index)).toHaveClass(/bv-cover--free/);
 });
