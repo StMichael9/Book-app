@@ -1,4 +1,5 @@
 import { localToday } from "../reading/localToday.js";
+import { NOT_SHARING } from "./clubCopy.js";
 export { shortDate } from "../reading/home/homeLogic.js";
 
 // Six colours for a club's rule. The server keeps the value as text (up to 12 characters).
@@ -17,6 +18,13 @@ export function pageOf(progress, pageCount) {
   if (!progress || progress.unit == null || progress.value == null) return null;
   if (progress.unit === "pages") return progress.value;
   return pageCount ? Math.round(progress.value * pageCount / 100) : null;
+}
+// A member's place as text: "p. 212", or "not sharing".
+export function progressText(member, pageCount) {
+  if (!member.shares_progress) return NOT_SHARING;
+  const page = pageOf(member.progress, pageCount);
+  if (page != null) return `p. ${page}`;
+  return member.progress?.unit === "percent" ? `${member.progress.value}%` : "";
 }
 export function shareOf(progress, pageCount) {
   if (!progress || progress.unit == null || progress.value == null) return null;
@@ -54,3 +62,30 @@ export const initialOf = name => (String(name || "").trim()[0] || "?").toUpperCa
 
 // A server refusal's code, when it sent one.
 export const codeOf = error => error?.detail?.code || "";
+
+// "Thu 5 Dec" and "November 2026", from a date (YYYY-MM-DD).
+const parse = iso => (iso ? new Date(`${iso}T00:00:00`) : null);
+export const dayDate = iso => { const date = parse(iso); return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : ""; };
+export const monthYear = iso => { const date = parse(iso); return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { month: "long", year: "numeric" }) : ""; };
+
+// The page a checkpoint stands for (a percent checkpoint needs the page count), or null.
+export const checkpointPage = (point, pageCount) => (!point ? null : point.unit === "pages" ? point.value : pageCount ? Math.round(point.value * pageCount / 100) : null);
+
+// "Oct 2026", for a book the club read together.
+export const monthShort = iso => { const date = parse(iso); return date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString("en-GB", { month: "short", year: "numeric" }) : ""; };
+
+// Dates as YYYY-MM-DD in the reader's own calendar.
+export const isoOf = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+export const addDays = (iso, days) => { const date = parse(iso); date.setDate(date.getDate() + days); return isoOf(date); };
+const daysBetween = (from, to) => Math.round((parse(to) - parse(from)) / 86400000);
+
+// A reading plan split evenly into `parts` parts from `start` to `finish`: the parts ending in checkpoints (pages, or percent when the page count
+// is unknown) with a date each, and the last part ending the book on the finish date. Part n of N ends at n/N of the way, in pages and in days.
+export function splitPlan({ start, finish, parts, pageCount }) {
+  const count = Math.max(1, Math.min(8, Math.floor(parts) || 1)), span = Math.max(0, daysBetween(start, finish));
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1, last = number === count, due = last ? finish : addDays(start, Math.round(span * number / count));
+    const value = pageCount ? Math.round(pageCount * number / count) : Math.round(100 * number / count);
+    return { number, last, unit: pageCount ? "pages" : "percent", value, due_on: due };
+  });
+}

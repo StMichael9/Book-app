@@ -6,7 +6,8 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { BookCover, Button, EmptyState } from "../ui-v2/primitives.jsx";
 import { useRequest } from "../ui-v2/data.js";
 import { ClubFormSheet } from "./ClubSheets.jsx";
-import { clubColor, members as memberCount, nextCheckpoint, pageOf, positionLabel, shortDate } from "./clubFormat.js";
+import { cardPlace, readTo } from "./clubCopy.js";
+import { clubColor, dayDate, members as memberCount, nextCheckpoint, pageOf, positionLabel } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
 // One club: a colour rule, the current book's cover, the name, who and what, and what is next. The club's own answers are the ones the
@@ -21,7 +22,7 @@ function ClubCard({ club, generation }) {
     {book && <span className="bv-club-cover is-small"><BookCover book={{ title: book.title, cover_image_url: book.cover_image_url, authors: [] }} size="small" decorative /></span>}
     <span className="bv-club-card-text"><strong className="bv-club-card-name">{club.name}</strong>
       <span className="bv-club-card-line">{memberCount(club.member_count)}{club.current_book ? ` · Now reading ${club.current_book.title}` : ""}</span>
-      {(next || myPage != null) && <span className="bv-club-card-line">{next && <b>{`Next: ${positionLabel(next.unit, next.value)}${next.due_on ? ` by ${shortDate(next.due_on)}` : ""}`}</b>}{next && myPage != null ? " · " : ""}{myPage != null ? `You’re on p. ${myPage}.` : ""}</span>}
+      {(next || myPage != null) && <span className="bv-club-card-line">{next && <b>{readTo(positionLabel(next.unit, next.value), dayDate(next.due_on))}</b>}{next && myPage != null ? " · " : ""}{myPage != null ? cardPlace(myPage, !next) : ""}</span>}
     </span></Link></li>;
 }
 
