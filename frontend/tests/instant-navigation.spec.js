@@ -214,7 +214,7 @@ test("the cache and the sign-in hint are gone after logout", async ({ page, app 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  expect(await page.evaluate(() => localStorage.getItem("bookvane:session-hint:v1"))).toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("bookvane:session-hint:v1"))).toBeNull();
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toHaveCount(0);
 });
 
