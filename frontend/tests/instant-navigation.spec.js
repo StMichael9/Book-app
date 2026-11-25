@@ -88,18 +88,15 @@ const signedIn = app => { app.authenticated = true; };
 
 test("no empty page on first load", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Every book you’ve read, own and want, in one quiet place.", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your reading life, kept private.", exact: true })).toBeVisible();
   await page.waitForTimeout(1200);
   expect(await blanks(page)).toEqual([]);
 });
 
-test("landing to Discover to a book and back never shows an empty page, and a visible cover never shows its jacket with it", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("link", { name: "Explore Nav Book 1" })).toBeVisible();
-  await reset(page);
-  await page.getByRole("link", { name: "Start with one book", exact: true }).first().click();
+test("Discover to a book and back never shows an empty page, and a visible cover never shows its jacket with it", async ({ page }) => {
+  await page.goto("/browse");
   await expect(card(page)).toBeVisible();
-  await expect(page).toHaveURL(/\/browse$/);
+  await reset(page);
   await card(page).click();
   await expect(bookHeading(page)).toBeVisible();
   await expect(page.getByText("Description of Nav Book 1.")).toBeVisible();
@@ -217,7 +214,7 @@ test("the cache and the sign-in hint are gone after logout", async ({ page, app 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  expect(await page.evaluate(() => localStorage.getItem("bookvane:session-hint:v1"))).toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("bookvane:session-hint:v1"))).toBeNull();
   await expect(page.getByRole("link", { name: "Nav Book 1", exact: true })).toHaveCount(0);
 });
 

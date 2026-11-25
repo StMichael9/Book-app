@@ -115,6 +115,17 @@ test("a page with no known total asks for it once, inline, and saves it with the
   await expect(page.getByLabel("How many pages in your copy?")).toHaveCount(0);
 });
 
+test("the Notes heading carries the line that only the reader sees notes, on the reading page and nowhere public", async ({ page, app: _app }) => {
+  await page.goto("/my-books/101");
+  const notes = page.locator(".bv-notes");
+  await expect(notes.getByRole("heading", { name: "Notes", level: 2 })).toBeVisible();
+  await expect(notes.getByText("Only you can see your notes.", { exact: true })).toBeVisible();
+  expect(await notes.locator("p.bv-help").count()).toBe(1);
+  await page.goto("/book/1");
+  await expect(page.getByRole("heading", { level: 1, name: "Piranesi" })).toBeVisible();
+  await expect(page.getByText("Only you can see your notes.")).toHaveCount(0);
+});
+
 test("the last page asks Finished the book? inline; Yes finishes the reading, Not yet closes it", async ({ page, app }) => {
   await page.goto("/my-books/101");
   await onPage(page).fill("360");
@@ -220,12 +231,20 @@ test("the save sends the reader's local day as `on`", async ({ page, app }) => {
   expect(app.patches[0].on).toBe(today);
 });
 
+test("a progress day reads \"Page 41 to 64\", with the word to and no arrow", async ({ page, app }) => {
+  app.progressDays = [{ day: "2026-11-21", unit: "pages", first_value: 41, last_value: 64 }];
+  await page.goto("/my-books/101");
+  await expect(page.locator(".bv-journal-day")).toContainText("Page 41 to 64");
+  await expect(page.locator(".bv-journal-day")).not.toContainText("→");
+});
+
 test("a progress day with no movement shows no line", async ({ page, app }) => {
   app.progressDays = [{ day: "2026-11-14", unit: "pages", first_value: 52, last_value: 52 }, { day: "2026-11-12", unit: "pages", first_value: 20, last_value: 35 }];
   await page.goto("/my-books/101");
   await expect(page.locator(".bv-journal-day")).toHaveCount(1);
-  await expect(page.locator(".bv-journal-day")).toContainText("Page 20 → 35");
-  await expect(page.getByText("Page 52 → 52")).toHaveCount(0);
+  await expect(page.locator(".bv-journal-day")).toContainText("Page 20 to 35");
+  await expect(page.getByText("Page 52 to 52")).toHaveCount(0);
+  await expect(page.locator(".bv-journal-day")).not.toContainText("→");
 });
 
 test("progress days show one line each in the journal, newest first; a missing or empty list shows nothing", async ({ page, app }) => {
@@ -236,9 +255,9 @@ test("progress days show one line each in the journal, newest first; a missing o
   const lines = page.locator(".bv-journal-day");
   await expect(lines).toHaveCount(2);
   await expect(lines.first()).toContainText("14 Nov");
-  await expect(lines.first()).toContainText("Page 14 → 52");
-  await expect(lines.nth(1)).toContainText("20% → 35%");
-  await expect(page.getByText("Page 1 → 9")).toHaveCount(0);
+  await expect(lines.first()).toContainText("Page 14 to 52");
+  await expect(lines.nth(1)).toContainText("20% to 35%");
+  await expect(page.getByText("Page 1 to 9")).toHaveCount(0);
   for (const empty of [[], undefined]) {
     app.progressDays = empty;
     await page.goto("/my-books/101");

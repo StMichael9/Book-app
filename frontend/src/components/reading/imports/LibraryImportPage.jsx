@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
@@ -333,7 +334,7 @@ function ImportSession() {
       {finished(run.phase) && <EnrichmentLine key={run.id} runId={run.id} />}
       {!finished(run.phase) && added > 0 && <p>{books(added)} {added === 1 ? "was" : "were"} added before this stopped. Cancelling does not undo additions.</p>}
       {skipped > 0 && <p>{oneClick ? notAdded : `${skipped} skipped.`}</p>}
-      <div className="bv-form-actions">{finished(run.phase) && <ActionLink to="/home">Pick what to read next →</ActionLink>}<ActionLink to="/my-books" variant={finished(run.phase) ? "secondary" : "primary"}>Open My Books</ActionLink></div>
+      <div className="bv-form-actions">{finished(run.phase) && <ActionLink to="/home">Pick what to read next <ArrowRight size={18} strokeWidth={2} aria-hidden="true" /></ActionLink>}<ActionLink to="/my-books" variant={finished(run.phase) ? "secondary" : "primary"}>Open My Books</ActionLink></div>
       <div className="bv-form-actions"><Button variant="quiet" disabled={command.pending} onClick={() => command.run(async assertCurrent => downloadCsv(await imports.exportImportReport(run.id, signal()), "bookvane-import-results.csv", assertCurrent), () => setNotice("Your results were downloaded."))}>Download your results (CSV)</Button>
         <Button variant="quiet" onClick={() => { setRun(null); setPage(null); setFile(null); setInspection(null); setOneClick(false); setReviewOpen(false); setRowsOpen(false); }}>Start another import</Button></div>
       {page && <details className="bv-import-results" open={rowsOpen} onToggle={event => setRowsOpen(event.currentTarget.open)}><summary>Your results</summary>{rowList}</details>}

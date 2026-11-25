@@ -8,11 +8,11 @@ const snapshot = JSON.parse(readFileSync(fileURLToPath(new URL("../src/data/book
 const WHITELIST = ["id", "title", "subtitle", "authors", "cover_image_url", "published_year", "page_count", "english_title"];
 const CACHE_KEY = /^bookvane:books:v1:[^:]+:(anon|member):(landing|browse)$/;
 
-// The landing and guest Discover order, which the snapshot must paint in the same way the live data will.
+// The guest Discover order, which the snapshot must paint in the same way the live data will.
 const plainTitle = title => Boolean(title) && /^[ -~‘’“”–—]+$/.test(title);
 const rank = book => (book.cover_image_url ? 0 : 2) + (plainTitle(book.title) ? 0 : 1);
 const impression = items => items.map((book, index) => ({ book, index })).sort((a, b) => rank(a.book) - rank(b.book) || a.index - b.index).map(({ book }) => book);
-const firstSnapshot = impression(snapshot.items)[0];
+const firstSnapshot = impression(snapshot.items.slice(0, 20))[0]; // the first card Discover paints from the snapshot
 
 const liveBooks = (label, count = 40) => Array.from({ length: count }, (_, index) => ({
   id: 9001 + index, title: `Live ${label} ${index + 1}`, subtitle: null, authors: [{ id: 5, name: "Live Author" }],
@@ -52,7 +52,6 @@ const test = base.extend({
 });
 
 const hold = app => { let release; app.holdBooks = new Promise(done => { release = () => { app.holdBooks = null; done(); }; }); return release; };
-const heroLink = (page, title) => page.getByRole("link", { name: `Explore ${title}`, exact: true });
 const cardTitle = (page, title) => page.getByRole("heading", { level: 3, name: title, exact: true });
 const stored = page => page.evaluate(() => Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])));
 const cacheKeys = async page => Object.keys(await stored(page)).filter(key => key.startsWith("bookvane:books:"));
@@ -75,34 +74,33 @@ test("snapshot shape: 1 to 30 books with only the card fields", () => {
 
 test("first paint shows the snapshot while the API is slow, then live books replace it in place", async ({ page, app }) => {
   const release = hold(app);
-  await page.goto("/");
-  await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
   await expect(page.getByRole("status", { name: "Loading books" })).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
-  await expect(heroLink(page, firstSnapshot.title)).toHaveCount(0);
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
+  await expect(cardTitle(page, firstSnapshot.title)).toHaveCount(0);
 });
 
 test("snapshot books stay and the page works when the API fails", async ({ page, app }) => {
   app.booksStatus = 503;
-  await page.goto("/");
-  await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
   await expect(page.getByText("The books are taking a moment.")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Start with one book" }).first()).toBeVisible();
 });
 
 test("a return visit shows the cached books instantly, then live data replaces them", async ({ page, app }) => {
-  await page.goto("/");
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
   await expect.poll(() => cacheKeys(page)).toEqual([expect.stringMatching(CACHE_KEY)]);
   app.label = "Two";
   const release = hold(app);
   await page.reload();
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
   await expect(page.getByRole("status", { name: "Loading books" })).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live Two 1")).toBeVisible();
-  await expect(heroLink(page, "Live One 1")).toHaveCount(0);
+  await expect(cardTitle(page, "Live Two 1")).toBeVisible();
+  await expect(cardTitle(page, "Live One 1")).toHaveCount(0);
 });
 
 test("Discover's first unfiltered page is instant from the snapshot and from the cache", async ({ page, app }) => {
@@ -138,22 +136,24 @@ test("filtered, searched and later pages never use the snapshot or the cache", a
 
 test("the cache is gone after logout", async ({ page, app }) => {
   app.authenticated = true;
-  await page.goto("/");
-  await expect(heroLink(page, "Live Member One 1")).toBeVisible();
-  expect(await cacheKeys(page)).toEqual([expect.stringMatching(/:member:landing$/)]);
+  await page.goto("/browse");
+  await expect(cardTitle(page, "Live Member One 1")).toBeVisible();
+  expect(await cacheKeys(page)).toEqual([expect.stringMatching(/:member:browse$/)]);
   hold(app);
   await page.getByRole("link", { name: "Your profile", exact: true }).click();
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
-  await expect(heroLink(page, "Live Member One 1")).toHaveCount(0);
-  expect(await cacheKeys(page)).toEqual([]);
+  await expect(page).toHaveURL(/\/$/);
+  await expect.poll(() => cacheKeys(page)).toEqual([]);
+  await page.goto("/browse");
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
+  await expect(cardTitle(page, "Live Member One 1")).toHaveCount(0);
 });
 
 test("no account, library or reading data is ever written to storage", async ({ page, app }) => {
   app.authenticated = true;
-  await page.goto("/");
-  await expect(heroLink(page, "Live Member One 1")).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, "Live Member One 1")).toBeVisible();
   await page.goto("/my-books");
   await expect(page.getByText("SECRET-SHELF-MARKER").first()).toBeVisible();
   const local = await stored(page);
@@ -170,18 +170,18 @@ test("no account, library or reading data is ever written to storage", async ({ 
 
 test("a new build id ignores the old cache", async ({ page, app }) => {
   const stale = { savedAt: Date.now(), data: { items: liveBooks("Old Build", 8), total: 8, page: 1, size: 30 } };
-  await page.addInitScript(value => localStorage.setItem("bookvane:books:v1:some-old-build:anon:landing", value), JSON.stringify(stale));
+  await page.addInitScript(value => localStorage.setItem("bookvane:books:v1:some-old-build:anon:browse", value), JSON.stringify(stale));
   const release = hold(app);
-  await page.goto("/");
-  await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
-  await expect(heroLink(page, "Live Old Build 1")).toHaveCount(0);
+  await page.goto("/browse");
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
+  await expect(cardTitle(page, "Live Old Build 1")).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
 });
 
 test("a cache older than 24 hours is ignored", async ({ page, app }) => {
-  await page.goto("/");
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
+  await page.goto("/browse");
+  await expect(cardTitle(page, "Live One 1")).toBeVisible();
   await expect.poll(() => cacheKeys(page)).toHaveLength(1);
   await page.evaluate(() => {
     const key = Object.keys(localStorage).find(name => name.startsWith("bookvane:books:"));
@@ -191,17 +191,17 @@ test("a cache older than 24 hours is ignored", async ({ page, app }) => {
   app.label = "Two";
   const release = hold(app);
   await page.reload();
-  await expect(heroLink(page, firstSnapshot.title)).toBeVisible();
-  await expect(heroLink(page, "Live One 1")).toHaveCount(0);
+  await expect(cardTitle(page, firstSnapshot.title)).toBeVisible();
+  await expect(cardTitle(page, "Live One 1")).toHaveCount(0);
   release();
-  await expect(heroLink(page, "Live Two 1")).toBeVisible();
+  await expect(cardTitle(page, "Live Two 1")).toBeVisible();
 });
 
 test("an oversized response is shown but never stored", async ({ page, app }) => {
-  app.titleSize = 9000;
-  await page.goto("/");
+  app.titleSize = 12000;
+  await page.goto("/browse");
   await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Explore Live One 1/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: /^Live One 1x+$/ })).toBeVisible();
   expect(await cacheKeys(page)).toEqual([]);
 });
 
@@ -217,8 +217,6 @@ test("blocked storage never breaks the page", async ({ page, app }) => {
   });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto("/");
-  await expect(heroLink(page, "Live One 1")).toBeVisible();
   await page.goto("/browse");
   await expect(cardTitle(page, "Live One 1")).toBeVisible();
   expect(errors).toEqual([]);

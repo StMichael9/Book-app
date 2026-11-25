@@ -2,7 +2,7 @@ import LoanBlock from "../lending/LoanBlock.jsx";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { trackEvent } from "./events.js";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, BookOpen, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, SlidersHorizontal } from "lucide-react";
 import { getBooks, getBookById, getMoreBooks, resolveWork } from "../../api/books.js";
 import { ManualBookLink } from "../reading/ExtendedCatalogue.jsx";
 import WorkCard from "./WorkCard.jsx";
@@ -19,99 +19,21 @@ import AuthorLinks from "./AuthorLinks.jsx";
 import MoreByAuthor from "./MoreByAuthor.jsx";
 import ShareButton from "./ShareButton.jsx";
 import "../../styles/ui-v2/book-page.css";
-import { bookSummary, catalogueResponse, prefetchBook, errorText, firstImpressionOrder, formatYear, repeatsTitle, safeReturnTo, useRequest } from "./data.js";
+import { bookSummary, catalogueResponse, errorText, firstImpressionOrder, formatYear, repeatsTitle, safeReturnTo, useRequest } from "./data.js";
 import BookAbout from "./BookAbout.jsx";
 import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
 import { useBookSeo } from "./bookSeo.js";
 import { browseKey, browseRequestParams, browseScope, readBrowseQuery } from "./browseQuery.js";
 import PinToUpNext from "../reading/home/PinToUpNext.jsx";
-import { ActionLink, BookCard, BookCover, BookGrid, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, SectionHeading, ShelfActions, TextLink } from "./primitives.jsx";
+import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, ShelfActions, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
-
-// Landing books are chosen by rule, not ID, so every environment's catalogue works:
-// covered books with plain English-alphabet titles first, never repeating hero and row.
-function landingSelection(items) {
-  const ordered = firstImpressionOrder(items);
-  // A very small catalogue can't fill both without repeating; then the row shows the first five.
-  return { hero: ordered.slice(0, 3), row: ordered.length >= 8 ? ordered.slice(3, 8) : ordered.slice(0, 5) };
-}
 
 function GuestNoResults({ search }) {
   useEffect(() => { trackEvent("guest_search_empty"); }, [search]);
   return <div className="bv-guest-noresults"><p>Can’t find it here? With a free account you can add any book to your library yourself.</p>
     <div className="bv-form-actions"><ActionLink to={`/register?${new URLSearchParams({ src: "noresults", returnTo: `/browse?${search}` })}`}>Create free account</ActionLink>
       <ActionLink variant="secondary" to={`/login?${new URLSearchParams({ returnTo: `/browse?${search}` })}`}>Sign in</ActionLink></div></div>;
-}
-
-// Every reader-facing word on the landing page, in one place so the copy can be swapped without touching the layout.
-// The example in "New to keeping track?" and the reading pill on the cover sheet are pictures of the product: decorative, hidden from assistive technology.
-const LANDING_COPY = {
-  heading: "Every book you’ve read, own and want, in one quiet place.",
-  line: "Bring your shelves from Goodreads or StoryGraph, or start with one book. Private unless you choose to share.",
-  import: "Import my library", startOne: "Start with one book", free: "Free. No account needed to look around.",
-  explore: "Explore books", library: "Return to your library", helpSignedIn: "Your books are right where you left them.",
-  reading: "Reading · page 41 of 223", placeholder: "Explore the catalogue to find your next book.",
-  waysHeading: "Two ways to begin",
-  fromApp: { title: "Coming from another app?", steps: ["Export your file from Goodreads or StoryGraph.", "Drop it into Bookvane.", "Check what came across."], small: "Shelves, dates, ratings and notes come with you. We never ask for your Goodreads login." },
-  newHere: { title: "New to keeping track?", text: "Search one book you loved. That’s your first shelf.", exampleBefore: "Har", exampleAfter: "ry Potter and the Philosopher’s Stone", exampleMeta: "J. K. Rowling · 1997" },
-  privateHeading: "Private by default",
-  promises: [["No feed", "No followers or streaks."], ["No public ratings", "Your ratings stay yours."], ["Private notes", "Dates and notes never show."], ["Take it with you", "Download your library any time."]],
-};
-
-export function WelcomePage() {
-  const auth = useAuth();
-  // Personalized catalogue ordering and in-flight requests belong to one
-  // session, not to every account that happens to be signed in in this SPA.
-  const scope = auth.isAuthenticated ? `session:${auth.sessionGeneration}` : "public";
-  const live = useRequest(async () => catalogueResponse(await getBooks({ size: 30, sort: "popular", cacheScope: scope })), `welcome:${scope}`, !auth.isLoading);
-  const books = useInstantBooks({ view: "landing", eligible: true, auth, live });
-  const items = books.data?.items || [];
-  const { hero: heroBooks, row: rowBooks } = landingSelection(items);
-  const { genres: allGenres, labelFor } = useGenres();
-  const subjects = (allGenres || []).slice(0, 4).map(genre => genre.key);
-    // Signed out it opens /switch, which explains the move and then sends them to sign up with the import next.
-  const importTarget = auth.isAuthenticated ? "/my-books/import" : "/switch";
-  return <>
-    <section className="bv-container bv-landing-hero" aria-label="Welcome">
-      <div className="bv-landing-copy">
-        <h1>{LANDING_COPY.heading}</h1>
-        <p className="bv-landing-lead">{LANDING_COPY.line}</p>
-        {auth.isAuthenticated
-          ? <div className="bv-landing-doors"><ActionLink to="/browse">{LANDING_COPY.explore} <ArrowRight aria-hidden="true" /></ActionLink><TextLink to="/my-books">{LANDING_COPY.library}</TextLink></div>
-          : <div className="bv-landing-doors"><ActionLink to={importTarget}>{LANDING_COPY.import}</ActionLink><ActionLink to="/browse" state={{ focusSearch: true }} variant="secondary">{LANDING_COPY.startOne}</ActionLink></div>}
-        <p className="bv-landing-free">{auth.isAuthenticated ? LANDING_COPY.helpSignedIn : LANDING_COPY.free}</p>
-      </div>
-      <div className="bv-landing-shelf">
-        <div className="bv-landing-covers">{books.loading ? Array.from({ length: 3 }, (_, i) => <div key={i} className="bv-skeleton bv-skeleton--cover" aria-hidden="true" />) :
-          heroBooks.length ? heroBooks.map((book, index) => <Link key={book.id} to={`/book/${book.id}`} state={{ book: bookSummary(book) }} onPointerEnter={() => prefetchBook(book.id)} onTouchStart={() => prefetchBook(book.id)} aria-label={`Explore ${book.title}`}><BookCover book={book} hero={index === 0} priority={index > 0} /></Link>) :
-            <div className="bv-hero-placeholder"><BookOpen aria-hidden="true" /><p>{LANDING_COPY.placeholder}</p></div>}
-        </div>
-        <div className="bv-landing-ledge" />
-        <div className="bv-landing-cap" aria-hidden="true"><span className="bv-landing-pill">{LANDING_COPY.reading} <i /></span></div>
-      </div>
-    </section>
-    <section className="bv-container bv-section bv-landing-open"><SectionHeading title="Open a new chapter" to="/browse">A few books to spark your curiosity.</SectionHeading>
-      {books.loading ? <BookSkeletons /> : books.error ? <EmptyState error icon={BookOpen} title="The books are taking a moment." action={<Button onClick={books.retry}>Try again</Button>}>We couldn’t load the catalogue. You can try again or continue to discovery.</EmptyState> : rowBooks.length ? <BookGrid books={rowBooks} preview /> : <EmptyState title="More stories are on their way." action={<ActionLink to="/browse">Explore books</ActionLink>}>Try discovery to see what’s available.</EmptyState>}
-      <nav className="bv-landing-subjects" aria-label="Explore by genre">{subjects.map(subject => <TextLink key={subject} to={`/browse?tag=${subject}`}>{labelFor(subject)}</TextLink>)}</nav>
-    </section>
-    <section className="bv-container bv-section bv-landing-ways" aria-labelledby="bv-ways-title"><h2 id="bv-ways-title">{LANDING_COPY.waysHeading}</h2>
-      <div className="bv-landing-way-grid">
-        <div className="bv-landing-way"><h3>{LANDING_COPY.fromApp.title}</h3>
-          <ol>{LANDING_COPY.fromApp.steps.map(step => <li key={step}>{step}</li>)}</ol>
-          <p className="bv-landing-small">{LANDING_COPY.fromApp.small}</p>
-          <ActionLink to={importTarget}>{LANDING_COPY.import}</ActionLink></div>
-        <div className="bv-landing-way"><h3>{LANDING_COPY.newHere.title}</h3>
-          <p>{LANDING_COPY.newHere.text}</p>
-          <div className="bv-landing-example" aria-hidden="true"><span className="bv-landing-example-cover"><BookCover book={{ title: "Harry Potter and the Philosopher’s Stone", authors: [{ name: "J. K. Rowling" }], cover_image_url: null }} decorative /></span>
-            <p><u>{LANDING_COPY.newHere.exampleBefore}</u>{LANDING_COPY.newHere.exampleAfter}<small>{LANDING_COPY.newHere.exampleMeta}</small></p></div>
-          <ActionLink to="/browse" state={{ focusSearch: true }} variant="secondary">{LANDING_COPY.startOne}</ActionLink></div>
-      </div>
-    </section>
-    <section className="bv-container bv-section bv-landing-private" aria-labelledby="bv-private-title"><h2 id="bv-private-title">{LANDING_COPY.privateHeading}</h2>
-      <ul className="bv-landing-promises">{LANDING_COPY.promises.map(([title, text]) => <li key={title}><b>{title}</b><span>{auth.isAuthenticated && title === "Take it with you" ? <Link to="/my-data">{text}</Link> : text}</span></li>)}</ul>
-    </section>
-  </>;
 }
 
 function FilterDialog({ onClose, onApply, initial, authenticated }) {
