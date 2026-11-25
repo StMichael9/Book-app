@@ -509,6 +509,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 
 /* Settings: four plain sections, and the short bullet lists on the data and privacy pages. */
 .bv-root .bv-account-row .bv-account-heading { display: block; margin: 0; font: inherit; font-size: var(--bv-fs-title); font-weight: 600; color: var(--bv-ink); }
+.bv-root .bv-delete-account { color: var(--bv-danger); }
 .bv-root .bv-account-links { display: grid; gap: 8px; justify-items: end; text-align: right; align-self: flex-start; }
 .bv-root .bv-plain-list { margin: 8px 0 0; padding-left: 1.25rem; display: grid; gap: 8px; }
 .bv-root .bv-plain-list li { list-style: disc; display: list-item; }

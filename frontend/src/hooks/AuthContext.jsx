@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  deleteAccount as deleteAccountRequest,
   loginUser,
   logoutUser,
   refreshSession,
@@ -114,6 +115,16 @@ export function AuthProvider({ children }) {
         } finally {
           if (version === sessionVersion.current) setIsLoading(false);
         }
+      },
+      // The account is gone once the request succeeds; the signed-in state is cleared exactly as Sign out clears it. A failure clears nothing.
+      async deleteAccount() {
+        await deleteAccountRequest();
+        clearBookCache(); clearRequestCache();
+        rememberSignedIn(false);
+        sessionVersion.current += 1;
+        setSessionGeneration(sessionVersion.current);
+        setIsAuthenticated(false);
+        window.location.replace("/");
       },
       async logout() {
         clearBookCache(); clearRequestCache();

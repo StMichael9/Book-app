@@ -8,11 +8,12 @@ import { CLUB_COLORS, clubColor, codeOf, positionLabel, shortDate } from "./club
 const SAVE_FAILED = "That couldn’t be saved. Please try again.";
 
 // Leave club and Remove from club ask first: these are the two things that need a new invite to undo.
-export function ConfirmSheet({ title, text, confirmLabel, onConfirm, onClose, pending = false, error = "" }) {
+// `text` may be a sentence with a link in it; `danger` makes the confirm button the red one, for things that can't be undone.
+export function ConfirmSheet({ title, text, confirmLabel, onConfirm, onClose, pending = false, error = "", danger = false }) {
   return <NativeDialog open onClose={() => { if (!pending) onClose(); }} title={title} className="bv-club-sheet">
     <p className="bv-club-confirm">{text}</p>
     {error && <p className="bv-field-error" role="alert">{error}</p>}
-    <div className="bv-form-actions"><Button onClick={onConfirm} disabled={pending}>{confirmLabel}</Button><Button variant="quiet" onClick={onClose} disabled={pending}>Cancel</Button></div>
+    <div className="bv-form-actions"><Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={pending}>{confirmLabel}</Button><Button variant="quiet" onClick={onClose} disabled={pending}>Cancel</Button></div>
   </NativeDialog>;
 }
 
