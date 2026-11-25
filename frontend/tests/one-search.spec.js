@@ -168,8 +168,11 @@ test("with no search, Discover and the landing page ask for the popular order", 
   expect(app.requests.filter(request => request.path === "/books").every(request => request.params.sort === "popular")).toBe(true);
   expect(app.requests.filter(request => request.path === "/books/more")).toHaveLength(0);
   app.requests.length = 0;
+  // The landing page (#254) shows no catalogue of its own; any book list it asks for is Discover's idle prefetch, whose
+  // timing depends on the machine. So: wait until the page is quiet, then check that whatever it asked for was the popular order.
   await page.goto("/");
-  await expect.poll(() => app.requests.some(request => request.path === "/books" && request.params.sort === "popular")).toBe(true);
+  await page.waitForLoadState("networkidle");
+  expect(app.requests.filter(request => request.path === "/books").every(request => request.params.sort === "popular")).toBe(true);
 });
 
 test("a search sends no popular sort of its own; the server ranks it", async ({ page, app }) => {

@@ -117,6 +117,7 @@ export function AuthProvider({ children }) {
       },
       async logout() {
         clearBookCache(); clearRequestCache();
+        rememberSignedIn(false); // now, not after the reload below: the next page must not start as "likely signed in"
         sessionVersion.current += 1;
         setSessionGeneration(sessionVersion.current);
         await logoutUser();
