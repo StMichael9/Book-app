@@ -76,7 +76,7 @@ jobs:
           sparse-checkout: backend/data/compute_guard.py
           sparse-checkout-cone-mode: false
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Check this month's Neon compute
@@ -167,7 +167,7 @@ jobs:
         with:
           ref: ${{ steps.source.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
