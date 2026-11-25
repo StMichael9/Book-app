@@ -197,11 +197,35 @@ test.describe("the /switch links", () => {
     app.entries = [entry];
     await page.goto("/my-books");
     await expect(page.getByRole("link", { name: SWITCH_MY_BOOKS, exact: true })).toHaveAttribute("href", "/switch");
+    // Settings shows one Goodreads link: the import itself when import is on, otherwise the /switch guide.
     await page.goto("/settings");
-    await expect(page.getByRole("link", { name: SWITCH_YOU, exact: true })).toHaveAttribute("href", "/switch");
+    const data = page.getByRole("region", { name: "Your data" });
+    await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
+    await expect(data.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
+    app.libraryImport = false;
+    await page.goto("/settings");
+    await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
+    await expect(data.getByRole("link", { name: SWITCH_YOU, exact: true })).toHaveAttribute("href", "/switch");
+    app.libraryImport = true;
     app.entries = [];
     await page.goto("/home");
     await expect(page.locator(".bv-start-shelf").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ })).toHaveAttribute("href", "/switch");
+  });
+
+  test("the footer links to Contact by email", async ({ page, app }) => {
+    app.guest = true;
+    await page.goto("/browse");
+    await expect(page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Contact", exact: true })).toHaveAttribute("href", "mailto:support@bookvane.me");
+  });
+
+  test("signed out, Discover says the shelf note once and every card's shelf buttons point at it", async ({ page, app }) => {
+    app.guest = true;
+    await page.goto("/browse");
+    await expect(page.locator("article.bv-book-card").first()).toBeVisible();
+    const note = "Want it, or already own it? Choose a shelf for this book.";
+    await expect(page.getByText(note, { exact: true })).toHaveCount(1);
+    await expect(page.locator('article.bv-book-card [data-shelf="want"]').first()).toHaveAccessibleDescription(note);
+    await expect(page.locator('article.bv-book-card [data-shelf="owned"]').first()).toHaveAccessibleDescription(note);
   });
 
   test("Discover shows its link to /switch to signed-out visitors only", async ({ page, app }) => {

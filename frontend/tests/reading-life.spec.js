@@ -135,6 +135,15 @@ test("figures that are zero or unknown are not shown", async ({ page, app }) => 
   await expect(page.getByRole("region", { name: /Compared with/ })).toHaveCount(0);
 });
 
+test("subjects show their genre names, never the raw keys", async ({ page, app }) => {
+  app.current.top_subjects = [{ name: "literary_fiction", count: 5 }, { name: "Fantasy", count: 3 }, { name: "Some unlisted subject", count: 1 }];
+  await page.goto("/reading-life");
+  const subjects = page.getByRole("region", { name: "What you read" });
+  await expect(subjects.getByRole("listitem").first()).toContainText("Literary fiction");
+  await expect(subjects.getByRole("listitem").nth(2)).toContainText("Some unlisted subject");
+  await expect(subjects).not.toContainText("literary_fiction");
+});
+
 test("All time shows only the totals and subjects", async ({ page, app }) => {
   app.current.all_time = { ...CURRENT.all_time, top_subjects: [{ name: "Fantasy", count: 40 }, { name: "History", count: 22 }] };
   await page.goto("/reading-life");

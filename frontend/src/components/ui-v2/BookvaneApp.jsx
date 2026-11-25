@@ -163,7 +163,7 @@ function LandingRoute() {
 }
 
 function Footer() {
-  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><nav className="bv-footer-links" aria-label="Footer"><TextLink to="/switch">Import from Goodreads or StoryGraph</TextLink><TextLink to="/privacy">Privacy</TextLink></nav></div></footer>;
+  return <footer className="bv-footer"><div className="bv-container bv-footer-inner"><Brand /><nav className="bv-footer-links" aria-label="Footer"><TextLink to="/switch">Import from Goodreads or StoryGraph</TextLink><TextLink to="/privacy">Privacy</TextLink><a className="bv-text-link" href="mailto:support@bookvane.me">Contact</a></nav></div></footer>;
 }
 
 function useServiceDown() {

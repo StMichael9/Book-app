@@ -26,7 +26,7 @@ import { useGenres } from "./useGenres.js";
 import { useBookSeo } from "./bookSeo.js";
 import { browseKey, browseRequestParams, browseScope, readBrowseQuery } from "./browseQuery.js";
 import PinToUpNext from "../reading/home/PinToUpNext.jsx";
-import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, ShelfActions, TextLink } from "./primitives.jsx";
+import { ActionLink, BookCard, BookCover, BookSkeletons, Button, EmptyState, EnglishTitle, NativeDialog, PageHeading, ShelfActions, ShelfNote, TextLink } from "./primitives.jsx";
 import { useParams } from "react-router-dom";
 
 function GuestNoResults({ search }) {
@@ -171,12 +171,11 @@ export function BrowsePage() {
       {tags.length > 1 && <span>Match all genres</span>}{exclude && <span>Books you own hidden</span>}{shelf && <span>{shelf === "owned" ? "Owned" : "Want to read"} only</span>}
       <Button variant="quiet" onClick={() => { setDraft(""); setParams({}); }}>Clear search & filters</Button>
     </div> : null}
-    {library.mode === "v3" && <p className="bv-sr-only">Want to read and Owned are separate. Changing one keeps the other.</p>}
     <div className="bv-results-heading"><h2 id="bv-results-heading" tabIndex={-1}>{book || author || query ? "Search results" : tags.length && tags.every(slug => labelFor(slug)) ? tags.map(labelFor).join(" + ") : "Books to explore"}</h2><span>{request.loading ? "Loading books…" : request.error || merging || checkingSearch || incompleteSearch || !(book || author || query || tags.length) ? "" : `${total.toLocaleString()} ${total === 1 ? "match" : "matches"}`}</span></div>
     {request.loading ? <BookSkeletons count={10} /> : request.error ? <EmptyState title="The books couldn’t load." error action={<Button onClick={request.retry}>Try again</Button>}>{errorText(request.error, "Please try again. Your search and filters are still here.")}</EmptyState> : visible.length ? <>
-      <div ref={grid} className="bv-book-grid">{visible.map((card, index) => card.work_key
+      <ShelfNote><div ref={grid} className="bv-book-grid">{visible.map((card, index) => card.work_key
         ? <WorkCard key={`work:${card.work_key}`} book={card} priority={index < 5} busy={opening.busy.has(card.work_key)} error={opening.failed[card.work_key]} onOpen={openWork} />
-        : <BookCard key={card.id} book={card} priority={index < 5} />)}</div>
+        : <BookCard key={card.id} book={card} priority={index < 5} />)}</div></ShelfNote>
       {(!merging || pages > 1) && <div className="bv-pagination">{!merging && <span>Showing {((page - 1) * size + 1).toLocaleString()}–{Math.min(page * size, total).toLocaleString()}{(book || author || tags.length) ? ` of ${total.toLocaleString()}` : ""}</span>}
         {pages > 1 && <nav aria-label="Results pages"><Button variant="secondary" disabled={page <= 1} onClick={() => movePage(page - 1)}><ArrowLeft aria-hidden="true" /><span>Previous</span></Button><span aria-current="page">Page {page} of {pages.toLocaleString()}</span><Button variant="secondary" disabled={page >= pages} onClick={() => movePage(page + 1)}><span>Next</span><ArrowRight aria-hidden="true" /></Button></nav>}
       </div>}
