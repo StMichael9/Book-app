@@ -170,6 +170,20 @@ test("Start opens a reading from an Up next card", async ({ page, app }) => {
   expect(create.body).toMatchObject({ entry_id: 101, started_via: "next_read" });
 });
 
+test("Can't decide? never repeats a book Up next is showing, and costs no extra library request", async ({ page, app }) => {
+  await page.goto("/home");
+  const upNext = page.locator(".bv-up-next"), choose = page.locator(".bv-choose");
+  await expect(upNext.locator('a[href^="/my-books/"]').first()).toBeVisible();
+  await expect(choose.locator('a[href^="/my-books/"]').first()).toBeVisible();
+  for (const title of TITLES) {
+    const total = await upNext.getByRole("link", { name: title, exact: true }).count() + await choose.getByRole("link", { name: title, exact: true }).count();
+    expect(total, `${title} shown twice`).toBeLessThanOrEqual(1);
+  }
+  const asked = () => app.requests.filter(request => request.path === "/me/library").length, before = asked();
+  await page.waitForTimeout(800);
+  expect(asked()).toBe(before);
+});
+
 test("Can't decide? shows five at a time and Try again walks through the rest", async ({ page, app }) => {
   app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 400) }));
   await page.goto("/home");
