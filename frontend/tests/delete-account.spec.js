@@ -38,7 +38,9 @@ const test = base.extend({
   },
 });
 
-const WORDS = "This deletes your books, notes, lists, club posts, loans and profile. It can’t be undone. Download your data first if you want a copy.";
+const WORDS = "This deletes your books, notes, lists, loans, club posts and profile. Clubs you run pass to another member. It can’t be undone. Download your data first if you want a copy.";
+const AGAIN = "Your account couldn’t be deleted. Please try again.";
+const LATER = "Your account still couldn’t be deleted. Please try again later, or email support@bookvane.me.";
 const sheet = page => page.getByRole("dialog", { name: "Delete your account?" });
 const open = async page => { await page.goto("/settings"); await page.getByRole("button", { name: "Delete account", exact: true }).click(); };
 
@@ -74,11 +76,11 @@ test("confirming sends DELETE /me with the confirm word, signs the reader out an
   expect(app.errors).toEqual([]);
 });
 
-for (const status of [422, 429]) test(`a ${status} shows the save error and leaves the sheet open to try again`, async ({ page, app }) => {
-  app.deleteStatus = status;
+test("a 422 shows the try-again error and leaves the sheet open to try again", async ({ page, app }) => {
+  app.deleteStatus = 422;
   await open(page);
   await sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
-  await expect(sheet(page).getByRole("alert")).toHaveText("Your account couldn’t be deleted. Please try again.");
+  await expect(sheet(page).getByRole("alert")).toHaveText(AGAIN);
   await expect(sheet(page)).toBeVisible();
   await expect(page).toHaveURL(/\/settings$/);
   expect(app.signedIn).toBe(true);
@@ -88,11 +90,36 @@ for (const status of [422, 429]) test(`a ${status} shows the save error and leav
   expect(app.deletes).toEqual([{ confirm: "delete" }, { confirm: "delete" }]);
 });
 
+test("a 429 (too many tries) says to try later and offers the support email", async ({ page, app }) => {
+  app.deleteStatus = 429;
+  await open(page);
+  await sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
+  await expect(sheet(page).getByRole("alert")).toHaveText(LATER);
+  await expect(sheet(page).getByRole("link", { name: "support@bookvane.me" })).toHaveAttribute("href", "mailto:support@bookvane.me");
+  await expect(sheet(page)).toBeVisible();
+  expect(app.signedIn).toBe(true);
+});
+
+test("from the third failed try the message changes to try later, even after closing and reopening", async ({ page, app }) => {
+  app.deleteStatus = 422;
+  await open(page);
+  const confirm = () => sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
+  await confirm();
+  await expect(sheet(page).getByRole("alert")).toHaveText(AGAIN);
+  await sheet(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Delete account", exact: true }).click();
+  await confirm();
+  await expect(sheet(page).getByRole("alert")).toHaveText(AGAIN);
+  await confirm();
+  await expect(sheet(page).getByRole("alert")).toHaveText(LATER);
+  expect(app.deletes).toHaveLength(3);
+});
+
 test("a network error shows the same error and leaves the sheet open", async ({ page, app }) => {
   await open(page);
   await page.route("**/test-api/me", route => route.request().method() === "DELETE" ? route.abort("failed") : route.fallback());
   await sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
-  await expect(sheet(page).getByRole("alert")).toHaveText("Your account couldn’t be deleted. Please try again.");
+  await expect(sheet(page).getByRole("alert")).toHaveText(AGAIN);
   await expect(sheet(page)).toBeVisible();
   expect(app.signedIn).toBe(true);
 });

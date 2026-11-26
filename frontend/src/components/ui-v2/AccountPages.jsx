@@ -263,16 +263,24 @@ export function RecoveryPage({ reset = false }) {
 // Settings, Your data: under the row's description, on the left, so the links on the right stay uncrowded. It asks first, and on success the reader is signed out and sent to the start page.
 function DeleteAccount() {
   const auth = useAuth();
-  const [open, setOpen] = useState(false), [pending, setPending] = useState(false), [error, setError] = useState("");
+  const [open, setOpen] = useState(false), [pending, setPending] = useState(false), [error, setError] = useState(""), [fails, setFails] = useState(0);
   const close = () => { setOpen(false); setError(""); };
   async function confirm() {
     setPending(true); setError("");
-    try { await auth.deleteAccount(); } catch { setError("Your account couldn’t be deleted. Please try again."); setPending(false); }
+    try { await auth.deleteAccount(); } catch (failure) {
+      // From the third failure, or as soon as the server says to slow down (429), stop asking for another try now and offer a way out.
+      const tries = fails + 1;
+      setFails(tries);
+      setError(tries >= 3 || failure?.status === 429
+        ? <>Your account still couldn’t be deleted. Please try again later, or email <a className="bv-text-link" href="mailto:support@bookvane.me">support@bookvane.me</a>.</>
+        : "Your account couldn’t be deleted. Please try again.");
+      setPending(false);
+    }
   }
   return <>
     <Button variant="quiet" className="bv-delete-account" onClick={() => setOpen(true)}>Delete account</Button>
     {open && <ConfirmSheet danger title="Delete your account?" confirmLabel="Delete my account" pending={pending} error={error} onClose={close} onConfirm={confirm}
-      text={<>This deletes your books, notes, lists, club posts, loans and profile. It can’t be undone. <TextLink to="/my-data">Download your data</TextLink> first if you want a copy.</>} />}
+      text={<>This deletes your books, notes, lists, loans, club posts and profile. Clubs you run pass to another member. It can’t be undone. <TextLink to="/my-data">Download your data</TextLink> first if you want a copy.</>} />}
   </>;
 }
 
