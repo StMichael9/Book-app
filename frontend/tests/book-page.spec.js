@@ -92,13 +92,13 @@ test("1440: Want to read, I own it and Add to list share one row; Open or start 
   expect(boxes[0].x + boxes[0].width).toBeLessThanOrEqual(boxes[1].x); expect(boxes[1].x + boxes[1].width).toBeLessThanOrEqual(boxes[2].x);
   expect(boxes[0].width).toBeLessThan(260);                                // content width, not stretched
   const addStyle = await page.getByRole("button", { name: "Add to list" }).evaluate(node => { const s = getComputedStyle(node); return [s.backgroundColor, s.textDecorationLine]; });
-  expect(addStyle[0]).toBe("rgba(0, 0, 0, 0)"); expect(addStyle[1]).toBe("underline");
+  expect(addStyle[0]).toBe("rgba(0, 0, 0, 0)"); expect(addStyle[1]).toBe("none");
   const open = page.getByRole("link", { name: "Open or start your reading" });
   await expect(open).toBeVisible();
   await expect(open.locator("svg")).toHaveCount(1);
   expect((await open.boundingBox()).height).toBeGreaterThanOrEqual(44);
   expect((await open.boundingBox()).y).toBeGreaterThan(boxes[0].y + boxes[0].height);
-  expect(await open.locator("span").evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("underline");
+  expect(await open.locator("span").evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none");
 });
 
 test("the page has no typed arrow characters, only icons", async ({ page, app }) => {

@@ -135,11 +135,11 @@ test("a Browse card links its author to the author page; the card still opens th
   await expect(page).toHaveURL(/\/book\/1$/);
 });
 
-test("the book page header links the author, underlined at rest with offset 3px, with a visible focus ring from the keyboard", async ({ page, app: _app }) => {
+test("the book page header links the author, green and weight 600 with no underline, with a visible focus ring from the keyboard", async ({ page, app: _app }) => {
   await page.goto("/book/1");
   const link = page.locator(".bv-detail-author").getByRole("link", { name: "Ursula Le Guin", exact: true });
   await expect(link).toHaveAttribute("href", "/author/7");
-  expect(await link.evaluate(node => { const style = getComputedStyle(node); return [style.textDecorationLine, style.textUnderlineOffset]; })).toEqual(["underline", "3px"]);
+  expect(await link.evaluate(node => { const style = getComputedStyle(node); return [style.textDecorationLine, style.fontWeight]; })).toEqual(["none", "600"]);
   await link.focus();
   await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Tab");
   await expect(link).toBeFocused();
@@ -148,7 +148,7 @@ test("the book page header links the author, underlined at rest with offset 3px,
   await expect(page).toHaveURL(/\/author\/7$/);
 });
 
-test("on a card the author is plain until hover or keyboard focus; a name with no id stays text", async ({ page, app }) => {
+test("on a card the author is plain until hover or keyboard focus, when it turns green with no underline; a name with no id stays text", async ({ page, app }) => {
   app.browseItems = [bookOf(1, [{ id: 7, name: "Ursula Le Guin" }, { name: "No Id Person" }]), bookOf(2)];
   await page.goto("/browse");
   const card = cards(page).first();
@@ -156,13 +156,14 @@ test("on a card the author is plain until hover or keyboard focus; a name with n
   await expect(card.locator(".bv-author")).toHaveText("Ursula Le Guin, No Id Person");
   await expect(card.getByRole("link", { name: "No Id Person" })).toHaveCount(0);
   expect(await link.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none");
+  const rest = await link.evaluate(node => getComputedStyle(node).color);
   await link.hover();
-  expect(await link.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("underline");
+  expect(await link.evaluate((node, before) => [getComputedStyle(node).textDecorationLine, getComputedStyle(node).color !== before], rest)).toEqual(["none", true]);
   await page.mouse.move(0, 0);
   await card.getByRole("link", { name: "Le Guin book 1", exact: true }).focus();
   await page.keyboard.press("Tab");
   await expect(link).toBeFocused();
-  expect(await link.evaluate(node => [getComputedStyle(node).textDecorationLine, getComputedStyle(node).outlineStyle])).toEqual(["underline", "solid"]);
+  expect(await link.evaluate(node => [getComputedStyle(node).textDecorationLine, getComputedStyle(node).outlineStyle])).toEqual(["none", "solid"]);
 });
 
 for (const theme of ["light", "dark"]) test(`the author page does not scroll sideways at 390, 320 and 200% text; ${theme}`, async ({ page, app: _app }) => {

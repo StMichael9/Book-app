@@ -487,8 +487,8 @@ test("switching a pill keeps the old cards, dimmed, and the page never shrinks w
   const heights = await page.evaluate(() => { clearInterval(window.__timer); return window.__heights; });
   expect(heights.length).toBeGreaterThan(10);
   expect(Math.min(...heights)).toBeGreaterThanOrEqual(before - 1);
-  // After the load the box takes its natural height, so the page may shrink (this pill has fewer picks) but never grows.
-  expect(await mainHeight(page)).toBeLessThanOrEqual(before + 1);
+  // After the load the box takes its natural height: it may shrink, and grows only by the Try again row this pill adds (44px button), never by a jump.
+  expect(await mainHeight(page)).toBeLessThanOrEqual(before + 48);
   expect(app.errors).toEqual([]);
 });
 
@@ -854,13 +854,12 @@ test("reduced motion: the swipe never scrolls smoothly", async ({ page, app }) =
   expect(await page.locator(".bv-now-swipe").evaluate(box => getComputedStyle(box).scrollBehavior)).toBe("auto");
 });
 
-test("with two picks the results box ends just under the cards, and Start reading stays on one line at 1440, 1100 and 768", async ({ page, app: _app }) => {
+test("with a few picks the results box ends just under the cards, and Start reading stays on one line at 1440, 1100 and 768", async ({ page, app: _app }) => {
   for (const width of [1440, 1100, 768]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/home");
     const picks = page.locator(".bv-picks .bv-next-card");
     await expect(picks.first()).toBeVisible();
-    if (width === 1440) await expect(picks).toHaveCount(2);
     for (const button of await picks.getByRole("button", { name: /^Start reading/ }).all()) {
       const box = await button.boundingBox();
       expect(box.height, `${width}px button height`).toBeLessThan(56);

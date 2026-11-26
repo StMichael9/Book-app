@@ -21,16 +21,16 @@
 .bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; max-width: none; margin: 0 0 8px; }
 .bv-root .bv-now-body .bv-muted { margin: 0 0 14px; font-size: var(--bv-fs-helper); }
 .bv-root .bv-more-reading { margin: 12px 0 0; color: var(--bv-muted); }
-.bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; text-decoration: underline; }
+.bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; }
 
 .bv-root .bv-next-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
 .bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .bv-root .bv-next-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .bv-root .bv-next-body .bv-help { margin: 6px 0 0; }
 .bv-root .bv-next-card h3 a { color: inherit; text-decoration: none; }
-.bv-root .bv-next-card h3 a:hover { text-decoration: underline; }
+.bv-root .bv-next-card h3 a:hover { color: var(--bv-green); }
 /* Columns are at least 120px, so Start reading (one line) fits: five across where there is room, fewer where there is not. */
-.bv-root .bv-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 28px 16px; }
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 28px 12px; }
 .bv-root .bv-next-cover { position: relative; }
 .bv-root .bv-next-card h3 { margin: 10px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }

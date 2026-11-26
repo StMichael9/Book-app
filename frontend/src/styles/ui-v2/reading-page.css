@@ -21,7 +21,7 @@
 .bv-root .bv-progress-line p { margin: 0; }
 .bv-root .bv-progress-line strong { color: var(--bv-ink); font-weight: 600; }
 .bv-root .bv-page-count { margin: 4px 0 12px; }
-.bv-root .bv-page-count .bv-inline-action { min-height: 44px; min-width: 0; padding: 0 2px; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-page-count .bv-inline-action { min-height: 44px; min-width: 0; padding: 0 2px; color: var(--bv-green); font-weight: 600; }
 .bv-root .bv-progress-total-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
 .bv-root .bv-progress-total-edit input { width: 7rem; }
 
@@ -49,10 +49,10 @@
 @media (prefers-reduced-motion: no-preference) { .bv-root .bv-progress-box--page .bv-progress-status:not(:empty) { animation: bv-tick-fade 4s ease-out forwards; } }
 @keyframes bv-tick-fade { 0%, 90% { opacity: 1; } 100% { opacity: 0; } }
 
-/* Finish book (outline pill) and Pause reading (a plain underlined link) on one row. */
+/* Finish book (outline pill) and Pause reading (a plain text link) on one row. */
 .bv-root .bv-reading-actions { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; margin: 0 0 36px; }
 .bv-root .bv-reading-actions .bv-button--secondary { flex: none; }
-.bv-root .bv-reading-actions .bv-reading-pause { flex: none; background: transparent; box-shadow: none; min-height: 44px; padding: 0 2px; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+.bv-root .bv-reading-actions .bv-reading-pause { flex: none; background: transparent; box-shadow: none; min-height: 44px; padding: 0 2px; color: var(--bv-ink); font-weight: 600; }
 .bv-root .bv-reading-actions .bv-workspace-undo { flex-basis: 100%; margin: 0; }
 
 /* Notes: a field, Add note, then one card per paragraph. */
