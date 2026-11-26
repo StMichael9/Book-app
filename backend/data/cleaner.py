@@ -394,6 +394,49 @@ def description_blocks(value: str) -> list[tuple[str, str]]:
     close()
     return blocks
 
+# --- ALL CAPS blurbs (F16) ---------------------------------------------------------------------------------------------------
+
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_CAPS_WORD = re.compile(r"[A-Za-z][A-Za-z'’-]*")
+_ACRONYMS = frozenset({"USA", "UK", "US", "UN", "EU", "TV", "DNA", "FBI", "CIA", "NASA", "BBC", "NYC", "WWI", "WWII", "AI", "LGBT", "PhD"})
+SHOUTING_SHARE = 0.9          # a sentence is shouting when this share of its letters is upper case ...
+SHOUTING_MIN_LETTERS = 15     # ... and there are enough letters to judge
+
+
+def _shouting(sentence: str) -> bool:
+    letters = [c for c in sentence if c.isalpha()]
+    return len(letters) >= SHOUTING_MIN_LETTERS and sum(c.isupper() for c in letters) / len(letters) >= SHOUTING_SHARE
+
+
+def unshout(text: str) -> str:
+    """Set ALL CAPS sentences in sentence case. Names the text itself writes with capitals elsewhere keep them, and so do acronyms
+    and "I"; all other sentences are left as they are. A name that only ever appears in capitals cannot be told from any other
+    word, so it comes out lower case."""
+    sentences = _SENTENCE_SPLIT.split(text)
+    if not any(_shouting(sentence) for sentence in sentences):
+        return text
+    def stem(word: str) -> str:
+        return re.sub(r"['’]s$", "", word.casefold())
+
+    known = {stem(w) for sentence in sentences if not _shouting(sentence) for w in _CAPS_WORD.findall(sentence) if w[0].isupper()}
+
+    def fix(match: re.Match) -> str:
+        word = match.group(0)
+        if word in _ACRONYMS or word == "I":
+            return word
+        if re.fullmatch(r"I['’](?:M|LL|VE|D)", word):
+            return "I" + word[1:].lower()
+        return word.capitalize() if stem(word) in known else word.lower()
+
+    out = []
+    for sentence in sentences:
+        if _shouting(sentence):
+            sentence = _CAPS_WORD.sub(fix, sentence)
+            sentence = re.sub(r"^(\W*)([a-z])", lambda m: m.group(1) + m.group(2).upper(), sentence)
+            sentence = re.sub(r"([.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), sentence)
+        out.append(sentence)
+    return " ".join(out)
+
 
 def clean_description(text: str | None) -> str | None:
     """English prose only, without markup, edition, seller or credit text, keeping paragraphs (blank line) and list lines;
@@ -417,7 +460,7 @@ def clean_description(text: str | None) -> str | None:
         kept = " ".join(s for s in _SENTENCE.split(" ".join(markdown_to_text(block).split())) if s.strip() and not SELLER.search(s)
                         and not _credit(s)).strip()
         if kept:
-            parts.append((kind, kept))
+            parts.append((kind, unshout(kept)))
     result = ""
     for index, (kind, block) in enumerate(parts):
         result += block if index == 0 else ("\n" if kind == "li" and parts[index - 1][0] == "li" else "\n\n") + block
