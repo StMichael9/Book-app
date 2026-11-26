@@ -26,8 +26,8 @@
 .bv-root .bv-progress-total-edit input { width: 7rem; }
 
 /* The box. Its fields look like every other field in the app. */
-.bv-root .bv-progress-box input, .bv-root .bv-progress-total-edit input { font-size: var(--bv-fs-body); min-height: 50px; padding: 11px 13px; border: 1px solid var(--bv-control); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-field); min-width: 0; }
-.bv-root .bv-progress-box .bv-button { min-height: 50px; }
+.bv-root .bv-progress-box input, .bv-root .bv-progress-total-edit input { font-size: var(--bv-fs-body); min-height: 48px; padding: 12px 16px; border: 1px solid var(--bv-field-border); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-input); min-width: 0; }
+.bv-root .bv-progress-box .bv-button { min-height: 48px; }
 .bv-root .bv-progress-box { margin: 0 0 14px; }
 .bv-root .bv-progress-row { display: flex; gap: 8px; align-items: stretch; }
 .bv-root .bv-progress-row input { flex: 1 1 auto; min-width: 0; }
@@ -58,7 +58,7 @@
 /* Notes: a field, Add note, then one card per paragraph. */
 .bv-root .bv-notes { border-top: 1px solid var(--bv-line); padding-top: 22px; margin-top: 8px; }
 .bv-root .bv-notes h2 { font-size: var(--bv-fs-section); margin: 0 0 14px; }
-.bv-root .bv-note-input { display: block; width: 100%; min-height: 96px; resize: none; box-sizing: border-box; font: inherit; font-size: var(--bv-fs-body); line-height: 1.45; padding: 12px 14px; border: 1px solid var(--bv-control); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-field); }
+.bv-root .bv-note-input { display: block; width: 100%; min-height: 96px; resize: none; box-sizing: border-box; font: inherit; font-size: var(--bv-fs-body); line-height: 1.45; padding: 12px 16px; border: 1px solid var(--bv-field-border); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-textarea); }
 .bv-root .bv-note-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin: 10px 0 0; }
 .bv-root .bv-note-actions .bv-button { min-height: 50px; padding-inline: 26px; }
 .bv-root .bv-note-list { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 12px; }
@@ -101,3 +101,8 @@
   .bv-root .bv-fold-hint { text-align: left; }
   .bv-root .bv-reading-fold > summary { flex-wrap: wrap; gap: 4px 16px; }
 }
+
+/* In the Home "Update progress" sheet, Save sits inside the page field at its right, so the row reads as one control. Still a 44px target; on the book page the button stays beside the field. */
+.bv-root .bv-progress-box:not(.bv-progress-box--page) .bv-progress-row { position: relative; display: block; }
+.bv-root .bv-progress-box:not(.bv-progress-box--page) .bv-progress-row input { width: 100%; padding-right: 108px; }
+.bv-root .bv-progress-box:not(.bv-progress-box--page) .bv-progress-row .bv-button { position: absolute; top: 2px; right: 2px; min-height: 44px; height: 44px; min-width: 88px; border-radius: var(--bv-radius-pill); }
