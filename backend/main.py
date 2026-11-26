@@ -25,6 +25,7 @@ from routes import reading
 from routes import library_imports
 from routes import events
 from routes import profile
+from routes import account as account_routes
 from routes import seo
 from routes import clubs as club_routes
 from routes import billing as billing_routes
@@ -159,6 +160,7 @@ app.include_router(reading.router)
 app.include_router(library_imports.router)
 app.include_router(events.router)
 app.include_router(profile.router)
+app.include_router(account_routes.router)
 app.include_router(seo.router)
 app.include_router(club_routes.router)
 app.include_router(billing_routes.router)

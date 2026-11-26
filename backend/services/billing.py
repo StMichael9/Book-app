@@ -54,6 +54,10 @@ class StripeGateway:
         import stripe
         return json.loads(str(stripe.Subscription.retrieve(subscription_id, api_key=self._key())))
 
+    def cancel_subscription(self, subscription_id: str) -> None:
+        import stripe
+        stripe.Subscription.cancel(subscription_id, api_key=self._key())
+
     def construct_event(self, payload: bytes, signature: str) -> dict:
         """Verify the Stripe-Signature header (HMAC and a 5-minute tolerance) and return the event as a plain dict."""
         import stripe
