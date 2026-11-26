@@ -524,6 +524,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-account-row--data { flex-wrap: wrap; align-items: flex-start; border-bottom: 0; padding-bottom: 0; }
 .bv-root .bv-account-rowlinks { flex: 1 0 100%; display: flex; flex-direction: column; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-account-rowlinks .bv-account-link:last-child { border-bottom: 0; }
+/* Delete account comes after the data links, so the destructive action is last in the row. */
+.bv-root .bv-account-row--data > .bv-delete-account { margin: 12px 0 20px; }
 .bv-root .bv-account-row--data + .bv-account-row { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-plain-list { margin: 8px 0 0; padding-left: 1.25rem; display: grid; gap: 8px; }
 .bv-root .bv-plain-list li { list-style: disc; display: list-item; }
