@@ -1,6 +1,6 @@
 /* Home: greeting, Reading now, Up next, Can't decide?, and the year at a glance. */
 .bv-root .bv-home { padding-bottom: 56px; }
-.bv-root .bv-home section { margin-top: 36px; }
+.bv-root .bv-home section { margin-top: 48px; }
 .bv-root .bv-home-greeting { padding: 28px 0 0; }
 .bv-root .bv-home-greeting h1 { margin: 0; font-family: var(--bv-display); font-size: var(--bv-fs-page); line-height: 1.1; }
 .bv-root .bv-home-greeting p { margin: 6px 0 0; }
@@ -9,49 +9,31 @@
 .bv-root .bv-section-head h2 { margin: 0; }
 .bv-root .bv-section-head p { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 
-/* Reading now follows My Books: covers sit on the page, no box. Three columns across the full width; each book is its cover with the title,
-   author, meter and page line beside it, and the page field and Save under that, spanning the column. */
-.bv-root .bv-now-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
-.bv-root .bv-now-card { display: grid; grid-template-columns: 112px minmax(0, 1fr); column-gap: 16px; padding: 0; background: none; border-radius: 0; box-shadow: none; align-items: start; }
-.bv-root .bv-now-progress { grid-column: 1 / -1; margin-top: 16px; min-width: 0; }
-.bv-root .bv-now-progress .bv-progress-box { margin: 0; }
-.bv-root .bv-now-card .bv-cover { width: 100%; }
-.bv-root .bv-now-body h3 { margin: 0; font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
-.bv-root .bv-now-body .bv-author { margin: 2px 0 12px; font-size: var(--bv-fs-helper); }
-.bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; max-width: none; margin: 0 0 8px; }
-.bv-root .bv-now-body .bv-muted { margin: 0 0 14px; font-size: var(--bv-fs-helper); }
-.bv-root .bv-more-reading { margin: 12px 0 0; color: var(--bv-muted); }
-.bv-root .bv-more-reading .bv-button { min-height: 44px; padding: 0 6px; }
-
-.bv-root .bv-next-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
 .bv-root .bv-next-card { display: flex; flex-direction: column; min-width: 0; text-align: left; }
 .bv-root .bv-next-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .bv-root .bv-next-body .bv-help { margin: 6px 0 0; }
 .bv-root .bv-next-card h3 a { color: inherit; text-decoration: none; }
 .bv-root .bv-next-card h3 a:hover { color: var(--bv-green); }
-/* Columns are at least 120px, so Start reading (one line) fits: five across where there is room, fewer where there is not. */
-.bv-root .bv-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 28px 12px; }
 .bv-root .bv-next-cover { position: relative; }
 .bv-root .bv-next-card h3 { margin: 10px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
 .bv-root .bv-next-label { margin: 6px 0 10px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 600; }
-/* On a desktop Start reading is only as wide as its words, left-aligned, so the covers lead and the buttons do not. */
-.bv-root .bv-next-card .bv-button { margin-top: auto; justify-content: center; align-self: flex-start; }
-.bv-root .bv-next-body .bv-next-label + .bv-button { margin-top: 4px; }
 .bv-root .bv-pin-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bv-line); }
 .bv-root .bv-pin-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-pin-title { font: 400 var(--bv-fs-card)/1.25 var(--bv-display); min-width: 0; overflow-wrap: anywhere; }
 .bv-root .bv-pin-actions { display: flex; align-items: center; gap: 4px; flex: none; }
 
-.bv-root .bv-choose { padding: 20px; background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); box-shadow: var(--bv-shadow-sheet); }
+.bv-root .bv-choose { padding: 24px; background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); box-shadow: var(--bv-shadow-sheet); }
 .bv-root .bv-choose-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .bv-root .bv-choose-head h2 { margin: 0; }
 .bv-root .bv-choose-head p { margin: 0; }
-.bv-root .bv-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
-.bv-root .bv-pill { appearance: none; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; }
+/* The pills are one row that scrolls sideways (no scrollbar) rather than wrapping. */
+.bv-root .bv-pills { display: flex; flex-wrap: nowrap; gap: 8px; margin: 16px 0; overflow-x: auto; scrollbar-width: none; }
+.bv-root .bv-pills::-webkit-scrollbar { display: none; }
+.bv-root .bv-pill { flex: none; white-space: nowrap; appearance: none; min-height: 44px; padding: 0 16px; font: inherit; font-weight: 600; cursor: pointer; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; }
 .bv-root .bv-pill[aria-pressed="true"] { background-color: var(--bv-green); color: var(--bv-on-green); }
 .bv-root .bv-pill:disabled { color: var(--bv-muted); opacity: .6; cursor: default; }
-.bv-root .bv-choose-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+.bv-root .bv-choose-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
 .bv-root .bv-choose-foot p { margin: 0; }
 
 .bv-root .bv-glance { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 40px; align-items: end; }
@@ -71,20 +53,11 @@
 .bv-root .bv-progress-links { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; }
 
 @media (max-width: 900px) {
-  .bv-root .bv-now-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Up next on a phone: a 2-column grid of covers (a fifth sits alone in the left column); nothing scrolls sideways. */
-  .bv-root .bv-next-row, .bv-root .bv-picks { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 16px; }
   .bv-root .bv-glance { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); justify-content: start; gap: 24px; }
 }
 @media (max-width: 700px) {
-  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); }
-  /* On a phone the page field sits under the text, beside the small cover, as before. */
-  .bv-root .bv-now-card { grid-template-columns: 88px minmax(0, 1fr); column-gap: 14px; }
-  .bv-root .bv-now-card > :first-child { grid-row: 1 / span 2; }
-  .bv-root .bv-now-progress { grid-column: 2; margin-top: 10px; }
-  .bv-root .bv-next-card .bv-button { align-self: stretch; }
-    .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); gap: 18px; }
+  .bv-root .bv-glance .bv-figures { grid-template-columns: repeat(3, auto); gap: 18px; }
   .bv-root .bv-progress-sheet { width: 100%; max-width: none; margin: auto 0 0; padding: 12px 20px 20px; border-radius: 20px 20px 0 0; border-bottom: 0; }
 }
 
@@ -100,20 +73,14 @@
 .bv-root .bv-adjust-actions { display: flex; align-items: center; gap: 16px; }
 .bv-root .bv-adjust-actions .bv-button[type="submit"] { flex: none; }
 
-@media (max-width: 700px) {
-  /* Filter pills wrap onto more lines. Picks use the same 2-column cover grid as Up next; the button fills its column. */
-  .bv-root .bv-pill { white-space: nowrap; }
-  .bv-root .bv-picks .bv-next-body .bv-button { width: 100%; }
-}
-
 /* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */
 /* The box holds the height it had while a new pill loads (inline, from HelpMeChoose); on first load it reserves one row of cards. */
-.bv-root .bv-results--first { min-height: 320px; }
+.bv-root .bv-results--first { min-height: 160px; }
 /* The foot keeps 48px only when it holds Try again, so reloading never shrinks the page; with a few picks and no button it adds no empty space. */
 .bv-root .bv-results .bv-choose-foot { min-height: 0; }
 .bv-root .bv-choose-foot:has(.bv-button), .bv-root .bv-next-panel .bv-choose-foot { min-height: 48px; }
 .bv-root .bv-picks--busy { opacity: .5; transition: opacity .15s; pointer-events: none; }
-.bv-root .bv-next-card .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bv-root :is(.bv-next-card, .bv-upshelf-item) .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-adjust-form { max-width: 560px; gap: 14px; }
 .bv-root .bv-adjust-group { margin: 0; padding: 0; border: 0; min-width: 0; }
 .bv-root .bv-adjust-group legend { padding: 0; margin-bottom: 6px; font-weight: 600; }
@@ -123,35 +90,47 @@
 .bv-root .bv-choice span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; }
 .bv-root .bv-choice input:checked + span { background-color: var(--bv-green); color: var(--bv-on-green); }
 .bv-root .bv-choice input:focus-visible + span { outline: 3px solid var(--bv-green); outline-offset: 2px; }
-@media (max-width: 700px) { .bv-root .bv-results--first { min-height: 400px; } }
+@media (max-width: 700px) { .bv-root .bv-results--first { min-height: 160px; } }
 /* A one-line "nothing matches" or error message needs no reserved card row. */
 .bv-root .bv-results.bv-results--quiet { min-height: 0; }
 
+/* Reading now: compact cards side by side, three across at 1280 and two on a tablet. A card is the sheet colour with a 14px radius and 16px padding: the
+   cover (84px) on the left; title, author, a slim 4px bar, the page line and Update progress on the right. */
+.bv-root .bv-now-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.bv-root .bv-now-card { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 16px; align-items: start; padding: 16px; background: var(--bv-sheet); border-radius: 14px; box-shadow: var(--bv-shadow-sheet); }
+.bv-root .bv-now-card .bv-cover { width: 100%; }
+.bv-root .bv-now-body { min-width: 0; }
+.bv-root .bv-now-body h3 { margin: 0; font: 400 1.15rem/1.2 var(--bv-display); }
+.bv-root .bv-now-body .bv-author { margin: 2px 0 12px; font-size: var(--bv-fs-helper); }
+.bv-root .bv-now-body .bv-reading-meter { display: block; width: 100%; max-width: none; height: 4px; margin: 0; }
+.bv-root .bv-now-body .bv-muted { margin: 6px 0 12px; font-size: var(--bv-fs-helper); font-variant-numeric: tabular-nums; }
+.bv-root .bv-now-progress { grid-column: 1 / -1; min-width: 0; }
+.bv-root .bv-now-progress .bv-progress-box { margin: 0; }
 
-/* Reading now is a list (ul), each book a li. "Update progress" opens a sheet, so a card is its cover and text. */
-.bv-root .bv-now-grid { list-style: none; margin: 0; padding: 0; }
-.bv-root .bv-now-body .bv-button { margin-top: 2px; }
+/* One style for every card action on Home: a soft quiet pill, 44px tall, never wrapping. */
+.bv-root .bv-button.bv-soft-action { min-height: 44px; padding: 0 16px; border-color: transparent; border-radius: var(--bv-radius-pill); background: var(--bv-soft); color: var(--bv-ink); font-weight: 700; white-space: nowrap; box-shadow: none; }
 
-/* From 1100px: Reading now (a list) and Can't decide? on the left, Up next as a numbered pile on the right. */
-@media (min-width: 1100px) {
-  .bv-root .bv-home-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 64px; align-items: start; }
-  .bv-root .bv-home-body > * { grid-column: 1; }
-  .bv-root .bv-home-body > .bv-up-next { grid-column: 2; grid-row: 1 / span 4; }
-  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
-  .bv-root .bv-now-card { grid-template-columns: 96px minmax(0, 1fr); }
-}
-.bv-root .bv-pile { list-style: none; margin: 0; padding: 0; counter-reset: none; }
-.bv-root .bv-pile-row { display: grid; grid-template-columns: 24px 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bv-line); }
-.bv-root .bv-pile-row:first-child { border-top: 1px solid var(--bv-line); }
-.bv-root .bv-pile-n { color: var(--bv-muted); font: 400 var(--bv-fs-card)/1 var(--bv-display); text-align: end; }
-.bv-root .bv-pile-cover .bv-cover { width: 48px; }
-.bv-root .bv-pile-text { min-width: 0; }
-.bv-root .bv-pile-text h3 { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); overflow-wrap: anywhere; }
-.bv-root .bv-pile-text .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
-.bv-root .bv-pile-text .bv-next-label { margin: 2px 0 0; }
-.bv-root .bv-start-link { white-space: nowrap; }
+/* Up next: a numbered shelf across the full width, five items on a desktop and four on a tablet. Each item: number, cover, title, author, shelf line, Start reading. */
+.bv-root .bv-upshelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+.bv-root .bv-upshelf-item { display: grid; gap: 8px; align-content: start; justify-items: start; min-width: 0; }
+.bv-root .bv-upshelf-n { color: var(--bv-muted); font: 400 1.05rem/1 var(--bv-display); }
+.bv-root .bv-upshelf-cover { width: 140px; max-width: 100%; }
+.bv-root .bv-upshelf-cover .bv-cover { width: 100%; }
+.bv-root .bv-upshelf-item h3 { margin: 4px 0 0; font: 400 1rem/1.2 var(--bv-display); font-synthesis: none; }
+.bv-root .bv-upshelf-item .bv-author { margin: 0; font-size: .82rem; }
+.bv-root .bv-upshelf-item .bv-next-label { margin: 0; font-size: .8rem; }
 
-/* Phones: Reading now is a row you swipe, the next card peeking in from the right; Up next is a row of small covers. */
+/* Can't decide?: the picks are wide cards (cover, text and Start reading side by side), so even one pick fills the row. */
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.bv-root .bv-choose .bv-next-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px; border-radius: 12px; background: var(--bv-paper); }
+.bv-root .bv-choose .bv-next-cover .bv-cover { width: 100%; }
+.bv-root .bv-choose .bv-next-card h3 { margin: 0; font: 400 1.02rem/1.2 var(--bv-display); }
+.bv-root .bv-choose .bv-next-card .bv-author { margin: 2px 0 4px; }
+.bv-root .bv-choose .bv-next-label { margin: 0 0 8px; font-size: .8rem; }
+.bv-root .bv-choose .bv-next-card .bv-button { margin-top: 0; align-self: flex-start; }
+
+/* Tablet: Up next four across. Phone: the swipe uses the same card with a 76px cover; Up next is a sideways row of covers. */
+@media (max-width: 1099px) { .bv-root .bv-upshelf { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .bv-root .bv-now-dots { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
 .bv-root .bv-now-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--bv-line); }
 .bv-root .bv-now-dots i.on { background: var(--bv-green); }
@@ -160,13 +139,14 @@
   .bv-root .bv-now-swipe::-webkit-scrollbar { display: none; }
   .bv-root .bv-now-swipe > li { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; }
   .bv-root .bv-now-swipe > li:only-child { flex-basis: 100%; }
-  .bv-root .bv-now-body .bv-button { min-height: 44px; }
-  .bv-root .bv-next-row--strip { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; }
-  .bv-root .bv-strip-card { flex: 0 0 96px; min-width: 0; }
-  .bv-root .bv-strip-cover .bv-cover { width: 96px; }
-  .bv-root .bv-strip-card h3 { margin: 8px 0 0; font: 400 var(--bv-fs-helper)/1.25 var(--bv-display); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .bv-root .bv-strip-card .bv-next-label { margin: 2px 0 0; font-size: .75rem; }
-  .bv-root .bv-strip-card .bv-start-link { width: 100%; margin-top: 6px; white-space: normal; padding: 0 6px; min-height: 44px; justify-content: center; text-align: center; font-size: var(--bv-fs-helper); line-height: 1.2; }
+  .bv-root .bv-now-card { grid-template-columns: 76px minmax(0, 1fr); gap: 12px; }
+  .bv-root .bv-upshelf { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-bottom: 4px; }
+  .bv-root .bv-upshelf::-webkit-scrollbar { display: none; }
+  .bv-root .bv-upshelf-item { flex: 0 0 120px; }
+  .bv-root .bv-upshelf-cover { width: 112px; }
+  .bv-root .bv-upshelf-item h3 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; font-size: var(--bv-fs-helper); }
+  .bv-root .bv-upshelf-item .bv-author { -webkit-line-clamp: 1; }
+  .bv-root .bv-upshelf-item .bv-soft-action { padding-inline: 10px; font-size: var(--bv-fs-helper); }
+  /* At normal text size the label fits on one line; at 200% text it may wrap rather than push the card sideways. */
+  .bv-root .bv-button.bv-soft-action { white-space: normal; }
 }
-
-@media (min-width: 701px) { .bv-root .bv-next-card .bv-button { white-space: nowrap; padding-inline: 10px; } }

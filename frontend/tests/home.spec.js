@@ -126,7 +126,7 @@ test("without pins Up next is suggested from the shelf, with no Edit", async ({ 
   await page.goto("/home");
   await expect(page.getByText("Suggested from your shelf", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
-  const cards = page.locator(".bv-up-next .bv-pile-row");
+  const cards = page.locator(".bv-up-next .bv-upshelf-item");
   await expect(cards).toHaveCount(5);
   // Owned books first (odd ids are owned), the oldest saved first.
   await expect(cards.first()).toContainText("Owned");
@@ -271,7 +271,7 @@ test("Up next covers fill their frame: the image box equals the 2:3 frame for a 
 });
 
 // Home on a phone: the picks are a 2-column cover grid (Up next is a row of small covers, see home-reading-now.spec.js), the filter pills wrap, and nothing scrolls sideways.
-for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} the picks are a 2-column grid with nothing sideways`, async ({ page, app }) => {
+for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} the picks are one wide card per row and the pills one scrolling row, with nothing sideways`, async ({ page, app }) => {
   app.pins = [pin(1), pin(2), pin(3), pin(4)];
   app.entries = shelf(12, id => (id >= 6 ? 200 : 400));
   await page.setViewportSize({ width, height: 844 });
@@ -285,80 +285,112 @@ for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on 
     return { selector, columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length, overflowX: getComputedStyle(grid).overflowX, mask: getComputedStyle(grid).maskImage, scrolls: grid.scrollWidth > grid.clientWidth + 1, cards, inside: cards.every(c => c.left >= 0 && c.right <= innerWidth), sideways: cards.some(c => c.overflow), left: box.left };
   }));
   for (const grid of grids) {
-    expect(grid.columns, grid.selector).toBe(2);
+    expect(grid.columns, grid.selector).toBe(1);
     expect(grid.overflowX, grid.selector).toBe("visible");
     expect(grid.mask, grid.selector).toBe("none");
     expect(grid.scrolls, grid.selector).toBe(false);
     expect(grid.inside, grid.selector).toBe(true);
     expect(grid.sideways, grid.selector).toBe(false);
-    expect(new Set(grid.cards.map(c => Math.round(c.left))).size, grid.selector).toBe(2);
+    expect(new Set(grid.cards.map(c => Math.round(c.left))).size, grid.selector).toBe(1);
   }
   const pills = await page.evaluate(() => { const row = document.querySelector(".bv-pills"); return { wraps: getComputedStyle(row).flexWrap === "wrap", overflowX: getComputedStyle(row).overflowX, scrolls: row.scrollWidth > row.clientWidth + 1 }; });
-  expect(pills).toEqual({ wraps: true, overflowX: "visible", scrolls: false });
+  expect(pills).toEqual({ wraps: false, overflowX: "auto", scrolls: expect.any(Boolean) });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 // Can't decide? shows four picks per try on a phone (two rows of two) and five on a desktop (one row of five).
-test("on a phone Can't decide? shows four picks in two rows of two; on a desktop five", async ({ page, app }) => {
+test("on a phone Can't decide? shows four picks one per row; on a desktop five in at most two rows", async ({ page, app }) => {
   app.entries = shelf(14, () => 200);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
   const picks = page.locator(".bv-picks .bv-next-card");
   await expect(picks).toHaveCount(4);
   const boxes = await picks.evaluateAll(cards => cards.map(card => { const r = card.getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top) }; }));
-  expect(new Set(boxes.map(b => b.left)).size).toBe(2);
-  expect(new Set(boxes.map(b => b.top)).size).toBe(2);
+  expect(new Set(boxes.map(b => b.left)).size).toBe(1);
+  expect(new Set(boxes.map(b => b.top)).size).toBe(4);
   await page.setViewportSize({ width: 1440, height: 900 });
   await expect(picks).toHaveCount(5);
   const tops = await picks.evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().top)));
-  expect(new Set(tops).size).toBe(1);
+  expect(new Set(tops).size).toBeLessThanOrEqual(2);
 });
 
 // Home's book areas follow My Books: covers on the page, no boxes, full-width rows.
-test("at 1440 Reading now is a box-free list on the left, Up next a numbered pile of five on the right, and Can't decide? opens with five books", async ({ page, app }) => {
-  app.currentReads = [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468), { ...reading(3, "Ego is the Enemy", 0, 300), attempt: { id: "attempt-3", state: "reading", started_on: "2026-11-03", progress_unit: null, progress_value: null, total_pages: 300 } }];
+test("at 1280 Home is dense: three reads across, five Up next across, Can't decide? full width, one soft button style, nothing wrapped", async ({ page, app }) => {
+  app.currentReads = three();
   app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/home");
   const cards = page.locator(".bv-now-card");
   await expect(cards).toHaveCount(3);
+  await expect(page.locator(".bv-upshelf-item")).toHaveCount(5);
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  const tops = selector => page.locator(selector).evaluateAll(list => list.map(node => Math.round(node.getBoundingClientRect().top)));
+  expect(new Set(await tops(".bv-now-card")).size).toBe(1);
+  expect(new Set(await tops(".bv-upshelf-item")).size).toBe(1);
+  // Cards are the sheet colour with a 14px radius; the bar is a slim 4px and no wider than its card's text column.
   for (const card of await cards.all()) {
-    await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(card).toHaveCSS("box-shadow", "none");
-    await expect(card).toHaveCSS("border-top-left-radius", "0px");
-    await expect(card.getByRole("button", { name: /^Update progress/ })).toBeVisible();
+    await expect(card).toHaveCSS("border-top-left-radius", "14px");
+    const bar = await card.locator(".bv-reading-meter").boundingBox(), body = await card.locator(".bv-now-body").boundingBox();
+    expect(bar.height).toBeLessThanOrEqual(4);
+    expect(bar.width).toBeLessThanOrEqual(body.width + 0.5);
   }
-  // One column of cards, left of the pile.
-  const lefts = await cards.evaluateAll(list => list.map(card => Math.round(card.getBoundingClientRect().left)));
-  expect(new Set(lefts).size).toBe(1);
-  const meters = page.locator(".bv-now-card .bv-reading-meter");
-  await expect(meters).toHaveCount(3);
-  for (const meter of await meters.all()) expect(await meter.evaluate(node => getComputedStyle(node).maxWidth)).toBe("none");
-  const sizes = await cards.first().evaluate(card => ({ title: parseFloat(getComputedStyle(card.querySelector("h3")).fontSize), author: parseFloat(getComputedStyle(card.querySelector(".bv-author")).fontSize) }));
-  expect(sizes.title).toBeGreaterThan(sizes.author);
-  // Up next: an ordered list of five rows, numbered, right of Reading now.
-  const pile = page.locator("ol.bv-pile");
-  await expect(pile.locator("li")).toHaveCount(5);
-  await expect(pile.locator(".bv-pile-n")).toHaveText(["1", "2", "3", "4", "5"]);
-  const right = await pile.boundingBox(), left = await cards.first().boundingBox();
-  expect(right.x).toBeGreaterThan(left.x + left.width);
-  // Can't decide? is under Reading now, already showing books, with the first filter pressed and no click.
-  const picks = page.locator(".bv-picks .bv-next-card");
-  await expect(picks).toHaveCount(5);
-  await expect(page.getByRole("group", { name: "Help me choose" }).getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
-  const choose = await page.locator(".bv-choose").boundingBox();
-  expect(choose.x).toBeLessThan(right.x);
+  // Each section spans the content width: nothing leaves more than 120px empty at its right.
+  for (const [section, item] of [[".bv-reading-now", ".bv-now-card"], [".bv-up-next", ".bv-upshelf-item"], [".bv-choose", ".bv-next-card"]]) {
+    const gap = await page.evaluate(([outer, inner]) => { const right = document.querySelector(outer).getBoundingClientRect().right; return right - Math.max(...[...document.querySelectorAll(`${outer} ${inner}`)].map(node => node.getBoundingClientRect().right)); }, [section, item]);
+    expect(gap, section).toBeLessThanOrEqual(120);
+  }
+  const choose = await page.locator(".bv-choose").boundingBox(), reading = await page.locator(".bv-reading-now").boundingBox();
+  expect(Math.abs(choose.width - reading.width)).toBeLessThan(2);
+  // The pills share one row.
+  expect(new Set(await tops(".bv-pill")).size).toBe(1);
+  // Order in the page: Reading now, Up next, Can't decide?.
+  expect(await page.locator(".bv-home section").evaluateAll(list => list.map(node => node.className.split(" ")[0]).filter(name => ["bv-reading-now", "bv-up-next", "bv-choose"].includes(name)))).toEqual(["bv-reading-now", "bv-up-next", "bv-choose"]);
+  expect(app.errors).toEqual([]);
 });
 
-test("at 390 Up next is a row of small covers and Can't decide? opens with books in two columns; Start reading fills its column", async ({ page, app }) => {
+// One soft pill for every card action, never wrapping, at every width.
+for (const width of [1280, 768, 390, 320]) test(`Update progress and Start reading share one look and stay on one line at ${width}px`, async ({ page, app }) => {
+  app.currentReads = three();
+  app.entries = shelf(12, () => 200);
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/home");
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  const looks = await page.getByRole("button", { name: /^(Update progress|Start reading)/ }).evaluateAll(buttons => buttons.map(node => { const s = getComputedStyle(node), r = node.getBoundingClientRect(); return { bg: s.backgroundColor, border: s.borderTopColor + s.borderTopWidth, radius: s.borderTopLeftRadius, one: r.height < 56, fits: node.scrollWidth <= node.clientWidth + 1, tall: r.height >= 44 }; }));
+  expect(looks.length).toBeGreaterThan(8);
+  expect(new Set(looks.map(look => `${look.bg}|${look.border}|${look.radius}`)).size).toBe(1);
+  for (const look of looks) { expect(look.one).toBe(true); expect(look.fits).toBe(true); expect(look.tall).toBe(true); }
+});
+
+test("the pills are one row at 1280 and at 390", async ({ page, app }) => {
+  app.entries = shelf(14, () => 200);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    await expect(page.locator(".bv-pill").first()).toBeVisible();
+    expect(new Set(await page.locator(".bv-pill").evaluateAll(list => list.map(node => node.offsetTop))).size, `${width}px`).toBe(1);
+  }
+});
+
+test("with one pick the results box ends within 24px of the foot text, and the wide card fills the row", async ({ page, app }) => {
+  app.entries = shelf(6, () => 200);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/home");
+  const picks = page.locator(".bv-picks .bv-next-card");
+  await expect(picks.first()).toBeVisible();
+  await expect(picks).toHaveCount(1);
+  const card = await picks.first().boundingBox(), grid = await page.locator(".bv-picks").boundingBox();
+  expect(Math.abs(card.width - grid.width)).toBeLessThan(2);
+  const foot = await page.locator(".bv-choose-foot p").boundingBox(), results = await page.locator(".bv-results").boundingBox();
+  expect(results.y + results.height - (foot.y + foot.height)).toBeLessThanOrEqual(24);
+});
+
+test("at 390 Up next is a row of covers and Can't decide? opens with wide cards, one per row", async ({ page, app }) => {
   app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
-  await expect(page.locator(".bv-up-next .bv-strip-card")).toHaveCount(4);
+  await expect(page.locator(".bv-up-next .bv-upshelf-item")).toHaveCount(4);
   await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(4);
-  expect(await page.locator(".bv-picks").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length)).toBe(2);
-  const button = await page.locator(".bv-picks .bv-next-card").first().locator(".bv-button").boundingBox(), card = await page.locator(".bv-picks .bv-next-card").first().boundingBox();
-  expect(Math.abs(button.width - card.width)).toBeLessThan(2);
+  expect(await page.locator(".bv-picks").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length)).toBe(1);
 });
 
 test("a book's page offers Pin to Up next and Unpin", async ({ page, app }) => {
@@ -641,7 +673,7 @@ test("Home: Reading now links each author to the author page, and the title stil
 test("Home: Up next links a pin's authors by author_ids, and a pin without ids keeps plain text", async ({ page, app }) => {
   app.pins = [pin(1, { authors: ["Author 1", "Second Author"], author_ids: [1, 9] }), pin(2, { author_ids: [] }), pin(3, { authors: ["Author 3"] })];
   await page.goto("/home");
-  const cards = page.locator(".bv-pile-row");
+  const cards = page.locator(".bv-upshelf-item");
   await expect(cards.first().locator(".bv-author")).toHaveText("Author 1, Second Author");
   await expect(cards.first().getByRole("link", { name: "Author 1", exact: true })).toHaveAttribute("href", "/author/1");
   await expect(cards.first().getByRole("link", { name: "Second Author", exact: true })).toHaveAttribute("href", "/author/9");
@@ -776,7 +808,7 @@ test("at 390 with 200% text the swipe still holds and the page does not scroll s
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-test("at 390 one read is one full-width card with no dots, and its button is the filled primary", async ({ page, app }) => {
+test("at 390 one read is one full-width card with no dots, and its button is the soft pill", async ({ page, app }) => {
   app.currentReads = [reading(1, "Piranesi", 156, 245)];
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
@@ -784,14 +816,14 @@ test("at 390 one read is one full-width card with no dots, and its button is the
   await expect(page.locator(".bv-now-dots")).toHaveCount(0);
   const widths = await page.evaluate(() => ({ li: document.querySelector(".bv-now-swipe > li").getBoundingClientRect().width, list: document.querySelector(".bv-now-swipe").getBoundingClientRect().width }));
   expect(Math.abs(widths.li - widths.list)).toBeLessThan(2);
-  await expect(page.getByRole("button", { name: "Update progress for Piranesi" })).toHaveClass(/bv-button--primary/);
+  await expect(page.getByRole("button", { name: "Update progress for Piranesi" })).toHaveClass(/bv-soft-action/);
 });
 
-test("on desktop every Update progress button is the outline secondary", async ({ page, app }) => {
+test("on desktop every Update progress button is the soft pill", async ({ page, app }) => {
   app.currentReads = three();
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/home");
-  for (const button of await page.getByRole("button", { name: /^Update progress/ }).all()) await expect(button).toHaveClass(/bv-button--secondary/);
+  for (const button of await page.getByRole("button", { name: /^Update progress/ }).all()) await expect(button).toHaveClass(/bv-soft-action/);
 });
 
 test("saving progress on a phone does not reshuffle the cards", async ({ page, app }) => {
@@ -805,34 +837,37 @@ test("saving progress on a phone does not reshuffle the cards", async ({ page, a
   await expect(page.locator(".bv-now-swipe > li h3")).toHaveText(["Piranesi", "The Fifth Season", "Ego is the Enemy"]);
 });
 
-test("at 390 Up next is a row of small covers with titles; at 1440 it is a numbered pile; edit and unpin still work", async ({ page, app }) => {
+test("at 390 Up next is a scrolling row of covers; at 1280 a numbered shelf of five; edit and unpin still work", async ({ page, app }) => {
   app.pins = [pin(1), pin(2), pin(3)];
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
-  const strip = page.locator(".bv-next-row--strip .bv-strip-card");
-  await expect(strip).toHaveCount(3);
-  expect((await strip.first().locator(".bv-cover").boundingBox()).width).toBeLessThanOrEqual(100);
+  const items = page.locator(".bv-upshelf-item");
+  await expect(items).toHaveCount(3);
+  expect((await items.first().locator(".bv-cover").boundingBox()).width).toBeLessThanOrEqual(112);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const rows = page.locator("ol.bv-pile > li");
-  await expect(rows).toHaveCount(3);
-  await expect(rows.first()).toContainText("Middlemarch");
-  await expect(rows.first()).toContainText("Owned · Pinned");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator("ol.bv-upshelf > li")).toHaveCount(3);
+  await expect(page.locator(".bv-upshelf-n")).toHaveText(["1", "2", "3"]);
+  await expect(items.first()).toContainText("Middlemarch");
+  await expect(items.first()).toContainText("Owned · Pinned");
   await page.getByRole("button", { name: "Edit", exact: true }).click();
   await page.getByRole("button", { name: "Unpin Circe" }).click();
   await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [101, 103] });
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(page.locator("ol.bv-pile > li")).toHaveCount(2);
+  await expect(page.locator("ol.bv-upshelf > li")).toHaveCount(2);
 });
 
-test("below 1100px Home is one column; from 1100px it is two", async ({ page, app }) => {
+test("Up next is four across below 1100px and five from 1100px; Reading now is two across at 768", async ({ page, app }) => {
   app.currentReads = three();
+  const columns = selector => page.locator(selector).evaluate(node => getComputedStyle(node).gridTemplateColumns.split(" ").length);
   await page.setViewportSize({ width: 1099, height: 900 });
   await page.goto("/home");
   await expect(page.locator(".bv-now-card")).toHaveCount(3);
-  expect(await page.locator(".bv-home-body").evaluate(body => getComputedStyle(body).display)).not.toBe("grid");
+  expect(await columns("ol.bv-upshelf")).toBe(4);
   await page.setViewportSize({ width: 1100, height: 900 });
-  expect(await page.locator(".bv-home-body").evaluate(body => getComputedStyle(body).gridTemplateColumns.split(" ").length)).toBe(2);
+  expect(await columns("ol.bv-upshelf")).toBe(5);
+  await page.setViewportSize({ width: 768, height: 900 });
+  expect(await columns(".bv-now-grid")).toBe(2);
 });
 
 test("Home asks for the same things as before: the sheet, the swipe and the pile add no requests", async ({ page, app }) => {

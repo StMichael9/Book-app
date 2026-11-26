@@ -604,8 +604,8 @@ for (const theme of ["light", "dark"]) test(`on Home at 390 and 320 the finished
     const box = async selector => card.locator(selector).first().boundingBox();
     const [cardBox, cover, body, progress] = [await card.boundingBox(), await box(".bv-cover"), await box(".bv-now-body"), await box(".bv-now-progress")];
     expect(progress.y).toBeGreaterThanOrEqual(Math.max(cover.y + cover.height, body.y + body.height) - 1);   // below the cover and title row
-    expect(Math.abs(progress.x - cardBox.x)).toBeLessThanOrEqual(1);
-    expect(Math.abs(progress.width - cardBox.width)).toBeLessThanOrEqual(2);                                  // the card's full width
+    expect(Math.abs(progress.x - (cardBox.x + 16))).toBeLessThanOrEqual(1);   // inside the card's 16px padding
+    expect(Math.abs(progress.width - (cardBox.width - 32))).toBeLessThanOrEqual(2);                                  // the card's full width
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const before = (await card.boundingBox()).height;
     await card.getByRole("button", { name: "Liked it", exact: true }).click();

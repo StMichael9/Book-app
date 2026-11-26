@@ -16,7 +16,7 @@ import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
-import { greetingFor, MAX_PINS, progressOf, shortDate, suggestions, useCompact, useNarrow, useWide, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
+import { greetingFor, MAX_PINS, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
 import AuthorLinks from "../../ui-v2/AuthorLinks.jsx";
 import ThumbsPrompt from "../ThumbsPrompt.jsx";
 import "../../../styles/ui-v2/home.css";
@@ -39,7 +39,7 @@ function ProgressSheet({ read, title, readOnly, onClose, onSaved, onFinished }) 
   </div></NativeDialog>;
 }
 
-function ReadingCard({ read, onSaved, onFinished, readOnly, primary }) {
+function ReadingCard({ read, onSaved, onFinished, readOnly }) {
   const { entry, attempt } = read, book = entryBook(entry), progress = progressOf(attempt);
   const percent = progress && (progress.max ? Math.min(100, Math.round(100 * progress.value / progress.max)) : null);
   const started = shortDate(attempt.started_on);
@@ -51,7 +51,7 @@ function ReadingCard({ read, onSaved, onFinished, readOnly, primary }) {
       <p className="bv-author"><AuthorLinks authors={book.authors || []} /></p>
       <progress className="bv-reading-meter" value={percent ?? 0} max="100" aria-label={`Reading progress for ${book.title}`} />
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
-      {!readOnly && <Button variant={primary ? "primary" : "secondary"} aria-label={`Update progress for ${book.title}`} onClick={() => setOpen(true)}>Update progress</Button>}
+      {!readOnly && <Button variant="quiet" className="bv-soft-action" aria-label={`Update progress for ${book.title}`} onClick={() => setOpen(true)}>Update progress</Button>}
     </div>
     {open && <ProgressSheet read={read} title={book.title} readOnly={readOnly} onClose={() => setOpen(false)} onSaved={onSaved} onFinished={onFinished} />}
   </article>;
@@ -92,7 +92,7 @@ export default function ReadingHomePage() {
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [justFinished, setJustFinished] = useState([]), [dot, setDot] = useState(0), swipe = useRef(null);
-  const narrow = useNarrow(), compact = useCompact(), wide = useWide();
+  const narrow = useNarrow(), compact = useCompact();
   // The books Up next is showing, which "Can't decide?" leaves out. Memoised: a list rebuilt every render would keep redoing that work.
   const pinsNow = override.key === key && override.pins !== undefined ? override.pins : pinned.data, shelfItems = shelf.data?.items;
   const upNextIds = useMemo(() => (Array.isArray(pinsNow) && pinsNow.length ? pinsNow.slice(0, MAX_PINS) : shelfItems ? suggestions(shelfItems, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []).map(card => card.entry_id), [pinsNow, shelfItems, compact]);
@@ -126,25 +126,22 @@ export default function ReadingHomePage() {
     <div className="bv-home-greeting"><h1>{greetingFor(profile?.display_name)}</h1>{readingCount > 0 && <p className="bv-muted">You’re reading {books(readingCount)}</p>}</div>
     {library.readOnly && <p role="status" className="bv-notice">Your library is available to read. Changes are temporarily paused.</p>}
     <SlowReadingNotice loading={request.loading} />
-    <div className="bv-home-body">
     <section className="bv-reading-now" aria-labelledby="bv-now-title">
-      <h2 id="bv-now-title">Reading now</h2>
+      <div className="bv-section-head"><h2 id="bv-now-title">Reading now</h2>{!request.loading && !request.error && readingCount > reads.length && <TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink>}</div>
       {request.loading ? <BookSkeletons count={2} /> : request.error ? <EmptyState error title="Your reading couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Your books haven’t changed.</EmptyState>
         : cards.length ? <>
           <ul className={`bv-now-grid${narrow ? " bv-now-swipe" : ""}`} ref={swipe} onScroll={narrow ? scrolled : undefined}>{cards.map(card => <li key={(card.finished || card.read).entry.id}
             onFocus={narrow ? event => event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" }) : undefined}>{card.finished
             ? <FinishedCard finished={card.finished} readOnly={library.readOnly} onSaved={result => library.rememberEntries([result.entry])} />
-            : <ReadingCard read={card.read} readOnly={library.readOnly} primary={narrow} onSaved={saved(card.read)} onFinished={finished(card.read, card.index)} />}</li>)}</ul>
+            : <ReadingCard read={card.read} readOnly={library.readOnly} onSaved={saved(card.read)} onFinished={finished(card.read, card.index)} />}</li>)}</ul>
           {narrow && cards.length > 1 && <div className="bv-now-dots" aria-hidden="true">{cards.map((card, index) => <i key={(card.finished || card.read).entry.id} className={index === dot ? "on" : undefined} />)}</div>}
-          {readingCount > reads.length && <p className="bv-more-reading"><TextLink to="/my-books?status=reading">See all current reads ({readingCount})</TextLink></p>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
     {library.readingActions && !library.readOnly && <OnLoanHome loans={loans.loans} onChanged={loans.reload} />}
     {ready && <>
-      <UpNext layout={narrow ? "strip" : wide ? "pile" : "grid"} pins={pins} suggested={shelf.data ? suggestions(shelf.data.items, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
+      <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
       {!shelf.loading && <HelpMeChoose shelf={shelf.data} exclude={upNextIds} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
     </>}
-    </div>
   </section>;
 }
