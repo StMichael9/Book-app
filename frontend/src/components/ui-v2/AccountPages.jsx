@@ -16,6 +16,7 @@ import GenrePicker from "./GenrePicker.jsx";
 import { useGenres } from "./useGenres.js";
 import { ActionLink, BookCover, BookGrid, BookSkeletons, Button, EmptyState, PageFrame, PageHeading, TextLink } from "./primitives.jsx";
 import { SWITCH_YOU } from "./findabilityCopy.js";
+import { ConfirmSheet } from "../clubs/ClubSheets.jsx";
 import LibraryPage from "../reading/LibraryPage.jsx";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 
@@ -259,6 +260,22 @@ export function RecoveryPage({ reset = false }) {
   </div></section>;
 }
 
+// Settings, Your data: under the row's description, on the left, so the links on the right stay uncrowded. It asks first, and on success the reader is signed out and sent to the start page.
+function DeleteAccount() {
+  const auth = useAuth();
+  const [open, setOpen] = useState(false), [pending, setPending] = useState(false), [error, setError] = useState("");
+  const close = () => { setOpen(false); setError(""); };
+  async function confirm() {
+    setPending(true); setError("");
+    try { await auth.deleteAccount(); } catch { setError("Your account couldn’t be deleted. Please try again."); setPending(false); }
+  }
+  return <>
+    <Button variant="quiet" className="bv-delete-account" onClick={() => setOpen(true)}>Delete account</Button>
+    {open && <ConfirmSheet danger title="Delete your account?" confirmLabel="Delete my account" pending={pending} error={error} onClose={close} onConfirm={confirm}
+      text={<>This deletes your books, notes, lists, club posts, loans and profile. It can’t be undone. <TextLink to="/my-data">Download your data</TextLink> first if you want a copy.</>} />}
+  </>;
+}
+
 export function SettingsPage() {
   const auth = useAuth();
   const reader = useReader();
@@ -284,7 +301,7 @@ export function SettingsPage() {
     <section className="bv-account-row" aria-labelledby="bv-set-genres"><div><h2 id="bv-set-genres" className="bv-account-heading">Favourite genres</h2><span>The genres you like best</span></div><TextLink to="/preferences">Choose genres</TextLink></section>
     <section className="bv-account-row" aria-labelledby="bv-set-tips"><div><h2 id="bv-set-tips" className="bv-account-heading">Reading tips by email</h2><span id="bv-set-tips-help">A few short emails in your first weeks. Turn off any time.</span></div>
       <button type="button" role="switch" aria-checked={tipsOn} aria-labelledby="bv-set-tips" aria-describedby="bv-set-tips-help" className="bv-tips-switch" disabled={!profile} onClick={toggleTips}><span className="bv-tips-track" aria-hidden="true" /></button></section>
-    {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete your account.</span></div>
+    {(dataLinks || importLink) && <section className="bv-account-row" aria-labelledby="bv-set-data"><div><h2 id="bv-set-data" className="bv-account-heading">Your data</h2><span>Download your books and notes, or delete your account.</span>{!library.readOnly && <DeleteAccount />}</div>
       <div className="bv-account-links">{dataLinks && <TextLink to="/my-data">Your reading data</TextLink>}{importLink ? <TextLink to="/my-books/import">Import from Goodreads or StoryGraph</TextLink> : <TextLink to="/switch">{SWITCH_YOU}</TextLink>}</div></section>}
     <section className="bv-account-row bv-theme-row" aria-labelledby="bv-set-theme"><h2 id="bv-set-theme" className="bv-account-heading">Theme</h2>
       <div className="bv-theme-choice" role="radiogroup" aria-labelledby="bv-set-theme">{[["device", "Match device"], ["light", "Light"], ["dark", "Dark"]].map(([value, label]) => <label key={value}><input type="radio" name="bv-theme" value={value} checked={reader.themeChoice === value} onChange={() => reader.chooseTheme(value)} /><span>{label}</span></label>)}</div></section>
