@@ -56,6 +56,8 @@ const test = base.extend({
 });
 
 const home = page => page.getByRole("textbox", { name: "Page or % for Piranesi" });
+// On Home the progress box is in a sheet that "Update progress" opens.
+const openHome = page => page.getByRole("button", { name: "Update progress for Piranesi" }).click();
 const onPage = page => page.getByRole("textbox", { name: /^Page or %/ });
 const lastPatch = app => app.patches.at(-1);
 
@@ -64,23 +66,25 @@ for (const where of ["Home", "the book page"]) {
   test(`the box saves a page from ${where}`, async ({ page, app }) => {
     await page.goto(where === "Home" ? "/home" : "/my-books/101");
     const box = where === "Home" ? home(page) : onPage(page);
+    if (where === "Home") await openHome(page);
     await box.fill("52");
     await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "pages", progress_value: 52, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
-    if (where === "Home") await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. Page 52, 14%.");
+    if (where === "Home") await expect(page.locator(".bv-now-card").first()).toContainText("Page 52 of 360");
     else await expect(page.getByRole("status").filter({ hasText: "Saved page 52" })).toHaveText("✓ Saved page 52");
-    await expect(box).toHaveValue("");
+    if (where !== "Home") await expect(box).toHaveValue("");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 
   test(`the box saves a percent from ${where}`, async ({ page, app }) => {
     await page.goto(where === "Home" ? "/home" : "/my-books/101");
     const box = where === "Home" ? home(page) : onPage(page);
+    if (where === "Home") await openHome(page);
     await box.fill("35 %");
     await expect(page.getByText("about page 126")).toBeVisible();
     await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect.poll(() => lastPatch(app)).toEqual({ expected_version: 1, progress_unit: "percent", progress_value: 35, on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) });
-    if (where === "Home") await expect(page.getByRole("status").filter({ hasText: "Saved." })).toHaveText("Saved. 35%, about page 126.");
+    if (where === "Home") await expect(page.locator(".bv-now-card").first()).toContainText("35%");
     else await expect(page.getByRole("status").filter({ hasText: "Saved 35%" })).toHaveText("✓ Saved 35%");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
@@ -88,6 +92,7 @@ for (const where of ["Home", "the book page"]) {
   test(`bad input and a page past the end show the field error on ${where}`, async ({ page, app }) => {
     await page.goto(where === "Home" ? "/home" : "/my-books/101");
     const box = where === "Home" ? home(page) : onPage(page);
+    if (where === "Home") await openHome(page);
     await page.getByRole("button", { name: saveName, exact: true }).click();
     await expect(page.getByText("Type a page, like 52, or a percent, like 35%.")).toBeVisible();
     await expect(box).toHaveAttribute("aria-invalid", "true");
@@ -144,7 +149,7 @@ test("the last page asks Finished the book? inline; Yes finishes the reading, No
 
 test("on Home the finished prompt finishes the reading too", async ({ page, app }) => {
   await page.goto("/home");
-  await home(page).fill("360");
+  await openHome(page); await home(page).fill("360");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("button", { name: "Yes, finished" }).click();
   await expect.poll(() => lastPatch(app)).toMatchObject({ state: "finished" });
@@ -474,7 +479,7 @@ test("a reading in progress shows no reaction row, and a closing note is written
 
 test("on Home, finishing from the box asks How was it? in the same place; a pick saves, Skip removes the card", async ({ page, app }) => {
   await page.goto("/home");
-  await home(page).fill("100%");
+  await openHome(page); await home(page).fill("100%");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
   const card = page.locator(".bv-now-card.is-finished");
@@ -489,7 +494,7 @@ test("on Home, finishing from the box asks How was it? in the same place; a pick
 
 test("on Home, Skip removes the finished card", async ({ page, app }) => {
   await page.goto("/home");
-  await home(page).fill("100%");
+  await openHome(page); await home(page).fill("100%");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
   const card = page.locator(".bv-now-card.is-finished");
@@ -590,7 +595,7 @@ for (const theme of ["light", "dark"]) test(`on Home at 390 and 320 the finished
     app.attempt = freshAttempt(); app.entry = freshEntry();
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/home");
-    await home(page).fill("100%");
+    await openHome(page); await home(page).fill("100%");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
     if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
@@ -615,7 +620,7 @@ for (const theme of ["light", "dark"]) for (const where of ["home", "book"]) tes
   let scope;
   if (where === "home") {
     await page.goto("/home");
-    await home(page).fill("100%");
+    await openHome(page); await home(page).fill("100%");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
     scope = page.locator(".bv-now-card.is-finished");
