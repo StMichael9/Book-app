@@ -46,6 +46,7 @@ const test = base.extend({
         cap: { free_limit: 25, full: false }, books: [{ id: 11, book_id: 1, title: "Middlemarch", authors: ["George Eliot"], cover_image_url: null, page_count: 880, status: "current", starts_on: "2026-11-14", ends_on: "2027-01-02", checkpoints: [] }] });
       if (path === "/clubs/5/members") return reply(200, { items: [{ user_id: "00000000-0000-4000-8000-000000000000", name: "Rae", initials: "R", role: "owner", joined_at: "2026-11-01T00:00:00Z", patron: false, me: true, shares_progress: false, progress: null }] });
       if (path === "/clubs/5/books/11/posts") return reply(200, { items: [], next_before: null });
+      if (path === "/clubs/5/reports") return reply(200, { items: [] });
       if (path.startsWith("/club-invites/")) return reply(404, { detail: "Not found" });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });

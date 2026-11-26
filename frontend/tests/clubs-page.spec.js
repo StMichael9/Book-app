@@ -37,7 +37,7 @@ test("a club with only you in it says so under its name", async ({ page, app }) 
 test("Update my page for a book on the shelf and being read opens ProgressBox in a sheet, saves, and refreshes the club and members", async ({ page, app }) => {
   await page.goto("/clubs/5");
   const clubReads = () => sent(app, "GET", "/clubs/5").length, memberReads = () => sent(app, "GET", "/clubs/5/members").length;
-  await page.getByRole("button", { name: "Update my page", exact: true }).click();
+  await page.getByRole("region", { name: /^(This week|Now reading)$/ }).getByRole("button", { name: "Update my page", exact: true }).click();
   const sheet = page.getByRole("dialog", { name: "Update my page" });
   await expect(sheet).toBeVisible();
   expect(sent(app, "PUT", "/me/library/books/1")).toHaveLength(0); // already on the shelf
@@ -55,7 +55,7 @@ test("Update my page for a book on the shelf and being read opens ProgressBox in
 test("a book on the shelf that isn't being read yet starts the reading when Update my page opens", async ({ page, app }) => {
   app.attempt = null;
   await page.goto("/clubs/5");
-  await page.getByRole("button", { name: "Update my page", exact: true }).click();
+  await page.getByRole("region", { name: /^(This week|Now reading)$/ }).getByRole("button", { name: "Update my page", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Update my page" }).getByLabel("Page or % for Middlemarch")).toBeVisible();
   expect(app.requests.filter(request => request.method === "PUT" && request.path.startsWith("/me/reading-attempts/"))).toHaveLength(1);
   expect(sent(app, "PUT", "/me/library/books/1")).toHaveLength(0);
