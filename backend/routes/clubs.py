@@ -2,7 +2,7 @@ from datetime import date
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Body, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from sqlalchemy.orm import Session
 
@@ -29,11 +29,14 @@ class ClubUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = Field(default=None, max_length=500)
     color: str | None = COLOR
+    member_limit: int | None = Field(default=None, ge=2, le=25)
 
     @model_validator(mode="after")
     def name_not_null(self):
         if "name" in self.model_fields_set and self.name is None:
             raise ValueError("A name is required")
+        if "member_limit" in self.model_fields_set and self.member_limit is None:
+            raise ValueError("A member limit is a number from 2 to 25")
         return self
 
 
@@ -71,6 +74,11 @@ class BookUpdate(BaseModel):
     status: Literal["current", "upcoming", "past"] | None = None
     starts_on: date | None = None
     ends_on: date | None = None
+
+
+class BookAdvance(BaseModel):
+    model_config = STRICT
+    next_club_book_id: int | None = Field(default=None, ge=1)
 
 
 class CheckpointCreate(BaseModel):
@@ -242,6 +250,15 @@ def book_add(request: Request, club_id: int, data: BookCreate, user: User = Depe
 @limiter.limit("30/minute")
 def book_update(request: Request, club_id: int, club_book_id: int, data: BookUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return clubs.update_book(db, club_id, user, club_book_id, data.model_dump(exclude_unset=True))
+
+
+@router.post("/clubs/{club_id}/books/{club_book_id}/advance")
+@limiter.limit("30/minute")
+def book_advance(request: Request, response: Response, club_id: int, club_book_id: int, data: BookAdvance | None = Body(default=None),
+                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Finish this (current) book and, optionally, start an upcoming one, in one step. Owners and admins only."""
+    _no_store(response)
+    return clubs.advance_book(db, club_id, user, club_book_id, data.next_club_book_id if data else None)
 
 
 @router.delete("/clubs/{club_id}/books/{club_book_id}", status_code=204)

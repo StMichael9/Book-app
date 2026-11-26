@@ -177,7 +177,7 @@ def test_an_invite_link_is_a_32_byte_token_with_the_club_ref_and_previews_withou
     world.client.app.dependency_overrides.pop(get_current_user, None)
     preview = world.client.get(f"/club-invites/{token}")
     assert preview.status_code == 200 and preview.json() == {"name": "Secret Society", "description": None, "color": None, "member_count": 1, "full": False,
-                                                                  "owner_name": "A reader", "current_book": None}
+                                                                  "member_limit": 25, "effective_cap": 25, "owner_name": "A reader", "current_book": None}
     assert preview.headers["cache-control"] == "private, no-store" and "noindex" in preview.headers["x-robots-tag"]
     for bad in ("nope", "a" * 43, token + "x", "..", "a" * 200):
         assert world.client.get(f"/club-invites/{bad}").status_code == 404, bad
@@ -541,6 +541,7 @@ def test_club_detail_books_carry_authors_in_a_constant_number_of_statements(worl
 
     def statements():
         world.as_(owner)
+        world.client.get(f"/clubs/{club_id}")               # opening the club stamps it once a minute: measure the steady state
         world.db.commit()
         world.db.expire_all()
         seen = []
@@ -575,6 +576,7 @@ def test_statement_counts_do_not_grow_with_members_or_posts(world, app_modules):
 
     def count(path, who):
         world.as_(who)
+        world.client.get(f"/clubs/{club_id}")               # opening the club stamps it once a minute: measure the steady state
         world.db.commit()
         world.db.expire_all()
         seen = []
@@ -640,3 +642,462 @@ def test_robots_keep_crawlers_off_the_club_pages(world):
     assert robots.count("Disallow: /c/") == 2
     sitemap = (Path(__file__).resolve().parents[2] / "frontend" / "public" / "sitemap.xml").read_text(encoding="utf-8")
     assert "/c/" not in sitemap
+
+
+# --- the clubs redesign: finish and start next, richer lists, what is new, owner-set size (T78C) ---------------------------------------------------------
+
+TODAY = NOW.date()
+
+
+def days(n):
+    return str(TODAY + timedelta(days=n))
+
+
+def counting(world, app_modules, who, path, method="get", **kwargs):
+    """How many statements one request runs, and its response."""
+    engine = app_modules["database"].engine
+    world.as_(who)
+    world.db.commit()
+    world.db.expire_all()
+    seen = []
+    listener = lambda conn, cursor, statement, *a: seen.append(statement)
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        response = getattr(world.client, method)(path, **kwargs)
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    return len(seen), response
+
+
+def upcoming(world, owner, club_id, book_row, **dates):
+    world.as_(owner)
+    response = world.client.post(f"/clubs/{club_id}/books", json={"book_id": book_row.id, "status": "upcoming", **dates})
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def checkpoint(world, owner, club_id, club_book_id, value, due_on, unit="pages", label=None):
+    world.as_(owner)
+    response = world.client.post(f"/clubs/{club_id}/books/{club_book_id}/checkpoints", json={"unit": unit, "value": value, "due_on": due_on, "label": label})
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def book_states(response):
+    return {b["id"]: b for b in response.json()["books"]}
+
+
+# A. finish and start next
+
+def test_advance_finishes_the_current_book_and_starts_the_next_in_one_step(world):
+    owner = world.person()
+    club_id = world.club(owner)
+    now_id = world.current_book(owner, club_id, world.book("Now"))
+    next_id, later_id = upcoming(world, owner, club_id, world.book("Next")), upcoming(world, owner, club_id, world.book("Later"))
+    world.as_(owner)
+    response = world.client.post(f"/clubs/{club_id}/books/{now_id}/advance", json={"next_club_book_id": next_id})
+    assert response.status_code == 200, response.text
+    books = book_states(response)
+    assert response.json()["id"] == club_id and response.json()["me"]["role"] == "owner"                    # the updated club detail
+    assert (books[now_id]["status"], books[now_id]["ends_on"]) == ("past", days(0))
+    assert (books[next_id]["status"], books[next_id]["starts_on"]) == ("current", days(0))
+    assert books[later_id]["status"] == "upcoming" and books[later_id]["starts_on"] is None
+    assert [b["id"] for b in response.json()["books"]][0] == next_id                                      # the current book still comes first
+
+
+def test_advance_keeps_dates_that_are_already_set_and_never_breaks_the_date_rule(world):
+    owner = world.person()
+    club_id = world.club(owner)
+    world.as_(owner)
+    now_id = world.client.post(f"/clubs/{club_id}/books", json={"book_id": world.book("Dated").id, "status": "current",
+                                                                "starts_on": days(-20), "ends_on": days(-2)}).json()["id"]
+    next_id = upcoming(world, owner, club_id, world.book("Planned"), starts_on=days(5), ends_on=days(30))
+    world.as_(owner)
+    books = book_states(world.client.post(f"/clubs/{club_id}/books/{now_id}/advance", json={"next_club_book_id": next_id}))
+    assert (books[now_id]["ends_on"], books[next_id]["starts_on"]) == (days(-2), days(5))                   # nothing already set is overwritten
+    # a current book that has not started yet ends on its start date, and a next book whose window has passed starts on its end date
+    club_two = world.club(owner, "Second club")
+    world.as_(owner)
+    future = world.client.post(f"/clubs/{club_two}/books", json={"book_id": world.book("Future").id, "status": "current", "starts_on": days(5)}).json()["id"]
+    stale = world.client.post(f"/clubs/{club_two}/books", json={"book_id": world.book("Stale").id, "ends_on": days(-3)}).json()["id"]
+    response = world.client.post(f"/clubs/{club_two}/books/{future}/advance", json={"next_club_book_id": stale})
+    assert response.status_code == 200, response.text
+    books = book_states(response)
+    assert books[future]["ends_on"] == days(5) and books[stale]["starts_on"] == days(-3)
+
+
+def test_advance_without_a_next_book_just_finishes_the_current_one(world):
+    owner = world.person()
+    club_id = world.club(owner)
+    for body in ({}, {"next_club_book_id": None}, None):
+        club_book = world.current_book(owner, club_id, world.book("Again"))
+        kwargs = {} if body is None else {"json": body}
+        response = world.client.post(f"/clubs/{club_id}/books/{club_book}/advance", **kwargs)
+        assert response.status_code == 200, (body, response.text)
+        assert book_states(response)[club_book]["status"] == "past" and not [b for b in response.json()["books"] if b["status"] == "current"]
+
+
+def test_admins_may_advance_members_and_outsiders_may_not(world):
+    owner, admin, member, outsider = world.person(), world.person(), world.person(), world.person()
+    club_id = world.club(owner)
+    world.add_member(club_id, admin, "admin")
+    world.add_member(club_id, member)
+    now_id = world.current_book(owner, club_id, world.book("Guarded"))
+    next_id = upcoming(world, owner, club_id, world.book("After"))
+    path = f"/clubs/{club_id}/books/{now_id}/advance"
+    world.as_(member)
+    refused = world.client.post(path, json={"next_club_book_id": next_id})
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "moderators_only"
+    world.as_(outsider)
+    assert world.client.post(path, json={"next_club_book_id": next_id}).status_code == 404                  # the club looks private
+    world.as_(owner)
+    assert book_states(world.client.get(f"/clubs/{club_id}"))[now_id]["status"] == "current"                # nothing changed so far
+    world.as_(admin)
+    assert world.client.post(path, json={"next_club_book_id": next_id}).status_code == 200
+
+
+def test_advance_errors_leave_the_club_exactly_as_it_was(world):
+    owner = world.person()
+    club_id, other_club = world.club(owner), world.club(owner, "Other")
+    now_id = world.current_book(owner, club_id, world.book("Stays"))
+    next_id = upcoming(world, owner, club_id, world.book("Waits"))
+    foreign = upcoming(world, owner, other_club, world.book("Elsewhere"))
+    past_id = world.current_book(owner, other_club, world.book("Done"))
+    world.as_(owner)
+    assert world.client.post(f"/clubs/{other_club}/books/{past_id}/advance").status_code == 200            # now a past book in the other club
+    before = [(b["id"], b["status"], b["starts_on"], b["ends_on"]) for b in world.client.get(f"/clubs/{club_id}").json()["books"]]
+
+    def fails(path, body, status, code=None):
+        response = world.client.post(path, json=body)
+        assert response.status_code == status, (path, body, response.text)
+        assert code is None or response.json()["detail"]["code"] == code
+        assert [(b["id"], b["status"], b["starts_on"], b["ends_on"]) for b in world.client.get(f"/clubs/{club_id}").json()["books"]] == before
+
+    fails(f"/clubs/{club_id}/books/{next_id}/advance", {}, 409, "not_current")                              # an upcoming book is not current
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"next_club_book_id": foreign}, 404)                  # another club's book
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"next_club_book_id": 99999999}, 404)
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"next_club_book_id": now_id}, 409, "next_not_upcoming")
+    fails(f"/clubs/{club_id}/books/99999999/advance", {}, 404)
+    fails(f"/clubs/{other_club}/books/{now_id}/advance", {}, 404)                                            # a book of another club
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"next_club_book_id": 0}, 422)
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"next_club_book_id": "x"}, 422)
+    fails(f"/clubs/{club_id}/books/{now_id}/advance", {"unknown": 1}, 422)
+    assert world.client.post(f"/clubs/{other_club}/books/{past_id}/advance").status_code == 409            # a finished book cannot be finished again
+
+
+def test_advance_is_safe_to_repeat(world):
+    owner = world.person()
+    club_id = world.club(owner)
+    now_id = world.current_book(owner, club_id, world.book("Once"))
+    next_id, third = upcoming(world, owner, club_id, world.book("Twice")), upcoming(world, owner, club_id, world.book("Thrice"))
+    path = f"/clubs/{club_id}/books/{now_id}/advance"
+    world.as_(owner)
+    first = world.client.post(path, json={"next_club_book_id": next_id})
+    world.db.execute(text("UPDATE club_books SET ends_on = :d WHERE id = :i"), {"d": TODAY - timedelta(days=1), "i": now_id})      # the first call's date must not be redone
+    world.db.commit()
+    again = world.client.post(path, json={"next_club_book_id": next_id})                                     # a double click or a retry
+    assert first.status_code == again.status_code == 200
+    books = book_states(again)
+    assert books[now_id]["ends_on"] == days(-1) and books[next_id]["status"] == "current" and books[third]["status"] == "upcoming"
+    assert world.client.post(path, json={"next_club_book_id": third}).status_code == 409                    # a different advance of a past book is refused
+    assert world.client.post(path).status_code == 409
+    assert book_states(world.client.get(f"/clubs/{club_id}"))[next_id]["status"] == "current"
+
+
+# B. richer /me/clubs items
+
+def test_my_clubs_shows_the_current_book_the_next_checkpoint_and_my_progress(world):
+    owner, ann = world.person(), world.person()
+    club_id, empty_club = world.club(owner), world.club(owner, "Empty")
+    world.add_member(club_id, ann)
+    world.add_member(empty_club, ann)
+    book = world.book("Planned", pages=300)
+    club_book = world.current_book(owner, club_id, book)
+    checkpoint(world, owner, club_id, club_book, 100, days(1), label="Part one")
+    checkpoint(world, owner, club_id, club_book, 200, days(10), label="Part two")
+    checkpoint(world, owner, club_id, club_book, 50, days(20), unit="percent")
+
+    def mine():
+        world.as_(ann)
+        return {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}
+
+    item = mine()[club_id]
+    assert item["current_book"] == {"club_book_id": club_book, "book_id": book.id, "title": book.title, "page_count": 300,
+                                    "cover": "https://covers.openlibrary.org/b/id/1-L.jpg"}
+    assert item["next_checkpoint"] == {"unit": "pages", "value": 100, "due_on": days(1), "label": "Part one"} and item["my_progress"] is None
+    world.read(ann, book, pages=120)
+    item = mine()[club_id]
+    assert item["next_checkpoint"] == {"unit": "pages", "value": 200, "due_on": days(10), "label": "Part two"}
+    assert item["my_progress"] == {"unit": "pages", "value": 120}
+    world.read(ann, book, pages=210)                                                                    # 210 of 300 is 70%: the 50% checkpoint is behind too
+    item = mine()[club_id]
+    assert item["next_checkpoint"] is None and item["my_progress"] == {"unit": "pages", "value": 210}
+    world.read(ann, book, percent=40)
+    item = mine()[club_id]
+    assert item["my_progress"] == {"unit": "pages", "value": 120}                                        # a percent reading is shown as pages when the length is known
+    assert item["next_checkpoint"]["value"] == 200
+    assert item["role"] == "member" and item["member_count"] == 2
+    assert mine()[empty_club]["current_book"] is None and mine()[empty_club]["next_checkpoint"] is None and mine()[empty_club]["my_progress"] is None
+    world.read(owner, book, state="finished")
+    world.as_(owner)
+    assert {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}[club_id]["my_progress"] == {"unit": "percent", "value": 100}
+
+
+def test_my_clubs_uses_the_same_number_of_statements_for_one_club_and_for_ten(world, app_modules):
+    reader, poster = world.person("Reader"), world.person("Poster")
+
+    def add_club(n):
+        club_id = world.club(poster, f"Club {n:02d}")
+        world.add_member(club_id, reader)
+        book = world.book(f"Shared {n}")
+        club_book = world.current_book(poster, club_id, book)
+        checkpoint(world, poster, club_id, club_book, 100, days(2))
+        world.read(reader, book, pages=30)
+        post(world, poster, club_id, club_book, f"news {n}")                                              # unlocked and new for the reader
+        return club_id
+
+    add_club(0)
+    one, response = counting(world, app_modules, reader, "/me/clubs")
+    assert len(response.json()["items"]) == 1
+    for n in range(1, 10):
+        add_club(n)
+    many, response = counting(world, app_modules, reader, "/me/clubs")
+    items = response.json()["items"]
+    assert len(items) == 10 and many == one
+    assert all(i["new_posts"] == 1 and i["checkpoint_due_soon"] and i["next_checkpoint"]["value"] == 100 and i["my_progress"]["value"] == 30 for i in items)
+    assert all(i["current_book"]["title"] for i in items)
+    assert one <= 6                                                                                      # clubs, new posts, progress and checkpoints, plus the sign-in lookup
+
+
+# C. what is new, worked out when the page is read
+
+def seen_at(world, club_id, user):
+    world.db.rollback()
+    return world.db.scalar(text("SELECT last_seen_at FROM club_members WHERE club_id = :c AND user_id = :u"), {"c": club_id, "u": user.id})
+
+
+def test_opening_a_club_records_when_you_last_looked_at_most_once_a_minute(world, app_modules):
+    owner, ann, outsider = world.person(), world.person(), world.person()
+    club_id = world.club(owner)
+    world.add_member(club_id, ann)
+    path = f"/clubs/{club_id}"
+    assert seen_at(world, club_id, ann) is None
+    world.as_(ann)
+    world.client.get("/me/clubs")                                                                       # the list does not count as looking
+    assert seen_at(world, club_id, ann) is None
+    first_cost, response = counting(world, app_modules, ann, path)
+    assert response.status_code == 200
+    stamp = seen_at(world, club_id, ann)
+    assert stamp is not None and abs((datetime.now(timezone.utc) - stamp).total_seconds()) < 30
+    steady_cost, _ = counting(world, app_modules, ann, path)
+    assert first_cost == steady_cost + 1 and seen_at(world, club_id, ann) == stamp                          # a repeat within the minute writes nothing
+    world.db.execute(text("UPDATE club_members SET last_seen_at = :t WHERE club_id = :c AND user_id = :u"),
+                     {"t": stamp - timedelta(minutes=2), "c": club_id, "u": ann.id})
+    world.db.commit()
+    again_cost, _ = counting(world, app_modules, ann, path)
+    assert again_cost == first_cost and seen_at(world, club_id, ann) >= stamp - timedelta(seconds=1)
+    assert seen_at(world, club_id, owner) is None                                                        # only the member who looked is stamped
+    world.as_(outsider)
+    assert world.client.get(path).status_code == 404 and seen_at(world, club_id, outsider) is None
+
+
+def test_new_posts_counts_only_what_this_reader_can_read_and_did_not_write(world):
+    owner, ann, ben, cat, club_id, book, club_book = scene(world)
+    world.read(ben, book, pages=50)
+
+    def add(who, body, unit=None, value=None, **flags):
+        world.db.add(world.models.ClubPost(club_book_id=club_book, user_id=who.id, body=body, anchor_unit=unit, anchor_value=value, **flags))
+        world.db.commit()
+
+    add(ann, "open")
+    add(ann, "p40", "pages", 40)
+    add(ann, "p200 spoiler", "pages", 200)
+    add(ben, "my own")
+    add(cat, "reported away", hidden_at=NOW)
+    add(cat, "", deleted_at=NOW)
+    add(cat, "ninety percent", "percent", 90)
+
+    def counts(who):
+        world.as_(who)
+        mine = {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}[club_id]
+        return mine["new_posts"]
+
+    assert counts(ben) == 2                                                                              # open and p40: not p200, not 90%, not his own, not hidden or deleted
+    assert counts(owner) == 2                                                                            # moderators too: a locked post is never counted (open and Ben's)
+    world.read(ben, book, pages=250)
+    assert counts(ben) == 3                                                                              # p200 is now behind him; 90% of 300 is p270, still ahead
+    world.read(ben, book, pages=280)
+    assert counts(ben) == 4
+    world.as_(ben)
+    assert world.client.get(f"/clubs/{club_id}").json()["new_posts"] == 4                                    # the club page agrees with the list
+    assert world.client.get(f"/clubs/{club_id}").json()["new_posts"] == 0                                    # and having looked, nothing is new
+    assert counts(ben) == 0
+    add(ann, "after he looked")
+    assert counts(ben) == 1
+    assert counts(cat) == 3                                                                              # Cat has not reached p40: open, Ben's and the late one
+    world.read(cat, book, state="finished")
+    assert counts(cat) == 5                                                                              # a finished reader can read everything but their own, hidden and deleted posts
+
+
+def test_a_new_member_does_not_see_the_clubs_history_as_new(world):
+    owner, ann = world.person(), world.person()
+    club_id = world.club(owner)
+    book = world.book("History")
+    club_book = world.current_book(owner, club_id, book)
+    for n in range(3):
+        post(world, owner, club_id, club_book, f"old {n}")
+    world.add_member(club_id, ann)
+    world.as_(ann)
+    assert {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}[club_id]["new_posts"] == 0
+    post(world, owner, club_id, club_book, "fresh")
+    world.as_(ann)
+    assert {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}[club_id]["new_posts"] == 1
+
+
+def test_checkpoint_due_soon_means_the_next_unreached_checkpoint_is_due_within_three_days_or_overdue(world):
+    owner, ann = world.person(), world.person()
+    club_id = world.club(owner)
+    world.add_member(club_id, ann)
+    book = world.book("Deadlines", pages=300)
+    club_book = world.current_book(owner, club_id, book)
+    near = checkpoint(world, owner, club_id, club_book, 100, days(2))
+    checkpoint(world, owner, club_id, club_book, 200, days(10))
+
+    def flags():
+        world.as_(ann)
+        listed = {c["id"]: c for c in world.client.get("/me/clubs").json()["items"]}[club_id]["checkpoint_due_soon"]
+        shown = world.client.get(f"/clubs/{club_id}").json()["checkpoint_due_soon"]
+        assert listed == shown
+        return listed
+
+    def due(value):
+        world.db.execute(text("UPDATE club_checkpoints SET due_on = :d WHERE id = :i"), {"d": value, "i": near})
+        world.db.commit()
+
+    assert flags() is True                                                                               # due in 2 days
+    due(TODAY + timedelta(days=3))
+    assert flags() is True
+    due(TODAY + timedelta(days=4))
+    assert flags() is False
+    due(TODAY - timedelta(days=2))
+    assert flags() is True                                                                               # overdue and not reached
+    due(None)
+    assert flags() is False                                                                              # no date, nothing is due
+    due(TODAY + timedelta(days=1))
+    world.read(ann, book, pages=120)                                                                     # the early one is reached: the next is 10 days away
+    assert flags() is False
+    world.read(ann, book, pages=250)
+    assert flags() is False                                                                              # all reached
+
+
+def test_club_detail_statements_do_not_grow_with_clubs_or_new_posts(world, app_modules):
+    owner, reader = world.person("Owner"), world.person("Reader")
+    club_id = world.club(owner)
+    world.add_member(club_id, reader)
+    book = world.book("Busy", pages=300)
+    club_book = world.current_book(owner, club_id, book)
+    world.read(reader, book, pages=100)
+    world.as_(reader)
+    world.client.get(f"/clubs/{club_id}")                                                                # stamp it, so the measure is the steady state
+    post(world, owner, club_id, club_book, "first")
+    one, response = counting(world, app_modules, reader, f"/clubs/{club_id}")
+    assert response.json()["new_posts"] == 1
+    from rate_limit import limiter
+    limiter.reset()                                                                                      # creating a club is limited to 10 a minute
+    for n in range(9):                                                                                   # an owner may own 10 clubs; this is the other nine
+        extra = world.club(owner, f"More {n}")
+        world.add_member(extra, reader)
+        post(world, owner, extra, world.current_book(owner, extra, world.book(f"Extra {n}")), "news")
+    for n in range(15):
+        world.db.add(world.models.ClubPost(club_book_id=club_book, user_id=owner.id, body=f"bulk {n}", anchor_unit="pages" if n % 2 else None,
+                                           anchor_value=7 * n if n % 2 else None))
+    world.db.commit()
+    many, response = counting(world, app_modules, reader, f"/clubs/{club_id}")
+    assert many == one and response.json()["new_posts"] == 1 + 15
+
+
+# D. owner-set club size
+
+def test_the_owner_sets_the_club_size_between_two_and_twenty_five(world):
+    owner, admin, member = world.person(), world.person(), world.person()
+    club_id = world.club(owner)
+    world.add_member(club_id, admin, "admin")
+    world.add_member(club_id, member)
+    world.as_(owner)
+    detail = world.client.get(f"/clubs/{club_id}").json()
+    assert (detail["member_limit"], detail["effective_cap"], detail["member_count"]) == (25, 25, 3)
+    for bad in (1, 26, 0, -5, None, "ten", 2.5):
+        assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": bad}).status_code == 422, bad
+    for good in (2, 25, 12):
+        response = world.client.patch(f"/clubs/{club_id}", json={"member_limit": good})
+        assert response.status_code == 200 and response.json()["member_limit"] == good
+    detail = world.client.get(f"/clubs/{club_id}").json()
+    assert (detail["member_limit"], detail["effective_cap"]) == (12, 12) and detail["cap"] == {"free_limit": 25, "full": False}
+    world.as_(admin)
+    refused = world.client.patch(f"/clubs/{club_id}", json={"member_limit": 5, "name": "Hijacked"})
+    assert refused.status_code == 403 and refused.json()["detail"]["code"] == "owner_only"
+    assert world.client.patch(f"/clubs/{club_id}", json={"name": "Renamed by admin"}).status_code == 200      # admins keep editing the rest
+    world.as_(member)
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 5}).status_code == 403
+    world.as_(owner)
+    detail = world.client.get(f"/clubs/{club_id}").json()
+    assert detail["name"] == "Renamed by admin" and detail["member_limit"] == 12                              # the refused calls changed nothing
+
+
+def test_joins_stop_at_the_owners_limit_and_the_invite_page_says_so(world):
+    owner, ann, ben, cat = world.person(), world.person(), world.person(), world.person()
+    club_id = world.club(owner)
+    token = world.invite(owner, club_id)
+    world.as_(owner)
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 3}).status_code == 200
+    preview = world.client.get(f"/club-invites/{token}").json()
+    assert (preview["member_limit"], preview["effective_cap"], preview["member_count"], preview["full"]) == (3, 3, 1, False)
+    assert world.join(ann, token).status_code == 200
+    assert world.join(ben, token).status_code == 200                                                       # the third member fits exactly
+    preview = world.client.get(f"/club-invites/{token}").json()
+    assert (preview["member_count"], preview["full"]) == (3, True)
+    refused = world.join(cat, token)
+    assert refused.status_code == 409 and refused.json()["detail"]["code"] == "club_full"
+    assert world.db.scalar(text("SELECT count(*) FROM club_members WHERE club_id = :c"), {"c": club_id}) == 3
+    world.as_(owner)
+    assert world.client.get(f"/clubs/{club_id}").json()["cap"]["full"] is True
+    world.as_(owner)
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 4}).status_code == 200            # room again
+    assert world.join(cat, token).status_code == 200
+
+
+def test_lowering_the_limit_below_the_member_count_only_stops_new_joins(world):
+    owner, latecomer = world.person(), world.person()
+    club_id = world.club(owner)
+    others = [world.person() for _ in range(4)]
+    for other in others:
+        world.add_member(club_id, other)
+    token = world.invite(owner, club_id)
+    world.as_(owner)
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 2}).status_code == 200
+    assert len(world.client.get(f"/clubs/{club_id}/members").json()["items"]) == 5                          # nobody is removed
+    detail = world.client.get(f"/clubs/{club_id}").json()
+    assert (detail["member_limit"], detail["effective_cap"], detail["member_count"], detail["cap"]["full"]) == (2, 2, 5, True)
+    assert world.join(latecomer, token).json()["detail"]["code"] == "club_full"
+    world.as_(others[0])
+    assert world.client.post(f"/clubs/{club_id}/leave").status_code == 204
+    assert world.join(latecomer, token).status_code == 409                                                 # 4 is still over 2
+    world.as_(owner)
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 25}).status_code == 200
+    assert world.join(latecomer, token).status_code == 200
+
+
+def test_club_plus_still_lifts_the_plan_cap_and_a_smaller_owner_limit_still_applies(world):
+    owner, latecomer = world.person(), world.person()
+    club_id = world.club(owner)
+    world.db.add(world.models.Entitlement(user_id=owner.id, kind="club_plus", club_id=club_id, stripe_subscription_id="sub_limit", status="active"))
+    world.db.commit()
+    token = world.invite(owner, club_id)
+    world.as_(owner)
+    detail = world.client.get(f"/clubs/{club_id}").json()
+    assert (detail["club_plus"], detail["member_limit"], detail["effective_cap"]) == (True, 25, None)       # 25 means "the plan's cap", and Plus has none
+    assert world.client.get(f"/club-invites/{token}").json()["effective_cap"] is None
+    assert world.client.patch(f"/clubs/{club_id}", json={"member_limit": 2}).status_code == 200
+    world.add_member(club_id, world.person())
+    assert world.client.get(f"/clubs/{club_id}").json()["effective_cap"] == 2
+    assert world.join(latecomer, token).json()["detail"]["code"] == "club_full"
