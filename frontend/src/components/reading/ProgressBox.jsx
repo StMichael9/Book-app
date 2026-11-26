@@ -10,7 +10,7 @@ import { SEND_PROGRESS_DAY, UNREADABLE, isLast, pageOf, parseProgress, savedLine
 // page (where the button says "Save page" and a green tick confirms it). It saves progress only; thoughts live in Notes.
 // Nothing opens over the page and nothing locks.
 const CONFIRM_MS = 4000;
-export default function ProgressBox({ entry, attempt, title, onPage = false, minVersion = 0, readOnly = false, onSaved, onFinished }) {
+export default function ProgressBox({ entry, attempt, title, onPage = false, minVersion = 0, readOnly = false, onSaved, onFinished, onNotYet }) {
   const id = useId();
   const [value, setValue] = useState(""), [total, setTotal] = useState("");
   const [asking, setAsking] = useState(false), [error, setError] = useState(""), [status, setStatus] = useState(""), [prompt, setPrompt] = useState(false);
@@ -51,7 +51,8 @@ export default function ProgressBox({ entry, attempt, title, onPage = false, min
       setValue(""); setTotal(""); setAsking(false);
       setStatus(onPage ? (progress.unit === "pages" ? `Saved page ${progress.value}` : `Saved ${progress.value}%`) : savedLine(progress, pages)); setSavedAt(Date.now());
       setPrompt(isLast(progress, pages));
-      onSaved?.(result);
+      // `finishing` is true when this save reached the last page, so the "Finished the book?" step follows it in the box.
+      onSaved?.(result, { finishing: isLast(progress, pages) });
     });
   }
   // On the book's page the confirmation fades after a few seconds (the fade itself is CSS, and off for reduced motion).
@@ -81,6 +82,6 @@ export default function ProgressBox({ entry, attempt, title, onPage = false, min
     {(command.error || finish.error) && <p role="alert" className="bv-field-error">{command.error || finish.error}</p>}
     {!onPage && statusLine}
     {prompt && <div className="bv-finished-prompt" role="group" aria-label="Finished the book?"><span>Finished the book?</span>
-      <Button disabled={finish.pending} onClick={yes}>Yes, finished</Button><Button variant="quiet" onClick={() => setPrompt(false)}>Not yet</Button></div>}
+      <Button disabled={finish.pending} onClick={yes}>Yes, finished</Button><Button variant="quiet" onClick={() => { setPrompt(false); onNotYet?.(); }}>Not yet</Button></div>}
   </form>;
 }

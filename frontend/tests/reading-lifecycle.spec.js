@@ -176,7 +176,7 @@ test("UI refactor current reading leads Home on desktop and phone", async ({ pag
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: width <= 390 ? 844 : 1000 });
     await page.goto("/home");
-    const current = page.getByRole("textbox", { name: "Page or % for Reading fixture 101" });
+    const current = page.getByRole("button", { name: "Update progress for Reading fixture 101" });
     await expect(current).toBeVisible();
     expect((await current.boundingBox()).y).toBeLessThan(width === 390 ? 650 : 750);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -210,11 +210,10 @@ for (const theme of ["light", "dark"]) test(`Home and My Books have distinct tas
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/home");
     const desk = page.getByRole("region", { name: "Reading now", exact: true });
-    const wide = width > 700;
-    await expect(desk.getByRole("article")).toHaveCount(wide ? 3 : 1);
+    await expect(desk.getByRole("article")).toHaveCount(3);
     await expect(desk.getByRole("progressbar", { name: "Reading progress for Reading fixture 101" })).toHaveAttribute("value", "40");
-    await expect(desk.getByRole("progressbar")).toHaveCount(wide ? 3 : 1);
-    if (wide) await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
+    await expect(desk.getByRole("progressbar")).toHaveCount(3);
+    await expect(desk.getByText("Page 12", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "See all current reads (8)", exact: true })).toHaveAttribute("href", "/my-books?status=reading");
     await expect(page.getByRole("search", { name: "Search your library" })).toHaveCount(0);
     await expect(page.getByRole("group", { name: "Shelf" })).toHaveCount(0);
@@ -651,7 +650,7 @@ test("foundations screenshots: My Books, workspace, home", async ({ page, app })
   app.currentReads = [{ entry: app.entries.get(101), attempt: app.attempt }];
   await shootMatrix(page, "my-books", async () => { await page.goto("/my-books"); await expect(page.getByRole("link", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
   await shootMatrix(page, "workspace", async () => { await page.goto("/my-books/101"); await expect(page.getByRole("heading", { name: "Reading fixture 101", exact: true })).toBeVisible(); });
-  await shootMatrix(page, "home", async () => { await page.goto("/home"); await expect(page.getByRole("textbox", { name: "Page or % for Reading fixture 101" })).toBeVisible(); });
+  await shootMatrix(page, "home", async () => { await page.goto("/home"); await expect(page.getByRole("button", { name: "Update progress for Reading fixture 101" })).toBeVisible(); });
 });
 
 // The reading page, Direction D: what is kept from the old workspace tests, in the new layout. The page's box, finished prompt,

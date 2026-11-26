@@ -89,7 +89,8 @@ test("Home greets the reader and shows what they are reading", async ({ page, ap
   await expect(page.getByRole("heading", { name: "Good evening, Rae", level: 1 })).toBeVisible();
   await expect(page.getByText("You’re reading 2 books", { exact: true })).toBeVisible();
   await expect(page.getByText("Page 156 of 245 · started 3 Nov", { exact: true })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Page or % for Piranesi" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Update progress for Piranesi" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Page or % for Piranesi" })).toHaveCount(0);
   expect(app.errors).toEqual([]);
 });
 
@@ -99,13 +100,13 @@ test("a reader with no name sees just Home", async ({ page, app }) => {
   await expect(page.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
 });
 
-test("the progress box saves on Home and updates the card in place, with no dialog", async ({ page, app }) => {
+test("the progress sheet saves on Home, closes, and updates the card in place", async ({ page, app }) => {
   await page.goto("/home");
-  const box = page.getByRole("textbox", { name: "Page or % for Piranesi" });
-  await box.fill("172");
-  await page.getByRole("button", { name: "Save", exact: true }).first().click();
+  await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
+  await expect(page.getByRole("dialog", { name: "Piranesi" })).toBeVisible();
+  await page.getByRole("textbox", { name: "Page or % for Piranesi" }).fill("172");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Page 172 of 245 · started 3 Nov", { exact: true })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Saved." }).first()).toHaveText("Saved. Page 172, 70%.");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const save = app.requests.find(request => request.method === "PATCH");
   expect(save.body).toMatchObject({ progress_unit: "pages", progress_value: 172, expected_version: 3 });
@@ -113,9 +114,11 @@ test("the progress box saves on Home and updates the card in place, with no dial
 
 test("the progress box rejects a page past the end", async ({ page, app }) => {
   await page.goto("/home");
+  await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
   await page.getByRole("textbox", { name: "Page or % for Piranesi" }).fill("300");
-  await page.getByRole("button", { name: "Save", exact: true }).first().click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Your copy has 245 pages.")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Piranesi" })).toBeVisible();
   expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
 });
 
@@ -123,7 +126,7 @@ test("without pins Up next is suggested from the shelf, with no Edit", async ({ 
   await page.goto("/home");
   await expect(page.getByText("Suggested from your shelf", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveCount(0);
-  const cards = page.locator(".bv-up-next .bv-next-card");
+  const cards = page.locator(".bv-up-next .bv-pile-row");
   await expect(cards).toHaveCount(5);
   // Owned books first (odd ids are owned), the oldest saved first.
   await expect(cards.first()).toContainText("Owned");
@@ -241,29 +244,12 @@ test("a pill with nothing behind it is hidden, and the panel hides when every pi
   await expect(page.getByRole("heading", { name: "Can’t decide?" })).toHaveCount(0);
 });
 
-test("the year is one compact card: the count and the month shelf, all one link to the reading life", async ({ page, app: _app }) => {
+test("Home has no year card, however many books were finished, and still asks for the stats", async ({ page, app }) => {
   await page.goto("/home");
-  const card = page.getByRole("link", { name: /^Your 2026:/ });
-  await expect(card).toHaveAttribute("href", "/reading-life");
-  await expect(card).toHaveAccessibleName("Your 2026: 23 books finished. Open your reading life");
-  await expect(card).toContainText("23 books finished in 2026");
-  await expect(card.locator(".bv-shelf")).toHaveCount(1);
-  await expect(page.getByRole("link", { name: "Your reading life", exact: true })).toHaveCount(0);
-  await expect(page.locator(".bv-figures")).toHaveCount(0);
-  await expect(card).not.toContainText("7,840");
-});
-
-test("the year card is hidden until three books are finished this year: nothing at all under that", async ({ page, app }) => {
-  for (const finished of [0, 1, 2]) {
-    app.stats = { year: 2026, books_finished: finished, pages_read: 300 * finished, median_days: null, biggest_month: finished ? 1 : null, by_month: Array.from({ length: 12 }, (_, index) => (index === 0 ? finished : 0)), top_genres: [] };
-    await page.goto("/home");
-    await expect(page.getByRole("heading", { name: "Up next" })).toBeVisible();
-    await expect(page.locator(".bv-year-glance, .bv-year-card, .bv-shelf")).toHaveCount(0);
-    await expect(page.getByText("Finish a book this year and it’ll show up here.")).toHaveCount(0);
-  }
-  app.stats = { year: 2026, books_finished: 3, pages_read: 900, median_days: 9, biggest_month: 1, by_month: Array.from({ length: 12 }, (_, index) => (index === 0 ? 3 : 0)), top_genres: [] };
-  await page.goto("/home");
-  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toContainText("3 books finished in 2026");
+  await expect(page.getByRole("heading", { name: "Up next" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Your 2026:/ })).toHaveCount(0);
+  await expect(page.locator(".bv-year-glance, .bv-year-card, .bv-shelf")).toHaveCount(0);
+  expect(app.requests.some(request => request.path === "/me/stats")).toBe(true);
 });
 
 test("Up next covers fill their frame: the image box equals the 2:3 frame for a cover that is about 2:3", async ({ page, app }) => {
@@ -284,18 +270,8 @@ test("Up next covers fill their frame: the image box equals the 2:3 frame for a 
   }
 });
 
-test("on a phone Home shows the first book and a Show link for the rest", async ({ page, app: _app }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/home");
-  await expect(page.locator(".bv-now-card")).toHaveCount(1);
-  await expect(page.getByText(/\+ 1 more you’re reading/)).toBeVisible();
-  await page.getByRole("button", { name: "Show", exact: true }).click();
-  await expect(page.locator(".bv-now-card")).toHaveCount(2);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-});
-
-// Home on a phone: Up next and the picks are 2-column cover grids, the filter pills wrap, and nothing scrolls sideways.
-for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} Up next and the picks are 2-column grids with nothing sideways`, async ({ page, app }) => {
+// Home on a phone: the picks are a 2-column cover grid (Up next is a row of small covers, see home-reading-now.spec.js), the filter pills wrap, and nothing scrolls sideways.
+for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} the picks are a 2-column grid with nothing sideways`, async ({ page, app }) => {
   app.pins = [pin(1), pin(2), pin(3), pin(4)];
   app.entries = shelf(12, id => (id >= 6 ? 200 : 400));
   await page.setViewportSize({ width, height: 844 });
@@ -303,7 +279,7 @@ for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on 
   if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
   await page.getByRole("button", { name: "Something short" }).click();
   await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
-  const grids = await page.evaluate(() => [".bv-next-row", ".bv-picks"].map(selector => {
+  const grids = await page.evaluate(() => [".bv-picks"].map(selector => {
     const grid = document.querySelector(selector), box = grid.getBoundingClientRect();
     const cards = [...grid.querySelectorAll(".bv-next-card")].map(card => { const r = card.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, overflow: card.scrollWidth > card.clientWidth + 1 }; });
     return { selector, columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length, overflowX: getComputedStyle(grid).overflowX, mask: getComputedStyle(grid).maskImage, scrolls: grid.scrollWidth > grid.clientWidth + 1, cards, inside: cards.every(c => c.left >= 0 && c.right <= innerWidth), sideways: cards.some(c => c.overflow), left: box.left };
@@ -339,7 +315,7 @@ test("on a phone Can't decide? shows four picks in two rows of two; on a desktop
 });
 
 // Home's book areas follow My Books: covers on the page, no boxes, full-width rows.
-test("at 1440 Reading now is three box-free columns, Up next is five, and Can't decide? opens with five books", async ({ page, app }) => {
+test("at 1440 Reading now is a box-free list on the left, Up next a numbered pile of five on the right, and Can't decide? opens with five books", async ({ page, app }) => {
   app.currentReads = [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468), { ...reading(3, "Ego is the Enemy", 0, 300), attempt: { id: "attempt-3", state: "reading", started_on: "2026-11-03", progress_unit: null, progress_value: null, total_pages: 300 } }];
   app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -350,43 +326,38 @@ test("at 1440 Reading now is three box-free columns, Up next is five, and Can't 
     await expect(card).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(card).toHaveCSS("box-shadow", "none");
     await expect(card).toHaveCSS("border-top-left-radius", "0px");
+    await expect(card.getByRole("button", { name: /^Update progress/ })).toBeVisible();
   }
+  // One column of cards, left of the pile.
   const lefts = await cards.evaluateAll(list => list.map(card => Math.round(card.getBoundingClientRect().left)));
-  expect(new Set(lefts).size).toBe(3);
-  // Every book draws a meter, full width of its text column, and the page fields line up across the row.
+  expect(new Set(lefts).size).toBe(1);
   const meters = page.locator(".bv-now-card .bv-reading-meter");
   await expect(meters).toHaveCount(3);
   for (const meter of await meters.all()) expect(await meter.evaluate(node => getComputedStyle(node).maxWidth)).toBe("none");
-  const fields = await page.locator(".bv-now-card .bv-progress-box").evaluateAll(list => list.map(box => Math.round(box.getBoundingClientRect().top)));
-  expect(new Set(fields).size).toBe(1);
-  // Title is the stronger line: Caslon and larger than the muted author.
   const sizes = await cards.first().evaluate(card => ({ title: parseFloat(getComputedStyle(card.querySelector("h3")).fontSize), author: parseFloat(getComputedStyle(card.querySelector(".bv-author")).fontSize) }));
   expect(sizes.title).toBeGreaterThan(sizes.author);
-  // Up next: five equal columns, five suggestions, Start reading as wide as its words.
-  const next = page.locator(".bv-up-next .bv-next-card");
-  await expect(next).toHaveCount(5);
-  const columns = await page.locator(".bv-next-row").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").map(parseFloat));
-  expect(columns).toHaveLength(5);
-  expect(Math.max(...columns) - Math.min(...columns)).toBeLessThan(1);
-  const button = await next.first().locator(".bv-button").boundingBox(), card = await next.first().boundingBox();
-  expect(button.width).toBeLessThan(card.width - 20);
-  expect(Math.abs(button.x - card.x)).toBeLessThan(2);
-  // Can't decide? is already showing books, with the first filter pressed and no click.
+  // Up next: an ordered list of five rows, numbered, right of Reading now.
+  const pile = page.locator("ol.bv-pile");
+  await expect(pile.locator("li")).toHaveCount(5);
+  await expect(pile.locator(".bv-pile-n")).toHaveText(["1", "2", "3", "4", "5"]);
+  const right = await pile.boundingBox(), left = await cards.first().boundingBox();
+  expect(right.x).toBeGreaterThan(left.x + left.width);
+  // Can't decide? is under Reading now, already showing books, with the first filter pressed and no click.
   const picks = page.locator(".bv-picks .bv-next-card");
   await expect(picks).toHaveCount(5);
   await expect(page.getByRole("group", { name: "Help me choose" }).getByRole("button").first()).toHaveAttribute("aria-pressed", "true");
-  const pickColumns = await page.locator(".bv-picks").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length);
-  expect(pickColumns).toBe(5);
+  const choose = await page.locator(".bv-choose").boundingBox();
+  expect(choose.x).toBeLessThan(right.x);
 });
 
-test("at 390 Up next and Can't decide? open with books in two columns; Start reading fills its column", async ({ page, app }) => {
+test("at 390 Up next is a row of small covers and Can't decide? opens with books in two columns; Start reading fills its column", async ({ page, app }) => {
   app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 200) }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
-  await expect(page.locator(".bv-up-next .bv-next-card")).toHaveCount(4);
+  await expect(page.locator(".bv-up-next .bv-strip-card")).toHaveCount(4);
   await expect(page.locator(".bv-picks .bv-next-card")).toHaveCount(4);
-  for (const selector of [".bv-next-row", ".bv-picks"]) expect(await page.locator(selector).evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length), selector).toBe(2);
-  const button = await page.locator(".bv-up-next .bv-next-card").first().locator(".bv-button").boundingBox(), card = await page.locator(".bv-up-next .bv-next-card").first().boundingBox();
+  expect(await page.locator(".bv-picks").evaluate(row => getComputedStyle(row).gridTemplateColumns.split(" ").length)).toBe(2);
+  const button = await page.locator(".bv-picks .bv-next-card").first().locator(".bv-button").boundingBox(), card = await page.locator(".bv-picks .bv-next-card").first().boundingBox();
   expect(Math.abs(button.width - card.width)).toBeLessThan(2);
 });
 
@@ -669,7 +640,7 @@ test("Home: Reading now links each author to the author page, and the title stil
 test("Home: Up next links a pin's authors by author_ids, and a pin without ids keeps plain text", async ({ page, app }) => {
   app.pins = [pin(1, { authors: ["Author 1", "Second Author"], author_ids: [1, 9] }), pin(2, { author_ids: [] }), pin(3, { authors: ["Author 3"] })];
   await page.goto("/home");
-  const cards = page.locator(".bv-next-card");
+  const cards = page.locator(".bv-pile-row");
   await expect(cards.first().locator(".bv-author")).toHaveText("Author 1, Second Author");
   await expect(cards.first().getByRole("link", { name: "Author 1", exact: true })).toHaveAttribute("href", "/author/1");
   await expect(cards.first().getByRole("link", { name: "Second Author", exact: true })).toHaveAttribute("href", "/author/9");
@@ -725,4 +696,159 @@ for (const name of ["light", "dark"]) for (const slow of [false, true]) test(`Ho
     await expect(page.locator(slow ? ".bv-cover--loading" : ".bv-cover--ready").first()).toBeVisible();
     expect(await greyBehindCovers(page)).toEqual([]);
   }
+});
+
+// ---- Reading now and your pile: "Update progress" sheet, the phone swipe, the desktop list and pile ------------------------------------------------
+const three = () => [reading(1, "Piranesi", 156, 245), reading(2, "The Fifth Season", 101, 468), reading(3, "Ego is the Enemy", 10, 300)];
+
+test("the sheet opens with the book's title, closing it returns focus to the button, and Save at the last page asks Finished the book?", async ({ page, app }) => {
+  await page.goto("/home");
+  const button = page.getByRole("button", { name: "Update progress for Piranesi" });
+  await button.click();
+  const sheet = page.getByRole("dialog", { name: "Piranesi" });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: "Page or % for Piranesi" })).toBeFocused();
+  await sheet.getByRole("button", { name: "Close Piranesi" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(button).toBeFocused();
+  expect(app.requests.filter(request => request.method === "PATCH")).toHaveLength(0);
+  await button.click();
+  await page.getByRole("textbox", { name: "Page or % for Piranesi" }).fill("245");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Finished the book?" })).toBeVisible();
+  await page.getByRole("button", { name: "Not yet", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(button).toBeFocused();
+});
+
+test("finishing from the sheet closes it, turns the card into How was it?, and moves focus there", async ({ page, app }) => {
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
+  await page.getByRole("textbox", { name: "Page or % for Piranesi" }).fill("245");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("button", { name: "Yes, finished", exact: true }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PATCH").at(-1)?.body).toMatchObject({ state: "finished" });
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const card = page.locator(".bv-now-card.is-finished");
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("group", { name: "How was it?" })).toBeVisible();
+  await expect(card).toBeFocused();
+});
+
+test("with the library read-only there is no Update progress button", async ({ page, app }) => {
+  app.readOnly = true;
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Reading now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Update progress/ })).toHaveCount(0);
+});
+
+for (const width of [390, 320]) test(`at ${width} three reads swipe: cards in API order, the second peeking, three dots, every button reachable, nothing sideways`, async ({ page, app }) => {
+  app.currentReads = three();
+  await page.setViewportSize({ width, height: 844 });
+  await page.goto("/home");
+  const cards = page.locator(".bv-now-swipe > li");
+  await expect(cards).toHaveCount(3);
+  await expect(cards.locator("h3")).toHaveText(["Piranesi", "The Fifth Season", "Ego is the Enemy"]);
+  await expect(page.locator(".bv-now-dots i")).toHaveCount(3);
+  await expect(page.locator(".bv-now-dots")).toHaveAttribute("aria-hidden", "true");
+  const swipe = await page.evaluate(() => { const box = document.querySelector(".bv-now-swipe"), second = box.children[1].getBoundingClientRect();
+    return { snap: getComputedStyle(box).scrollSnapType, overflowX: getComputedStyle(box).overflowX, secondLeft: second.left, secondRight: second.right, width: innerWidth, behavior: getComputedStyle(box).scrollBehavior }; });
+  expect(swipe.snap).toContain("x mandatory");
+  expect(swipe.overflowX).toBe("auto");
+  expect(swipe.secondLeft).toBeLessThan(swipe.width);
+  expect(swipe.secondRight).toBeGreaterThan(swipe.width);
+  expect(swipe.behavior).not.toBe("smooth");
+  for (const title of ["Piranesi", "The Fifth Season", "Ego is the Enemy"]) {
+    await page.getByRole("button", { name: `Update progress for ${title}` }).focus();
+    await expect.poll(() => page.evaluate(name => { const rect = [...document.querySelectorAll(".bv-now-swipe > li")].find(li => li.querySelector("h3")?.textContent === name).getBoundingClientRect(); return rect.left >= -1 && rect.right <= innerWidth + 1; }, title), title).toBe(true);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: "Show", exact: true })).toHaveCount(0);
+});
+
+test("at 390 with 200% text the swipe still holds and the page does not scroll sideways", async ({ page, app }) => {
+  app.currentReads = three();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await expect(page.locator(".bv-now-swipe > li")).toHaveCount(3);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test("at 390 one read is one full-width card with no dots, and its button is the filled primary", async ({ page, app }) => {
+  app.currentReads = [reading(1, "Piranesi", 156, 245)];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await expect(page.locator(".bv-now-swipe > li")).toHaveCount(1);
+  await expect(page.locator(".bv-now-dots")).toHaveCount(0);
+  const widths = await page.evaluate(() => ({ li: document.querySelector(".bv-now-swipe > li").getBoundingClientRect().width, list: document.querySelector(".bv-now-swipe").getBoundingClientRect().width }));
+  expect(Math.abs(widths.li - widths.list)).toBeLessThan(2);
+  await expect(page.getByRole("button", { name: "Update progress for Piranesi" })).toHaveClass(/bv-button--primary/);
+});
+
+test("on desktop every Update progress button is the outline secondary", async ({ page, app }) => {
+  app.currentReads = three();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/home");
+  for (const button of await page.getByRole("button", { name: /^Update progress/ }).all()) await expect(button).toHaveClass(/bv-button--secondary/);
+});
+
+test("saving progress on a phone does not reshuffle the cards", async ({ page, app }) => {
+  app.currentReads = three();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await page.getByRole("button", { name: "Update progress for The Fifth Season" }).click();
+  await page.getByRole("textbox", { name: "Page or % for The Fifth Season" }).fill("200");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".bv-now-swipe > li h3")).toHaveText(["Piranesi", "The Fifth Season", "Ego is the Enemy"]);
+});
+
+test("at 390 Up next is a row of small covers with titles; at 1440 it is a numbered pile; edit and unpin still work", async ({ page, app }) => {
+  app.pins = [pin(1), pin(2), pin(3)];
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  const strip = page.locator(".bv-next-row--strip .bv-strip-card");
+  await expect(strip).toHaveCount(3);
+  expect((await strip.first().locator(".bv-cover").boundingBox()).width).toBeLessThanOrEqual(100);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const rows = page.locator("ol.bv-pile > li");
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first()).toContainText("Middlemarch");
+  await expect(rows.first()).toContainText("Owned · Pinned");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Unpin Circe" }).click();
+  await expect.poll(() => app.requests.filter(request => request.method === "PUT").at(-1)?.body).toEqual({ entry_ids: [101, 103] });
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.locator("ol.bv-pile > li")).toHaveCount(2);
+});
+
+test("below 1100px Home is one column; from 1100px it is two", async ({ page, app }) => {
+  app.currentReads = three();
+  await page.setViewportSize({ width: 1099, height: 900 });
+  await page.goto("/home");
+  await expect(page.locator(".bv-now-card")).toHaveCount(3);
+  expect(await page.locator(".bv-home-body").evaluate(body => getComputedStyle(body).display)).not.toBe("grid");
+  await page.setViewportSize({ width: 1100, height: 900 });
+  expect(await page.locator(".bv-home-body").evaluate(body => getComputedStyle(body).gridTemplateColumns.split(" ").length)).toBe(2);
+});
+
+test("Home asks for the same things as before: the sheet, the swipe and the pile add no requests", async ({ page, app }) => {
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Up next" })).toBeVisible();
+  await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  const before = app.requests.length;
+  await page.getByRole("button", { name: "Update progress for Piranesi" }).click();
+  await page.getByRole("button", { name: "Close Piranesi" }).click();
+  expect(app.requests.slice(before).map(request => request.path)).toEqual([]);
+});
+
+test("reduced motion: the swipe never scrolls smoothly", async ({ page, app }) => {
+  app.currentReads = three();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  expect(await page.locator(".bv-now-swipe").evaluate(box => getComputedStyle(box).scrollBehavior)).toBe("auto");
 });
