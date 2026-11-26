@@ -836,12 +836,12 @@ test("a list can be reordered from the keyboard and each move sends the full ord
   await up("Peril at End House").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator(".bv-list-books li").first()).toContainText("Peril at End House");
-  expect(sent(app, "PUT", "/me/lists/7/order").at(-1).body).toEqual({ book_ids: [2, 1, 3] });
+  await expect.poll(() => sent(app, "PUT", "/me/lists/7/order").at(-1)?.body).toEqual({ book_ids: [2, 1, 3] });
   await expect(page.getByRole("button", { name: "Move Peril at End House down" })).toBeFocused();
   await page.getByRole("button", { name: "Move Peril at End House down" }).press("Space");
   await expect(page.locator(".bv-list-books li").nth(1)).toContainText("Peril at End House");
   await page.getByRole("button", { name: "Move Murder on the Orient Express up" }).press("Enter");
-  expect(sent(app, "PUT", "/me/lists/7/order").at(-1).body).toEqual({ book_ids: [1, 3, 2] });
+  await expect.poll(() => sent(app, "PUT", "/me/lists/7/order").at(-1)?.body).toEqual({ book_ids: [1, 3, 2] });
   await expect(page.getByRole("button", { name: "Move The Murder of Roger Ackroyd up" })).toBeDisabled();
   await expect(page.getByRole("status").filter({ hasText: "moved to position" })).toHaveText(/Murder on the Orient Express moved to position 2 of 3\./);
 });

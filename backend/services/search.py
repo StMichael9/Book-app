@@ -5,6 +5,17 @@ from sqlalchemy.orm import Session
 from models import Book, BookTitleAlias, Author, Tag, User, UserBook, UserBookStatus, UserPreference, book_tags
 
 
+FUZZY_FLOOR = 0.4
+# Words that carry no meaning of their own in a title: a typo-tolerant match is not judged on them.
+FUZZY_SKIP = frozenset({"the", "a", "an", "of", "and", "in", "on", "to", "for", "with", "at", "by", "or", "is", "it"})
+
+
+def _fuzzy_words(book: str) -> list[str]:
+    """The words of a search every one of which must be matched (give or take a typo) by a fuzzy result: "goblet of fire" must not
+    return "Wings of Fire" or "The Golden Goblet", each of which has only one of its two words (F15)."""
+    return list(dict.fromkeys(w for w in re.findall(r"[^\W_]+", book.casefold()) if len(w) >= 3 and w not in FUZZY_SKIP))
+
+
 class SearchService:
     def __init__(self, db: Session):
         self.db = db
@@ -41,8 +52,12 @@ class SearchService:
                 key = func.bookvane_search_key(book)
                 if fuzzy:
                     # Typos ("hary poter"): only tried when the exact, prefix and substring matches found nothing.
-                    title_ids = select(Book.id).where(func.word_similarity(key, Book.title_key) >= 0.4)
-                    alias_ids = select(BookTitleAlias.book_id).where(func.word_similarity(key, BookTitleAlias.title_key) >= 0.4)
+                    words = [func.bookvane_search_key(word) for word in _fuzzy_words(book)]
+                    title_ids = select(Book.id).where(func.word_similarity(key, Book.title_key) >= FUZZY_FLOOR,
+                                                      *(func.word_similarity(word, Book.title_key) >= FUZZY_FLOOR for word in words))
+                    alias_ids = select(BookTitleAlias.book_id).where(
+                        func.word_similarity(key, BookTitleAlias.title_key) >= FUZZY_FLOOR,
+                        *(func.word_similarity(word, BookTitleAlias.title_key) >= FUZZY_FLOOR for word in words))
                 else:
                     title_ids = select(Book.id).where(or_(Book.title_key == key, Book.title_key.like(key.concat("%")),
                                                           Book.title_key.like(literal("%").concat(key).concat("%"))))

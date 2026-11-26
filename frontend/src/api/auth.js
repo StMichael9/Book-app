@@ -25,6 +25,12 @@ export function logoutUser() {
   }));
 }
 
+// Deletes the signed-in reader's account. The body is exactly {"confirm":"delete"}; 204 means it is gone and both auth cookies are cleared.
+// An expired session (401) takes the usual route: one refresh, then the session-expired event.
+export function deleteAccount() {
+  return apiRequest("/me", { method: "DELETE", body: JSON.stringify({ confirm: "delete" }) });
+}
+
 export function requestPasswordReset(email) {
   return apiRequest("/auth/forgot-password", {
     method: "POST",
