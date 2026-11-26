@@ -78,7 +78,7 @@ for (const status of [422, 429]) test(`a ${status} shows the save error and leav
   app.deleteStatus = status;
   await open(page);
   await sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
-  await expect(sheet(page).getByRole("alert")).toHaveText("That couldn’t be saved. Please try again.");
+  await expect(sheet(page).getByRole("alert")).toHaveText("Your account couldn’t be deleted. Please try again.");
   await expect(sheet(page)).toBeVisible();
   await expect(page).toHaveURL(/\/settings$/);
   expect(app.signedIn).toBe(true);
@@ -92,7 +92,7 @@ test("a network error shows the same error and leaves the sheet open", async ({ 
   await open(page);
   await page.route("**/test-api/me", route => route.request().method() === "DELETE" ? route.abort("failed") : route.fallback());
   await sheet(page).getByRole("button", { name: "Delete my account", exact: true }).click();
-  await expect(sheet(page).getByRole("alert")).toHaveText("That couldn’t be saved. Please try again.");
+  await expect(sheet(page).getByRole("alert")).toHaveText("Your account couldn’t be deleted. Please try again.");
   await expect(sheet(page)).toBeVisible();
   expect(app.signedIn).toBe(true);
 });

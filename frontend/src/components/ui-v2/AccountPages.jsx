@@ -267,7 +267,7 @@ function DeleteAccount() {
   const close = () => { setOpen(false); setError(""); };
   async function confirm() {
     setPending(true); setError("");
-    try { await auth.deleteAccount(); } catch { setError("That couldn’t be saved. Please try again."); setPending(false); }
+    try { await auth.deleteAccount(); } catch { setError("Your account couldn’t be deleted. Please try again."); setPending(false); }
   }
   return <>
     <Button variant="quiet" className="bv-delete-account" onClick={() => setOpen(true)}>Delete account</Button>
