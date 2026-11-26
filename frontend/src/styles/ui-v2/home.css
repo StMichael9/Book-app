@@ -123,3 +123,44 @@
 /* A one-line "nothing matches" or error message needs no reserved card row. */
 .bv-root .bv-results.bv-results--quiet { min-height: 0; }
 
+
+/* Reading now is a list (ul), each book a li. "Update progress" opens a sheet, so a card is its cover and text. */
+.bv-root .bv-now-grid { list-style: none; margin: 0; padding: 0; }
+.bv-root .bv-now-body .bv-button { margin-top: 2px; }
+
+/* From 1100px: Reading now (a list) and Can't decide? on the left, Up next as a numbered pile on the right. */
+@media (min-width: 1100px) {
+  .bv-root .bv-home-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; column-gap: 64px; align-items: start; }
+  .bv-root .bv-home-body > * { grid-column: 1; }
+  .bv-root .bv-home-body > .bv-up-next { grid-column: 2; grid-row: 1 / span 4; }
+  .bv-root .bv-now-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .bv-root .bv-now-card { grid-template-columns: 96px minmax(0, 1fr); }
+}
+.bv-root .bv-pile { list-style: none; margin: 0; padding: 0; counter-reset: none; }
+.bv-root .bv-pile-row { display: grid; grid-template-columns: 24px 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--bv-line); }
+.bv-root .bv-pile-row:first-child { border-top: 1px solid var(--bv-line); }
+.bv-root .bv-pile-n { color: var(--bv-muted); font: 400 var(--bv-fs-card)/1 var(--bv-display); text-align: end; }
+.bv-root .bv-pile-cover .bv-cover { width: 48px; }
+.bv-root .bv-pile-text { min-width: 0; }
+.bv-root .bv-pile-text h3 { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); overflow-wrap: anywhere; }
+.bv-root .bv-pile-text .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
+.bv-root .bv-pile-text .bv-next-label { margin: 2px 0 0; }
+.bv-root .bv-start-link { white-space: nowrap; }
+
+/* Phones: Reading now is a row you swipe, the next card peeking in from the right; Up next is a row of small covers. */
+.bv-root .bv-now-dots { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
+.bv-root .bv-now-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--bv-line); }
+.bv-root .bv-now-dots i.on { background: var(--bv-green); }
+@media (max-width: 700px) {
+  .bv-root .bv-now-swipe { display: flex; gap: 12px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 0; scrollbar-width: none; }
+  .bv-root .bv-now-swipe::-webkit-scrollbar { display: none; }
+  .bv-root .bv-now-swipe > li { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; }
+  .bv-root .bv-now-swipe > li:only-child { flex-basis: 100%; }
+  .bv-root .bv-now-body .bv-button { min-height: 44px; }
+  .bv-root .bv-next-row--strip { display: flex; gap: 14px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: 4px; }
+  .bv-root .bv-strip-card { flex: 0 0 96px; min-width: 0; }
+  .bv-root .bv-strip-cover .bv-cover { width: 96px; }
+  .bv-root .bv-strip-card h3 { margin: 8px 0 0; font: 400 var(--bv-fs-helper)/1.25 var(--bv-display); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .bv-root .bv-strip-card .bv-next-label { margin: 2px 0 0; font-size: .75rem; }
+  .bv-root .bv-strip-card .bv-start-link { width: 100%; margin-top: 6px; white-space: normal; padding: 0 6px; min-height: 44px; justify-content: center; text-align: center; font-size: var(--bv-fs-helper); line-height: 1.2; }
+}
