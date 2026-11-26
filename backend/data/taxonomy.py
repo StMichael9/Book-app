@@ -204,6 +204,11 @@ assert set(PARTIAL_KEYWORDS) == set(GENRE_KEYS)
 # Bare subjects that Open Library users add to almost anything (T57): together they count as at most ONE partial hit for a genre,
 # never as an exact alias, and never carry a genre without another, non-weak hit. Strong forms ("travel writing", "humorous stories", "picture books"...) stay exact aliases.
 WEAK_SUBJECTS = frozenset({"travel", "humor", "humour", "juvenile", "juvenile fiction"})
+# Generic theme words readers pile onto popular books (F9: a children's fantasy listing "Monsters", "Vampires", "Supernatural" and
+# "Mystery" is not horror or a mystery). They still map to their genre, but only as a fallback: when the book has no other genre
+# backed by a more specific subject, so a book that is only tagged "Mystery" stays a mystery.
+THEME_SUBJECTS = frozenset({"monsters", "vampires", "werewolves", "zombies", "ghosts", "supernatural", "magic and supernatural",
+                            "mystery", "adventure", "murder", "crime"})
 # Words that mark a book as fiction. A nonfiction genre then needs a strong exact alias behind it, not only partial hits.
 FICTION_WORDS = frozenset({"fiction", "novel", "novels", "novella", "novellas", "stories"})
 GUARD_EXEMPT = frozenset({"graphic_novels"})  # listed under nonfiction for the picker, but its books are often fiction
@@ -284,10 +289,13 @@ def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list
     keys = list(dict.fromkeys(_subject_key(item) for item in subjects or [] if isinstance(item, str)))
     score: dict[str, int] = {}
     exact: set[str] = set()
+    solid: set[str] = set()           # genres backed by at least one subject that is not a generic theme word
     for key in keys:
         if key in exact_map:
             score[exact_map[key]] = score.get(exact_map[key], 0) + 2
             exact.add(exact_map[key])
+            if key not in THEME_SUBJECTS:
+                solid.add(exact_map[key])
     if mapping is None:
         strong: dict[str, set] = {}
         weak_genres: set[str] = set()
@@ -301,10 +309,14 @@ def genres_for_subjects(subjects, mapping: dict[str, str] | None = None) -> list
             count = len(hits) + (1 if genre in weak_genres else 0)  # all weak subjects together are one hit
             if count >= 2:
                 score[genre] = score.get(genre, 0) + count
+                if hits - THEME_SUBJECTS:
+                    solid.add(genre)
         if any(_is_fiction(key) for key in keys):
             for genre in list(score):
                 if genre in _NONFICTION and genre not in exact:
                     del score[genre]
+    if solid & score.keys():          # generic theme words alone never add a genre to a book that already has a better-backed one
+        score = {genre: value for genre, value in score.items() if genre in solid}
     order = {key: index for index, key in enumerate(GENRE_KEYS)}
     return [genre for genre, _ in sorted(score.items(), key=lambda item: (-item[1], order.get(item[0], 99)))][:MAX_GENRES_PER_BOOK]
 

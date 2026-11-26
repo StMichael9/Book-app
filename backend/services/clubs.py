@@ -1,8 +1,9 @@
 """Free book clubs (T78A): private, invite-only groups with spoiler-safe discussion.
 
 - Nothing here is public. A club, its members, its posts and its books are visible to its members only (anyone else gets a 404).
-- Free up to FREE_CAP members; a live Club Plus subscription (services.entitlements.club_plus) lifts the cap. If Plus lapses nobody
-  is removed: new joins simply pause while the club is at or over the cap.
+- Free up to FREE_CAP members; a live Club Plus subscription (services.entitlements.club_plus) lifts the cap. The owner may set a smaller
+  size (`member_limit`, 2 to 25). If Plus lapses or the limit is lowered nobody is removed: new joins simply pause while the club is at or
+  over its cap (`effective_cap`).
 - Discussion is spoiler-safe: a post is anchored at the page or percent it is about (by default the poster's own progress) and a
   member who has not reached it sees only a locked stub ("Unlocks at p. 140"). Progress comes from the member's OWN readings of the
   book; nobody's progress is shown to others unless that member opted in.
@@ -17,7 +18,7 @@ import secrets
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import and_, case, func, select, text, update
+from sqlalchemy import and_, case, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import aggregate_order_by, insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -33,6 +34,8 @@ MAX_OWNED = 10
 MAX_BOOKS = 50
 MAX_CHECKPOINTS = 20
 HIDE_AFTER_REPORTS = 3
+DUE_SOON_DAYS = 3
+SEEN_EVERY = timedelta(minutes=1)
 POST_PAGE = 30
 INVITE_DAYS = 14
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
@@ -80,9 +83,19 @@ def _member_count(db: Session, club_id: int) -> int:
     return db.scalar(select(func.count()).select_from(ClubMember).where(ClubMember.club_id == club_id)) or 0
 
 
-def _full(db: Session, club_id: int, count: int | None = None) -> bool:
-    count = _member_count(db, club_id) if count is None else count
-    return count >= FREE_CAP and not entitlements.club_plus(db, club_id)
+def effective_cap(db: Session, club: Club, plus: bool | None = None) -> int | None:
+    """How many members this club may have: the owner's limit, or the plan's cap when the limit is left at the top (25). None means no
+    limit (Club Plus). This is the one place that decides it, so a bigger plan cap later is a one-line change."""
+    if club.member_limit < FREE_CAP:
+        return club.member_limit
+    plus = entitlements.club_plus(db, club.id) if plus is None else plus
+    return None if plus else FREE_CAP
+
+
+def _full(db: Session, club: Club, count: int | None = None, plus: bool | None = None) -> bool:
+    count = _member_count(db, club.id) if count is None else count
+    cap = effective_cap(db, club, plus)
+    return cap is not None and count >= cap
 
 
 # --- clubs ---------------------------------------------------------------------------------------------------------------
@@ -97,52 +110,167 @@ def create_club(db: Session, user: User, name: str, description: str | None, col
     db.add(ClubMember(club_id=club.id, user_id=user.id, role="owner"))
     db.commit()
     _count(db, "club_created")
-    return {"id": club.id, "name": club.name, "description": club.description, "color": club.color, "role": "owner", "member_count": 1}
+    return {"id": club.id, "name": club.name, "description": club.description, "color": club.color, "role": "owner", "member_count": 1, "member_limit": club.member_limit}
+
+
+def _best_progress(rows) -> dict:
+    """The furthest this reader has got in one book, from their own readings: {finished, pages, percent, total} (None where unknown)."""
+    best = {"finished": False, "pages": None, "percent": None, "total": None}
+    for state, unit, value, total in rows:
+        if state == "finished":
+            best["finished"] = True
+        if unit is None or value is None:
+            continue
+        pages = value if unit == "pages" else (round(value * total / 100) if total else None)
+        percent = value if unit == "percent" else (value * 100 / total if total else None)
+        if pages is not None:
+            best["pages"] = max(best["pages"] or 0, pages)
+        if percent is not None:
+            best["percent"] = max(best["percent"] or 0, percent)
+        best["total"] = total or best["total"]
+    return best
+
+
+def _progress_by_book(db: Session, user_id, book_ids) -> dict:
+    """The reader's own progress in each of these books, in one statement however many books there are."""
+    ids = sorted({b for b in book_ids if b is not None})
+    found: dict[int, list] = {}
+    if ids:
+        for book_id, state, unit, value, total in db.execute(
+                select(UserBook.book_id, ReadingAttempt.state, ReadingAttempt.progress_unit, ReadingAttempt.progress_value,
+                       func.coalesce(ReadingAttempt.total_pages, Book.page_count))
+                .join(UserBook, UserBook.id == ReadingAttempt.user_book_id).join(Book, Book.id == UserBook.book_id)
+                .where(UserBook.user_id == user_id, UserBook.book_id.in_(ids))):
+            found.setdefault(book_id, []).append((state, unit, value, total))
+    return {book_id: _best_progress(found.get(book_id, [])) for book_id in ids}
+
+
+def _new_post_groups(db: Session, user_id, club_id: int | None = None) -> list:
+    """New posts since the reader last opened each club (or joined it), not their own, hidden or deleted, in ONE grouped statement across
+    all their clubs: one row per (club, book, anchor). Whether a post is unlocked is decided afterwards by `reached`, so the count can
+    never include a post the feed would show as locked."""
+    since = func.coalesce(ClubMember.last_seen_at, ClubMember.joined_at)
+    query = (select(ClubBook.club_id, ClubBook.book_id, Book.page_count, ClubPost.anchor_unit, ClubPost.anchor_value, func.count().label("n"))
+             .select_from(ClubMember).join(ClubBook, ClubBook.club_id == ClubMember.club_id).join(Book, Book.id == ClubBook.book_id)
+             .join(ClubPost, ClubPost.club_book_id == ClubBook.id)
+             .where(ClubMember.user_id == user_id, ClubPost.created_at > since, ClubPost.user_id != user_id,
+                    ClubPost.deleted_at.is_(None), ClubPost.hidden_at.is_(None))
+             .group_by(ClubBook.club_id, ClubBook.book_id, Book.page_count, ClubPost.anchor_unit, ClubPost.anchor_value))
+    if club_id is not None:
+        query = query.where(ClubMember.club_id == club_id)
+    return db.execute(query).all()
+
+
+def _unlocked_counts(groups, progress: dict) -> dict:
+    counts: dict[int, int] = {}
+    for row in groups:
+        if reached(progress.get(row.book_id) or _best_progress([]), row.anchor_unit, row.anchor_value, row.page_count):
+            counts[row.club_id] = counts.get(row.club_id, 0) + row.n
+    return counts
+
+
+def _next_unreached(checkpoints: list, progress: dict, page_count: int | None):
+    """The first checkpoint (in due-date order) this reader has not reached."""
+    return next((cp for cp in checkpoints if not reached(progress, cp["unit"], cp["value"], page_count)), None)
+
+
+def _due_soon(checkpoint: dict | None, today: date) -> bool:
+    """The next unreached checkpoint is due within three days, or is already overdue."""
+    return bool(checkpoint and checkpoint["due_on"] is not None and checkpoint["due_on"] <= today + timedelta(days=DUE_SOON_DAYS))
+
+
+def _my_progress(progress: dict) -> dict | None:
+    if progress["finished"]:
+        return {"unit": "percent", "value": 100}
+    if progress["pages"] is not None:
+        return {"unit": "pages", "value": int(progress["pages"])}
+    if progress["percent"] is not None:
+        return {"unit": "percent", "value": int(progress["percent"])}
+    return None
+
+
+def _checkpoints(db: Session, club_book_ids: list) -> dict[int, list]:
+    """The checkpoints of these club books in due-date order, in one statement."""
+    found: dict[int, list] = {}
+    if club_book_ids:
+        for cp in db.scalars(select(ClubCheckpoint).where(ClubCheckpoint.club_book_id.in_(club_book_ids)).order_by(ClubCheckpoint.due_on.nulls_last(), ClubCheckpoint.id)):
+            found.setdefault(cp.club_book_id, []).append({"id": cp.id, "unit": cp.unit, "value": cp.value, "due_on": cp.due_on, "label": cp.label})
+    return found
 
 
 def my_clubs(db: Session, user: User) -> list[dict]:
-    """The reader's clubs with member counts and the current book, in one statement."""
-    members = (select(ClubMember.club_id, func.count().label("n")).group_by(ClubMember.club_id).subquery())
-    current = (select(ClubBook.club_id, Book.title, Book.id.label("book_id")).join(Book, Book.id == ClubBook.book_id)
-               .where(ClubBook.status == "current").subquery())
-    rows = db.execute(select(Club.id, Club.name, Club.description, Club.color, ClubMember.role, members.c.n, current.c.title, current.c.book_id)
+    """The reader's clubs, each with its member count, current book, next checkpoint, own progress and what is new: a fixed number of
+    statements (clubs, new posts, progress, checkpoints) however many clubs there are."""
+    mine = select(ClubMember.club_id).where(ClubMember.user_id == user.id)
+    members = (select(ClubMember.club_id, func.count().label("n")).where(ClubMember.club_id.in_(mine)).group_by(ClubMember.club_id).subquery())
+    current = (select(ClubBook.club_id, ClubBook.id.label("club_book_id"), Book.title, Book.id.label("book_id"), Book.cover_image_url, Book.page_count)
+               .join(Book, Book.id == ClubBook.book_id).where(ClubBook.status == "current", ClubBook.club_id.in_(mine)).subquery())
+    rows = db.execute(select(Club.id, Club.name, Club.description, Club.color, ClubMember.role, members.c.n, current.c.club_book_id, current.c.title,
+                             current.c.book_id, current.c.cover_image_url, current.c.page_count)
                       .join(ClubMember, and_(ClubMember.club_id == Club.id, ClubMember.user_id == user.id))
                       .join(members, members.c.club_id == Club.id).outerjoin(current, current.c.club_id == Club.id)
                       .order_by(Club.name, Club.id)).all()
-    return [{"id": r.id, "name": r.name, "description": r.description, "color": r.color, "role": r.role, "member_count": r.n,
-             "current_book": {"book_id": r.book_id, "title": r.title} if r.title else None} for r in rows]
+    if not rows:
+        return []
+    groups = _new_post_groups(db, user.id)
+    progress = _progress_by_book(db, user.id, {r.book_id for r in rows} | {g.book_id for g in groups})
+    checkpoints = _checkpoints(db, [r.club_book_id for r in rows if r.club_book_id])
+    new_posts = _unlocked_counts(groups, progress)
+    today = _now().date()
+    items = []
+    for r in rows:
+        own = progress.get(r.book_id) if r.club_book_id else None
+        next_cp = _next_unreached(checkpoints.get(r.club_book_id, []), own, r.page_count) if own is not None else None
+        items.append({"id": r.id, "name": r.name, "description": r.description, "color": r.color, "role": r.role, "member_count": r.n,
+                      "current_book": {"club_book_id": r.club_book_id, "book_id": r.book_id, "title": r.title, "cover": r.cover_image_url,
+                                       "page_count": r.page_count} if r.club_book_id else None,
+                      "next_checkpoint": {k: next_cp[k] for k in ("unit", "value", "due_on", "label")} if next_cp else None,
+                      "my_progress": _my_progress(own) if own is not None else None,
+                      "new_posts": new_posts.get(r.id, 0), "checkpoint_due_soon": _due_soon(next_cp, today)})
+    return items
 
 
-def detail(db: Session, club_id: int, user: User) -> dict:
+def detail(db: Session, club_id: int, user: User, touch: bool = True) -> dict:
     me = member_of(db, club_id, user)
     club = db.get(Club, club_id)
     count = _member_count(db, club_id)
     plus = entitlements.club_plus(db, club_id)
+    cap = effective_cap(db, club, plus)
     authors = (select(func.coalesce(func.array_agg(aggregate_order_by(Author.name, book_authors.c.author_id)), text("ARRAY[]::text[]")))
                .select_from(book_authors.join(Author)).where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery())
     books = db.execute(select(ClubBook, Book.title, Book.cover_image_url, Book.page_count, authors).join(Book, Book.id == ClubBook.book_id)
                        .where(ClubBook.club_id == club_id).order_by(ClubBook.status != "current", ClubBook.starts_on.nulls_last(), ClubBook.id)).all()
-    ids = [row[0].id for row in books]
-    checkpoints: dict[int, list] = {}
-    if ids:
-        for cp in db.scalars(select(ClubCheckpoint).where(ClubCheckpoint.club_book_id.in_(ids)).order_by(ClubCheckpoint.due_on.nulls_last(), ClubCheckpoint.id)):
-            checkpoints.setdefault(cp.club_book_id, []).append({"id": cp.id, "unit": cp.unit, "value": cp.value, "due_on": cp.due_on, "label": cp.label})
-    return {"id": club.id, "name": club.name, "description": club.description, "color": club.color, "created_at": club.created_at,
-            "me": {"role": me.role, "share_progress": me.share_progress},
-            "member_count": count, "club_plus": plus, "cap": {"free_limit": FREE_CAP, "full": count >= FREE_CAP and not plus},
-            "books": [{"id": cb.id, "book_id": cb.book_id, "title": title, "cover_image_url": cover, "page_count": pages, "status": cb.status,
-                       "authors": list(names or []), "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
-                      for cb, title, cover, pages, names in books]}
+    checkpoints = _checkpoints(db, [row[0].id for row in books])
+    current = next(((cb, pages) for cb, _, _, pages, _ in books if cb.status == "current"), None)
+    groups = _new_post_groups(db, user.id, club_id)
+    progress = _progress_by_book(db, user.id, ({current[0].book_id} if current else set()) | {g.book_id for g in groups})
+    next_cp = _next_unreached(checkpoints.get(current[0].id, []), progress[current[0].book_id], current[1]) if current else None
+    result = {"id": club.id, "name": club.name, "description": club.description, "color": club.color, "created_at": club.created_at,
+              "me": {"role": me.role, "share_progress": me.share_progress},
+              "member_count": count, "club_plus": plus, "member_limit": club.member_limit, "effective_cap": cap,
+              "cap": {"free_limit": FREE_CAP, "full": cap is not None and count >= cap},
+              "new_posts": _unlocked_counts(groups, progress).get(club_id, 0), "checkpoint_due_soon": _due_soon(next_cp, _now().date()),
+              "books": [{"id": cb.id, "book_id": cb.book_id, "title": title, "cover_image_url": cover, "page_count": pages, "status": cb.status,
+                         "authors": list(names or []), "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
+                        for cb, title, cover, pages, names in books]}
+    now = _now()
+    if touch and (me.last_seen_at is None or me.last_seen_at <= now - SEEN_EVERY):      # opening the club is the one write, at most once a minute
+        db.execute(update(ClubMember).where(ClubMember.club_id == club_id, ClubMember.user_id == user.id,
+                                            or_(ClubMember.last_seen_at.is_(None), ClubMember.last_seen_at <= now - SEEN_EVERY)).values(last_seen_at=now))
+        db.commit()
+    return result
 
 
 def update_club(db: Session, club_id: int, user: User, changes: dict) -> dict:
-    moderator(db, club_id, user)
+    me = moderator(db, club_id, user)
+    if "member_limit" in changes and me.role != "owner":
+        raise fail(403, "owner_only")                   # only the owner sets the size; admins may edit the rest
     club = db.get(Club, club_id)
-    for key in ("name", "description", "color"):
+    for key in ("name", "description", "color", "member_limit"):
         if key in changes:
-            setattr(club, key, changes[key] if key == "name" else (changes[key] or None))
+            setattr(club, key, changes[key] if key in ("name", "member_limit") else (changes[key] or None))      # lowering the limit never removes anyone
     db.commit()
-    return {"id": club.id, "name": club.name, "description": club.description, "color": club.color}
+    return {"id": club.id, "name": club.name, "description": club.description, "color": club.color, "member_limit": club.member_limit}
 
 
 def delete_club(db: Session, club_id: int, user: User) -> None:
@@ -287,8 +415,8 @@ def invite_preview(db: Session, token: str) -> dict:
                .select_from(book_authors.join(Author)).where(book_authors.c.book_id == Book.id).correlate(Book).scalar_subquery())
     current = db.execute(select(Book.id, Book.title, Book.cover_image_url, authors).join(ClubBook, ClubBook.book_id == Book.id)
                          .where(ClubBook.club_id == club.id, ClubBook.status == "current").order_by(ClubBook.id).limit(1)).first()
-    return {"name": club.name, "description": club.description, "color": club.color, "member_count": count, "full": _full(db, club.id, count),
-            "owner_name": owner_name or "A reader",
+    return {"name": club.name, "description": club.description, "color": club.color, "member_count": count, "full": _full(db, club, count),
+            "member_limit": club.member_limit, "effective_cap": effective_cap(db, club), "owner_name": owner_name or "A reader",
             "current_book": {"book_id": current[0], "title": current[1], "cover_image_url": current[2], "authors": list(current[3] or [])} if current else None}
 
 
@@ -299,7 +427,7 @@ def join(db: Session, user: User, token: str) -> dict:
     if existing is not None:
         db.rollback()
         return {"id": club.id, "name": club.name, "joined": False}
-    if _full(db, club.id):
+    if _full(db, club):
         db.rollback()
         raise fail(409, "club_full")
     db.add(ClubMember(club_id=club.id, user_id=user.id, role="member"))
@@ -361,6 +489,37 @@ def update_book(db: Session, club_id: int, user: User, club_book_id: int, change
     return {"id": row.id, "status": row.status, "starts_on": row.starts_on, "ends_on": row.ends_on}
 
 
+def advance_book(db: Session, club_id: int, user: User, club_book_id: int, next_id: int | None) -> dict:
+    """Finish the current book and, if asked, start the next one, in one transaction (a moderator only). A retry of the same call is safe:
+    it changes nothing and returns the club as it now stands; any other advance of a book that is not current is a 409."""
+    moderator(db, club_id, user)
+    ids = sorted({club_book_id} | ({next_id} if next_id is not None else set()))
+    rows = {cb.id: cb for cb in db.scalars(select(ClubBook).where(ClubBook.club_id == club_id, ClubBook.id.in_(ids)).order_by(ClubBook.id).with_for_update())}
+    row, following = rows.get(club_book_id), (rows.get(next_id) if next_id is not None else None)
+    if row is None or (next_id is not None and following is None):
+        raise HTTPException(404, detail="Club book not found")
+    if row.status != "current":
+        if row.status == "past" and following is not None and following.status == "current":
+            db.rollback()
+            return detail(db, club_id, user, touch=False)
+        raise fail(409, "not_current")
+    if following is not None and following.status != "upcoming":
+        raise fail(409, "next_not_upcoming")
+    today = _now().date()
+    row.status = "past"
+    row.ends_on = row.ends_on or (max(today, row.starts_on) if row.starts_on else today)
+    if following is not None:
+        db.flush()                                      # retire the old book first: a club has one current book
+        following.status = "current"
+        following.starts_on = following.starts_on or (min(today, following.ends_on) if following.ends_on else today)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise fail(422, "invalid_dates") from None
+    return detail(db, club_id, user, touch=False)
+
+
 def delete_book(db: Session, club_id: int, user: User, club_book_id: int) -> None:
     moderator(db, club_id, user)
     db.delete(_club_book(db, club_id, club_book_id))
@@ -400,20 +559,7 @@ def viewer_progress(db: Session, user_id, book_id: int) -> dict:
                              func.coalesce(ReadingAttempt.total_pages, Book.page_count))
                       .join(UserBook, UserBook.id == ReadingAttempt.user_book_id).join(Book, Book.id == UserBook.book_id)
                       .where(UserBook.user_id == user_id, UserBook.book_id == book_id)).all()
-    best = {"finished": False, "pages": None, "percent": None, "total": None}
-    for state, unit, value, total in rows:
-        if state == "finished":
-            best["finished"] = True
-        if unit is None or value is None:
-            continue
-        pages = value if unit == "pages" else (round(value * total / 100) if total else None)
-        percent = value if unit == "percent" else (value * 100 / total if total else None)
-        if pages is not None:
-            best["pages"] = max(best["pages"] or 0, pages)
-        if percent is not None:
-            best["percent"] = max(best["percent"] or 0, percent)
-        best["total"] = total or best["total"]
-    return best
+    return _best_progress(rows)
 
 
 def reached(progress: dict, unit: str | None, value: int | None, page_count: int | None = None) -> bool:
