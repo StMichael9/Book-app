@@ -58,7 +58,7 @@
 .bv-root .bv-check-count { margin-left: auto; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-check.is-zero { color: var(--bv-muted); opacity: .6; cursor: default; }
 .bv-root .bv-facet-search { width: 100%; min-height: 44px; padding: 8px 12px; margin-bottom: 6px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); font-size: var(--bv-fs-body); }
-.bv-root .bv-facet-more { padding: 6px 0; border: 0; background: transparent; color: var(--bv-green); font: inherit; font-size: var(--bv-fs-helper); font-weight: 600; text-decoration: underline; cursor: pointer; }
+.bv-root .bv-facet-more { padding: 6px 0; border: 0; background: transparent; color: var(--bv-green); font: inherit; font-size: var(--bv-fs-helper); font-weight: 600; cursor: pointer; }
 .bv-root[data-theme="dark"] .bv-facet-more { color: var(--bv-ink); }
 
 .bv-root .bv-show-more { display: grid; justify-items: center; gap: 8px; margin-top: 28px; }
@@ -120,7 +120,7 @@
 .bv-root .bv-row-thumb .bv-cover-fallback { font-size: 0; }
 .bv-root .bv-row-title h3 { margin: 0; font: 400 var(--bv-fs-card)/1.25 var(--bv-display); }
 .bv-root .bv-row-title a { color: var(--bv-ink); text-decoration: none; }
-.bv-root .bv-row-title a:hover { text-decoration: underline; }
+.bv-root .bv-row-title a:hover { color: var(--bv-green); }
 .bv-root .bv-row-author, .bv-root .bv-row-shelf, .bv-root .bv-row-finished { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 @media (max-width: 900px) {
   .bv-root .bv-view-toggle { flex: 0 0 auto; }

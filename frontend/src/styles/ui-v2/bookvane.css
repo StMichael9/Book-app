@@ -112,15 +112,17 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-button--quiet:active:not(:disabled), .bv-root .bv-button--saved:active:not(:disabled) { background: color-mix(in srgb, var(--bv-soft), #000 8%); }
 .bv-root .bv-button--secondary:active:not(:disabled) { background: color-mix(in srgb, var(--bv-soft), #000 8%); }
 .bv-root .bv-button--danger:active:not(:disabled) { background: color-mix(in srgb, var(--bv-danger), #000 8%); }
-/* A text button inside a sentence (the page total, Undo) is a plain underlined link: no fill, no pill. Its 44px hit area stays. */
-.bv-root .bv-button:is(.bv-inline-action, .bv-link-button), .bv-root .bv-button:is(.bv-inline-action, .bv-link-button):is(:hover, :active):not(:disabled) { background: transparent; border-color: transparent; border-radius: 0; }
-/* The link look of a text button: green, 600, underlined, 44px tall. Contexts (the progress line, the undo toast, the journal) may recolour it. */
-.bv-root .bv-button.bv-inline-action { min-height: 44px; padding-inline: 2px; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* A text button (the page total, Undo) is green bold text with no fill at rest; on hover and keyboard focus a soft pill appears behind it (a box-shadow, so nothing shifts). Its 44px hit area stays. */
+.bv-root .bv-button:is(.bv-inline-action, .bv-link-button) { background: transparent; border-color: transparent; border-radius: var(--bv-radius-pill); }
+.bv-root .bv-button:is(.bv-inline-action, .bv-link-button):is(:hover, :active, :focus-visible):not(:disabled) { background: var(--bv-soft); border-color: transparent; box-shadow: 0 0 0 4px var(--bv-soft); }
+/* The link look of a text button: green, 600, 44px tall. Contexts (the progress line, the undo toast, the journal) may recolour it. */
+.bv-root .bv-button.bv-inline-action { min-height: 44px; padding-inline: 2px; color: var(--bv-green); font-weight: 600; }
 .bv-root .bv-button.bv-journal-edit { color: var(--bv-muted); }
 .bv-root .bv-full-width { width: 100%; }
 .bv-root .bv-icon-button { min-width: 44px; min-height: 44px; padding: 10px; flex-shrink: 0; }
-/* The one tertiary link: green, 600 weight, underlined with a 3px offset, at least 44px tall. Text-style buttons share it. */
-.bv-root :is(.bv-text-link, .bv-link-button) { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--bv-green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+/* The one tertiary link: green, 600 weight, never underlined, at least 44px tall. Text-style buttons share it. Hover and keyboard focus put a soft pill behind it. */
+.bv-root :is(.bv-text-link, .bv-link-button) { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--bv-green); font-weight: 600; border-radius: var(--bv-radius-pill); }
+.bv-root :is(.bv-text-link, .bv-link-button, .bv-open-link, .bv-more-by-all, .bv-facet-more, .bv-loan-stop, .bv-scan-trouble):is(:hover, :focus-visible) { background: var(--bv-soft); box-shadow: 0 0 0 4px var(--bv-soft); }
 .bv-root .bv-form-actions { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
 
 .bv-root .bv-header { background: var(--bv-paper); }
@@ -128,9 +130,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-brand { display: inline-flex; align-items: center; gap: 9px; font: 400 1.75rem/1.2 var(--bv-display); letter-spacing: -0.01em; flex-shrink: 0; padding-block: 5px; margin-block: -5px; min-height: 44px; }
 .bv-root .bv-brand img { width: 35px; height: 35px; object-fit: contain; }
 .bv-root[data-theme="dark"] .bv-brand img { background: var(--bv-cloth-ink-light); border-radius: 4px; }
-.bv-root .bv-desktop-nav { display: flex; gap: 28px; align-self: stretch; align-items: center; font-weight: 600; }
-.bv-root .bv-desktop-nav a { min-height: 44px; display: flex; align-items: center; border-bottom: 2px solid transparent; }
-.bv-root .bv-desktop-nav .bv-active { border-color: var(--bv-green); color: var(--bv-green); }
+.bv-root .bv-desktop-nav { display: flex; gap: 8px; align-self: stretch; align-items: center; font-weight: 600; }
+/* The menu has no underline: the current page sits in a soft pill with a hairline ring (so it holds in light mode); hover gives the others the same fill. */
+.bv-root .bv-desktop-nav a { min-height: 44px; display: flex; align-items: center; padding: 8px 14px; border-radius: var(--bv-radius-pill); }
+.bv-root .bv-desktop-nav a:hover { background: var(--bv-soft); }
+.bv-root .bv-desktop-nav .bv-active { background: var(--bv-soft); box-shadow: inset 0 0 0 1px var(--bv-line); color: var(--bv-green); }
 .bv-root .bv-header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .bv-root .bv-header-actions .bv-button { min-height: 44px; padding: 9px 14px; font-size: var(--bv-fs-body); }
 .bv-root .bv-header-check { font-size: var(--bv-fs-helper); color: var(--bv-muted); max-width: 130px; }
@@ -221,7 +225,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 /* A thumbnail jacket is just its cloth and spine line: title text that small only breaks inside words. */
 @container (max-width: 80px) { .bv-root .bv-jacket strong { display: none; } }
 .bv-root .bv-book-card h3 { font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; margin: 13px 0 4px; overflow-wrap: anywhere; }
-.bv-root .bv-book-card h3 a:hover { text-decoration: underline; }
+.bv-root .bv-book-card h3 a:hover { color: var(--bv-green); }
 .bv-root .bv-author { color: var(--bv-muted); font-size: var(--bv-fs-body); margin: 0 0 12px; overflow-wrap: anywhere; }
 .bv-root .bv-shelf-controls--compact { margin-top: auto; }
 .bv-root .bv-shelf-actions { display: flex; gap: 12px; }
@@ -237,7 +241,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-buy-link { display: inline-flex; min-height: 44px; align-items: center; font-size: var(--bv-fs-helper); color: var(--bv-green); }
 .bv-root .bv-get-copy { margin-top: 1rem; font-size: var(--bv-fs-helper); }
 .bv-root .bv-get-copy h2 { font-family: var(--bv-body); line-height: 1.45; font-size: var(--bv-fs-helper); font-weight: 600; margin: 0 0 0.25rem; color: var(--bv-muted, inherit); }
-.bv-root .bv-get-copy a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-get-copy a { display: inline-flex; min-height: 44px; align-items: center; color: inherit; }
 .bv-root .bv-get-copy .bv-help { margin: 0; }
 
 .bv-root .bv-breadcrumb { font-size: var(--bv-fs-body); padding: 24px 0; }
@@ -357,7 +361,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 @media (max-width: 1050px) and (min-width: 701px) {
   .bv-root .bv-container { padding-inline: 20px; }
   .bv-root .bv-header-inner { gap: 24px; }
-  .bv-root .bv-desktop-nav { gap: 20px; }
+  .bv-root .bv-desktop-nav { gap: 4px; }
   .bv-root .bv-hero { gap: 32px; }
   .bv-root .bv-hero-display { padding: 22px; }
   .bv-root .bv-hero-covers { gap: 10px; min-height: 190px; }
@@ -512,17 +516,24 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 /* Settings: four plain sections, and the short bullet lists on the data and privacy pages. */
 .bv-root .bv-account-row .bv-account-heading { display: block; margin: 0; font: inherit; font-size: var(--bv-fs-title); font-weight: 600; color: var(--bv-ink); }
 .bv-root .bv-delete-account { color: var(--bv-danger); display: flex; width: fit-content; margin-top: 12px; }
-.bv-root .bv-account-links { display: grid; gap: 8px; justify-items: end; text-align: right; align-self: flex-start; }
+/* Settings destinations are rows: the whole row is the link, with a chevron at the end. */
+.bv-root .bv-account-row--link { position: relative; }
+.bv-root .bv-row-go { display: inline-flex; align-items: center; gap: 6px; min-height: 52px; flex-shrink: 0; color: var(--bv-green); font-weight: 600; }
+.bv-root .bv-row-go::after { content: ""; position: absolute; inset: 0; }
+.bv-root .bv-row-go svg, .bv-root .bv-account-rowlinks svg { width: 18px; height: 18px; flex-shrink: 0; }
+.bv-root .bv-account-row--data { flex-wrap: wrap; align-items: flex-start; border-bottom: 0; padding-bottom: 0; }
+.bv-root .bv-account-rowlinks { flex: 1 0 100%; display: flex; flex-direction: column; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-account-rowlinks .bv-account-link:last-child { border-bottom: 0; }
+/* Delete account comes after the data links, so the destructive action is last in the row. */
+.bv-root .bv-account-row--data > .bv-delete-account { margin: 12px 0 20px; }
+.bv-root .bv-account-row--data + .bv-account-row { border-top: 1px solid var(--bv-line); }
 .bv-root .bv-plain-list { margin: 8px 0 0; padding-left: 1.25rem; display: grid; gap: 8px; }
 .bv-root .bv-plain-list li { list-style: disc; display: list-item; }
-@media (max-width: 700px) {
-  .bv-root .bv-account-links { justify-items: start; text-align: left; }
-}
 
 /* Cards for books found beyond the catalogue: the same card, with a button where a link would be. */
 .bv-root .bv-work-cover { display: block; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%; }
 .bv-root .bv-work-title { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-.bv-root .bv-work-title:hover:not(:disabled) { text-decoration: underline; }
+.bv-root .bv-work-title:hover:not(:disabled) { color: var(--bv-green); }
 .bv-root .bv-work-card :is(.bv-work-cover, .bv-work-title):focus-visible { outline: 3px solid var(--bv-green); outline-offset: 3px; }
 .bv-root .bv-work-card[aria-busy="true"] .bv-cover { opacity: .5; }
 .bv-root .bv-work-card :is(.bv-work-cover, .bv-work-title):disabled { cursor: progress; }
@@ -532,3 +543,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-share { gap: 8px; min-height: 44px; flex: none; }
 .bv-root .bv-share svg { flex: none; }
 .bv-root .bv-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+
+/* A link inside a sentence: green and bold (the weight is the cue that it is a link, WCAG 1.4.1), underlined only on hover and keyboard focus. */
+.bv-root :is(p, li, .bv-muted, .bv-field-error) :is(.bv-text-link, .bv-link-button, .bv-inline-action), .bv-root :is(p, li) a:not([class]), .bv-root .bv-description-credit a { color: var(--bv-green); font-weight: 700; background: transparent; box-shadow: none; border-radius: 0; }
+.bv-root :is(p, li, .bv-muted, .bv-field-error) :is(.bv-text-link, .bv-link-button, .bv-inline-action):is(:hover, :focus-visible), .bv-root :is(p, li) a:not([class]):is(:hover, :focus-visible), .bv-root .bv-description-credit a:is(:hover, :focus-visible) { background: transparent; box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }

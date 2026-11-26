@@ -98,4 +98,4 @@
 /* Google's description is shown whole and exactly as sent; line breaks in its text are kept. */
 .bv-root .bv-description-full { white-space: pre-line; overflow-wrap: anywhere; }
 .bv-root .bv-description-credit { margin: 8px 0 0; font-size: var(--bv-fs-helper); color: var(--bv-muted); }
-.bv-root .bv-description-credit a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-description-credit a { color: inherit; }

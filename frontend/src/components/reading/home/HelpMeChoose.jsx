@@ -84,6 +84,8 @@ export default function HelpMeChoose({ shelf, oldest, readOnly, exclude = NONE }
   const go = useNavigate(), command = useReadingCommand("That book couldn’t be started. Please try again.");
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
+  // While a new pill loads, the results box keeps the height it had (measured when the pill was pressed); afterwards it takes its natural height.
+  const box = useRef(null), [held, setHeld] = useState(0);
   const compact = useCompact();
   const excluded = useMemo(() => new Set(exclude), [exclude]);
   const usable = foldSameBooks(enabled, shelf, excluded);
@@ -97,7 +99,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly, exclude = NONE }
   useEffect(() => {
     if (!ask) return undefined;
     const token = ++request.current;
-    fetchPicks(JSON.parse(ask), oldestUsed).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); } });
+    fetchPicks(JSON.parse(ask), oldestUsed).then(cards => { if (token === request.current) { setResults(cards); setFailed(false); setLoading(false); setHeld(0); } }, () => { if (token === request.current) { setResults([]); setFailed(true); setLoading(false); setHeld(0); } });
     return () => { request.current += 1; };
   }, [ask, oldestUsed]);
   if (!usable.length) return null;
@@ -105,7 +107,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly, exclude = NONE }
   const picks = results && excluded.size ? results.filter(card => !excluded.has(card.entry_id)) : results;
   const perTry = compact ? PICKS_PER_TRY_PHONE : PICKS_PER_TRY;
   // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
-  const choose = key => { if (key === activeKey) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
+  const choose = key => { if (key === activeKey) return; setHeld(pills.find(item => item.key === key)?.next ? 0 : Math.round(box.current?.getBoundingClientRect().height || 0)); setActive(key); setLoading(true); setTurn(0); setFailed(false); };
   // Try again walks through the results five at a time (four on a phone or tablet) and only repeats a book once they have all been shown.
   const pages = picks?.length ? Math.ceil(picks.length / perTry) : 0;
   const shown = picks ? picks.slice((turn % Math.max(pages, 1)) * perTry, (turn % Math.max(pages, 1)) * perTry + perTry) : [];
@@ -115,7 +117,7 @@ export default function HelpMeChoose({ shelf, oldest, readOnly, exclude = NONE }
     <div className="bv-pills" role="group" aria-label="Help me choose">
       {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={activeKey === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill && <div className={`bv-results${!pill.next && !loading && picks !== null && (failed || !picks.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
+    {pill && <div ref={box} style={held ? { minHeight: held } : undefined} className={`bv-results${picks === null ? " bv-results--first" : ""}${!pill.next && !loading && picks !== null && (failed || !picks.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
     {pill.next && <NextReadSection panel />}
     {!pill.next && <div role="status" aria-live="polite">
       {picks === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !picks.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>

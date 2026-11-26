@@ -25,3 +25,6 @@
 }
 
 .bv-root .bv-footer-links { display: flex; flex-wrap: wrap; gap: 4px 24px; align-items: center; }
+/* Footer links are muted grey, never underlined; ink on hover and focus. */
+.bv-root .bv-footer-links a { color: var(--bv-muted); font-weight: 600; background: transparent; box-shadow: none; }
+.bv-root .bv-footer-links a:is(:hover, :focus-visible) { color: var(--bv-ink); background: transparent; box-shadow: none; }

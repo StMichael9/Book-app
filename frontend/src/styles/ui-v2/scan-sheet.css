@@ -52,7 +52,7 @@
 .bv-root .bv-scan-title { margin: 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bv-root .bv-scan-state { margin: 2px 0 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-scan-row.is-on_shelf .bv-scan-title { color: var(--bv-muted); }
-.bv-root .bv-scan-row .bv-scan-retry { border: 0; border-radius: 0; display: inline-flex; min-height: 44px; margin: 0 0 -12px; padding: 0 2px; color: var(--bv-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; background: transparent; box-shadow: none; }
+.bv-root .bv-scan-row .bv-scan-retry { border: 0; border-radius: 0; display: inline-flex; min-height: 44px; margin: 0 0 -12px; padding: 0 2px; color: var(--bv-ink); font-weight: 600; background: transparent; box-shadow: none; }
 .bv-root .bv-scan-remove { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: var(--bv-muted); cursor: pointer; border-radius: 50%; }
 .bv-root .bv-scan-remove svg { width: 20px; height: 20px; }
 
@@ -72,4 +72,4 @@
 .bv-root .bv-scan-notice { display: grid; gap: 8px; justify-items: start; }
 .bv-root .bv-scan-notice p { margin: 0; }
 .bv-root .bv-scan-tips { margin: 0; padding-left: 1.25em; display: grid; gap: 4px; }
-.bv-root .bv-scan-trouble { justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--bv-green); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.bv-root .bv-scan-trouble { justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--bv-green); font: inherit; font-weight: 600; cursor: pointer; }
