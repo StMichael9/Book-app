@@ -32,10 +32,11 @@ function Figures({ stats }) {
 }
 
 function Subjects({ items }) {
+  const { labelOf } = useGenres();
   const top = (items || []).slice(0, 5), max = Math.max(1, ...top.map(item => item.count));
   if (!top.length) return null;
   return <section className="bv-life-card" aria-labelledby="bv-life-subjects"><h3 id="bv-life-subjects">What you read</h3>
-    <ul className="bv-life-bars">{top.map(item => <li key={item.name}><span>{item.name}</span><span className="bv-life-track" aria-hidden="true"><i style={{ width: `${Math.max(6, Math.round(100 * item.count / max))}%` }} /></span><b>{item.count}</b></li>)}</ul></section>;
+    <ul className="bv-life-bars">{top.map(item => <li key={item.name}><span>{labelOf(item.name) || item.name}</span><span className="bv-life-track" aria-hidden="true"><i style={{ width: `${Math.max(6, Math.round(100 * item.count / max))}%` }} /></span><b>{item.count}</b></li>)}</ul></section>;
 }
 
 function LengthAndAuthors({ stats }) {

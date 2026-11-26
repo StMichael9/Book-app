@@ -24,7 +24,7 @@ const test = base.extend({
       const reply = (status, json) => route.fulfill({ status, json });
       if (path === "/events") return route.fulfill({ status: 204, body: "" });
       if (path === "/auth/refresh") return reply(state.guest ? 401 : 200, {});
-      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport } });
+      if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: state.libraryImport, reading_export: state.readingExport } });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/library") return reply(200, { items: state.entries, counts: { all: state.entries.length, owned: state.entries.length, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: state.entries.length, next_cursor: null, facets: {}, index: null });
       if (path === "/me/library/lookup") return reply(200, { items: [] });
@@ -197,11 +197,37 @@ test.describe("the /switch links", () => {
     app.entries = [entry];
     await page.goto("/my-books");
     await expect(page.getByRole("link", { name: SWITCH_MY_BOOKS, exact: true })).toHaveAttribute("href", "/switch");
+    // Settings shows one Goodreads link: the import itself when import is on, otherwise the /switch guide.
     await page.goto("/settings");
-    await expect(page.getByRole("link", { name: SWITCH_YOU, exact: true })).toHaveAttribute("href", "/switch");
+    const data = page.getByRole("region", { name: "Your data" });
+    await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
+    await expect(data.getByRole("link", { name: "Import from Goodreads or StoryGraph", exact: true })).toHaveAttribute("href", "/my-books/import");
+    app.libraryImport = false;
+    app.readingExport = true;   // the section still shows for the data links, so the /switch guide takes the import link's place
+    await page.goto("/settings");
+    await expect(data.getByRole("link", { name: /Goodreads/ })).toHaveCount(1);
+    await expect(data.getByRole("link", { name: SWITCH_YOU, exact: true })).toHaveAttribute("href", "/switch");
+    app.libraryImport = true;
+    app.readingExport = false;
     app.entries = [];
     await page.goto("/home");
     await expect(page.locator(".bv-start-shelf").getByRole("link", { name: /^Import from Goodreads or StoryGraph/ })).toHaveAttribute("href", "/switch");
+  });
+
+  test("the footer links to Contact by email", async ({ page, app }) => {
+    app.guest = true;
+    await page.goto("/browse");
+    await expect(page.getByRole("navigation", { name: "Footer" }).getByRole("link", { name: "Contact", exact: true })).toHaveAttribute("href", "mailto:support@bookvane.me");
+  });
+
+  test("signed out, Discover says the shelf note once and every card's shelf buttons point at it", async ({ page, app }) => {
+    app.guest = true;
+    await page.goto("/browse");
+    await expect(page.locator("article.bv-book-card").first()).toBeVisible();
+    const note = "Want it, or already own it? Choose a shelf for this book.";
+    await expect(page.getByText(note, { exact: true })).toHaveCount(1);
+    await expect(page.locator('article.bv-book-card [data-shelf="want"]').first()).toHaveAccessibleDescription(note);
+    await expect(page.locator('article.bv-book-card [data-shelf="owned"]').first()).toHaveAccessibleDescription(note);
   });
 
   test("Discover shows its link to /switch to signed-out visitors only", async ({ page, app }) => {
