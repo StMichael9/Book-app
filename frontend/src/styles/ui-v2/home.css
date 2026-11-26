@@ -29,7 +29,8 @@
 .bv-root .bv-next-body .bv-help { margin: 6px 0 0; }
 .bv-root .bv-next-card h3 a { color: inherit; text-decoration: none; }
 .bv-root .bv-next-card h3 a:hover { text-decoration: underline; }
-.bv-root .bv-picks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
+/* Columns are at least 120px, so Start reading (one line) fits: five across where there is room, fewer where there is not. */
+.bv-root .bv-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 28px 16px; }
 .bv-root .bv-next-cover { position: relative; }
 .bv-root .bv-next-card h3 { margin: 10px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; letter-spacing: -0.01em; }
 .bv-root .bv-next-card .bv-author { margin: 2px 0 0; font-size: var(--bv-fs-helper); }
@@ -106,8 +107,9 @@
 }
 
 /* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */
-.bv-root .bv-results { min-height: 480px; }
-.bv-root .bv-results .bv-choose-foot { min-height: 48px; }
+/* The box holds the height it had while a new pill loads (inline, from HelpMeChoose); on first load it reserves one row of cards. */
+.bv-root .bv-results--first { min-height: 320px; }
+.bv-root .bv-results .bv-choose-foot { min-height: 0; }
 .bv-root .bv-picks--busy { opacity: .5; transition: opacity .15s; pointer-events: none; }
 .bv-root .bv-next-card .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-adjust-form { max-width: 560px; gap: 14px; }
@@ -119,7 +121,7 @@
 .bv-root .bv-choice span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 2px solid transparent; background-clip: padding-box; border-radius: var(--bv-radius-pill); background-color: var(--bv-soft); color: var(--bv-ink); font-weight: 600; transition: background-color 150ms ease-out, color 150ms ease-out; }
 .bv-root .bv-choice input:checked + span { background-color: var(--bv-green); color: var(--bv-on-green); }
 .bv-root .bv-choice input:focus-visible + span { outline: 3px solid var(--bv-green); outline-offset: 2px; }
-@media (max-width: 700px) { .bv-root .bv-results { min-height: 640px; } }
+@media (max-width: 700px) { .bv-root .bv-results--first { min-height: 400px; } }
 /* A one-line "nothing matches" or error message needs no reserved card row. */
 .bv-root .bv-results.bv-results--quiet { min-height: 0; }
 
@@ -164,3 +166,5 @@
   .bv-root .bv-strip-card .bv-next-label { margin: 2px 0 0; font-size: .75rem; }
   .bv-root .bv-strip-card .bv-start-link { width: 100%; margin-top: 6px; white-space: normal; padding: 0 6px; min-height: 44px; justify-content: center; text-align: center; font-size: var(--bv-fs-helper); line-height: 1.2; }
 }
+
+@media (min-width: 701px) { .bv-root .bv-next-card .bv-button { white-space: nowrap; padding-inline: 10px; } }

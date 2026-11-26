@@ -487,7 +487,8 @@ test("switching a pill keeps the old cards, dimmed, and the page never shrinks w
   const heights = await page.evaluate(() => { clearInterval(window.__timer); return window.__heights; });
   expect(heights.length).toBeGreaterThan(10);
   expect(Math.min(...heights)).toBeGreaterThanOrEqual(before - 1);
-  expect(Math.abs((await mainHeight(page)) - before)).toBeLessThan(40);
+  // After the load the box takes its natural height, so the page may shrink (this pill has fewer picks) but never grows.
+  expect(await mainHeight(page)).toBeLessThanOrEqual(before + 1);
   expect(app.errors).toEqual([]);
 });
 
@@ -851,4 +852,21 @@ test("reduced motion: the swipe never scrolls smoothly", async ({ page, app }) =
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
   expect(await page.locator(".bv-now-swipe").evaluate(box => getComputedStyle(box).scrollBehavior)).toBe("auto");
+});
+
+test("with two picks the results box ends just under the cards, and Start reading stays on one line at 1440, 1100 and 768", async ({ page, app: _app }) => {
+  for (const width of [1440, 1100, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/home");
+    const picks = page.locator(".bv-picks .bv-next-card");
+    await expect(picks.first()).toBeVisible();
+    if (width === 1440) await expect(picks).toHaveCount(2);
+    for (const button of await picks.getByRole("button", { name: /^Start reading/ }).all()) {
+      const box = await button.boundingBox();
+      expect(box.height, `${width}px button height`).toBeLessThan(56);
+      expect(await button.evaluate(node => node.scrollWidth <= node.clientWidth + 1), `${width}px button text fits`).toBe(true);
+    }
+    const last = await picks.last().getByRole("button", { name: /^Start reading/ }).boundingBox(), results = await page.locator(".bv-results").boundingBox();
+    expect(results.y + results.height - (last.y + last.height), `${width}px space under the last button`).toBeLessThanOrEqual(48);
+  }
 });
