@@ -499,7 +499,7 @@ const isShelfRequest = request => request.path === "/me/library" && request.quer
 const mainHeight = page => page.locator("main").evaluate(node => node.getBoundingClientRect().height);
 
 test("switching a pill keeps the old cards, dimmed, and the page never shrinks while the new ones load", async ({ page, app }) => {
-  app.entries = shelf(16);
+  app.entries = shelf(18);   // Up next takes owned books 1 to 9, so the owned pill keeps exactly four (11, 13, 15, 17)
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" }), picks = page.locator(".bv-picks .bv-next-card"), results = page.locator(".bv-results");
   await pills.getByRole("button", { name: "Something I own" }).click();
