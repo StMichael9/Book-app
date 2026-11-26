@@ -314,6 +314,7 @@ class Club(Base):
         CheckConstraint("char_length(btrim(name)) BETWEEN 1 AND 80", name="ck_club_name"),
         CheckConstraint("description IS NULL OR char_length(description) <= 500", name="ck_club_description"),
         CheckConstraint("visibility = 'invite'", name="ck_club_visibility"),
+        CheckConstraint("member_limit BETWEEN 2 AND 25", name="ck_club_member_limit"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -322,6 +323,7 @@ class Club(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     visibility: Mapped[str] = mapped_column(String(10), nullable=False, default="invite", server_default="invite")
     color: Mapped[str | None] = mapped_column(String(12))
+    member_limit: Mapped[int] = mapped_column(Integer, nullable=False, default=25, server_default="25")      # the owner's size limit, 2 to 25
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
@@ -338,6 +340,7 @@ class ClubMember(Base):
     role: Mapped[str] = mapped_column(String(10), nullable=False, default="member", server_default="member")
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     share_progress: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))      # set when the member opens the club (at most once a minute)
 
 
 class ClubInvite(Base):
