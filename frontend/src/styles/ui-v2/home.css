@@ -109,7 +109,8 @@
 /* Can't decide?: the results area keeps one card row of height, and old cards stay (dimmed) while new ones load. */
 /* The box holds the height it had while a new pill loads (inline, from HelpMeChoose); on first load it reserves one row of cards. */
 .bv-root .bv-results--first { min-height: 320px; }
-.bv-root .bv-results .bv-choose-foot { min-height: 0; }
+/* The Try again row keeps its 48px while new picks load, so the page never shrinks (next-read "Try again" spec). */
+.bv-root .bv-results .bv-choose-foot { min-height: 48px; }
 .bv-root .bv-picks--busy { opacity: .5; transition: opacity .15s; pointer-events: none; }
 .bv-root .bv-next-card .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-adjust-form { max-width: 560px; gap: 14px; }
