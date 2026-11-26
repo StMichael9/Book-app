@@ -11,6 +11,9 @@ const entry = (id, extra = {}) => ({ id: 100 + id, book_id: id, book: book(id, T
 const reading = (id, title, value, total) => ({ entry: { ...entry(id), id: 200 + id, book_id: 50 + id, book: book(50 + id, title, total), reading_state: "reading", version: 3 },
   attempt: { id: `attempt-${id}`, state: "reading", started_on: "2026-11-03", progress_unit: "pages", progress_value: value, total_pages: total } });
 
+// Up next takes the first five books (four on a phone) and "Can't decide?" leaves those out, so a test that needs picks behind a pill uses a longer shelf.
+// Books are owned when their id is odd, short (200 pages) up to id 3 unless `pages` says otherwise, and the first eight keep the fixture's titles.
+const shelf = (count, pages = id => (id <= 3 ? 200 : 400)) => Array.from({ length: count }, (_, index) => entry(index + 1, { book: book(index + 1, TITLES[index] || `Title ${index + 1}`, pages(index + 1)) }));
 const pin = (id, extra = {}) => ({ entry_id: 100 + id, book_id: id, title: TITLES[id - 1], authors: [`Author ${id}`], cover_url: null, owned: id % 2 === 1, want: id % 2 === 0, page_count: 300, ...extra });
 
 const test = base.extend({
@@ -173,10 +176,10 @@ test("Start opens a reading from an Up next card", async ({ page, app }) => {
 test("Can't decide? never repeats a book Up next is showing, and costs no extra library request", async ({ page, app }) => {
   await page.goto("/home");
   const upNext = page.locator(".bv-up-next"), choose = page.locator(".bv-choose");
-  await expect(upNext.locator('a[href^="/my-books/"]').first()).toBeVisible();
+  await expect(upNext.getByRole("heading").first()).toBeVisible();
   await expect(choose.locator('a[href^="/my-books/"]').first()).toBeVisible();
   for (const title of TITLES) {
-    const total = await upNext.getByRole("link", { name: title, exact: true }).count() + await choose.getByRole("link", { name: title, exact: true }).count();
+    const total = await upNext.getByRole("heading", { name: title, exact: true }).count() + await choose.getByRole("link", { name: title, exact: true }).count();
     expect(total, `${title} shown twice`).toBeLessThanOrEqual(1);
   }
   const asked = () => app.requests.filter(request => request.path === "/me/library").length, before = asked();
@@ -185,7 +188,7 @@ test("Can't decide? never repeats a book Up next is showing, and costs no extra 
 });
 
 test("Can't decide? shows five at a time and Try again walks through the rest", async ({ page, app }) => {
-  app.entries = Array.from({ length: 12 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 400) }));
+  app.entries = shelf(24, () => 400);
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" });
   await expect(pills.getByRole("button", { name: "More Fantasy" })).toBeEnabled();
@@ -208,6 +211,7 @@ test("Waiting longest leads with the oldest saved book from the reading-life fig
 });
 
 test("Waiting longest falls back to the newest saved books read from the other end before the sort ships", async ({ page, app }) => {
+  app.entries = shelf(14);
   app.noOldestSort = true;
   await page.goto("/home");
   await page.getByRole("button", { name: "Waiting longest" }).click();
@@ -217,6 +221,7 @@ test("Waiting longest falls back to the newest saved books read from the other e
 });
 
 test("Something short asks the library for short books", async ({ page, app }) => {
+  app.entries = shelf(14, id => (id >= 10 ? 200 : 400));
   await page.goto("/home");
   await page.getByRole("button", { name: "Something short" }).click();
   await expect(page.locator(".bv-picks .bv-next-card").first()).toBeVisible();
@@ -225,6 +230,7 @@ test("Something short asks the library for short books", async ({ page, app }) =
 });
 
 test("a pill with nothing behind it is hidden, and the panel hides when every pill is empty", async ({ page, app }) => {
+  app.entries = shelf(14);
   app.facets = { length: [], subject: [] };
   await page.goto("/home");
   await expect(page.getByRole("button", { name: "Something I own" })).toBeVisible();
@@ -291,6 +297,7 @@ test("on a phone Home shows the first book and a Show link for the rest", async 
 // Home on a phone: Up next and the picks are 2-column cover grids, the filter pills wrap, and nothing scrolls sideways.
 for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on a ${width}px phone${zoom ? " at 200% text" : ""} Up next and the picks are 2-column grids with nothing sideways`, async ({ page, app }) => {
   app.pins = [pin(1), pin(2), pin(3), pin(4)];
+  app.entries = shelf(12, id => (id >= 6 ? 200 : 400));
   await page.setViewportSize({ width, height: 844 });
   await page.goto("/home");
   if (zoom) await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
@@ -317,7 +324,7 @@ for (const [width, zoom] of [[390, false], [320, false], [390, true]]) test(`on 
 
 // Can't decide? shows four picks per try on a phone (two rows of two) and five on a desktop (one row of five).
 test("on a phone Can't decide? shows four picks in two rows of two; on a desktop five", async ({ page, app }) => {
-  app.entries = TITLES.map((_, index) => entry(index + 1, { book: { ...book(index + 1, TITLES[index], 200) } }));
+  app.entries = shelf(14, () => 200);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/home");
   const picks = page.locator(".bv-picks .bv-next-card");
@@ -492,6 +499,7 @@ const isShelfRequest = request => request.path === "/me/library" && request.quer
 const mainHeight = page => page.locator("main").evaluate(node => node.getBoundingClientRect().height);
 
 test("switching a pill keeps the old cards, dimmed, and the page never shrinks while the new ones load", async ({ page, app }) => {
+  app.entries = shelf(16);
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" }), picks = page.locator(".bv-picks .bv-next-card"), results = page.locator(".bv-results");
   await pills.getByRole("button", { name: "Something I own" }).click();
@@ -638,7 +646,8 @@ test("a shelf whose books are all short folds Something I own and Waiting longes
   await expect(pills.getByRole("button", { name: "Waiting longest" })).toHaveCount(0);
 });
 
-test("a shelf with differing results keeps every pill", async ({ page, app: _app }) => {
+test("a shelf with differing results keeps every pill", async ({ page, app }) => {
+  app.entries = shelf(14, id => (id >= 10 ? 200 : 400));
   await page.goto("/home");
   const pills = page.getByRole("group", { name: "Help me choose" });
   for (const name of ["Something short", "Something I own", "Waiting longest"]) await expect(pills.getByRole("button", { name })).toBeVisible();
@@ -669,7 +678,7 @@ test("Home: Up next links a pin's authors by author_ids, and a pin without ids k
 });
 
 test("Home: Can't decide? picks link their authors", async ({ page, app }) => {
-  app.entries = Array.from({ length: 6 }, (_, index) => entry(index + 1, { book: book(index + 1, `Title ${index + 1}`, 400) }));
+  app.entries = shelf(12, () => 400);
   await page.goto("/home");
   await page.getByRole("group", { name: "Help me choose" }).getByRole("button", { name: "Something I own" }).click();
   const first = page.locator(".bv-picks .bv-next-card").first();
