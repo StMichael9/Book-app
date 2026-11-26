@@ -57,7 +57,7 @@
 .bv-root .bv-check-label { min-width: 0; overflow-wrap: anywhere; }
 .bv-root .bv-check-count { margin-left: auto; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 .bv-root .bv-check.is-zero { color: var(--bv-muted); opacity: .6; cursor: default; }
-.bv-root .bv-facet-search { width: 100%; min-height: 44px; padding: 8px 12px; margin-bottom: 6px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); font-size: var(--bv-fs-body); }
+.bv-root .bv-facet-search { width: 100%; min-height: 44px; padding: 8px 16px; margin-bottom: 6px; border: 1px solid var(--bv-field-border); border-radius: var(--bv-radius-input); background: var(--bv-raised); color: var(--bv-ink); font-size: var(--bv-fs-body); }
 .bv-root .bv-facet-more { padding: 6px 0; border: 0; background: transparent; color: var(--bv-green); font: inherit; font-size: var(--bv-fs-helper); font-weight: 600; cursor: pointer; }
 .bv-root[data-theme="dark"] .bv-facet-more { color: var(--bv-ink); }
 

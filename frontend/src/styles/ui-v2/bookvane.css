@@ -11,6 +11,8 @@
   --bv-fs-display: clamp(2.25rem, 6vw, 3.5rem); --bv-fs-page: clamp(2rem, 5vw, 2.75rem); --bv-fs-section: clamp(1.75rem, 3.5vw, 2.125rem); --bv-fs-title: 1.0625rem; --bv-fs-card: var(--bv-fs-title);
   --bv-fs-body: 1rem; --bv-fs-helper: 0.875rem; --bv-fs-small: 0.75rem;
   --bv-radius-field: 10px; --bv-radius-sheet: 16px; --bv-radius-pill: 999px;
+  /* Matched pill: one-line fields take the buttons' rounded shape, text areas a softer one. */
+  --bv-radius-input: 24px; --bv-radius-textarea: 20px;
   /* The bookcloth inks and the spine shade: the warm light ink (4.5:1 on most cloths), plain white and the dark ink, and the shadow on a spine's edge. */
   --bv-cloth-ink-light: #fffdf5; --bv-cloth-ink-white: #ffffff; --bv-cloth-ink-dark: #1a251f; --bv-spine-shade: #000; }
 body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
@@ -18,9 +20,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root {
   --bv-paper: #f3eee3; --bv-sheet: #fdfaf3; --bv-raised: #ffffff; --bv-soft: #e6e9dd;
   --bv-ink: #1f2a24; --bv-muted: #5d665f; --bv-line: #e2dccd; --bv-control: #7e8c80;
+  /* The field border reaches 3:1 (WCAG 1.4.11) on every surface a field sits on. Measured: paper #f3eee3 3.21, sheet #fdfaf3 3.56, soft #e6e9dd 3.01, raised #fff 3.71. */
+  --bv-field-border: #7b887d;
   --bv-green: #28513f; --bv-on-green: #fffdf5; --bv-rust: #9c432d; --bv-danger: #9b2f32;
   --bv-band: #28513f; --bv-on-band: #f6efdf; --bv-band-muted: #c9d6c4;
-  --bv-shadow-sheet: 0 1px 2px #3a2a1410, 0 2px 8px #3a2a140a; --bv-lift: 0 1px 2px #3a2a1412, 0 8px 24px #3a2a1414; --bv-shadow-cover: 0 1px 2px #0002, 0 6px 16px #2a1a0a1f;
+  --bv-shadow-sheet: 0 0 0 1px var(--bv-line), 0 1px 2px #3a2a1410, 0 2px 8px #3a2a140a; --bv-lift: 0 1px 2px #3a2a1412, 0 8px 24px #3a2a1414; --bv-shadow-cover: 0 1px 2px #0002, 0 6px 16px #2a1a0a1f;
   /* The old names, kept as aliases until every rule has moved to the new ones. */
   --bv-panel: var(--bv-sheet); --bv-wash: var(--bv-soft); --bv-hero: var(--bv-soft); --bv-soft-green: var(--bv-soft); --bv-shadow: var(--bv-lift);
   --bv-display: "Bookvane Caslon", Georgia, serif;
@@ -33,9 +37,11 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
   color-scheme: dark;
   --bv-paper: #16130f; --bv-sheet: #2f2a23; --bv-raised: #3b352c; --bv-soft: #463f35;
   --bv-ink: #f0e9dc; --bv-muted: #bdb3a3; --bv-line: #3f382f; --bv-control: #8c867d;
+  /* Measured: paper #16130f 5.40, sheet #2f2a23 4.15, soft #463f35 3.03, raised #3b352c 3.53. */
+  --bv-field-border: #8f8a81;
   --bv-green: #b9d3bf; --bv-on-green: #14201a; --bv-rust: #d9826c; --bv-danger: #f0a39e;
   --bv-band: #1d3a2d; --bv-on-band: #efe7d6; --bv-band-muted: #a9bfae;
-  --bv-shadow-sheet: none; --bv-lift: 0 10px 30px #0000005c; --bv-shadow-cover: 0 1px 2px #0002, 0 6px 16px #2a1a0a1f;
+  --bv-shadow-sheet: 0 0 0 1px var(--bv-line); --bv-lift: 0 10px 30px #0000005c; --bv-shadow-cover: 0 1px 2px #0002, 0 6px 16px #2a1a0a1f;
 }
 .bv-root *, .bv-root *::before, .bv-root *::after { box-sizing: border-box; }
 .bv-root main { flex: 1; min-width: 0; }
@@ -266,7 +272,7 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-library-caption { margin-bottom: 24px; font-size: var(--bv-fs-body); }
 
 .bv-root :is(input, select) { color: var(--bv-ink); }
-.bv-root :is(.bv-field, .bv-why, .bv-import-page, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 50px; padding: 11px 14px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); border-radius: 6px; min-width: 0; }
+.bv-root :is(.bv-field, .bv-why, .bv-import-page, .bv-filter-dialog, .bv-discovery-extras) :is(input:not([type="checkbox"]), select) { min-height: 48px; padding: 12px 16px; border: 1px solid var(--bv-field-border); border-radius: var(--bv-radius-input); background: var(--bv-raised); color: var(--bv-ink); min-width: 0; }
 .bv-root input::placeholder { color: var(--bv-muted); opacity: 1; }
 .bv-root .bv-auth-layout { max-width: 1020px; margin: 62px auto 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start; }
 .bv-root .bv-auth-story { background: transparent; box-shadow: inset 0 0 0 1px var(--bv-line); border-radius: 8px; padding: 44px; }
