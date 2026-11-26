@@ -1,7 +1,7 @@
 /* Scan books: the add-area entry and the sheet. Existing tokens only. The camera view is a rounded frame; the hint is the only text over it. */
 .bv-root .bv-scan-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
 .bv-root .bv-scan-inline label { font-weight: 600; }
-.bv-root .bv-scan-inline input, .bv-root .bv-scan-type input { min-height: 44px; padding: 8px 12px; border: 1px solid var(--bv-control); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-field); font: inherit; min-width: 0; }
+.bv-root .bv-scan-inline input, .bv-root .bv-scan-type input { min-height: 44px; padding: 8px 16px; border: 1px solid var(--bv-field-border); background: var(--bv-raised); color: var(--bv-ink); border-radius: var(--bv-radius-input); font: inherit; min-width: 0; }
 .bv-root .bv-scan-inline input { width: 15rem; }
 
 .bv-root .bv-dialog.bv-scan-sheet { width: min(560px, calc(100% - 40px)); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; padding: 0; background: var(--bv-paper); overflow: hidden; }
