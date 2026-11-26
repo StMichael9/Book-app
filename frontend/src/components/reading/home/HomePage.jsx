@@ -1,6 +1,6 @@
 import { OnLoanHome } from "../../lending/OnLoan.jsx";
 import { useOpenLoans } from "../../lending/useOpenLoans.js";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../hooks/AuthContext.jsx";
 import { useUserBooks } from "../../../hooks/UserBooksContext.jsx";
@@ -18,7 +18,7 @@ import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
-import { greetingFor, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
+import { greetingFor, MAX_PINS, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
 import AuthorLinks from "../../ui-v2/AuthorLinks.jsx";
 import ThumbsPrompt from "../ThumbsPrompt.jsx";
 import "../../../styles/ui-v2/home.css";
@@ -81,6 +81,9 @@ export default function ReadingHomePage() {
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [showAll, setShowAll] = useState(false), [justFinished, setJustFinished] = useState([]);
   const narrow = useNarrow(), compact = useCompact();
+  // The books Up next is showing, which "Can't decide?" leaves out. Memoised: a list rebuilt every render would keep redoing that work.
+  const pinsNow = override.key === key && override.pins !== undefined ? override.pins : pinned.data, shelfItems = shelf.data?.items;
+  const upNextIds = useMemo(() => (Array.isArray(pinsNow) && pinsNow.length ? pinsNow.slice(0, MAX_PINS) : shelfItems ? suggestions(shelfItems, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []).map(card => card.entry_id), [pinsNow, shelfItems, compact]);
   if (firstRun) return <FirstRunHome />;
   if (quiet && shelf.loading) return <section className="bv-container"><BookSkeletons count={3} /></section>;
 
@@ -120,7 +123,7 @@ export default function ReadingHomePage() {
     {ready && <>
       <UpNext pins={pins} suggested={shelf.data ? suggestions(shelf.data.items, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []} canEdit={Array.isArray(pins)} readOnly={library.readOnly}
         onPinsChanged={result => setOverride({ ...current, pins: Array.isArray(result) ? result : [] })} />
-      {!shelf.loading && <HelpMeChoose shelf={shelf.data} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
+      {!shelf.loading && <HelpMeChoose shelf={shelf.data} exclude={upNextIds} oldest={stats.data?.shelf?.oldest_waiting} readOnly={library.readOnly} />}
       <YearGlance stats={stats.data} />
     </>}
   </section>;

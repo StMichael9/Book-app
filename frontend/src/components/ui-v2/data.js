@@ -19,7 +19,9 @@ export function repeatsTitle(title, subtitle) {
 export function englishTitle(book) {
   const english = typeof book?.english_title === "string" ? book.english_title.trim() : "";
   if (!english) return null;
-  return english.toLowerCase() === (book.title || "").trim().toLowerCase() ? null : english;
+  // Hidden when it only repeats the title: an exact match, an edition or format tag ("[audiobook]", "- Gryffindor Edition"), "by {author}".
+  // A real translation (a different title) still shows.
+  return repeatsTitle(book.title, english) ? null : english;
 }
 
 export function formatYear(year) {

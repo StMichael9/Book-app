@@ -14,19 +14,22 @@ import { PICKS_PER_TRY, PICKS_PER_TRY_PHONE, cardFromEntry, startable, startRead
 // from the shelf alone, so it is always kept.
 const SMALL_SHELF = 30;
 const SHORT_PAGES = 250;
-function foldSameBooks(pills, shelf) {
+function foldSameBooks(pills, shelf, excluded) {
   const items = shelf?.items, all = shelf?.counts?.all;
   if (!Array.isArray(items) || !Number.isFinite(all) || all > SMALL_SHELF || items.length < all) return pills;
   const open = items.filter(entry => startable(entry) && (entry.is_owned || entry.is_wanted));
+  // Books already shown in Up next are not offered again, so a pill left with nothing is dropped.
+  const left = open.filter(entry => !excluded.has(entry.id));
   const idsFor = {
-    short: open.filter(entry => entry.book?.page_count > 0 && entry.book.page_count < SHORT_PAGES),
-    owned: open.filter(entry => entry.is_owned),
-    waiting: open,
+    short: left.filter(entry => entry.book?.page_count > 0 && entry.book.page_count < SHORT_PAGES),
+    owned: left.filter(entry => entry.is_owned),
+    waiting: left,
   };
   const seen = new Set();
   return pills.filter(pill => {
     const books = idsFor[pill.key];
     if (!books) return true;
+    if (!books.length) return false;
     const key = books.map(entry => entry.id).sort((x, y) => x - y).join(",");
     if (seen.has(key)) return false;
     seen.add(key);
@@ -67,7 +70,9 @@ async function fetchPicks(pill, oldest) {
   return cards;
 }
 
-export default function HelpMeChoose({ shelf, oldest, readOnly }) {
+// `exclude` is the entry ids Up next is showing. Pass a memoised array: a list rebuilt on every render would make this redo its work each time.
+const NONE = [];
+export default function HelpMeChoose({ shelf, oldest, readOnly, exclude = NONE }) {
   const library = useUserBooks();
   // A facet names its subject; it is shown only if that subject is one of the genres, under the genre's own label.
   const { labelOf: genreLabel } = useGenres();
@@ -80,7 +85,8 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
   const [active, setActive] = useState(null), [results, setResults] = useState(null), [turn, setTurn] = useState(0), [failed, setFailed] = useState(false), [loading, setLoading] = useState(false);
   const request = useRef(0), [pending, setPending] = useState(null);
   const compact = useCompact();
-  const usable = foldSameBooks(enabled, shelf);
+  const excluded = useMemo(() => new Set(exclude), [exclude]);
+  const usable = foldSameBooks(enabled, shelf, excluded);
   // The first available filter is already chosen on load, so the box opens with books and never a bare row of buttons.
   const activeKey = active ?? usable[0]?.key ?? null;
   const pill = pills.find(item => item.key === activeKey);
@@ -95,24 +101,26 @@ export default function HelpMeChoose({ shelf, oldest, readOnly }) {
     return () => { request.current += 1; };
   }, [ask, oldestUsed]);
   if (!usable.length) return null;
+  // Taken out of the fetched picks here, not in the request, so Up next's books never cost another /me/library call.
+  const picks = results && excluded.size ? results.filter(card => !excluded.has(card.entry_id)) : results;
   const perTry = compact ? PICKS_PER_TRY_PHONE : PICKS_PER_TRY;
   // The cards already on screen stay (dimmed) until the new ones arrive, so the page never collapses and grows back.
   const choose = key => { if (key === activeKey) return; setActive(key); setLoading(true); setTurn(0); setFailed(false); };
   // Try again walks through the results five at a time (four on a phone or tablet) and only repeats a book once they have all been shown.
-  const pages = results?.length ? Math.ceil(results.length / perTry) : 0;
-  const shown = results ? results.slice((turn % Math.max(pages, 1)) * perTry, (turn % Math.max(pages, 1)) * perTry + perTry) : [];
+  const pages = picks?.length ? Math.ceil(picks.length / perTry) : 0;
+  const shown = picks ? picks.slice((turn % Math.max(pages, 1)) * perTry, (turn % Math.max(pages, 1)) * perTry + perTry) : [];
   const start = card => { setPending(card.entry_id); command.run(() => startReading(card.entry_id), () => go(`/my-books/${card.entry_id}`)); };
   return <section className="bv-choose" aria-labelledby="bv-choose-title">
     <div className="bv-choose-head"><h2 id="bv-choose-title">Can’t decide?</h2><p className="bv-muted">{pill?.next ? "Books you don’t have yet" : "Pick from your own shelf"}</p></div>
     <div className="bv-pills" role="group" aria-label="Help me choose">
       {usable.map(item => <button key={item.key} type="button" className="bv-pill" aria-pressed={activeKey === item.key} onClick={() => choose(item.key)}>{item.text}</button>)}
     </div>
-    {pill && <div className={`bv-results${!pill.next && !loading && results !== null && (failed || !results.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
+    {pill && <div className={`bv-results${!pill.next && !loading && picks !== null && (failed || !picks.length) ? " bv-results--quiet" : ""}`} aria-busy={(!pill.next && loading) || undefined}>
     {pill.next && <NextReadSection panel />}
     {!pill.next && <div role="status" aria-live="polite">
-      {results === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !results.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
+      {picks === null ? <p className="bv-muted">Looking through your shelf…</p> : failed ? <p className="bv-muted">We couldn’t look that up just now.</p> : !picks.length ? <p className="bv-muted">Nothing on your shelf matches that.</p> : <>
         <div className={`bv-picks${loading ? " bv-picks--busy" : ""}`}>{shown.map(card => <PickCard key={card.entry_id} card={card} href={`/my-books/${card.entry_id}`} onStart={start} pending={pending === card.entry_id} disabled={readOnly || command.pending || loading} />)}</div>
-        <div className="bv-choose-foot">{results.length > perTry && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
+        <div className="bv-choose-foot">{picks.length > perTry && <Button variant="secondary" disabled={loading} onClick={() => setTurn(value => value + 1)}>Try again</Button>}
           {!loading && <p className="bv-help">{shown.length} {shown.length === 1 ? pill.about.replace(/\bbooks\b/, "book") : pill.about}</p>}</div>
       </>}
     </div>}
