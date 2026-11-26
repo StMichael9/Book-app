@@ -111,7 +111,7 @@
 .bv-root .bv-results--first { min-height: 320px; }
 /* The foot keeps 48px only when it holds Try again, so reloading never shrinks the page; with a few picks and no button it adds no empty space. */
 .bv-root .bv-results .bv-choose-foot { min-height: 0; }
-.bv-root .bv-choose-foot:has(.bv-button) { min-height: 48px; }
+.bv-root .bv-choose-foot:has(.bv-button), .bv-root .bv-next-panel .bv-choose-foot { min-height: 48px; }
 .bv-root .bv-picks--busy { opacity: .5; transition: opacity .15s; pointer-events: none; }
 .bv-root .bv-next-card .bv-author { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bv-root .bv-adjust-form { max-width: 560px; gap: 14px; }
