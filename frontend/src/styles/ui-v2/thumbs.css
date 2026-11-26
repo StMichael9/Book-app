@@ -8,8 +8,8 @@
 .bv-root .bv-thumbs-pill:disabled:not([aria-pressed="true"]) { opacity: .6; }
 .bv-root .bv-thumbs-pill:focus-visible { outline: 3px solid var(--bv-green); outline-offset: 2px; }
 .bv-root .bv-thumbs-pill[aria-pressed="true"] svg.bv-thumbs-heart { fill: currentColor; }
-/* Skip is plain underlined text: no fill, border or shadow in any state (the quiet Button variant paints one, so this is as specific as it). */
-.bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus:not(:focus-visible), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:disabled { min-height: 44px; padding: 0 6px; background: transparent; border: 0; box-shadow: none; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; }
+/* Skip is plain text: no fill, border or shadow in any state (the quiet Button variant paints one, so this is as specific as it). */
+.bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:hover:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:active:not(:disabled), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus, .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:focus:not(:focus-visible), .bv-root .bv-thumbs-row .bv-button.bv-thumbs-skip:disabled { min-height: 44px; padding: 0 6px; background: transparent; border: 0; box-shadow: none; color: var(--bv-ink); font-weight: 600; }
 /* One rhythm: 24px above the title, 10px title to pills (set on the title), 28px below the pills in the finish block; the reaction row on
    the book page has 12px above and 20px below. */
 .bv-root .bv-thumbs-prompt { margin: 24px 0 28px; }

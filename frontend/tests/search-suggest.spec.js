@@ -97,7 +97,7 @@ test.describe("with SEARCH_SUGGEST on", () => {
     expect(app.booksCalls.filter(search => /[?&](q|book)=/.test(search))).toEqual([]); // never /books?q= while typing
   });
 
-  test("each row shows a cover or jacket, the title with the typed letters underlined, then author and year", async ({ page, app: _app }) => {
+  test("each row shows a cover or jacket, the title with the typed letters bold, then author and year", async ({ page, app: _app }) => {
     await visit(page, "/book/9001");
     await typeSlowly(header(page), "dune");
     const rows = list(page).getByRole("option");
@@ -109,7 +109,7 @@ test.describe("with SEARCH_SUGGEST on", () => {
     await expect(rows.nth(1).locator(".bv-suggest-match")).toHaveText("Dune");
     await expect(rows.nth(2).locator(".bv-suggest-meta")).toHaveCount(0); // no author and no year: no line at all
     await expect(rows.nth(3)).toHaveText(/See all results for “dune”/);
-    expect(await first.locator(".bv-suggest-match").evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("underline");
+    expect(await first.locator(".bv-suggest-match").evaluate(node => getComputedStyle(node).fontWeight)).toBe("700");
     expect(await first.locator(".bv-suggest-title").evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(17);
     expect((await first.boundingBox()).height).toBeGreaterThanOrEqual(44);
   });

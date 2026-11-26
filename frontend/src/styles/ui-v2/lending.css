@@ -8,7 +8,7 @@
 .bv-root .bv-loan-line { margin: 0; overflow-wrap: anywhere; }
 .bv-root .bv-loan-chip { display: inline-block; padding: 2px 10px; border-radius: var(--bv-radius-pill); font-size: 0.8125rem; font-weight: 700; color: var(--bv-rust); background: color-mix(in srgb, var(--bv-rust) 14%, var(--bv-sheet)); }
 .bv-root .bv-loan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
-.bv-root .bv-loan-stop { align-self: start; justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--bv-green); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.bv-root .bv-loan-stop { align-self: start; justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; color: var(--bv-green); font: inherit; font-weight: 600; cursor: pointer; }
 .bv-root[data-theme="dark"] .bv-loan-stop { color: var(--bv-ink); }
 .bv-root .bv-more.bv-loan-more { position: relative; top: auto; right: auto; flex: none; margin: -6px -10px 0 0; }
 .bv-root .bv-more.bv-loan-more .bv-more-menu { left: auto; right: 0; }
