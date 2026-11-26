@@ -403,6 +403,8 @@ test("category search, tag removal, reset and browser back follow current contro
   await expect(page).toHaveURL(/\/browse$/);
   await expect(page.getByRole("heading", { name: "Find your next chapter.", exact: true })).toBeVisible();
   await page.goBack();
+  // Check the history step first, so a failure says whether Back landed on the wrong entry or the field didn't follow the URL.
+  await expect(page).toHaveURL(/book=Mystery/);
   await expect(page.getByLabel("Search book titles", { exact: true })).toHaveValue("Mystery");
   await expect(page.locator(".bv-book-card h3")).toHaveText(["Test-only Mystery"]);
 });
