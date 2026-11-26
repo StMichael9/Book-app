@@ -47,7 +47,7 @@ export const test = base.extend({
       const progress = mine ? state.myProgress : index === 1 ? { state: "reading", unit: "pages", value: 260 } : index === 2 ? { state: "reading", unit: "pages", value: 180 } : null;
       return { user_id: uid(index), name: NAMES[index % NAMES.length], initials: NAMES[index % NAMES.length][0], role, joined_at: "2026-11-01T00:00:00Z", patron: false, me: mine, shares_progress: shares, progress: mine || shares ? progress : null };
     });
-    const detail = (id = 5) => ({ id, name: id === 6 ? state.newName : "Tuesday Readers", description: null, color: "#3f6b52", created_at: "2026-11-01T00:00:00Z", me: { role: state.myRole, share_progress: state.shared },
+    const detail = (id = 5) => ({ new_posts: state.newPosts || 0, id, name: id === 6 ? state.newName : "Tuesday Readers", description: null, color: "#3f6b52", created_at: "2026-11-01T00:00:00Z", me: { role: state.myRole, share_progress: state.shared },
       member_count: state.count, club_plus: state.plus, ...(state.limit ? { member_limit: state.limit, effective_cap: state.limit } : {}), cap: { free_limit: 25, full: state.count >= (state.limit || 25) && !state.plus }, books: id === 6 ? [] : state.books });
     const entry = () => ({ id: 900, book_id: 1, book: BOOKS[0], is_owned: false, is_wanted: true, version: 1 + state.patchCount, reading_state: state.attempt ? "reading" : null, private_title: null, private_author: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" });
     page.on("pageerror", error => state.errors.push(error.message));
@@ -88,7 +88,7 @@ export const test = base.extend({
         return reply(200, { entry: entry(), attempt: state.attempt });
       }
       // clubs
-      if (path === "/me/clubs" && method === "GET") return reply(200, { items: state.clubs });
+      if (path === "/me/clubs" && method === "GET") return reply(200, { items: state.clubs.map(club => ({ ...club, ...(state.newPosts != null ? { new_posts: state.newPosts } : {}) })) });
       if (path === "/me/clubs" && method === "POST") { state.newName = body.name; const club = { id: 6, name: body.name, description: body.description, color: body.color, role: "owner", member_count: 1 }; state.clubs.push(club); state.myRole = "owner"; state.count = 1; return reply(201, club); }
       if (path === "/me/clubs/join") return state.joinStatus === 200 ? reply(200, { id: 5, name: "Tuesday Readers", joined: true }) : reply(state.joinStatus, { detail: { code: "club_full" } });
       if (path === `/club-invites/${TOKEN}`) return state.previewStatus === 200 ? reply(200, state.preview) : reply(404, { detail: "Not found" });

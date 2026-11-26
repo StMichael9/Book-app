@@ -192,3 +192,4 @@
 .bv-root .bv-club-places .bv-club-link-button { min-height: 44px; font-size: inherit; }
 .bv-root .bv-club-choice input:disabled + span { opacity: 0.45; cursor: not-allowed; }
 .bv-root .bv-club-full-card .bv-button { align-self: flex-start; margin-top: 8px; border-radius: var(--bv-radius-pill); }
+.bv-root .bv-club-new { font-weight: 400; color: var(--bv-muted); }

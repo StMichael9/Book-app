@@ -18,6 +18,7 @@ export const UPDATE_MY_PAGE = "Update my page";
 export const CLUB_TABS = [["discussion", "Discussion"], ["books", "Books"], ["members", "Members"]];
 export const CLUB_TABS_LABEL = "Club sections";
 export const JUST_YOU = "Just you so far";
+export const newPosts = count => `${count} new`;
 
 // Set up your club (owners and admins, until the three steps are done)
 export const SET_UP_YOUR_CLUB = "Set up your club";
@@ -120,7 +121,7 @@ export const LEAVE_TEXT = "You’ll need a new invite to rejoin.";
 export const CLUB_FULL = "Your club is full.";
 export const CLUB_FULL_TEXT = "Club Plus removes the limit.";
 
-// Club size (owners; only when the server sends member_limit). Wording pending Michael's final check.
+// Club size (owners; only when the server sends member_limit)
 export const CHANGE = "Change";
 export const CLUB_SIZE = "Club size";
 export const SIZE_HELP = "Members can join until the club is full.";

@@ -17,7 +17,7 @@ import SetupCard from "./SetupCard.jsx";
 import ThisWeek from "./ThisWeek.jsx";
 import { useUpdatePage } from "./useUpdatePage.jsx";
 import { clubColor, members as memberCount, named, nextCheckpoint, pageOf } from "./clubFormat.js";
-import { CANCEL, CLUB_TABS, CLUB_TABS_LABEL, DELETE_CLUB, DELETE_CLUB_TEXT, EDIT_CLUB, JUST_YOU, LEAVE_CLUB, LEAVE_TEXT, POSTS_OPEN_WHEN_BOOK, READING_PLAN, deleteClubTitle, leaveTitle, reportedPosts } from "./clubCopy.js";
+import { CANCEL, CLUB_TABS, CLUB_TABS_LABEL, DELETE_CLUB, DELETE_CLUB_TEXT, EDIT_CLUB, JUST_YOU, LEAVE_CLUB, LEAVE_TEXT, POSTS_OPEN_WHEN_BOOK, READING_PLAN, newPosts, deleteClubTitle, leaveTitle, reportedPosts } from "./clubCopy.js";
 import "../../styles/ui-v2/clubs.css";
 
 const SAVE_FAILED = "That couldn’t be saved. Please try again.";
@@ -77,7 +77,7 @@ export default function ClubPage({ notFound }) {
     </header>
     {mod && <SetupCard club={data} current={current} onChooseBook={() => setSheet("book")} onMakePlan={() => setSheet("plan")} onInvite={() => setSheet("invite")} />}
     {(book || !mod) && <ThisWeek book={book} people={list} next={next} myPage={myPage} mine={me?.progress} onShelf={onShelf} update={update} onShelfChanged={shelf.retry} />}
-    <TabBar value={tab} onChange={changeTab} tabs={CLUB_TABS} idPrefix="bv-club-tab" label={CLUB_TABS_LABEL} />
+    <TabBar value={tab} onChange={changeTab} tabs={data.new_posts > 0 ? CLUB_TABS.map(([key, text]) => (key === "discussion" ? [key, `${text} · ${newPosts(data.new_posts)}`] : [key, text])) : CLUB_TABS} idPrefix="bv-club-tab" label={CLUB_TABS_LABEL} />
     <TabPanel value={tab} idPrefix="bv-club-tab">
       {tab === "discussion" && (current ? <DiscussionTab clubId={id} book={current} myPage={myPage} isMod={mod} refreshKey={version} onChanged={refresh} onUpdatePage={update.open} /> : <p className="bv-club-empty">{POSTS_OPEN_WHEN_BOOK}</p>)}
       {tab === "books" && <BooksTab clubId={id} books={data.books} current={book} next={next} mod={mod} onAddBook={() => setSheet("book")} onEditPlan={() => setSheet("plan")} onChanged={refresh} />}

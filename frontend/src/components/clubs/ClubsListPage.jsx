@@ -6,7 +6,7 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { BookCover, Button, EmptyState } from "../ui-v2/primitives.jsx";
 import { useRequest } from "../ui-v2/data.js";
 import { ClubFormSheet } from "./ClubSheets.jsx";
-import { cardPlace, readTo } from "./clubCopy.js";
+import { cardPlace, newPosts, readTo } from "./clubCopy.js";
 import { clubColor, dayDate, members as memberCount, pageOf, positionLabel } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
@@ -17,7 +17,7 @@ function ClubCard({ club }) {
   const myPage = pageOf(club.my_progress, book?.page_count);
   return <li><Link className="bv-club-card" to={`/clubs/${club.id}`} style={{ "--club": clubColor(club) }}>
     {book && <span className="bv-club-cover is-small"><BookCover book={{ title: book.title, cover_image_url: book.cover, authors: [] }} size="small" decorative /></span>}
-    <span className="bv-club-card-text"><strong className="bv-club-card-name">{club.name}</strong>
+    <span className="bv-club-card-text"><strong className="bv-club-card-name">{club.name}{club.new_posts > 0 && <span className="bv-club-new"> · {newPosts(club.new_posts)}</span>}</strong>
       <span className="bv-club-card-line">{memberCount(club.member_count)}{book ? ` · Now reading ${book.title}` : ""}</span>
       {(next || myPage != null) && <span className="bv-club-card-line">{next && <b>{readTo(positionLabel(next.unit, next.value), dayDate(next.due_on))}</b>}{next && myPage != null ? " · " : ""}{myPage != null ? cardPlace(myPage, !next) : ""}</span>}
     </span></Link></li>;

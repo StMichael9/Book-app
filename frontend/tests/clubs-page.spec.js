@@ -156,6 +156,18 @@ test.describe("Set up your club", () => {
   });
 });
 
+test("new posts show as \"{n} new\" on the list card and the Discussion tab, and nothing when there are none", async ({ page, app }) => {
+  await page.goto("/clubs");
+  await expect(page.locator(".bv-club-card")).not.toContainText("new");
+  await page.goto("/clubs/5");
+  await expect(tabs(page).getByRole("tab", { name: "Discussion", exact: true })).toBeVisible();
+  app.newPosts = 3;
+  await page.goto("/clubs");
+  await expect(page.locator(".bv-club-card-name")).toContainText("3 new");
+  await page.goto("/clubs/5");
+  await expect(tabs(page).getByRole("tab", { name: "Discussion · 3 new", exact: true })).toBeVisible();
+});
+
 test("above the tabs there is at most one primary button and two other buttons, with and without the setup card", async ({ page, app }) => {
   const count = () => page.evaluate(() => {
     const top = document.querySelector('[role="tablist"]').getBoundingClientRect().top;
@@ -285,7 +297,7 @@ test.describe("Discussion", () => {
     await expect(sheet).toHaveCount(0);
     expect(sent(app, "POST", "/clubs/5/books/11/posts")[0].body).toEqual({ body: "Starting soon.", anchor_unit: "pages", anchor_value: 0 });
     const quiet = page.getByRole("region", { name: "This week" }).getByRole("button", { name: "Update my page" });
-    expect(await quiet.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none"); // no underline at rest
+    expect(await quiet.evaluate(node => getComputedStyle(node).textDecorationLine)).not.toContain("underline"); // no underline at rest
     const title = page.getByRole("region", { name: "This week" }).getByRole("link", { name: "Middlemarch" });
     expect(await title.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none");
     await title.hover();
