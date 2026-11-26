@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { addClubBook, createClub, createInvite, revokeInvite, updateClub } from "../../api/clubs.js";
 import { getBookSuggestions } from "../../api/suggest.js";
-import { Button, NativeDialog } from "../ui-v2/primitives.jsx";
+import { BookCover, Button, NativeDialog } from "../ui-v2/primitives.jsx";
 import { localToday } from "../reading/localToday.js";
 import { ADD_A_BOOK, ADD_TO_CLUB, CLUB_SIZE, LINK_COPIED, READ_IT_NEXT, READ_IT_NOW, SAVE, SHARE_INVITE_LINK, SIZE_CHOICES, SIZE_HELP, START_HELP, STOP_THIS_LINK, inviteLine } from "./clubCopy.js";
 import { CLUB_COLORS, clubColor, codeOf, shortDate } from "./clubFormat.js";
@@ -140,7 +140,7 @@ export function AddBookSheet({ open, onClose, clubId, hasCurrent, onAdded }) {
     {!picked ? <>
       <div className="bv-field"><label htmlFor="bv-club-find">Search books</label><input id="bv-club-find" type="search" value={query} maxLength={200} autoComplete="off" onChange={event => setQuery(event.target.value)} /></div>
       {shown.length > 0 && <ul className="bv-club-results" aria-label="Books">{shown.map(book => <li key={book.id}><button type="button" onClick={() => setPicked(book)}>
-        <strong>{book.title}</strong>{authorOf(book) && <small>{authorOf(book)}</small>}</button></li>)}</ul>}
+        <BookCover book={{ title: book.title, cover_image_url: book.cover_image_url, authors: [] }} size="small" decorative /><span><strong>{book.title}</strong>{authorOf(book) && <small>{authorOf(book)}</small>}</span></button></li>)}</ul>}
     </> : <>
       <div className="bv-club-choice" role="radiogroup">
         {!hasCurrent && <label><input type="radio" name="bv-club-when" checked={when === "now"} onChange={() => setWhen("now")} /><span>{READ_IT_NOW}</span></label>}
