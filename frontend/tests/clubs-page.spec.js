@@ -6,6 +6,7 @@ test.use({ viewport: { width: 1440, height: 1000 } });
 const tabs = page => page.getByRole("tablist", { name: "Club sections" });
 const menu = async (page, name = "More actions for this club") => { await page.getByRole("button", { name }).click(); return page.getByRole("menu"); };
 const items = async page => page.getByRole("menuitem").allTextContents();
+const advances = app => app.requests.filter(request => request.method === "POST" && request.path.endsWith("/advance")).map(request => ({ path: request.path, body: request.body }));
 
 // ---- This week ---------------------------------------------------------------------------------------------------------
 
@@ -65,7 +66,9 @@ test("a book that isn't on your shelf asks to be added first: one primary button
   await page.goto("/clubs/5");
   const card = page.getByRole("region", { name: "This week" });
   await expect(card.getByText("Add it to your shelf to track your page.", { exact: true })).toBeVisible();
-  await expect(card.getByRole("button", { name: "Update my page" })).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Update my page" })).toHaveCount(1); // a quiet link, not a second primary
+  await expect(card.locator(".bv-club-primary")).toHaveCount(1);
+  await expect(card.getByRole("link", { name: "Middlemarch" })).toHaveAttribute("href", "/book/1");
   await expect(card.getByRole("progressbar")).toHaveCount(0);
   await card.getByRole("button", { name: "Add to my shelf", exact: true }).click();
   await expect.poll(() => sent(app, "PUT", "/me/library/books/1").length).toBe(1);
@@ -90,7 +93,8 @@ test("with no reading plan the card is Now reading, with no target, and owners a
   const card = page.getByRole("region", { name: "Now reading" });
   await expect(card.locator(".bv-club-title")).toHaveText("Middlemarch");
   await expect(card.getByText(/^Read to/)).toHaveCount(0);
-  await card.getByRole("button", { name: "Make a reading plan", exact: true }).click();
+  await expect(card.getByRole("button", { name: "Make a reading plan" })).toHaveCount(0); // the setup card owns it
+  await page.getByRole("region", { name: "Set up your club" }).getByRole("button", { name: "Make a reading plan", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Reading plan" })).toBeVisible();
   await page.keyboard.press("Escape");
   app.myRole = "member";
@@ -269,6 +273,27 @@ test.describe("Discussion", () => {
     expect(sent(app, "POST", "/clubs/5/books/11/posts").map(request => request.body)).toEqual([{ body: "For everyone.", anchor_unit: "pages", anchor_value: 0 }, { body: "No page." }]);
   });
 
+  test("a member who hasn't started the book can post (page empty, or No spoilers) and sets their page from the club", async ({ page, app }) => {
+    app.entryId = null; app.attempt = null; app.myProgress = null;
+    await page.goto("/clubs/5");
+    await page.getByRole("button", { name: "Write a post", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Write a post" });
+    await expect(sheet.getByLabel("Spoilers up to page")).toHaveValue("");
+    await sheet.getByRole("switch", { name: "No spoilers" }).check({ force: true });
+    await sheet.getByLabel("Your post").fill("Starting soon.");
+    await sheet.getByRole("button", { name: "Post", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    expect(sent(app, "POST", "/clubs/5/books/11/posts")[0].body).toEqual({ body: "Starting soon.", anchor_unit: "pages", anchor_value: 0 });
+    const quiet = page.getByRole("region", { name: "This week" }).getByRole("button", { name: "Update my page" });
+    expect(await quiet.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none"); // no underline at rest
+    const title = page.getByRole("region", { name: "This week" }).getByRole("link", { name: "Middlemarch" });
+    expect(await title.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("none");
+    await title.hover();
+    expect(await title.evaluate(node => getComputedStyle(node).textDecorationLine)).toBe("underline");
+    await quiet.click();
+    await expect(page.getByRole("dialog", { name: "Update my page" })).toBeVisible();
+  });
+
   test("a page ahead of yours is refused with the existing line, and the sheet stays open", async ({ page, app }) => {
     app.aheadError = true;
     await page.goto("/clubs/5");
@@ -413,14 +438,14 @@ test.describe("Books tab", () => {
     const step = page.getByRole("dialog", { name: "The Remains of the Day" });
     await expect(step.getByRole("radio", { name: "Read it now" })).toBeChecked();
     await expect(step.getByRole("radio", { name: "Read it next" })).not.toBeChecked();
-    await expect(step.getByText("Read it now shows only when the club isn’t reading anything. Otherwise the book goes to Up next.", { exact: true })).toBeVisible();
+    await expect(step.getByText("Read it now shows only")).toHaveCount(0);
     await step.getByRole("button", { name: "Add to club", exact: true }).click();
     expect(sent(app, "POST", "/clubs/5/books")[0].body).toEqual({ book_id: 4, status: "current", starts_on: "2026-11-22" });
     const plan = page.getByRole("dialog", { name: "Reading plan" });
     await expect(plan.getByLabel("Finish by")).toHaveValue("2026-12-20"); // four weeks from today
     await expect(plan.getByLabel("Split into")).toHaveValue("4");
     await expect(plan.locator("#bv-plan-parts option:checked")).toHaveText("4 parts");
-    await expect(plan.locator(".bv-club-plan-preview li")).toHaveText([/Part 1\s*to p\. 65 by 29 Nov/, /Part 2\s*to p\. 129 by 6 Dec/, /Part 3\s*to p\. 194 by 13 Dec/, /Part 4\s*the end by 20 Dec/]);
+    await expect(plan.locator(".bv-club-plan-preview li")).toHaveText([/Part 1\s*to p\. 65 by 29 Nov/, /Part 2\s*to p\. 129 by 6 Dec/, /Part 3\s*to p\. 194 by 13 Dec/, /Part 4\s*End by 20 Dec/]);
     await plan.getByRole("button", { name: "Save plan", exact: true }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "POST" && request.path === "/clubs/5/books/13/checkpoints").map(request => request.body)).toEqual([
       { unit: "pages", value: 65, due_on: "2026-11-29" }, { unit: "pages", value: 129, due_on: "2026-12-06" }, { unit: "pages", value: 194, due_on: "2026-12-13" }]);
@@ -436,10 +461,10 @@ test.describe("Books tab", () => {
     await sheet.getByLabel("Search books").fill("remains");
     await sheet.getByRole("button", { name: /The Remains of the Day/ }).click();
     await page.getByRole("dialog", { name: "The Remains of the Day" }).getByRole("button", { name: "Add to club", exact: true }).click();
-    await page.getByRole("dialog", { name: "Reading plan" }).getByRole("button", { name: "Skip for now", exact: true }).click();
+    await page.getByRole("dialog", { name: "Reading plan" }).getByRole("button", { name: "Skip", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Reading plan" })).toHaveCount(0);
     expect(app.requests.filter(request => request.path.includes("/checkpoints"))).toHaveLength(0);
-    await expect(page.getByRole("region", { name: "Now reading" }).locator(".bv-club-title")).toHaveText("The Remains of the Day");
+    await expect(page.locator(".bv-club-week .bv-club-title")).toHaveText("The Remains of the Day");
   });
 
   test("while the club is reading something, the new book can only go next: no Read it now, and no plan sheet", async ({ page, app }) => {
@@ -492,12 +517,12 @@ test.describe("Books tab", () => {
     const ask = page.getByRole("dialog", { name: "Finish Middlemarch?" });
     await expect(ask.getByText("It moves to Read together. Nineteen Eighty-Four becomes the club’s book.", { exact: true })).toBeVisible();
     await ask.getByRole("button", { name: "Cancel" }).click();
-    expect(app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/"))).toHaveLength(0);
+    expect(advances(app)).toHaveLength(0);
     await page.getByRole("button", { name: "More actions for Middlemarch" }).click();
     await page.getByRole("menuitem", { name: "Finish this book" }).click();
     await page.getByRole("dialog", { name: "Finish Middlemarch?" }).getByRole("button", { name: "Finish book", exact: true }).click();
-    await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/")).map(request => `${request.path} ${request.body.status}`)).toEqual(["/clubs/5/books/11 past", "/clubs/5/books/12 current"]);
-    await expect(page.getByRole("region", { name: "Now reading" }).locator(".bv-club-title")).toHaveText("Nineteen Eighty-Four");
+    await expect.poll(() => advances(app)).toEqual([{ path: "/clubs/5/books/11/advance", body: { next_club_book_id: 12 } }]);
+    await expect(page.locator(".bv-club-week .bv-club-title")).toHaveText("Nineteen Eighty-Four");
     await expect(page.getByRole("region", { name: "Read together" }).locator(".bv-club-book").first()).toContainText("Middlemarch");
   });
 
@@ -507,13 +532,13 @@ test.describe("Books tab", () => {
     await page.getByRole("button", { name: "More actions for Middlemarch" }).click();
     await page.getByRole("menuitem", { name: "Finish this book" }).click();
     const ask = page.getByRole("dialog", { name: "Finish Middlemarch?" });
-    await expect(ask.getByText("It moves to Read together. Add the next book whenever you’re ready.", { exact: true })).toBeVisible();
+    await expect(ask.getByText("It moves to Read together. No next book yet.", { exact: true })).toBeVisible();
     await ask.getByRole("button", { name: "Finish book", exact: true }).click();
-    await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/")).map(request => request.body.status)).toEqual(["past"]);
+    await expect.poll(() => advances(app)).toEqual([{ path: "/clubs/5/books/11/advance", body: {} }]);
   });
 
-  test("if making the next book current fails, the existing save error shows and the club is fetched again", async ({ page, app }) => {
-    app.failBookPatchAt = 2;
+  test("if finishing the book fails, the existing save error shows and the club is fetched again", async ({ page, app }) => {
+    app.failAdvance = true;
     await page.goto("/clubs/5?tab=books");
     const reads = () => sent(app, "GET", "/clubs/5").length, before = reads();
     await page.getByRole("button", { name: "More actions for Middlemarch" }).click();
@@ -533,12 +558,12 @@ test.describe("Books tab", () => {
     const ask = page.getByRole("dialog", { name: "Finish Middlemarch first?" });
     await expect(ask.getByText("Middlemarch moves to Read together, and The Remains of the Day becomes the club’s book.", { exact: true })).toBeVisible();
     await ask.getByRole("button", { name: "Cancel" }).click();
-    expect(app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/"))).toHaveLength(0);
+    expect(advances(app)).toHaveLength(0);
     await page.getByRole("button", { name: "More actions for The Remains of the Day" }).click();
     await page.getByRole("menuitem", { name: "Start reading now" }).click();
     await page.getByRole("dialog", { name: "Finish Middlemarch first?" }).getByRole("button", { name: "Finish and start", exact: true }).click();
-    await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/")).map(request => `${request.path} ${request.body.status}`)).toEqual(["/clubs/5/books/11 past", "/clubs/5/books/14 current"]);
-    await expect(page.getByRole("region", { name: "Now reading" }).locator(".bv-club-title")).toHaveText("The Remains of the Day");
+    await expect.poll(() => advances(app)).toEqual([{ path: "/clubs/5/books/11/advance", body: { next_club_book_id: 14 } }]);
+    await expect(page.locator(".bv-club-week .bv-club-title")).toHaveText("The Remains of the Day");
   });
 
   test("Start reading now with nothing current makes the book current at once, with no ask", async ({ page, app }) => {
@@ -547,11 +572,11 @@ test.describe("Books tab", () => {
     await page.getByRole("button", { name: "More actions for Nineteen Eighty-Four" }).click();
     await page.getByRole("menuitem", { name: "Start reading now" }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path.startsWith("/clubs/5/books/")).map(request => `${request.path} ${request.body.status}`)).toEqual(["/clubs/5/books/12 current"]);
-    await expect(page.getByRole("region", { name: "Now reading" }).locator(".bv-club-title")).toHaveText("Nineteen Eighty-Four");
+    await expect(page.locator(".bv-club-week .bv-club-title")).toHaveText("Nineteen Eighty-Four");
   });
 
-  test("if the second call of Finish and start fails, the save error shows and the club is fetched again", async ({ page, app }) => {
-    app.failBookPatchAt = 2;
+  test("if Finish and start fails, the save error shows and the club is fetched again", async ({ page, app }) => {
+    app.failAdvance = true;
     await page.goto("/clubs/5?tab=books");
     const reads = () => sent(app, "GET", "/clubs/5").length, before = reads();
     await page.getByRole("button", { name: "More actions for The Remains of the Day" }).click();
@@ -729,7 +754,7 @@ test.describe("Members tab", () => {
   test("with member_limit the owner sees {n} of {limit} places used and a Change link; Club size offers 10, 15, 20 and 25, below the member count disabled, and saves member_limit", async ({ page, app }) => {
     app.limit = 15; app.count = 12;
     await page.goto("/clubs/5?tab=members");
-    await expect(page.getByText("12 of 15 places used", { exact: true })).toBeVisible();
+    await expect(page.getByText("12 of 15 places used")).toBeVisible();
     await page.getByRole("button", { name: "Change", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "Club size" });
     await expect(sheet.getByRole("radio")).toHaveCount(4);
@@ -742,13 +767,13 @@ test.describe("Members tab", () => {
     await sheet.getByRole("button", { name: "Save", exact: true }).click();
     await expect(sheet).toHaveCount(0);
     expect(sent(app, "PATCH", "/clubs/5")[0].body).toEqual({ member_limit: 20 });
-    await expect(page.getByText("12 of 20 places used", { exact: true })).toBeVisible();
+    await expect(page.getByText("12 of 20 places used")).toBeVisible();
   });
 
   test("admins see the count but cannot change it", async ({ page, app }) => {
     app.limit = 15; app.myRole = "admin";
     await page.goto("/clubs/5?tab=members");
-    await expect(page.getByText("8 of 15 places used", { exact: true })).toBeVisible();
+    await expect(page.getByText("8 of 15 places used")).toBeVisible();
     await expect(page.getByRole("button", { name: "Change" })).toHaveCount(0);
   });
 

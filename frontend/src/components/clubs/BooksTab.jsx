@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { deleteClubBook, updateClubBook } from "../../api/clubs.js";
+import { advanceClubBook, deleteClubBook, updateClubBook } from "../../api/clubs.js";
 import { BookCover, Button, GetACopy } from "../ui-v2/primitives.jsx";
 import { authorLabel } from "../ui-v2/data.js";
 import ClubMenu from "./ClubMenu.jsx";
@@ -37,13 +37,13 @@ export default function BooksTab({ clubId, books, current, next, mod, onAddBook,
   const [ask, setAsk] = useState(null), [pending, setPending] = useState(false), [error, setError] = useState("");
   const close = () => { setAsk(null); setError(""); };
   const patch = (book, changes) => updateClubBook(clubId, book.id, changes);
-  // Two calls, and on any failure the error shows and the club is fetched again, so the page shows what really happened.
+  // Finishing and starting is one call (advance); on any failure the error shows and the club is fetched again, so the page shows what really happened.
   async function run(work) {
     setPending(true); setError("");
     try { await work(); setPending(false); close(); onChanged(); } catch { setError(SAVE_FAILED); setPending(false); onChanged(); }
   }
-  const finish = () => run(async () => { await patch(current, { status: "past" }); if (upcoming[0]) await patch(upcoming[0], { status: "current" }); });
-  const startNow = book => run(async () => { if (current) await patch(current, { status: "past" }); await patch(book, { status: "current" }); });
+  const finish = () => run(() => advanceClubBook(clubId, current.id, upcoming[0]?.id));
+  const startNow = book => run(() => (current ? advanceClubBook(clubId, current.id, book.id) : patch(book, { status: "current" })));
   const remove = () => run(() => deleteClubBook(clubId, ask.book.id));
   const startMenu = book => (current ? { label: START_READING_NOW, onSelect: () => setAsk({ kind: "start", book }) } : { label: START_READING_NOW, onSelect: () => startNow(book) });
   return <section className="bv-club-books-tab" aria-label="Books">

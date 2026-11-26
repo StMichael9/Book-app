@@ -28,7 +28,7 @@ function Row({ member, pageCount, onOpen, children }) {
 export default function MembersTab({ club, list, pageCount, mod, owner, sharing, onToggleSharing, onInvite, onLeave, onChanged }) {
   const [sizing, setSizing] = useState(false), [open, setOpen] = useState(null), [all, setAll] = useState(false), [note, setNote] = useState("");
   const me = list.find(member => member.me), ordered = me ? [me, ...list.filter(member => !member.me)] : list;
-  const adjustable = club.member_limit != null, cap = club.effective_cap ?? club.cap.free_limit, full = club.effective_cap != null ? club.member_count >= club.effective_cap : club.cap.full;
+  const limited = !club.club_plus && club.effective_cap !== null, adjustable = club.member_limit != null, cap = club.effective_cap ?? club.cap.free_limit, full = club.effective_cap != null ? club.member_count >= club.effective_cap : club.cap.full;
   const shown = all ? ordered : ordered.slice(0, SHOWN);
   async function toggle(value) {
     setNote("");
@@ -36,11 +36,11 @@ export default function MembersTab({ club, list, pageCount, mod, owner, sharing,
     setNote(ok ? (value ? SHARING_ON : SHARING_OFF) : "That couldn’t be saved. Please try again.");
   }
   return <section className="bv-club-members-tab" aria-label="Members">
-    {owner && !club.club_plus && full && (adjustable && club.member_limit < SIZE_MAX
+    {owner && limited && full && (adjustable && club.member_limit < SIZE_MAX
       ? <div className="bv-club-full-card"><strong>{CLUB_FULL}</strong><Button variant="secondary" onClick={() => setSizing(true)}>{ADD_PLACES}</Button></div>
       : <div className="bv-club-full-card"><strong>{CLUB_FULL}</strong><span>{CLUB_FULL_TEXT}</span></div>)}
     {mod && <Button className="bv-club-invite-people" onClick={onInvite}>{INVITE_PEOPLE}</Button>}
-    {mod && !club.club_plus && <p className="bv-club-places">{placesUsed(club.member_count, cap)}{owner && adjustable && <> <button type="button" className="bv-club-link-button" onClick={() => setSizing(true)}>{CHANGE}</button></>}</p>}
+    {mod && limited && <p className="bv-club-places">{placesUsed(club.member_count, cap)}{owner && adjustable && <> <button type="button" className="bv-club-link-button" onClick={() => setSizing(true)}>{CHANGE}</button></>}</p>}
     <ul className="bv-club-members">{shown.map(member => <Row key={member.user_id} member={member} pageCount={pageCount} onOpen={canAct(member, mod, owner) ? () => setOpen(member) : undefined}>
       {member.me && <ClubSwitch checked={sharing} onChange={toggle}>{SHARE_MY_PROGRESS}</ClubSwitch>}</Row>)}</ul>
     {!all && ordered.length > SHOWN && <Button variant="quiet" onClick={() => setAll(true)}>{seeAll(ordered.length)}</Button>}

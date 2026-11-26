@@ -40,7 +40,10 @@
 .bv-root .bv-club-avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 50%; background: var(--bv-soft); font-weight: 700; }
 .bv-root .bv-club-member-text { flex: 1; min-width: 0; }
 .bv-root .bv-club-role { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
-.bv-root .bv-club-link-button { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--bv-green); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.bv-root .bv-club-link-button { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--bv-green); font: inherit; font-weight: 600; text-decoration: none; border-radius: var(--bv-radius-pill); cursor: pointer; }
+.bv-root .bv-club-link-button:hover, .bv-root .bv-club-link-button:focus-visible, .bv-root .bv-club-page .bv-text-link:hover, .bv-root .bv-club-page .bv-text-link:focus-visible { background: var(--bv-soft); }
+.bv-root .bv-club-link-button, .bv-root .bv-club-page .bv-text-link { padding-inline: 12px; margin-inline: -12px; text-decoration: none; }
+.bv-root .bv-club-page .bv-text-link { border-radius: var(--bv-radius-pill); }
 
 
 /* The "…" menus */
@@ -68,8 +71,9 @@
 .bv-root .bv-club-invite .bv-button svg { width: 18px; height: 18px; stroke-width: 2; }
 .bv-root .bv-club-link { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-field); background: var(--bv-raised); color: var(--bv-ink); font: inherit; }
 .bv-root .bv-club-results, .bv-root .bv-club-points { list-style: none; margin: 0 0 16px; padding: 0; }
-.bv-root .bv-club-results button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--bv-line); background: transparent; color: var(--bv-ink); font: inherit; text-align: left; cursor: pointer; }
+.bv-root .bv-club-results button { display: flex; flex-direction: row; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--bv-line); background: transparent; color: var(--bv-ink); font: inherit; text-align: left; cursor: pointer; }
 .bv-root .bv-club-results small { color: var(--bv-muted); }
+.bv-root .bv-club-results button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .bv-root .bv-club-points li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-club-row-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 .bv-root .bv-club-row-form .bv-field { margin: 0; }
@@ -148,8 +152,8 @@
 .bv-root .bv-club-report-actions, .bv-root .bv-club-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 .bv-root .bv-club-danger { color: var(--bv-danger); }
 .bv-root .bv-club-book.is-large .bv-club-cover { width: 56px; }
-.bv-root .bv-club-book .bv-club-title a { color: inherit; text-decoration: none; }
-.bv-root .bv-club-book .bv-club-title a:hover, .bv-root .bv-club-book .bv-club-title a:focus-visible { text-decoration: underline; }
+.bv-root .bv-club-title a { color: inherit; text-decoration: none; }
+.bv-root .bv-club-title a:hover, .bv-root .bv-club-title a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
 .bv-root .bv-club-books-tab > .bv-club-primary { margin: 0 0 20px; }
 .bv-root .bv-club-choice { display: flex; gap: 8px; margin-bottom: 8px; }
 .bv-root .bv-club-choice label { position: relative; flex: 1; cursor: pointer; }

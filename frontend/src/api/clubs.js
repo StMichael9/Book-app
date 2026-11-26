@@ -25,6 +25,7 @@ export const revokeInvite = (id, inviteId) => apiRequest(`${club(id)}/invites/${
 export const addClubBook = (id, data) => apiRequest(`${club(id)}/books`, send("POST", data));
 export const deleteClubBook = (id, clubBookId) => apiRequest(`${club(id)}/books/${Number(clubBookId)}`, send("DELETE"));
 export const updateClubBook = (id, clubBookId, data) => apiRequest(`${club(id)}/books/${Number(clubBookId)}`, send("PATCH", data));
+export const advanceClubBook = (id, clubBookId, nextClubBookId) => apiRequest(`${club(id)}/books/${Number(clubBookId)}/advance`, send("POST", nextClubBookId != null ? { next_club_book_id: Number(nextClubBookId) } : {}));
 export const addCheckpoint = (id, clubBookId, data) => apiRequest(`${club(id)}/books/${Number(clubBookId)}/checkpoints`, send("POST", data));
 export const deleteCheckpoint = (id, clubBookId, checkpointId) => apiRequest(`${club(id)}/books/${Number(clubBookId)}/checkpoints/${Number(checkpointId)}`, send("DELETE"));
 

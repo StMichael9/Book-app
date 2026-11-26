@@ -105,7 +105,7 @@ for (const scheme of ["light", "dark"]) for (const [width, height] of [[390, 844
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${path} scrolls sideways`).toBe(true);
       if (shots) await page.screenshot({ path: `${shots}/${name}-${width}-${scheme}.png`, fullPage: true });
     };
-    await check("/clubs", "list", () => expect(page.locator(".bv-club-card")).toContainText("Next: p. 240"));
+    await check("/clubs", "list", () => expect(page.locator(".bv-club-card")).toContainText("Read to p. 240"));
     await check("/clubs/5", "club", () => expect(page.locator(".bv-club-week")).toBeVisible());
     app.guest = true;
     await check(`/c/${TOKEN}`, "join", () => expect(page.getByRole("link", { name: "Sign up to join" })).toBeVisible());

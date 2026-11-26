@@ -47,7 +47,7 @@ export default function ClubPage({ notFound }) {
   const myPage = pageOf(me?.progress, current?.page_count), next = current ? nextCheckpoint(current, myPage) : null;
   const onShelf = shelf.data ? Boolean(shelf.data.items?.some(item => item.book_id === current.book_id && item.entry_id != null)) : undefined;
   const sharing = shared ?? data.me.share_progress;
-  const left = data.club_plus ? null : Math.max(0, (data.effective_cap ?? data.cap.free_limit) - data.member_count);
+  const left = data.club_plus || data.effective_cap === null ? null : Math.max(0, (data.effective_cap ?? data.cap.free_limit) - data.member_count);
   const tab = CLUB_TABS.some(([key]) => key === params.get("tab")) ? params.get("tab") : "discussion";
   const close = () => { setSheet(null); setError(""); };
   const changeTab = key => setParams(before => { const after = new URLSearchParams(before); after.set("tab", key); return after; }, { replace: true });
@@ -76,7 +76,7 @@ export default function ClubPage({ notFound }) {
       {mod && <div className="bv-club-head-actions"><ClubMenu label="More actions for this club" items={items} /></div>}
     </header>
     {mod && <SetupCard club={data} current={current} onChooseBook={() => setSheet("book")} onMakePlan={() => setSheet("plan")} onInvite={() => setSheet("invite")} />}
-    {(book || !mod) && <ThisWeek book={book} people={list} next={next} myPage={myPage} mine={me?.progress} onShelf={onShelf} mod={mod} update={update} onMakePlan={() => setSheet("plan")} onShelfChanged={shelf.retry} />}
+    {(book || !mod) && <ThisWeek book={book} people={list} next={next} myPage={myPage} mine={me?.progress} onShelf={onShelf} update={update} onShelfChanged={shelf.retry} />}
     <TabBar value={tab} onChange={changeTab} tabs={CLUB_TABS} idPrefix="bv-club-tab" label={CLUB_TABS_LABEL} />
     <TabPanel value={tab} idPrefix="bv-club-tab">
       {tab === "discussion" && (current ? <DiscussionTab clubId={id} book={current} myPage={myPage} isMod={mod} refreshKey={version} onChanged={refresh} onUpdatePage={update.open} /> : <p className="bv-club-empty">{POSTS_OPEN_WHEN_BOOK}</p>)}

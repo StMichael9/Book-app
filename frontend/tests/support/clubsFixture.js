@@ -34,7 +34,7 @@ const freshPosts = () => [
 export const test = base.extend({
   app: async ({ page, baseURL }, provide) => {
     const state = { guest: false, requests: [], errors: [], myRole: "owner", count: 8, plus: false, shared: false, roles: {}, myProgress: { state: "reading", unit: "pages", value: 212 },
-      clubs: [{ id: 5, name: "Tuesday Readers", description: null, color: "#3f6b52", role: "owner", member_count: 8, current_book: { book_id: 1, title: "Middlemarch" } }],
+      clubs: [{ id: 5, name: "Tuesday Readers", description: null, color: "#3f6b52", role: "owner", member_count: 8, current_book: { club_book_id: 11, book_id: 1, title: "Middlemarch", cover: null, page_count: 880 }, next_checkpoint: { unit: "pages", value: 240, due_on: "2026-12-05", label: null }, my_progress: { unit: "pages", value: 212 }, new_posts: 0, checkpoint_due_soon: false }],
       books: freshBooks(), posts: freshPosts(), reports: [
         { id: 41, body: "A post that was reported.", author: "Priya", report_count: 3, reasons: ["Spoils the ending", "Rude"], hidden: true, created_at: "2026-11-20T10:00:00Z" },
         { id: 42, body: "Another reported post.", author: "Jo", report_count: 1, reasons: [], hidden: false, created_at: "2026-11-20T10:00:00Z" }],
@@ -106,6 +106,12 @@ export const test = base.extend({
       if (path === "/clubs/5/leave") return nothing();
       if (/^\/clubs\/5\/members\/[^/]+$/.test(path)) { const target = path.split("/").at(-1); if (method === "DELETE") return nothing(); state.roles[target] = body.role; return reply(200, { role: body.role }); }
       if (path === "/clubs/5/books" && method === "POST") { const known = BOOKS[body.book_id - 1], added = { id: 13, book_id: body.book_id, title: known.title, authors: [known.authors[0].name], cover_image_url: null, page_count: known.page_count, status: body.status, starts_on: body.starts_on || null, ends_on: null, checkpoints: [] }; state.books.push(added); return reply(201, added); }
+      if (/^\/clubs\/5\/books\/\d+\/advance$/.test(path) && method === "POST") {
+        if (state.failAdvance) return reply(500, { detail: "down" });
+        const done = state.books.find(item => item.id === Number(path.split("/")[4])), following = body?.next_club_book_id ? state.books.find(item => item.id === body.next_club_book_id) : null;
+        if (done) done.status = "past"; if (following) following.status = "current";
+        return reply(200, { id: 5 });
+      }
       if (/^\/clubs\/5\/books\/\d+$/.test(path) && method === "PATCH") {
         state.patchBookCalls = (state.patchBookCalls || 0) + 1;
         if (state.failBookPatchAt && state.patchBookCalls === state.failBookPatchAt) return reply(500, { detail: "down" });
