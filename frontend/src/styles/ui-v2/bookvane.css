@@ -315,6 +315,8 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 .bv-root .bv-account-row .bv-button { flex-shrink: 0; }
 
 .bv-root .bv-dialog { background: var(--bv-sheet); color: var(--bv-ink); border-radius: var(--bv-radius-sheet); width: min(620px, calc(100% - 40px)); max-height: calc(100dvh - 48px); padding: 28px; overscroll-behavior: contain; margin: auto; box-shadow: var(--bv-shadow); box-shadow: var(--bv-shadow-sheet); }
+/* A dialog is drawn in the top layer but still inherits from the element it was rendered inside (the right-aligned Settings links), so its own text starts at the left. */
+.bv-root .bv-dialog { text-align: start; }
 .bv-root .bv-dialog::backdrop { background: #152a20a8; }
 .bv-root[data-theme="dark"] .bv-dialog::backdrop { background: #10100ecc; }
 .bv-root .bv-dialog[open] { animation: bv-dialog-in 180ms ease-out; }
