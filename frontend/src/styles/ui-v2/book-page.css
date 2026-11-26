@@ -13,19 +13,19 @@
 .bv-root .bv-book-head .bv-book-metadata { border: 0; padding: 0; margin: 0 0 26px; }
 .bv-root .bv-book-head .bv-book-metadata dd { color: var(--bv-ink); font-weight: 600; }
 
-/* Actions on one row: Want to read and I own it at their content width, Add to list as quiet underlined text. */
+/* Actions on one row: Want to read and I own it at their content width, Add to list as quiet green text. */
 .bv-root .bv-book-actions .bv-shelf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
 .bv-root .bv-book-actions .bv-shelf-actions { flex: none; gap: 12px; }
 .bv-root .bv-book-actions .bv-shelf-actions .bv-button { flex: none; padding-inline: 24px; }
 .bv-root .bv-book-actions .bv-shelf-controls > .bv-help { flex: 0 0 100%; order: 9; margin: 0; }
 .bv-root .bv-book-actions .bv-add-list { margin: 0; }
 .bv-root .bv-book-actions .bv-add-list:has(.bv-add-list-panel) { flex: 0 0 100%; }
-.bv-root .bv-book-actions .bv-add-list > .bv-button, .bv-root .bv-book-actions .bv-add-list > .bv-button:hover:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:active:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:focus:not(:focus-visible) { background: transparent; box-shadow: none; border-color: transparent; color: var(--bv-ink); text-decoration: underline; text-underline-offset: 3px; font-weight: 600; padding-inline: 4px; }
+.bv-root .bv-book-actions .bv-add-list > .bv-button, .bv-root .bv-book-actions .bv-add-list > .bv-button:hover:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:active:not(:disabled), .bv-root .bv-book-actions .bv-add-list > .bv-button:focus:not(:focus-visible) { background: transparent; box-shadow: none; border-color: transparent; color: var(--bv-ink); font-weight: 600; padding-inline: 4px; }
 .bv-root .bv-book-actions .bv-pin-action { margin: 6px 0 0; }
 
-/* "Open or start your reading": underlined text with a real arrow icon that nudges 2px on hover. */
+/* "Open or start your reading": green text with a real arrow icon that nudges 2px on hover. */
 .bv-root .bv-open-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 12px; color: var(--bv-green); font-weight: 600; }
-.bv-root .bv-open-link span { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-open-link span { }
 .bv-root .bv-open-link svg { width: 18px; height: 18px; flex: none; transition: transform 150ms ease-out; }
 .bv-root .bv-open-link:hover svg, .bv-root .bv-open-link:focus-visible svg { transform: translateX(2px); }
 
@@ -39,13 +39,13 @@
 .bv-root .bv-more-by-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .bv-root .bv-more-by-head h2 { margin: 0; font-size: 2.125rem; line-height: 1.1; overflow-wrap: anywhere; }
 .bv-root .bv-more-by-all { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; flex: none; color: var(--bv-ink); font-weight: 600; }
-.bv-root .bv-more-by-all span { text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-more-by-all span { }
 .bv-root .bv-more-by-all svg { width: 18px; height: 18px; }
 .bv-root .bv-more-by-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 28px 24px; }
 .bv-root .bv-more-by-grid li, .bv-root .bv-more-by-grid > div { min-width: 0; }
 .bv-root .bv-more-by-grid h3 { margin: 12px 0 0; font: 400 var(--bv-fs-title)/1.25 var(--bv-display); font-synthesis: none; }
 .bv-root .bv-more-by-grid h3 a { color: inherit; text-decoration: none; }
-.bv-root .bv-more-by-grid h3 a:hover { text-decoration: underline; }
+.bv-root .bv-more-by-grid h3 a:hover { color: var(--bv-green); }
 
 @media (max-width: 899px) and (min-width: 701px) {
   .bv-root .bv-detail { grid-template-columns: 220px minmax(0, 1fr); column-gap: 36px; }

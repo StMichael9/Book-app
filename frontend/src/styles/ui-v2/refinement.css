@@ -30,7 +30,7 @@
   .bv-root .bv-button--saved:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--bv-green), 0 2px 6px color-mix(in srgb, var(--bv-ink) 8%, transparent); }
   .bv-root a:hover .bv-cover { box-shadow: 0 10px 22px color-mix(in srgb, var(--bv-ink) 14%, transparent); }
   .bv-root details > summary:hover { color: var(--bv-green); }
-  .bv-root .bv-book-card h3 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .bv-root .bv-book-card h3 a:hover { color: var(--bv-green); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .bv-root .bv-toast { transition: opacity 150ms ease-out; }
@@ -106,7 +106,7 @@
 .bv-root .bv-guest-noresults { margin-top: 20px; padding: 16px 18px; border-radius: var(--bv-radius-sheet); background: var(--bv-soft); text-align: left; }
 .bv-root .bv-guest-noresults p { margin: 0 0 12px; }
 .bv-root .bv-get-copy-quiet { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 10px 0 0; font-size: var(--bv-fs-helper); }
-.bv-root .bv-get-copy-quiet a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--bv-muted); text-decoration: underline; text-underline-offset: 3px; }
+.bv-root .bv-get-copy-quiet a { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; color: var(--bv-muted); }
 .bv-root .bv-get-copy-quiet svg { width: 0.875em; height: 0.875em; }
 .bv-root .bv-get-copy-quiet small { color: var(--bv-muted); font-size: var(--bv-fs-helper); }
 /* The landing header keeps one row on the narrowest phones. */

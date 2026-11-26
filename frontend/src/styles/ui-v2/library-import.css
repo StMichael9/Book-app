@@ -60,4 +60,4 @@
 .bv-root .bv-import-candidate > span { display: grid; gap: 2px; min-width: 0; }
 .bv-root .bv-import-candidate > span > span { color: var(--bv-muted); font-size: .9em; }
 .bv-root .bv-import-page .bv-button--quiet, .bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled), .bv-root .bv-import-page .bv-button--quiet:focus:not(:focus-visible) { background: transparent; box-shadow: none; }
-.bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled) { text-decoration: underline; }
+.bv-root .bv-import-page .bv-button--quiet:hover:not(:disabled) { background: var(--bv-soft); }

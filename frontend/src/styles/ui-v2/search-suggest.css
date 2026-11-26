@@ -13,7 +13,7 @@
 .bv-root .bv-suggest-cover .bv-cover { box-shadow: 0 0 0 1px var(--bv-control); }
 .bv-root .bv-suggest-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .bv-root .bv-suggest-title { font: 400 var(--bv-fs-title)/1.25 var(--bv-display); letter-spacing: -0.01em; font-synthesis: none; overflow-wrap: anywhere; }
-.bv-root .bv-suggest-match { text-decoration: underline; text-decoration-color: var(--bv-green); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.bv-root .bv-suggest-match { font-weight: 700; }
 .bv-root .bv-suggest-meta { font-size: var(--bv-fs-helper); line-height: 1.45; color: var(--bv-muted); }
 .bv-root .bv-suggest-all { border-top: 1px solid var(--bv-line); min-height: 48px; }
 .bv-root .bv-suggest-all-text { color: var(--bv-green); font-weight: 600; overflow-wrap: anywhere; }
