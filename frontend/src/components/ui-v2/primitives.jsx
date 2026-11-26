@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, useMemo } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AlertCircle, ArrowRight, BookOpen, Bookmark, Check, ExternalLink, Search, X } from "lucide-react";
 import { useAuth } from "../../hooks/AuthContext.jsx";
@@ -67,8 +67,9 @@ function arrived(node) {
   node.setAttribute("data-arrived", "");
 }
 
-// A real cover is about 2:3. Anything much squarer or wider (an audiobook, a scan) is shown whole, with no frame behind it.
-const nearCover = node => node.naturalHeight > 0 && node.naturalWidth / node.naturalHeight >= 0.62 && node.naturalWidth / node.naturalHeight <= 0.72;
+// A real cover is about 2:3. Artwork from 0.58 to 0.76 (width over height) fills the frame, cropped evenly; anything squarer
+// or narrower (an audiobook, a scan) is shown whole, with no frame behind it.
+const fillsFrame = node => node.naturalHeight > 0 && node.naturalWidth / node.naturalHeight >= 0.58 && node.naturalWidth / node.naturalHeight <= 0.76;
 
 function isCached(src) {
   if (!src || typeof Image === "undefined") return false;
@@ -89,7 +90,7 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   // An image the browser already holds (back navigation, a card seen before) paints at once with no jacket underneath.
   const cached = useMemo(() => isCached(src), [src]);
   const loaded = loadedUrl === src || cached;
-  const settle = node => { arrived(node); setLoadedUrl(src); setFreeUrl(nearCover(node) ? null : src); };
+  const settle = node => { arrived(node); setLoadedUrl(src); setFreeUrl(fillsFrame(node) ? null : src); };
   const fail = () => setFailed({ url, step: step === 0 && coverFallback(url, size) ? 1 : 2 });
   // The image cache can take many seconds on a first fetch. If it hasn't answered in 1.5 s, ask Open Library directly (once).
   useEffect(() => {
@@ -101,10 +102,30 @@ export function BookCover({ book, priority = false, hero = false, size = "medium
   // Once the artwork is in, the soft fill goes. Off-ratio artwork also loses the frame and carries its own shadow, bottom-aligned.
   return <div className={`bv-cover${src && !loaded ? " bv-cover--loading" : ""}${src && loaded ? " bv-cover--ready" : ""}${src && loaded && freeUrl === src ? " bv-cover--free" : ""}`}>
     {(!src || !loaded) && <Jacket book={book} className="bv-cover-fallback" {...(src ? { "aria-hidden": true } : { role: "img", "aria-label": `Cover unavailable for ${book.title || "this book"}` })} />}
-    {src && <img key={src} ref={node => { if (node?.complete && node.naturalWidth > 0 && !loaded) settle(node); }}
+    {src && <img key={src} ref={node => {
+      if (!node?.complete || node.naturalWidth === 0) return;
+      if (!loaded) { settle(node); return; }
+      // A cached image skips the path above, so its shape is checked here too. Set only on change, so renders can't loop.
+      const shape = fillsFrame(node) ? null : src;
+      if (shape !== freeUrl) setFreeUrl(shape);
+    }}
       src={src} alt={decorative ? "" : `Cover of ${book.title || "this book"}`} loading={priority || hero ? "eager" : "lazy"}
       {...(hero ? { fetchPriority: "high" } : {})} decoding="async" onLoad={event => settle(event.currentTarget)} onError={fail} />}
   </div>;
+}
+
+// The shelf guidance every card would repeat. A results grid says it once, out of sight, and its cards' buttons point at it.
+const SHELF_NOTES = {
+  v3: "Want to read and Owned are separate. Changing one keeps the other.",
+  legacy: "Want it, or already own it? Choose a shelf for this book.",
+};
+const ShelfNoteContext = createContext(null);
+
+export function ShelfNote({ children }) {
+  const { mode } = useUserBooks();
+  const id = useId();
+  const text = SHELF_NOTES[mode];
+  return <ShelfNoteContext.Provider value={text ? id : null}>{text && <p id={id} className="bv-sr-only">{text}</p>}{children}</ShelfNoteContext.Provider>;
 }
 
 export function ShelfActions({ book, compact = false, hideError = false }) {
@@ -128,8 +149,11 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
   const controls = useRef(null);
   const known = !unknown;
   const helperId = useId();
-  // A card repeats the same sentence for every book, so on cards it is left out; the page says it once, out of sight.
-  const noteHidden = compact && library.mode === "v3" && !(busy || down || library.readOnly || lookupError || blocked);
+  const pageNote = useContext(ShelfNoteContext);
+  // A card repeats the same sentence for every book, so on cards it is left out and the grid says it once (ShelfNote).
+  // Messages about this one book (saving, paused, errors, checking) stay on the card.
+  const settled = !(busy || down || library.readOnly || lookupError || blocked);
+  const noteHidden = compact && settled && (library.mode === "v3" || (library.mode === "legacy" && !status && Boolean(pageNote)));
   async function saveToShelf(value) {
     const wasWanted = value === "want" && known && (library.mode === "v3" ? Boolean(entry?.is_wanted) : status === "want");
     const success = await reader.saveBook(book, value);
@@ -163,7 +187,7 @@ export function ShelfActions({ book, compact = false, hideError = false }) {
         const action = `${selected ? "Remove" : "Add"} ${book.title} ${selected ? "from" : "to"} ${value === "owned" ? "Owned" : "Want to read"}`;
         return <Button key={value}
           variant={selected ? "saved" : compact || value === "owned" ? "secondary" : "primary"}
-          data-shelf={value} disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={noteHidden ? undefined : helperId}
+          data-shelf={value} disabled={busy || blocked} aria-pressed={Boolean(selected)} aria-describedby={noteHidden ? pageNote || undefined : helperId}
           aria-label={action.toLowerCase().includes(visible.toLowerCase()) ? action : `${visible}: ${action}`}
           onClick={() => saveToShelf(value)}>
           <Icon aria-hidden="true" />{visible}
@@ -207,7 +231,7 @@ export function BookCard({ book, priority, buyUrl, preview = false }) {
 
 export function BookGrid({ books, bookshop = false, preview = false }) {
   const hasAffiliate = bookshop && books.some((book) => bookshopAffiliateUrl(book));
-  return <><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} preview={preview} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div>
+  return <><ShelfNote><div className="bv-book-grid">{books.map((book, index) => <BookCard key={book.id} book={book} priority={index < 5} preview={preview} buyUrl={bookshop ? bookshopAffiliateUrl(book) : null} />)}</div></ShelfNote>
     {hasAffiliate && <p className="bv-help">Bookshop links are affiliate links. Bookvane may earn a commission if you purchase through them.</p>}</>;
 }
 

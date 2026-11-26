@@ -600,6 +600,7 @@ test("Back on a book page returns to Discover, and the shelf note is said once, 
   await page.goto("/browse");
   await expect(page.locator("article.bv-book-card").first()).toBeVisible();
   await expect(page.getByText("Want to read and Owned are separate. Changing one keeps the other.")).toHaveCount(1);
+  await expect(page.locator('article.bv-book-card [data-shelf="want"]').first()).toHaveAccessibleDescription("Want to read and Owned are separate. Changing one keeps the other.");
   await page.getByRole("link", { name: /^View / }).first().click();
   await expect(page.getByText("Open an existing reading, or start your first")).toHaveCount(0);
   await page.getByRole("link", { name: "Back", exact: true }).click();
