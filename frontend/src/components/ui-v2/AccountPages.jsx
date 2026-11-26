@@ -272,7 +272,7 @@ function DeleteAccount() {
   return <>
     <Button variant="quiet" className="bv-delete-account" onClick={() => setOpen(true)}>Delete account</Button>
     {open && <ConfirmSheet danger title="Delete your account?" confirmLabel="Delete my account" pending={pending} error={error} onClose={close} onConfirm={confirm}
-      text={<>This deletes your books, notes, lists and profile. It can’t be undone. <TextLink to="/my-data">Download your data</TextLink> first if you want a copy.</>} />}
+      text={<>This deletes your books, notes, lists, club posts, loans and profile. It can’t be undone. <TextLink to="/my-data">Download your data</TextLink> first if you want a copy.</>} />}
   </>;
 }
 

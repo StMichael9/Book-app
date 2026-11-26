@@ -38,7 +38,7 @@ const test = base.extend({
   },
 });
 
-const WORDS = "This deletes your books, notes, lists and profile. It can’t be undone. Download your data first if you want a copy.";
+const WORDS = "This deletes your books, notes, lists, club posts, loans and profile. It can’t be undone. Download your data first if you want a copy.";
 const sheet = page => page.getByRole("dialog", { name: "Delete your account?" });
 const open = async page => { await page.goto("/settings"); await page.getByRole("button", { name: "Delete account", exact: true }).click(); };
 
