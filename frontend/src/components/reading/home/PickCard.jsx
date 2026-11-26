@@ -12,7 +12,7 @@ export default function PickCard({ card, href, label, startText = "Start reading
       <h3>{href ? <Link to={href}>{card.title}</Link> : card.title}</h3>
       <p className="bv-author" title={card.authors.join(", ") || undefined}><AuthorLinks names={card.authors} ids={card.author_ids} /></p>
       {(label ?? card.label) && <p className="bv-next-label">{label ?? card.label}</p>}
-      <Button variant="secondary" disabled={disabled} aria-label={`Start reading ${card.title}`} onClick={() => onStart(card)}>{pending ? "Opening…" : startText}</Button>
+      <Button variant="quiet" className="bv-soft-action" disabled={disabled} aria-label={`Start reading ${card.title}`} onClick={() => onStart(card)}>{pending ? "Opening…" : startText}</Button>
       {children}
     </div>
   </article>;

@@ -56,7 +56,7 @@ const test = base.extend({
 const PAGES = ["/settings", "/home", "/browse", "/book/1", "/profile", "/privacy"];
 // Every visible link or link-styled button, at rest: no underline. A link inside a sentence is bold instead (the cue that it is a link).
 const sample = page => page.evaluate(() => [...document.querySelectorAll("a, button.bv-link-button, button.bv-inline-action, button.bv-text-link")].filter(node => node.getClientRects().length).map(node => {
-  const style = getComputedStyle(node), inSentence = Boolean(node.closest("p, li")) && node.closest("p, li") !== node && !node.closest("nav, header, footer, .bv-book-card, .bv-next-card, .bv-pile-row");
+  const style = getComputedStyle(node), inSentence = Boolean(node.closest("p, li")) && node.closest("p, li") !== node && !node.closest("nav, header, footer, .bv-book-card, .bv-next-card, .bv-upshelf-item");
   return { text: node.textContent.trim().slice(0, 30), line: style.textDecorationLine, weight: Number(style.fontWeight), inSentence };
 }));
 

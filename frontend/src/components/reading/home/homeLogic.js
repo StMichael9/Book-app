@@ -21,8 +21,6 @@ const mediaHook = text => {
   return () => useSyncExternalStore(subscribe, () => window.matchMedia(text).matches, () => false);
 };
 export const useNarrow = mediaHook("(max-width: 700px)");
-// From 1100px Home is two columns: Reading now as a list on the left, Up next as a numbered pile on the right.
-export const useWide = mediaHook("(min-width: 1100px)");
 // At 900px and under Home's book grids drop to two columns.
 export const useCompact = mediaHook("(max-width: 900px)");
 
