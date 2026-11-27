@@ -89,3 +89,8 @@ export function splitPlan({ start, finish, parts, pageCount }) {
     return { number, last, unit: pageCount ? "pages" : "percent", value, due_on: due };
   });
 }
+
+// A meeting's moment, in the reader's own locale and timezone: "Thu 5 Dec, 7:00 pm"; its calendar day (YYYY-MM-DD); and the short day for a list card.
+export const meetingWhen = iso => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }); };
+export const meetingDay = iso => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : isoOf(date); };
+export const meetingShort = iso => dayDate(meetingDay(iso));

@@ -1,4 +1,4 @@
-import { apiRequest } from "./client.js";
+import { API_BASE_URL, apiRequest } from "./client.js";
 
 // Book clubs (backend/routes/clubs.py). Every club answer is private to its members.
 const send = (method, body) => ({ method, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
@@ -36,3 +36,14 @@ export const reportPost = (id, postId, reason) => apiRequest(`${club(id)}/posts/
 export const editPost = (id, postId, body) => apiRequest(`${club(id)}/posts/${Number(postId)}`, send("PATCH", { body }));
 export const getReports = id => apiRequest(`${club(id)}/reports`);
 export const reviewPost = (id, postId, action) => apiRequest(`${club(id)}/posts/${Number(postId)}/review`, send("POST", { action }));
+
+// Meetings and RSVPs (one upcoming meeting per club), and the vote on the next book.
+export const createMeeting = (id, data) => apiRequest(`${club(id)}/meetings`, send("POST", data));
+export const updateMeeting = (id, meetingId, data) => apiRequest(`${club(id)}/meetings/${Number(meetingId)}`, send("PATCH", data));
+export const setRsvp = (id, meetingId, status) => apiRequest(`${club(id)}/meetings/${Number(meetingId)}/rsvp`, send("PUT", { status }));
+export const meetingCalendarUrl = (id, meetingId) => `${API_BASE_URL}${club(id)}/meetings/${Number(meetingId)}.ics`;
+export const getSuggestions = id => apiRequest(`${club(id)}/suggestions`);
+export const suggestBook = (id, bookId) => apiRequest(`${club(id)}/suggestions`, send("POST", { book_id: bookId }));
+export const removeSuggestion = (id, suggestionId) => apiRequest(`${club(id)}/suggestions/${Number(suggestionId)}`, send("DELETE"));
+export const setVote = (id, suggestionId, voted) => apiRequest(`${club(id)}/suggestions/${Number(suggestionId)}/vote`, send(voted ? "PUT" : "DELETE"));
+export const closeVote = id => apiRequest(`${club(id)}/suggestions/close`, send("POST"));

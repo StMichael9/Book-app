@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { addClubBook, createClub, createInvite, revokeInvite, updateClub } from "../../api/clubs.js";
+import { addClubBook, createClub, createInvite, revokeInvite, suggestBook, updateClub } from "../../api/clubs.js";
 import { getBookSuggestions } from "../../api/suggest.js";
 import { BookCover, Button, NativeDialog } from "../ui-v2/primitives.jsx";
 import { localToday } from "../reading/localToday.js";
-import { ADD_A_BOOK, ADD_TO_CLUB, CLUB_SIZE, LINK_COPIED, READ_IT_NEXT, READ_IT_NOW, SAVE, SHARE_INVITE_LINK, SIZE_CHOICES, SIZE_HELP, START_HELP, STOP_THIS_LINK, inviteLine } from "./clubCopy.js";
+import { ADD_A_BOOK, ADD_TO_CLUB, SUGGEST_A_BOOK, CLUB_SIZE, LINK_COPIED, READ_IT_NEXT, READ_IT_NOW, SAVE, SHARE_INVITE_LINK, SIZE_CHOICES, SIZE_HELP, START_HELP, STOP_THIS_LINK, inviteLine } from "./clubCopy.js";
 import { CLUB_COLORS, clubColor, codeOf, shortDate } from "./clubFormat.js";
 
 const SAVE_FAILED = "That couldn’t be saved. Please try again.";
@@ -13,7 +13,7 @@ const SAVE_FAILED = "That couldn’t be saved. Please try again.";
 // `text` may be a sentence with a link in it; `danger` makes the confirm button the red one, for things that can't be undone.
 export function ConfirmSheet({ title, text, confirmLabel, cancelLabel = "Cancel", danger = false, onConfirm, onClose, pending = false, error = "" }) {
   return <NativeDialog open onClose={() => { if (!pending) onClose(); }} title={title} className="bv-club-sheet">
-    <p className="bv-club-confirm">{text}</p>
+    {text && <p className="bv-club-confirm">{text}</p>}
     {error && <p className="bv-field-error" role="alert">{error}</p>}
     <div className="bv-form-actions"><Button variant={danger ? "danger" : "primary"} onClick={onConfirm} disabled={pending}>{confirmLabel}</Button><Button variant="quiet" onClick={onClose} disabled={pending}>{cancelLabel}</Button></div>
   </NativeDialog>;
@@ -110,9 +110,11 @@ export function InviteSheet({ open, onClose, clubId, left }) {
   </NativeDialog>;
 }
 
+// Suggest mode (`suggest`): picking a result posts it as a suggestion for the vote and closes the sheet; nothing is added to the club. The results list is
+// the one place to add more ways of finding a book (for example the reader's own shelves) for both modes.
 // Add a book, in two steps: find it, then one question: read it now (only when the club isn't reading anything) or read it next.
 // After "Read it now" the parent opens the reading plan, filled in for you.
-export function AddBookSheet({ open, onClose, clubId, hasCurrent, onAdded }) {
+export function AddBookSheet({ open, onClose, clubId, hasCurrent, onAdded, suggest = false }) {
   const [query, setQuery] = useState(""), [results, setResults] = useState([]), [picked, setPicked] = useState(null), [when, setWhen] = useState(hasCurrent ? "next" : "now");
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const latest = useRef(0);
@@ -134,12 +136,18 @@ export function AddBookSheet({ open, onClose, clubId, hasCurrent, onAdded }) {
       onAdded({ id: added.id, now });
     } catch (failure) { setError(codeOf(failure) === "too_many_books" ? "This club has as many books as it can hold." : SAVE_FAILED); setPending(false); }
   }
+  async function pick(book) {
+    if (!suggest) { setPicked(book); return; }
+    if (pending) return;
+    setPending(true); setError("");
+    try { await suggestBook(clubId, book.id); onAdded({ suggested: true }); } catch { setError(SAVE_FAILED); setPending(false); }
+  }
   const shown = query.trim().length >= 2 ? results : [];
   const authorOf = book => (typeof book.authors?.[0] === "string" ? book.authors[0] : book.authors?.[0]?.name);
-  return <NativeDialog open={open} onClose={() => { if (!pending) onClose(); }} title={picked ? picked.title : ADD_A_BOOK} className="bv-club-sheet">
+  return <NativeDialog open={open} onClose={() => { if (!pending) onClose(); }} title={picked ? picked.title : suggest ? SUGGEST_A_BOOK : ADD_A_BOOK} className="bv-club-sheet">
     {!picked ? <>
       <div className="bv-field"><label htmlFor="bv-club-find">Search books</label><input id="bv-club-find" type="search" value={query} maxLength={200} autoComplete="off" onChange={event => setQuery(event.target.value)} /></div>
-      {shown.length > 0 && <ul className="bv-club-results" aria-label="Books">{shown.map(book => <li key={book.id}><button type="button" onClick={() => setPicked(book)}>
+      {shown.length > 0 && <ul className="bv-club-results" aria-label="Books">{shown.map(book => <li key={book.id}><button type="button" disabled={pending} onClick={() => pick(book)}>
         <BookCover book={{ title: book.title, cover_image_url: book.cover_image_url, authors: [] }} size="small" decorative /><span><strong>{book.title}</strong>{authorOf(book) && <small>{authorOf(book)}</small>}</span></button></li>)}</ul>}
     </> : <>
       <div className="bv-club-choice" role="radiogroup">

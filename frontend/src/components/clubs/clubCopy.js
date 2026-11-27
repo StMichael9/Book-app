@@ -153,3 +153,29 @@ export const NOTHING_TO_REVIEW = "Nothing to review.";
 
 // Start a club
 export const START_HELP = "Add a description and colour later in Edit club.";
+
+// Meetings and voting on the next book (Michael approved, 26 Nov 2026)
+export const NEXT_MEETING = "Next meeting";
+export const VIDEO_CALL = "Video call";
+export const JOIN_CALL = "Join call";
+export const RSVP_CHOICES = [["going", "Going"], ["maybe", "Maybe"], ["no", "Can’t make it"]];
+export const RSVP_LABEL = "Your answer";
+export const rsvpWord = status => RSVP_CHOICES.find(([key]) => key === status)?.[1] || "";
+export const rsvpCounts = counts => [counts?.going > 0 && `${counts.going} going`, counts?.maybe > 0 && `${counts.maybe} maybe`].filter(Boolean).join(" · ");
+export const ADD_TO_CALENDAR = "Add to calendar";
+export const readToByMeeting = page => `Read to ${page} by the meeting`;
+export const FOR_THE_MEETING = "For the meeting";
+export const CHOOSE_NEXT_BOOK = "Choose the next book";
+export const SUGGEST_A_BOOK = "Suggest a book";
+export const VOTE = "Vote";
+export const VOTED = "Voted";
+export const votesOf = count => (count === 1 ? "1 vote" : `${count} votes`);
+export const CLOSE_THE_VOTE = "Close the vote";
+export const chosenLine = (title, count) => `Up next: ${title}. Chosen with ${votesOf(count)}.`;
+export const PLAN_THE_MEETING = "Plan the meeting";
+export const EDIT_MEETING = "Edit meeting";
+export const DATE = "Date";
+export const TIME = "Time";
+export const WHERE = "Where";
+export const QUESTIONS_OPTIONAL = "Questions (optional)";
+export const SAVE_MEETING = "Save meeting";

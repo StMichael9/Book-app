@@ -6,7 +6,7 @@ import ClubMenu from "./ClubMenu.jsx";
 import { ConfirmSheet } from "./ClubSheets.jsx";
 import { EditPostSheet, ReportSheet, WritePostSheet } from "./PostSheets.jsx";
 import { ago, positionLabel } from "./clubFormat.js";
-import { CANCEL, CANT_UNDO, DELETE_POST, DELETE_POST_TITLE, EDIT_POST, NO_POSTS, NO_SPOILERS_META, OLDER_POSTS, REMOVE_POST, REPORTED, REPORT_POST, UPDATE_MY_PAGE, WRITE_A_POST, YOU, removePostTitle, unlockAt, upTo } from "./clubCopy.js";
+import { CANCEL, CANT_UNDO, DELETE_POST, DELETE_POST_TITLE, EDIT_POST, FOR_THE_MEETING, NO_POSTS, NO_SPOILERS_META, OLDER_POSTS, REMOVE_POST, REPORTED, REPORT_POST, UPDATE_MY_PAGE, WRITE_A_POST, YOU, removePostTitle, unlockAt, upTo } from "./clubCopy.js";
 
 // One post: who, how far it is up to (or "no spoilers"), when, and its own "…": your posts can be edited or deleted; other people's reported, and
 // removed too by owners and admins.
@@ -38,7 +38,7 @@ const lowestUnlock = locked => {
 };
 
 // Discussion: Write a post, then the posts on pages you have reached, and the ones further on as a single line with a way to unlock them.
-export default function DiscussionTab({ clubId, book, myPage, isMod, refreshKey, onChanged, onUpdatePage }) {
+export default function DiscussionTab({ clubId, book, myPage, isMod, refreshKey, onChanged, onUpdatePage, questions = [] }) {
   const request = useRequest(() => getPosts(clubId, book.id), `club-posts:${clubId}:${book.id}:${refreshKey}`);
   const [more, setMore] = useState(null), [loadingMore, setLoadingMore] = useState(false), [writing, setWriting] = useState(false), [note, setNote] = useState(""), [error, setError] = useState("");
   const items = [...(request.data?.items || []), ...(more?.items || [])];
@@ -51,6 +51,8 @@ export default function DiscussionTab({ clubId, book, myPage, isMod, refreshKey,
   }
   const refresh = () => { setMore(null); onChanged(); };
   return <section className="bv-club-discussion" aria-label="Discussion">
+    {questions.length > 0 && <section className="bv-club-questions" aria-labelledby="bv-club-questions-h"><h2 id="bv-club-questions-h" className="bv-club-label">{FOR_THE_MEETING}</h2>
+      <ul>{questions.map((question, index) => <li key={index}>{question}</li>)}</ul></section>}
     <Button variant="secondary" className="bv-club-write" onClick={() => { setNote(""); setWriting(true); }}>{WRITE_A_POST}</Button>
     <p className="bv-club-note" role="status">{note}</p>
     {request.error ? <p className="bv-field-error" role="alert">The discussion couldn’t load. <button type="button" className="bv-club-link-button" onClick={request.retry}>Try again</button></p> : <>

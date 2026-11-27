@@ -32,7 +32,7 @@ function BookRow({ book, large = false, menu, children }) {
 const newestFirst = (a, b) => (b.ends_on || b.starts_on || "").localeCompare(a.ends_on || a.starts_on || "") || b.id - a.id;
 
 // The Books tab: Add a book (owners and admins), Now reading with its plan, Up next, and Read together (the club's history, newest first).
-export default function BooksTab({ clubId, books, current, next, mod, onAddBook, onEditPlan, onChanged }) {
+export default function BooksTab({ clubId, books, current, next, mod, onAddBook, onEditPlan, onChanged, choose = null }) {
   const upcoming = books.filter(book => book.status === "upcoming"), past = books.filter(book => book.status === "past").sort(newestFirst);
   const [ask, setAsk] = useState(null), [pending, setPending] = useState(false), [error, setError] = useState("");
   const close = () => { setAsk(null); setError(""); };
@@ -55,6 +55,7 @@ export default function BooksTab({ clubId, books, current, next, mod, onAddBook,
     {upcoming.length > 0 && <section aria-labelledby="bv-club-up-h"><h2 id="bv-club-up-h" className="bv-club-label">{UP_NEXT}</h2>
       <ul className="bv-club-booklist">{upcoming.map(book => <BookRow key={book.id} book={book} menu={mod ? [startMenu(book), { label: REMOVE_BOOK, danger: true, onSelect: () => setAsk({ kind: "remove", book, label: REMOVE_BOOK }) }] : undefined}>
         <p className="bv-club-author">{book.starts_on ? fromDate(shortDate(book.starts_on)) : NO_DATE_YET}</p>{!mod && <GetACopy book={{ title: book.title, authors: named(book.authors) }} disclosure={false} />}</BookRow>)}</ul></section>}
+    {choose}
     {past.length > 0 && <section aria-labelledby="bv-club-past-h"><h2 id="bv-club-past-h" className="bv-club-label">{READ_TOGETHER}</h2>
       <ul className="bv-club-booklist">{past.map(book => <BookRow key={book.id} book={book} menu={mod ? [{ label: REMOVE_FROM_HISTORY, danger: true, onSelect: () => setAsk({ kind: "remove", book, label: REMOVE_FROM_HISTORY }) }] : undefined}>
         <p className="bv-club-author">{monthShort(book.ends_on || book.starts_on)}</p></BookRow>)}</ul></section>}
