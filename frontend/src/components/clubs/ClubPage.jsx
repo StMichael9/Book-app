@@ -66,7 +66,6 @@ export default function ClubPage({ notFound }) {
   const myPage = pageOf(me?.progress, current?.page_count), next = current ? nextCheckpoint(current, myPage) : null;
   const onShelf = shelf.data ? Boolean(shelf.data.items?.some(item => item.book_id === current.book_id && item.entry_id != null)) : undefined;
   const sharing = shared ?? data.me.share_progress;
-  const setupShown = mod && !(current && ((current.checkpoints || []).length > 0 || current.ends_on) && data.member_count > 1);
   const left = data.club_plus || data.effective_cap === null ? null : Math.max(0, (data.effective_cap ?? data.cap.free_limit) - data.member_count);
   const tab = CLUB_TABS.some(([key]) => key === params.get("tab")) ? params.get("tab") : "discussion";
   const close = () => { setSheet(null); setError(""); };
@@ -85,7 +84,7 @@ export default function ClubPage({ notFound }) {
   }
   const items = mod ? [
     { label: EDIT_CLUB, onSelect: () => setSheet("edit") },
-    ...(meeting ? [{ label: EDIT_MEETING, onSelect: () => setSheet("meeting") }] : []),
+    ...(data.next_meeting === null || meeting ? [{ label: meeting ? EDIT_MEETING : PLAN_THE_MEETING, onSelect: () => setSheet("meeting") }] : []),
     ...(current ? [{ label: READING_PLAN, onSelect: () => setSheet("plan") }] : []),
     { label: reportedPosts(reports.data?.items?.length ?? 0), onSelect: () => setSheet("reports") },
     ...(owner ? [{ label: DELETE_CLUB, danger: true, onSelect: () => setSheet("delete") }] : []),
@@ -97,7 +96,7 @@ export default function ClubPage({ notFound }) {
       {mod && <div className="bv-club-head-actions"><ClubMenu label="More actions for this club" items={items} /></div>}
     </header>
     {mod && <SetupCard club={data} current={current} onChooseBook={() => setSheet("book")} onMakePlan={() => setSheet("plan")} onInvite={() => setSheet("invite")} />}
-    {mod && data.next_meeting === null && !setupShown && <button type="button" className="bv-club-pill bv-club-plan-meeting" onClick={() => setSheet("meeting")}><CalendarPlus aria-hidden="true" />{PLAN_THE_MEETING}</button>}
+    {mod && data.next_meeting === null && <button type="button" className="bv-club-pill bv-club-plan-meeting" onClick={() => setSheet("meeting")}><CalendarPlus aria-hidden="true" />{PLAN_THE_MEETING}</button>}
     <div className={`bv-club-top${meeting ? " has-meeting" : ""}`}>
       {meeting && <MeetingCard key={meeting.id} clubId={id} meeting={meeting} onAnswered={people.retry} />}
       {(book || !mod) && <ThisWeek book={book} people={list} next={next} myPage={myPage} mine={me?.progress} onShelf={onShelf} update={update} onShelfChanged={shelf.retry} meetingDay={meeting ? meetingDay(meeting.starts_at) : ""} />}

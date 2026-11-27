@@ -127,6 +127,17 @@ test("Edit meeting (in the club menu, only when there is one) opens the same she
   expect(sent(app, "PATCH", "/clubs/5/meetings/21")[0].body).toEqual({ starts_at: "2030-12-05T20:15:00.000Z", place: "Ana’s place, 12 Mill Lane", link: null, questions: ["One?"] });
 });
 
+test("a fresh owner with the Set up card showing can still plan the meeting, from the pill and from the club menu", async ({ page, app }) => {
+  app.count = 1; app.books[0].checkpoints = []; app.books[0].ends_on = null; app.meeting = null;
+  await page.goto("/clubs/5");
+  await expect(page.getByRole("region", { name: "Set up your club" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan the meeting" })).toBeVisible();
+  await page.getByRole("button", { name: "More actions for this club" }).click();
+  await expect(page.getByRole("menuitem", { name: "Plan the meeting" })).toBeVisible();
+  await page.getByRole("menuitem", { name: "Plan the meeting" }).click();
+  await expect(page.getByRole("dialog", { name: "Plan the meeting" })).toBeVisible();
+});
+
 test("a second meeting is refused with the save error (meeting_exists)", async ({ page, app }) => {
   app.meeting = null;
   await page.goto("/clubs/5");
