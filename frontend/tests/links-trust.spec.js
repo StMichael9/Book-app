@@ -117,3 +117,16 @@ test("a fresh account sees no \"Let friends find you?\" sheet on an invite page 
   await page.goto("/home");
   await expect(sheet).toBeVisible();
 });
+
+test("Home asks for the clubs only when Reading now has a book, and after the home data", async ({ page, app }) => {
+  await page.goto("/home");
+  await expect(page.getByRole("heading", { name: "Reading now" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(app.requests.filter(request => request.path === "/me/clubs")).toHaveLength(0);
+  app.currentReads = [reading(50, 1, "Middlemarch")];
+  await page.goto("/home");
+  await expect(page.getByRole("link", { name: "With Tuesday Readers" })).toBeVisible();
+  const paths = app.requests.map(request => request.path);
+  expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.lastIndexOf("/me/home") - 1);
+  expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.indexOf("/me/home"));
+});
