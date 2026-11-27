@@ -148,7 +148,7 @@ export function AddBookSheet({ open, onClose, clubId, hasCurrent, onAdded, sugge
     {!picked ? <>
       <div className="bv-field"><label htmlFor="bv-club-find">Search books</label><input id="bv-club-find" type="search" value={query} maxLength={200} autoComplete="off" onChange={event => setQuery(event.target.value)} /></div>
       {shown.length > 0 && <ul className="bv-club-results" aria-label="Books">{shown.map(book => <li key={book.id}><button type="button" disabled={pending} onClick={() => pick(book)}>
-        <span className="bv-club-result-cover"><BookCover book={{ title: book.title, cover_image_url: book.cover_image_url, authors: (book.authors || []).map(author => typeof author === "string" ? { name: author } : author) }} size="small" decorative /></span><span><strong>{book.title}</strong>{authorOf(book) && <small>{authorOf(book)}</small>}</span></button></li>)}</ul>}
+        <span className="bv-club-result-cover"><BookCover book={{ title: book.title, cover_image_url: book.cover_image_url ?? book.cover_url ?? null, authors: (book.authors || []).map(author => typeof author === "string" ? { name: author } : author) }} size="small" decorative /></span><span><strong>{book.title}</strong>{authorOf(book) && <small>{authorOf(book)}</small>}</span></button></li>)}</ul>}
     </> : <>
       <div className="bv-club-choice" role="radiogroup">
         {!hasCurrent && <label><input type="radio" name="bv-club-when" checked={when === "now"} onChange={() => setWhen("now")} /><span>{READ_IT_NOW}</span></label>}
