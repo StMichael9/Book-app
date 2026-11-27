@@ -127,7 +127,7 @@ test("Home asks for the clubs only when Reading now has a book, and after the ho
   expect(app.requests.filter(request => request.path === "/me/clubs")).toHaveLength(0);
   app.currentReads = [reading(50, 1, "Middlemarch")];
   await page.goto("/home");
-  await expect(page.getByRole("link", { name: "With Tuesday Readers" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "With Tuesday Readers" })).toBeVisible({ timeout: 15000 }); // the clubs load at idle priority (up to 2s by design); busy CI runners can stretch that
   const paths = app.requests.map(request => request.path);
   expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.lastIndexOf("/me/home") - 1);
   expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.indexOf("/me/home"));
