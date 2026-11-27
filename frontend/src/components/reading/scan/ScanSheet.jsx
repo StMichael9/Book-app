@@ -18,7 +18,7 @@ const stateLine = row => ({
 }[row.state]);
 
 // The camera: asks for permission, reads barcodes while the sheet is open and the page is showing, and stops every track otherwise.
-function useCamera(enabled, onCode) {
+export function useCamera(enabled, onCode, mode = "isbn") {
   const video = useRef(null), aim = useRef(null), onCodeRef = useRef(onCode);
   const [camera, setCamera] = useState(enabled ? "asking" : "off");
   const track = useRef(null);
@@ -63,7 +63,7 @@ function useCamera(enabled, onCode) {
         video.current.srcObject = opened;
         await video.current.play().catch(() => {});
         if (stale()) { abandon(); return; }
-        decoderStop = await startDecoder(video.current, code => onCodeRef.current(code), { getRegion: () => aimRegion(video.current, aim.current), onEngine: engine => trackEvent(`scan_engine_${engine}`) });
+        decoderStop = await startDecoder(video.current, code => onCodeRef.current(code), { getRegion: () => (mode === "qr" ? null : aimRegion(video.current, aim.current)), onEngine: engine => trackEvent(`scan_engine_${engine}`), mode });
         if (stale()) { abandon(); return; }
         stop = decoderStop; setCamera("on");
       } catch (failure) {
@@ -76,7 +76,7 @@ function useCamera(enabled, onCode) {
     document.addEventListener("visibilitychange", visibility);
     open();
     return () => { gone = true; document.removeEventListener("visibilitychange", visibility); release(); };
-  }, [enabled]);
+  }, [enabled, mode]);
   const toggleTorch = () => setTools(current => {
     const torchOn = !current.torchOn;
     Promise.resolve(track.current?.applyConstraints?.({ advanced: [{ torch: torchOn }] })).catch(() => {});

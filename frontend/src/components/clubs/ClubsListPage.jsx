@@ -6,7 +6,8 @@ import { useAuth } from "../../hooks/AuthContext.jsx";
 import { BookCover, Button, EmptyState } from "../ui-v2/primitives.jsx";
 import { useRequest } from "../ui-v2/data.js";
 import { ClubFormSheet } from "./ClubSheets.jsx";
-import { cardPlace, newPosts, readTo } from "./clubCopy.js";
+import JoinSheet from "./JoinSheet.jsx";
+import { JOIN_A_CLUB, cardPlace, newPosts, readTo } from "./clubCopy.js";
 import { clubColor, dayDate, members as memberCount, meetingShort, pageOf, positionLabel } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
@@ -25,16 +26,18 @@ function ClubCard({ club }) {
 
 export default function ClubsListPage() {
   const auth = useAuth(), navigate = useNavigate();
-  const [starting, setStarting] = useState(false);
+  const [starting, setStarting] = useState(false), [joining, setJoining] = useState(false);
   const request = useRequest(() => listClubs(), `clubs:${auth.sessionGeneration}`);
   const clubs = request.data?.items || [];
+  const join = <button type="button" className="bv-club-pill" onClick={() => setJoining(true)}>{JOIN_A_CLUB}</button>;
   const start = <Button className="bv-club-start" onClick={() => setStarting(true)}><Plus aria-hidden="true" />Start a club</Button>;
   return <section className="bv-container bv-clubs">
-    <div className="bv-club-pagehead"><h1>Your clubs</h1>{clubs.length > 0 && start}</div>
+    <div className="bv-club-pagehead"><h1>Your clubs</h1>{clubs.length > 0 && <div className="bv-club-pagehead-actions">{join}{start}</div>}</div>
     {request.loading ? <p className="bv-muted" role="status">Opening your clubs…</p>
       : request.error ? <EmptyState error icon={Users} title="Your clubs couldn’t load." action={<Button onClick={request.retry}>Try again</Button>}>Nothing has changed.</EmptyState>
         : clubs.length ? <ul className="bv-club-cards">{clubs.map(club => <ClubCard key={club.id} club={club} />)}</ul>
-          : <EmptyState icon={Users} title="Read together with friends." action={start}>Clubs are private and invite-only.</EmptyState>}
+          : <EmptyState icon={Users} title="Read together with friends." action={<div className="bv-club-empty-actions">{start}{join}</div>}>Clubs are private and invite-only.</EmptyState>}
+    {joining && <JoinSheet onClose={() => setJoining(false)} />}
     {starting && <ClubFormSheet open onClose={() => setStarting(false)} onSaved={saved => { setStarting(false); request.retry(); navigate(`/clubs/${saved.id}`, { state: { highlightInvite: true } }); }} />}
   </section>;
 }

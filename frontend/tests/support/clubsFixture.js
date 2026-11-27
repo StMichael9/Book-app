@@ -64,7 +64,7 @@ export const test = base.extend({
       if (path === "/events") return nothing();
       if (path === "/auth/refresh") return reply(state.guest ? 401 : 200, {});
       if (path === "/me/reading-capabilities") return reply(200, { enabled: true, writable: true, contract_version: 1, features: { reading_actions: true, library_import: false } });
-      if (path === "/me/library") return reply(200, { items: [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null, facets: {}, index: null });
+      if (path === "/me/library") return reply(200, { items: url.searchParams.get("facet") === "want" ? state.shelfWant || [] : url.searchParams.get("owned") === "true" ? state.shelfOwned || [] : [], counts: { all: 0, owned: 0, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: 0, next_cursor: null, facets: {}, index: null });
       if (path === "/me/loans" && method === "GET") return reply(200, { items: [] });
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026 });
@@ -92,6 +92,7 @@ export const test = base.extend({
       if (path === "/me/clubs" && method === "POST") { state.newName = body.name; const club = { id: 6, name: body.name, description: body.description, color: body.color, role: "owner", member_count: 1 }; state.clubs.push(club); state.myRole = "owner"; state.count = 1; return reply(201, club); }
       if (path === "/me/clubs/join") return state.joinStatus === 200 ? reply(200, { id: 5, name: "Tuesday Readers", joined: true }) : reply(state.joinStatus, { detail: { code: "club_full" } });
       if (path === `/club-invites/${TOKEN}`) return state.previewStatus === 200 ? reply(200, state.preview) : reply(404, { detail: "Not found" });
+      if (path.startsWith("/club-invites/code/")) return ["K7M4QX", "ACTIVE"].includes(decodeURIComponent(path.split("/").at(-1))) ? reply(200, { ...state.preview, token: TOKEN }) : reply(404, { detail: "Not found" });
       if (path.startsWith("/club-invites/")) return reply(404, { detail: "Not found" });
       if (/^\/clubs\/(5|6)$/.test(path) && method === "GET") return reply(200, detail(Number(path.slice(-1))));
       if (/^\/clubs\/(5|6)$/.test(path) && method === "PATCH") { if (body.member_limit) state.limit = body.member_limit; return reply(200, { id: 5, ...body }); }
@@ -101,9 +102,11 @@ export const test = base.extend({
       if (path === "/clubs/6/members") return reply(200, { items: [{ ...members()[0], me: true, role: "owner", shares_progress: false, progress: null }] });
       if (/^\/clubs\/\d+\/members$/.test(path)) return reply(404, { detail: "Club not found" });
       if (path === "/clubs/5/me") { state.shared = body.share_progress; return reply(200, { share_progress: body.share_progress }); }
-      if (path === "/clubs/5/invites" && method === "POST") return reply(201, { id: "i-1", url: `https://bookvane.me/c/${TOKEN}?ref=club`, expires_at: "2026-12-05T00:00:00Z", max_uses: null });
+      if (path === "/clubs/5/invites" && method === "GET") return reply(200, state.invites || []);
+      if (path === "/clubs/5/invites" && method === "POST") return reply(201, { id: "i-1", url: `https://bookvane.me/c/${TOKEN}?ref=club`, expires_at: "2026-12-05T00:00:00Z", max_uses: null, code: "K7M4QX" });
       if (/^\/clubs\/5\/invites\/[^/]+$/.test(path) && method === "DELETE") return nothing();
       if (path === "/clubs/5/leave") return nothing();
+      if (path === "/clubs/5/transfer" && method === "POST") return reply(200, { items: [] });
       if (/^\/clubs\/5\/members\/[^/]+$/.test(path)) { const target = path.split("/").at(-1); if (method === "DELETE") return nothing(); state.roles[target] = body.role; return reply(200, { role: body.role }); }
       if (path === "/clubs/5/books" && method === "POST") { const known = BOOKS[body.book_id - 1], added = { id: 13, book_id: body.book_id, title: known.title, authors: [known.authors[0].name], cover_image_url: null, page_count: known.page_count, status: body.status, starts_on: body.starts_on || null, ends_on: null, checkpoints: [] }; state.books.push(added); return reply(201, added); }
       // Meetings, RSVPs and the vote on the next book, exactly as the contract (clubs-meetings-votes-contract.md) words them. A test opts in with app.meeting / app.suggestions.

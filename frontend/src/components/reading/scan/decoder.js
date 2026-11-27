@@ -68,6 +68,12 @@ export async function canDetectEan13(env = typeof window === "undefined" ? undef
   try { return (await env.BarcodeDetector.getSupportedFormats()).includes("ean_13"); } catch { return false; }
 }
 
+// The same for a club invite QR code (Join a club).
+export async function canDetectQr(env = typeof window === "undefined" ? undefined : window) {
+  if (!env || !("BarcodeDetector" in env)) return false;
+  try { return (await env.BarcodeDetector.getSupportedFormats()).includes("qr_code"); } catch { return false; }
+}
+
 // Where the aiming box sits in the camera's own pixels. The video fills its box edge to edge (object-fit: cover), so the picture is
 // scaled up and trimmed; the box is mapped back through that, then padded a little. Null means "use the whole frame".
 export function aimRegion(video, aim, pad = 0.12) {
@@ -100,17 +106,19 @@ export function grabFrame(video, region) {
 // built-in reader (ZXing-C++ as WebAssembly, in a worker) is loaded on demand, so it is not part of the main bundle. Returns a stop
 // function. `onCode` gets every code worth looking at: an ISBN only once confirmed by a second identical read, and never a price add-on.
 // `env`, `loadEngine`, `grab`, `now` and `onEngine` are there so a test can stand in for the browser, the worker and the clock.
-export async function startDecoder(video, onCode, { env = typeof window === "undefined" ? undefined : window, loadEngine = loadWasmEngine, getRegion = () => null, grab = grabFrame, now = () => Date.now(), onEngine = () => {} } = {}) {
+export async function startDecoder(video, onCode, { env = typeof window === "undefined" ? undefined : window, loadEngine = loadWasmEngine, getRegion = () => null, grab = grabFrame, now = () => Date.now(), onEngine = () => {}, mode = "isbn" } = {}) {
   const gate = createConfirmGate(1500, now);
+  const qr = mode === "qr";
   const emit = code => {
+    if (qr) { if (typeof code === "string" && code) onCode(code); return; }
     const kind = classifyScan(code);
     if (kind === "extension" || kind === "ignore") return;
     if (kind === "isbn" && !gate(code)) return;
     onCode(code);
   };
-  if (await canDetectEan13(env)) {
+  if (qr ? await canDetectQr(env) : await canDetectEan13(env)) {
     const supported = await env.BarcodeDetector.getSupportedFormats();
-    const detector = new env.BarcodeDetector({ formats: READ_FORMATS.filter(format => supported.includes(format)) });
+    const detector = new env.BarcodeDetector({ formats: qr ? ["qr_code"] : READ_FORMATS.filter(format => supported.includes(format)) });
     let stopped = false, timer = 0, busy = false;
     onEngine("native");
     const tick = async () => {
@@ -134,7 +142,7 @@ export async function startDecoder(video, onCode, { env = typeof window === "und
       busy = true;
       try {
         const pixels = grab(video, getRegion());
-        if (pixels) for (const code of await engine.read(pixels, frame++)) if (!stopped) emit(code);
+        if (pixels) for (const code of await engine.read(pixels, frame++, qr ? "qr" : undefined)) if (!stopped) emit(code);
       } catch { /* a frame that cannot be read is skipped */ }
       busy = false;
     }

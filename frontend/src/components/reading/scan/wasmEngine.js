@@ -8,9 +8,9 @@ export function createWasmEngine() {
   worker.onerror = () => { for (const done of waiting.values()) done([]); waiting.clear(); };
   return {
     // The pixels are handed to the worker, not copied.
-    read: ({ data, width, height }, frame) => new Promise(done => {
+    read: ({ data, width, height }, frame, mode) => new Promise(done => {
       next += 1; waiting.set(next, done);
-      worker.postMessage({ id: next, data, width, height, frame }, [data.buffer]);
+      worker.postMessage({ id: next, data, width, height, frame, mode }, [data.buffer]);
     }),
     stop: () => { worker.terminate(); for (const done of waiting.values()) done([]); waiting.clear(); },
   };

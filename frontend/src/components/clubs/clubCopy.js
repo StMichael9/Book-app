@@ -179,3 +179,20 @@ export const TIME = "Time";
 export const WHERE = "Where";
 export const QUESTIONS_OPTIONAL = "Questions (optional)";
 export const SAVE_MEETING = "Save meeting";
+
+// Join by code or QR, "From your shelves", and handing the club over (Michael approved, 26 Nov 2026)
+export const JOIN_A_CLUB = "Join a club";
+export const INVITE_CODE = "Invite code";
+export const JOIN = "Join";
+export const SCAN_A_QR_CODE = "Scan a QR code";
+export const JOIN_HELP = "Or open the invite link you were sent.";
+export const WRONG_CODE = "That code doesn’t match a club. Check it with the person who invited you.";
+export const FROM_YOUR_SHELVES = "From your shelves";
+export const WANT_TO_READ = "Want to read";
+export const OWNED = "Owned";
+export const ADD = "Add";
+export const CHOOSE_WHO_RUNS = "Choose who runs the club after you.";
+export const LEAVE_AND_HAND_OVER = "Leave and hand over";
+export const MAKE_OWNER = "Make owner";
+export const makeOwnerTitle = name => `Make ${name} the owner?`;
+export const MAKE_OWNER_TEXT = "You’ll stay in the club as an admin.";

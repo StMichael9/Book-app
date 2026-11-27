@@ -510,7 +510,7 @@ test.describe("Books tab", () => {
     await page.getByRole("dialog", { name: "Reading plan" }).getByRole("button", { name: "Save plan", exact: true }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "DELETE" && /\/checkpoints\/\d+$/.test(request.path)).length).toBe(3);
     await expect.poll(() => app.requests.filter(request => request.method === "POST" && request.path === "/clubs/5/books/11/checkpoints").map(request => request.body.value)).toEqual([440]);
-    expect(app.requests.filter(request => request.method === "PATCH" && request.path === "/clubs/5/books/11").map(request => request.body)).toEqual([{ ends_on: "2027-01-02" }]);
+    await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path === "/clubs/5/books/11").map(request => request.body)).toEqual([{ ends_on: "2027-01-02" }]);
   });
 
   test("the Reading plan item in the club menu opens the same sheet", async ({ page, app: _app }) => {
@@ -690,7 +690,8 @@ test.describe("Members tab", () => {
     await expect(panel.getByRole("button", { name: "Leave club", exact: true })).toBeVisible();
   });
 
-  test("the owner has no Leave club", async ({ page, app: _app }) => {
+  test("an owner who is alone in the club has no Leave club", async ({ page, app }) => {
+    app.count = 1;
     await page.goto("/clubs/5?tab=members");
     await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
   });
@@ -709,17 +710,17 @@ test.describe("Members tab", () => {
     expect(sent(app, "POST", "/clubs/5/leave")).toHaveLength(1);
   });
 
-  test("Invite people opens the sheet without making a link; Share invite link makes one, copies it, and says when it stops and how many places are left", async ({ page, app, context }) => {
+  test("Invite people makes a link when the club has none and says when it stops and how many places are left; Share invite link copies it without making another", async ({ page, app, context }) => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await noShare(page);
     await page.goto("/clubs/5?tab=members");
     await page.getByRole("button", { name: "Invite people", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "Invite people" });
-    expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(0);
-    await expect(sheet.getByRole("button", { name: "Stop this link" })).toHaveCount(0);
+    await expect(sheet.getByText("The link works until 5 Dec. 17 places left.", { exact: true })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: "Stop this link" })).toBeVisible();
+    expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(1);
     await sheet.getByRole("button", { name: "Share invite link", exact: true }).click();
     await expect(sheet.getByText("Link copied", { exact: true })).toBeVisible();
-    await expect(sheet.getByText("The link works until 5 Dec. 17 places left.", { exact: true })).toBeVisible();
     expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(1);
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain("/c/");
     await sheet.getByRole("button", { name: "Stop this link", exact: true }).click();
@@ -732,6 +733,7 @@ test.describe("Members tab", () => {
     await page.goto("/clubs/5?tab=members");
     await page.getByRole("button", { name: "Invite people", exact: true }).click();
     const sheet = page.getByRole("dialog", { name: "Invite people" });
+    await expect(sheet.getByRole("button", { name: "Stop this link" })).toBeVisible();
     await sheet.getByRole("button", { name: "Share invite link", exact: true }).click();
     await expect.poll(() => page.evaluate(() => window.__shared?.url || "")).toContain("/c/");
     await expect(sheet.getByText("The link works until 5 Dec. 17 places left.", { exact: true })).toBeVisible();

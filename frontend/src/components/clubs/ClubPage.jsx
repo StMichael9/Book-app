@@ -10,7 +10,7 @@ import { TabBar, TabPanel } from "../profile/ProfileTabs.jsx";
 import BooksTab from "./BooksTab.jsx";
 import ClubMenu from "./ClubMenu.jsx";
 import { ReportedSheet } from "./ClubModeration.jsx";
-import { AddBookSheet, ClubFormSheet, ConfirmSheet, InviteSheet } from "./ClubSheets.jsx";
+import { AddBookSheet, ClubFormSheet, ConfirmSheet, HandOverLeaveSheet, InviteSheet } from "./ClubSheets.jsx";
 import ReadingPlanSheet from "./ReadingPlanSheet.jsx";
 import DiscussionTab from "./DiscussionTab.jsx";
 import MeetingCard from "./MeetingCard.jsx";
@@ -74,9 +74,9 @@ export default function ClubPage({ notFound }) {
     setShared(value);
     try { await setSharing(id, value); people.retry(); club.retry(); setShared(null); return true; } catch { setShared(null); return false; }
   }
-  async function leave() {
+  async function leave(successor) {
     setBusy(true); setError("");
-    try { await leaveClub(id); navigate("/clubs", { replace: true }); } catch { setError("You couldn’t leave the club. Please try again."); setBusy(false); }
+    try { await leaveClub(id, successor); navigate("/clubs", { replace: true }); } catch { setError("You couldn’t leave the club. Please try again."); setBusy(false); }
   }
   async function remove() {
     setBusy(true); setError("");
@@ -117,7 +117,8 @@ export default function ClubPage({ notFound }) {
     {sheet === "plan-new" && data.books.some(item => item.id === newPlan) && <ReadingPlanSheet clubId={id} book={data.books.find(item => item.id === newPlan)} fresh onClose={close} onChanged={refresh} />}
     {sheet === "meeting" && <MeetingSheet clubId={id} meeting={meeting} onClose={close} onSaved={() => { close(); refresh(); }} />}
     {sheet === "reports" && <ReportedSheet clubId={id} items={reports.data?.items || []} onClose={close} onChanged={() => { reports.retry(); refresh(); }} />}
-    {sheet === "leave" && <ConfirmSheet title={leaveTitle(data.name)} text={LEAVE_TEXT} confirmLabel={LEAVE_CLUB} cancelLabel={CANCEL} pending={busy} error={error} onClose={close} onConfirm={leave} />}
+    {sheet === "leave" && owner && <HandOverLeaveSheet title={leaveTitle(data.name)} members={list} pending={busy} error={error} onClose={close} onConfirm={leave} />}
+    {sheet === "leave" && !owner && <ConfirmSheet title={leaveTitle(data.name)} text={LEAVE_TEXT} confirmLabel={LEAVE_CLUB} cancelLabel={CANCEL} pending={busy} error={error} onClose={close} onConfirm={() => leave()} />}
     {sheet === "delete" && <ConfirmSheet title={deleteClubTitle(data.name)} text={DELETE_CLUB_TEXT} confirmLabel={DELETE_CLUB} cancelLabel={CANCEL} danger pending={busy} error={error} onClose={close} onConfirm={remove} />}
   </section>;
 }
