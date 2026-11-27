@@ -74,7 +74,7 @@
 .bv-root .bv-club-results, .bv-root .bv-club-points { list-style: none; margin: 0 0 16px; padding: 0; }
 .bv-root .bv-club-results button { display: flex; flex-direction: row; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--bv-line); background: transparent; color: var(--bv-ink); font: inherit; text-align: left; cursor: pointer; }
 .bv-root .bv-club-results small { color: var(--bv-muted); }
-.bv-root .bv-club-results button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.bv-root .bv-club-results button > .bv-club-result-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .bv-root .bv-club-points li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-club-row-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
 .bv-root .bv-club-row-form .bv-field { margin: 0; }
@@ -238,3 +238,17 @@
   .bv-root .bv-club-columns > aside { padding-top: 16px; }
   .bv-root .bv-club-books-tab, .bv-root .bv-club-members-tab { max-width: 760px; }
 }
+
+/* Join a club, the invite QR code and code, From your shelves, and handing the club over */
+.bv-root .bv-club-pagehead-actions, .bv-root .bv-club-empty-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.bv-root .bv-club-code-input { text-transform: uppercase; letter-spacing: 0.2em; font-weight: 700; }
+.bv-root .bv-club-qr-camera { margin: 12px 0; --scan-h: min(36dvh, 70vw); }
+.bv-root .bv-club-sheet .bv-club-actions { margin-top: 12px; }
+.bv-root .bv-club-qr { display: flex; justify-content: center; margin: 0 auto 8px; padding: 12px; width: fit-content; background: #fff; border-radius: var(--bv-radius-field); }
+.bv-root .bv-club-qr svg { display: block; width: min(220px, 60vw); height: auto; }
+.bv-root .bv-club-code-block { text-align: center; margin: 0 0 12px; }
+.bv-root .bv-club-code-label { margin: 0; color: var(--bv-muted); font-size: var(--bv-fs-helper); }
+.bv-root .bv-club-code { margin: 0; font: 700 2rem/1.2 var(--bv-body); letter-spacing: 0.3em; padding-inline-start: 0.3em; overflow-wrap: anywhere; }
+.bv-root .bv-club-shelves { margin: 0 0 12px; }
+.bv-root .bv-club-shelves .bv-club-label { margin-bottom: 4px; }
+.bv-root .bv-club-add { flex: none; margin-inline-start: auto; padding: 6px 14px; border-radius: var(--bv-radius-pill); background: var(--bv-soft); font-weight: 700; font-size: var(--bv-fs-helper); }

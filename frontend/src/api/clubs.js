@@ -16,7 +16,9 @@ export const getMembers = id => apiRequest(`${club(id)}/members`);
 export const setSharing = (id, shareProgress) => apiRequest(`${club(id)}/me`, send("PATCH", { share_progress: shareProgress }));
 export const setMemberRole = (id, userId, role) => apiRequest(`${club(id)}/members/${encodeURIComponent(userId)}`, send("PATCH", { role }));
 export const removeMember = (id, userId) => apiRequest(`${club(id)}/members/${encodeURIComponent(userId)}`, send("DELETE"));
-export const leaveClub = id => apiRequest(`${club(id)}/leave`, send("POST"));
+export const leaveClub = (id, successorUserId) => apiRequest(`${club(id)}/leave`, send("POST", successorUserId ? { successor_user_id: successorUserId } : undefined));
+export const transferClub = (id, userId) => apiRequest(`${club(id)}/transfer`, send("POST", { user_id: userId }));
+export const getInviteByCode = code => apiRequest(`/club-invites/code/${encodeURIComponent(code)}`, { skipRefresh: true });
 
 export const createInvite = id => apiRequest(`${club(id)}/invites`, send("POST", {}));
 export const listInvites = id => apiRequest(`${club(id)}/invites`);

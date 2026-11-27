@@ -690,7 +690,8 @@ test.describe("Members tab", () => {
     await expect(panel.getByRole("button", { name: "Leave club", exact: true })).toBeVisible();
   });
 
-  test("the owner has no Leave club", async ({ page, app: _app }) => {
+  test("an owner who is alone in the club has no Leave club", async ({ page, app }) => {
+    app.count = 1;
     await page.goto("/clubs/5?tab=members");
     await expect(page.getByRole("button", { name: "Leave club" })).toHaveCount(0);
   });

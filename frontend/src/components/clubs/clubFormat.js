@@ -94,3 +94,15 @@ export function splitPlan({ start, finish, parts, pageCount }) {
 export const meetingWhen = iso => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true }); };
 export const meetingDay = iso => { const date = new Date(iso); return Number.isNaN(date.getTime()) ? "" : isoOf(date); };
 export const meetingShort = iso => dayDate(meetingDay(iso));
+
+// The code as typed: capitals, with spaces and dashes ignored. Other characters are not turned away here; the server answers 404 for a code that is not one.
+export const cleanCode = text => String(text ?? "").toUpperCase().replace(/[\s-]/g, "");
+
+// The join page a decoded QR code points to: https://bookvane.me/c/{token}, or /c/{token} on this site. Anything else is null.
+export function inviteTokenOf(text, origin = typeof window === "undefined" ? "https://bookvane.me" : window.location.origin) {
+  try {
+    const url = new URL(String(text), origin);
+    if (!["https://bookvane.me", origin].includes(url.origin)) return null;
+    return /^\/c\/([A-Za-z0-9_-]+)\/?$/.exec(url.pathname)?.[1] || null;
+  } catch { return null; }
+}

@@ -46,7 +46,7 @@ export default function MembersTab({ club, list, pageCount, mod, owner, sharing,
     {!all && ordered.length > SHOWN && <Button variant="quiet" onClick={() => setAll(true)}>{seeAll(ordered.length)}</Button>}
     <p className="bv-club-note" role="status">{note}</p>
     <p className="bv-club-help">{SHARE_HELP}</p>
-    {!owner && <Button variant="quiet" className="bv-club-leave" onClick={onLeave}>{LEAVE_CLUB}</Button>}
+    {(!owner || club.member_count > 1) && <Button variant="quiet" className="bv-club-leave" onClick={onLeave}>{LEAVE_CLUB}</Button>}
     {sizing && <ClubSizeSheet club={club} onClose={() => setSizing(false)} onSaved={() => { setSizing(false); onChanged(); }} />}
     {open && <MemberSheet club={club} member={open} pageCount={pageCount} owner={owner} onClose={() => setOpen(null)} onChanged={onChanged} />}
   </section>;
