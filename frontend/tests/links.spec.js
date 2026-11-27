@@ -44,6 +44,7 @@ const test = base.extend({
       if (path === "/clubs/5/members") return reply(200, { items: [{ user_id: "00000000-0000-4000-8000-000000000000", name: "Rae", initials: "R", role: "owner", joined_at: "2026-11-01T00:00:00Z", patron: false, me: true, shares_progress: false, progress: null }] });
       if (path === "/clubs/5/books/11/posts") return reply(200, { items: [], next_before: null });
       if (path.startsWith("/club-invites/")) return reply(404, { detail: "Not found" });
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);

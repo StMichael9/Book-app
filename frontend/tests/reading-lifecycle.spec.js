@@ -162,6 +162,7 @@ const test = base.extend({
       if (path === "/me/up-next" || path === "/me/stats") return reply(404, { detail: "Not found" }); // Home's optional blocks: pins and the year at a glance
       if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled request ${method} ${path}`);
       return reply(500, {});
     });

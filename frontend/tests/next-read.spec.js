@@ -98,6 +98,7 @@ const test = base.extend({
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/events") return route.fulfill({ status: 204, body: "" }); // the once-per-session visit count, sent only to signed-out visitors
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);
