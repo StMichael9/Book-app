@@ -7,7 +7,7 @@ import { BookCover, Button, EmptyState } from "../ui-v2/primitives.jsx";
 import { useRequest } from "../ui-v2/data.js";
 import { ClubFormSheet } from "./ClubSheets.jsx";
 import { cardPlace, newPosts, readTo } from "./clubCopy.js";
-import { clubColor, dayDate, members as memberCount, pageOf, positionLabel } from "./clubFormat.js";
+import { clubColor, dayDate, members as memberCount, meetingShort, pageOf, positionLabel } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
 
 // One club: a colour rule, the current book's cover, the name, who and what, and what is next. Everything comes from the list itself
@@ -19,7 +19,7 @@ function ClubCard({ club }) {
     {book && <span className="bv-club-cover is-small"><BookCover book={{ title: book.title, cover_image_url: book.cover, authors: [] }} size="small" decorative /></span>}
     <span className="bv-club-card-text"><strong className="bv-club-card-name">{club.name}{club.new_posts > 0 && <span className="bv-club-new"> · {newPosts(club.new_posts)}</span>}</strong>
       <span className="bv-club-card-line">{memberCount(club.member_count)}{book ? ` · Now reading ${book.title}` : ""}</span>
-      {(next || myPage != null) && <span className="bv-club-card-line">{next && <b>{readTo(positionLabel(next.unit, next.value), dayDate(next.due_on))}</b>}{next && myPage != null ? " · " : ""}{myPage != null ? cardPlace(myPage, !next) : ""}</span>}
+      {(club.next_meeting_at || next || myPage != null) && <span className="bv-club-card-line">{club.next_meeting_at && <>{meetingShort(club.next_meeting_at)}{(next || myPage != null) && " · "}</>}{next && <b>{readTo(positionLabel(next.unit, next.value), dayDate(next.due_on))}</b>}{next && myPage != null ? " · " : ""}{myPage != null ? cardPlace(myPage, !next) : ""}</span>}
     </span></Link></li>;
 }
 

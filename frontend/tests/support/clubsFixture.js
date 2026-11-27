@@ -45,10 +45,10 @@ export const test = base.extend({
       const mine = index === (state.myRole === "owner" ? 0 : 1), base = index === 0 ? "owner" : index === 2 && state.myRole !== "admin" ? "admin" : mine ? state.myRole : "member";
       const role = state.roles[uid(index)] || base, shares = mine ? state.shared : index < 3;
       const progress = mine ? state.myProgress : index === 1 ? { state: "reading", unit: "pages", value: 260 } : index === 2 ? { state: "reading", unit: "pages", value: 180 } : null;
-      return { user_id: uid(index), name: NAMES[index % NAMES.length], initials: NAMES[index % NAMES.length][0], role, joined_at: "2026-11-01T00:00:00Z", patron: false, me: mine, shares_progress: shares, progress: mine || shares ? progress : null };
+      return { user_id: uid(index), name: NAMES[index % NAMES.length], initials: NAMES[index % NAMES.length][0], role, joined_at: "2026-11-01T00:00:00Z", patron: false, me: mine, shares_progress: shares, progress: mine || shares ? progress : null, ...(state.rsvps ? { rsvp: state.rsvps[index] || null } : {}) };
     });
     const detail = (id = 5) => ({ new_posts: state.newPosts || 0, id, name: id === 6 ? state.newName : "Tuesday Readers", description: null, color: "#3f6b52", created_at: "2026-11-01T00:00:00Z", me: { role: state.myRole, share_progress: state.shared },
-      member_count: state.count, club_plus: state.plus, ...(state.limit ? { member_limit: state.limit, effective_cap: state.limit } : {}), cap: { free_limit: 25, full: state.count >= (state.limit || 25) && !state.plus }, books: id === 6 ? [] : state.books });
+      member_count: state.count, club_plus: state.plus, ...(state.limit ? { member_limit: state.limit, effective_cap: state.limit } : {}), ...(state.meeting !== undefined ? { next_meeting: state.meeting } : {}), cap: { free_limit: 25, full: state.count >= (state.limit || 25) && !state.plus }, books: id === 6 ? [] : state.books });
     const entry = () => ({ id: 900, book_id: 1, book: BOOKS[0], is_owned: false, is_wanted: true, version: 1 + state.patchCount, reading_state: state.attempt ? "reading" : null, private_title: null, private_author: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" });
     page.on("pageerror", error => state.errors.push(error.message));
     await page.route("**/*", async route => {
@@ -88,7 +88,7 @@ export const test = base.extend({
         return reply(200, { entry: entry(), attempt: state.attempt });
       }
       // clubs
-      if (path === "/me/clubs" && method === "GET") return reply(200, { items: state.clubs.map(club => ({ ...club, ...(state.newPosts != null ? { new_posts: state.newPosts } : {}) })) });
+      if (path === "/me/clubs" && method === "GET") return reply(200, { items: state.clubs.map(club => ({ ...club, ...(state.meetingAt ? { next_meeting_at: state.meetingAt } : {}), ...(state.newPosts != null ? { new_posts: state.newPosts } : {}) })) });
       if (path === "/me/clubs" && method === "POST") { state.newName = body.name; const club = { id: 6, name: body.name, description: body.description, color: body.color, role: "owner", member_count: 1 }; state.clubs.push(club); state.myRole = "owner"; state.count = 1; return reply(201, club); }
       if (path === "/me/clubs/join") return state.joinStatus === 200 ? reply(200, { id: 5, name: "Tuesday Readers", joined: true }) : reply(state.joinStatus, { detail: { code: "club_full" } });
       if (path === `/club-invites/${TOKEN}`) return state.previewStatus === 200 ? reply(200, state.preview) : reply(404, { detail: "Not found" });
@@ -106,6 +106,41 @@ export const test = base.extend({
       if (path === "/clubs/5/leave") return nothing();
       if (/^\/clubs\/5\/members\/[^/]+$/.test(path)) { const target = path.split("/").at(-1); if (method === "DELETE") return nothing(); state.roles[target] = body.role; return reply(200, { role: body.role }); }
       if (path === "/clubs/5/books" && method === "POST") { const known = BOOKS[body.book_id - 1], added = { id: 13, book_id: body.book_id, title: known.title, authors: [known.authors[0].name], cover_image_url: null, page_count: known.page_count, status: body.status, starts_on: body.starts_on || null, ends_on: null, checkpoints: [] }; state.books.push(added); return reply(201, added); }
+      // Meetings, RSVPs and the vote on the next book, exactly as the contract (clubs-meetings-votes-contract.md) words them. A test opts in with app.meeting / app.suggestions.
+      if (path === "/clubs/5/meetings" && method === "POST") {
+        if (state.meeting) return reply(409, { detail: { code: "meeting_exists" } });
+        state.meeting = { id: 21, place: null, link: null, questions: [], counts: { going: 0, maybe: 0, no: 0 }, my_rsvp: null, ...body };
+        return reply(201, state.meeting);
+      }
+      if (/^\/clubs\/5\/meetings\/21$/.test(path) && method === "PATCH") { Object.assign(state.meeting, body); return reply(200, state.meeting); }
+      if (/^\/clubs\/5\/meetings\/21\/rsvp$/.test(path) && method === "PUT") {
+        if (state.failRsvp) return reply(500, { detail: "down" });
+        const counts = { ...state.meeting.counts }; if (state.meeting.my_rsvp) counts[state.meeting.my_rsvp] -= 1; counts[body.status] += 1;
+        Object.assign(state.meeting, { counts, my_rsvp: body.status });
+        return reply(200, { counts, my_rsvp: body.status });
+      }
+      if (path === "/clubs/5/suggestions" && method === "GET") return state.suggestions ? reply(200, { items: state.suggestions }) : reply(404, { detail: "Not found" });
+      // Any other club (a club made during the test) has no suggestions yet; the Books panel may ask for them after the page settles.
+      if (/^\/clubs\/\d+\/suggestions$/.test(path) && method === "GET") return reply(200, { items: [] });
+      if (path === "/clubs/5/suggestions" && method === "POST") {
+        if (state.suggestError) return reply(409, { detail: { code: state.suggestError } });
+        const book = BOOKS.find(item => item.id === body.book_id);
+        state.suggestions.push({ id: 60 + state.suggestions.length, book: { id: book.id, title: book.title, authors: book.authors.map(author => author.name), cover_image_url: null, page_count: book.page_count }, suggested_by: { name: "Rae" }, note: null, votes: 0, my_vote: false, mine: true });
+        return reply(201, { id: 60 });
+      }
+      if (path === "/clubs/5/suggestions/close" && method === "POST") {
+        if (!state.suggestions.length) return reply(409, { detail: { code: "no_suggestions" } });
+        const top = [...state.suggestions].sort((a, b) => b.votes - a.votes)[0];
+        state.suggestions = state.suggestions.filter(item => item !== top); state.suggestions.forEach(item => { item.votes = 0; item.my_vote = false; });
+        return reply(200, { club_book: { id: 15 }, title: top.book.title, votes: top.votes });
+      }
+      if (/^\/clubs\/5\/suggestions\/\d+\/vote$/.test(path)) {
+        if (state.failVote) return reply(500, { detail: "down" });
+        const target = state.suggestions.find(item => item.id === Number(path.split("/")[4])), want = method === "PUT";
+        if (target.my_vote !== want) { target.votes += want ? 1 : -1; target.my_vote = want; }
+        return reply(200, { votes: target.votes, my_vote: target.my_vote });
+      }
+      if (/^\/clubs\/5\/suggestions\/\d+$/.test(path) && method === "DELETE") { state.suggestions = state.suggestions.filter(item => item.id !== Number(path.split("/").at(-1))); return nothing(); }
       if (/^\/clubs\/5\/books\/\d+\/advance$/.test(path) && method === "POST") {
         if (state.failAdvance) return reply(500, { detail: "down" });
         const done = state.books.find(item => item.id === Number(path.split("/")[4])), following = body?.next_club_book_id ? state.books.find(item => item.id === body.next_club_book_id) : null;
