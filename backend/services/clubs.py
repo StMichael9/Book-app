@@ -437,8 +437,28 @@ def _new_code() -> str:
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
 
 
+def _fill_missing_codes(db: Session, club_id: int) -> None:
+    """Gives each live invite of this club that has no code a random one (invites made before codes existed). Always random from `secrets`, never
+    worked out from anything a reader of the repo could recompute. A collision with another live code retries; if every try collides the invite
+    simply stays without a code until the next time."""
+    missing = db.scalars(select(ClubInvite).where(ClubInvite.club_id == club_id, ClubInvite.code.is_(None), ClubInvite.revoked_at.is_(None),
+                                                  ClubInvite.expires_at > _now()).order_by(ClubInvite.created_at, ClubInvite.id).with_for_update()).all()
+    for invite in missing:
+        for _ in range(CODE_TRIES):
+            try:
+                with db.begin_nested():
+                    invite.code = _new_code()
+                    db.flush()
+                break
+            except IntegrityError:
+                continue
+    if missing:
+        db.commit()
+
+
 def create_invite(db: Session, club_id: int, user: User, expires_in_days: int, max_uses: int | None) -> dict:
     moderator(db, club_id, user)
+    _fill_missing_codes(db, club_id)
     token = secrets.token_urlsafe(32)
     for _ in range(CODE_TRIES):
         invite = ClubInvite(token=token, code=_new_code(), club_id=club_id, created_by=user.id, expires_at=_now() + timedelta(days=expires_in_days), max_uses=max_uses)
@@ -459,6 +479,7 @@ def create_invite(db: Session, club_id: int, user: User, expires_in_days: int, m
 
 def list_invites(db: Session, club_id: int, user: User) -> list[dict]:
     moderator(db, club_id, user)
+    _fill_missing_codes(db, club_id)
     now = _now()
     return [{"id": i.id, "code": i.code, "created_at": i.created_at, "expires_at": i.expires_at, "max_uses": i.max_uses, "uses": i.uses, "state": _invite_state(i, now)}
             for i in db.scalars(select(ClubInvite).where(ClubInvite.club_id == club_id).order_by(ClubInvite.created_at.desc()).limit(50))]
