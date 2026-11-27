@@ -16,7 +16,7 @@ import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
-import WithClub, { clubWithBook, useMyClubs } from "../../clubs/WithClub.jsx";
+import WithClub, { clubWithBook, useAfterIdle, useMyClubs } from "../../clubs/WithClub.jsx";
 import { greetingFor, MAX_PINS, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
 import AuthorLinks from "../../ui-v2/AuthorLinks.jsx";
 import ThumbsPrompt from "../ThumbsPrompt.jsx";
@@ -94,7 +94,9 @@ export default function ReadingHomePage() {
   const [override, setOverride] = useState({ key: "", pins: undefined, reads: {} });
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [justFinished, setJustFinished] = useState([]), [dot, setDot] = useState(0), swipe = useRef(null);
-  const narrow = useNarrow(), compact = useCompact(), clubs = useMyClubs();
+  const narrow = useNarrow(), compact = useCompact();
+  // The clubs are only for the "With {club}" line, so they are asked for once Reading now has a book and the page has had its idle moment.
+  const clubs = useMyClubs(useAfterIdle(Boolean(request.data?.current_reads?.length)));
   // The books Up next is showing, which "Can't decide?" leaves out. Memoised: a list rebuilt every render would keep redoing that work.
   const pinsNow = override.key === key && override.pins !== undefined ? override.pins : pinned.data, shelfItems = shelf.data?.items;
   const upNextIds = useMemo(() => (Array.isArray(pinsNow) && pinsNow.length ? pinsNow.slice(0, MAX_PINS) : shelfItems ? suggestions(shelfItems, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []).map(card => card.entry_id), [pinsNow, shelfItems, compact]);
