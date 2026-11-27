@@ -295,7 +295,7 @@ def test_roles_removal_and_leaving(world):
     world.as_(ben)
     assert world.client.get(f"/clubs/{club_id}").status_code == 404                                    # removed: the club is gone for them
     world.as_(owner)
-    assert world.client.post(f"/clubs/{club_id}/leave").json()["detail"]["code"] == "owner_cannot_leave"
+    assert world.client.post(f"/clubs/{club_id}/leave").json()["detail"]["code"] == "successor_required"      # an owner with other members must name a successor
     assert world.client.delete(f"/clubs/{club_id}/members/{ann.id}").status_code == 204
     names = [m["name"] for m in world.client.get(f"/clubs/{club_id}/members").json()["items"]]
     assert names == ["Owner", "Admin"]
