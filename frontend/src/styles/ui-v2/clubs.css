@@ -74,6 +74,8 @@
 .bv-root .bv-club-results, .bv-root .bv-club-points { list-style: none; margin: 0 0 16px; padding: 0; }
 .bv-root .bv-club-results button { display: flex; flex-direction: row; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 4px; border: 0; border-bottom: 1px solid var(--bv-line); background: transparent; color: var(--bv-ink); font: inherit; text-align: left; cursor: pointer; }
 .bv-root .bv-club-results small { color: var(--bv-muted); }
+/* A result's cover is a small thumbnail beside its title, never the full sheet width. */
+.bv-root .bv-club-results .bv-club-result-cover { flex: 0 0 44px; width: 44px; }
 .bv-root .bv-club-results button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .bv-root .bv-club-points li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; border-bottom: 1px solid var(--bv-line); }
 .bv-root .bv-club-row-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
