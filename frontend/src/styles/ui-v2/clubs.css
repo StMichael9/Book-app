@@ -193,3 +193,48 @@
 .bv-root .bv-club-choice input:disabled + span { opacity: 0.45; cursor: not-allowed; }
 .bv-root .bv-club-full-card .bv-button { align-self: flex-start; margin-top: 8px; border-radius: var(--bv-radius-pill); }
 .bv-root .bv-club-new { font-weight: 400; color: var(--bv-muted); }
+
+/* Meetings and the vote on the next book */
+.bv-root .bv-club-top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 20px; }
+.bv-root .bv-club-top > .bv-club-week { margin: 0; }
+.bv-root .bv-club-meeting, .bv-root .bv-club-questions, .bv-root .bv-club-choose { padding: 18px; background: var(--bv-sheet); border-radius: var(--bv-radius-sheet); box-shadow: var(--bv-shadow-sheet); }
+.bv-root .bv-club-meeting .bv-club-label, .bv-root .bv-club-questions .bv-club-label, .bv-root .bv-club-choose .bv-club-label { margin-bottom: 4px; }
+.bv-root .bv-club-when { margin: 0; font-weight: 700; font-size: var(--bv-fs-card); }
+.bv-root .bv-club-where { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; color: var(--bv-muted); }
+.bv-root .bv-club-where svg { width: 18px; height: 18px; flex: none; }
+.bv-root .bv-club-rsvp-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 14px 0 10px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-pill); overflow: hidden; }
+.bv-root .bv-club-rsvp-choice { position: relative; display: flex; }
+.bv-root .bv-club-rsvp-choice input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.bv-root .bv-club-rsvp-choice span { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 6px; text-align: center; font-weight: 700; font-size: var(--bv-fs-helper); }
+.bv-root .bv-club-rsvp-choice input:checked + span { background: var(--bv-green); color: var(--bv-on-green); }
+.bv-root .bv-club-rsvp-choice input:focus-visible + span { outline: 3px solid var(--bv-green); outline-offset: -3px; }
+.bv-root .bv-club-rsvp-choice input:checked:focus-visible + span { outline-color: var(--bv-on-green); }
+.bv-root .bv-club-meeting-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.bv-root .bv-club-meeting-foot p { margin: 0; }
+.bv-root .bv-club-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border: 0; border-radius: var(--bv-radius-pill); background: var(--bv-soft); color: var(--bv-ink); font: inherit; font-weight: 700; font-size: var(--bv-fs-helper); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.bv-root .bv-club-pill svg { width: 18px; height: 18px; flex: none; }
+.bv-root .bv-club-plan-meeting { margin: 0 0 12px; }
+.bv-root .bv-club-questions { margin: 0 0 12px; }
+.bv-root .bv-club-questions ul { list-style: none; margin: 0; padding: 0; }
+.bv-root .bv-club-questions li { padding: 10px 0; border-top: 1px solid var(--bv-line); overflow-wrap: anywhere; }
+.bv-root .bv-club-questions li:first-child { border-top: 0; }
+.bv-root .bv-club-choose { margin: 0 0 24px; }
+.bv-root .bv-club-choose-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.bv-root .bv-club-choose-head .bv-club-label { margin: 0; }
+.bv-root .bv-club-suggestions { list-style: none; margin: 8px 0 0; padding: 0; }
+.bv-root .bv-club-suggestion { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--bv-line); }
+.bv-root .bv-club-sug-cover { width: 44px; }
+.bv-root .bv-club-sug-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.bv-root .bv-club-sug-text small { color: var(--bv-muted); }
+.bv-root .bv-club-vote { min-height: 44px; padding: 0 16px; border: 1px solid var(--bv-control); border-radius: var(--bv-radius-pill); background: transparent; color: var(--bv-ink); font: inherit; font-weight: 700; font-size: var(--bv-fs-helper); cursor: pointer; }
+.bv-root .bv-club-vote.is-on { background: var(--bv-green); border-color: var(--bv-green); color: var(--bv-on-green); }
+.bv-root .bv-club-choose > .bv-club-link-button { margin-top: 8px; }
+.bv-root .bv-club-rsvp { margin-inline-start: 8px; color: var(--bv-muted); font-size: var(--bv-fs-helper); font-weight: 400; }
+.bv-root .bv-club-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 1100px) {
+  .bv-root .bv-club-page { max-width: 1080px; }
+  .bv-root .bv-club-top.has-meeting { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .bv-root .bv-club-columns { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; align-items: start; }
+  .bv-root .bv-club-columns > aside { padding-top: 16px; }
+  .bv-root .bv-club-books-tab, .bv-root .bv-club-members-tab { max-width: 760px; }
+}

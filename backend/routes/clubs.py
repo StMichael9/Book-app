@@ -1,16 +1,16 @@
 from datetime import date
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StrictBool, StringConstraints, model_validator
 from sqlalchemy.orm import Session
 
 from auth.dependencies import get_current_user
 from database import get_db
 from models import User
 from rate_limit import limiter
-from services import clubs
+from services import club_meetings, clubs
 
 router = APIRouter(tags=["clubs"])
 STRICT = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -125,6 +125,53 @@ class Review(BaseModel):
     action: Literal["restore", "delete"]
 
 
+Question = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+HTTPS = r"^https://\S+$"
+
+
+class MeetingCreate(BaseModel):
+    model_config = STRICT
+    starts_at: AwareDatetime
+    place: str | None = Field(default=None, max_length=200)
+    link: str | None = Field(default=None, max_length=500, pattern=HTTPS)
+    questions: list[Question] = Field(default_factory=list, max_length=5)
+
+
+class MeetingUpdate(BaseModel):
+    model_config = STRICT
+    starts_at: AwareDatetime | None = None
+    place: str | None = Field(default=None, max_length=200)
+    link: str | None = Field(default=None, max_length=500, pattern=HTTPS)
+    questions: list[Question] | None = Field(default=None, max_length=5)
+
+    @model_validator(mode="after")
+    def start_not_null(self):
+        if "starts_at" in self.model_fields_set and self.starts_at is None:
+            raise ValueError("A start time is required")
+        return self
+
+
+class LeaveRequest(BaseModel):
+    model_config = STRICT
+    successor_user_id: UUID | None = None
+
+
+class TransferRequest(BaseModel):
+    model_config = STRICT
+    user_id: UUID
+
+
+class RsvpRequest(BaseModel):
+    model_config = STRICT
+    status: Literal["going", "maybe", "no"]
+
+
+class SuggestionCreate(BaseModel):
+    model_config = STRICT
+    book_id: int = Field(ge=1)
+    note: str | None = Field(default=None, max_length=200)
+
+
 def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -159,6 +206,15 @@ def invite_preview(request: Request, response: Response, token: str, db: Session
     """The join page before signing in: the club's name and size only. An invalid, expired or revoked link is a plain 404."""
     _no_store(response)
     return clubs.invite_preview(db, token)
+
+
+@router.get("/club-invites/code/{code}")
+@limiter.limit("10/minute")
+def invite_preview_by_code(request: Request, response: Response, code: str, db: Session = Depends(get_db)):
+    """The same preview from a short code (typed or scanned), plus the token. Rate-limited because six characters can be guessed; any code that
+    is unknown, expired, used up or revoked is the same plain 404."""
+    _no_store(response)
+    return clubs.code_preview(db, code)
 
 
 @router.get("/clubs/{club_id}")
@@ -212,9 +268,18 @@ def member_remove(request: Request, club_id: int, user_id: UUID, user: User = De
 
 @router.post("/clubs/{club_id}/leave", status_code=204)
 @limiter.limit("30/minute")
-def club_leave(request: Request, club_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    clubs.leave(db, club_id, user)
+def club_leave(request: Request, club_id: int, data: LeaveRequest | None = Body(default=None), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Leave the club. The owner must name a current member as the new owner (`successor_user_id`); non-owners need no body."""
+    clubs.leave(db, club_id, user, data.successor_user_id if data else None)
     return Response(status_code=204)
+
+
+@router.post("/clubs/{club_id}/transfer")
+@limiter.limit("10/minute")
+def club_transfer(request: Request, response: Response, club_id: int, data: TransferRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The owner hands the club to a current member and becomes an admin. Returns the members."""
+    _no_store(response)
+    return {"items": clubs.transfer_owner(db, club_id, user, data.user_id)}
 
 
 @router.post("/clubs/{club_id}/invites", status_code=201)
@@ -326,3 +391,87 @@ def reports_list(request: Request, response: Response, club_id: int, user: User 
 @limiter.limit("30/minute")
 def post_review(request: Request, club_id: int, post_id: int, data: Review, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return clubs.review_post(db, club_id, user, post_id, data.action)
+
+
+# --- meetings and RSVPs -------------------------------------------------------------------------------------------------------------
+
+@router.post("/clubs/{club_id}/meetings", status_code=201)
+@limiter.limit("30/minute")
+def meeting_create(request: Request, response: Response, club_id: int, data: MeetingCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.create_meeting(db, club_id, user, data.model_dump())
+
+
+@router.patch("/clubs/{club_id}/meetings/{meeting_id}")
+@limiter.limit("30/minute")
+def meeting_update(request: Request, response: Response, club_id: int, meeting_id: int, data: MeetingUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.update_meeting(db, club_id, user, meeting_id, data.model_dump(exclude_unset=True))
+
+
+@router.delete("/clubs/{club_id}/meetings/{meeting_id}", status_code=204)
+@limiter.limit("30/minute")
+def meeting_delete(request: Request, club_id: int, meeting_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    club_meetings.delete_meeting(db, club_id, user, meeting_id)
+    return Response(status_code=204)
+
+
+@router.put("/clubs/{club_id}/meetings/{meeting_id}/rsvp")
+@limiter.limit("30/minute")
+def meeting_rsvp(request: Request, response: Response, club_id: int, meeting_id: int, data: RsvpRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.set_rsvp(db, club_id, user, meeting_id, data.status)
+
+
+@router.get("/clubs/{club_id}/meetings/{meeting_id}.ics")
+@limiter.limit("30/minute")
+def meeting_ics(request: Request, club_id: int, meeting_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """A one-off calendar file for members, not a subscription feed."""
+    body = club_meetings.ics(db, club_id, user, meeting_id)
+    return Response(content=body, media_type="text/calendar; charset=utf-8",
+                    headers={"Cache-Control": "private, no-store", "X-Robots-Tag": "noindex, nofollow", "Content-Disposition": 'attachment; filename="club-meeting.ics"'})
+
+
+# --- suggestions and votes ----------------------------------------------------------------------------------------------------------
+
+@router.get("/clubs/{club_id}/suggestions")
+@limiter.limit("90/minute")
+def suggestions_list(request: Request, response: Response, club_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return {"items": club_meetings.list_suggestions(db, club_id, user)}
+
+
+@router.post("/clubs/{club_id}/suggestions", status_code=201)
+@limiter.limit("30/minute")
+def suggestion_create(request: Request, response: Response, club_id: int, data: SuggestionCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.create_suggestion(db, club_id, user, data.book_id, data.note)
+
+
+@router.post("/clubs/{club_id}/suggestions/close")
+@limiter.limit("30/minute")
+def suggestions_close(request: Request, response: Response, club_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Owners and admins: the top suggestion becomes the club's upcoming (or current) book and every vote is cleared."""
+    _no_store(response)
+    return club_meetings.close_vote(db, club_id, user)
+
+
+@router.delete("/clubs/{club_id}/suggestions/{suggestion_id}", status_code=204)
+@limiter.limit("30/minute")
+def suggestion_delete(request: Request, club_id: int, suggestion_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    club_meetings.delete_suggestion(db, club_id, user, suggestion_id)
+    return Response(status_code=204)
+
+
+@router.put("/clubs/{club_id}/suggestions/{suggestion_id}/vote")
+@limiter.limit("30/minute")
+def vote_add(request: Request, response: Response, club_id: int, suggestion_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.set_vote(db, club_id, user, suggestion_id, True)
+
+
+@router.delete("/clubs/{club_id}/suggestions/{suggestion_id}/vote")
+@limiter.limit("30/minute")
+def vote_remove(request: Request, response: Response, club_id: int, suggestion_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _no_store(response)
+    return club_meetings.set_vote(db, club_id, user, suggestion_id, False)

@@ -5,7 +5,7 @@ import ClubSwitch from "./ClubSwitch.jsx";
 import { MemberSheet } from "./ClubModeration.jsx";
 import { ClubSizeSheet } from "./ClubSheets.jsx";
 import { initialOf, progressText } from "./clubFormat.js";
-import { ADD_PLACES, CHANGE, CLUB_FULL, CLUB_FULL_TEXT, SIZE_MAX, INVITE_PEOPLE, LEAVE_CLUB, SHARE_HELP, SHARE_MY_PROGRESS, SHARING_OFF, SHARING_ON, YOU, placesUsed, seeAll } from "./clubCopy.js";
+import { ADD_PLACES, CHANGE, CLUB_FULL, CLUB_FULL_TEXT, SIZE_MAX, INVITE_PEOPLE, LEAVE_CLUB, SHARE_HELP, SHARE_MY_PROGRESS, SHARING_OFF, SHARING_ON, YOU, placesUsed, rsvpWord, seeAll } from "./clubCopy.js";
 
 const SHOWN = 6;
 
@@ -16,7 +16,7 @@ function Row({ member, pageCount, onOpen, children }) {
   const right = [member.role !== "member" ? member.role : "", progressText(member, pageCount)].filter(Boolean).join(" · ");
   const body = <>
     <span className="bv-club-avatar" aria-hidden="true">{initialOf(member.me ? YOU : member.name)}</span>
-    <span className="bv-club-member-text"><strong>{member.me ? YOU : member.name}</strong>{children}</span>
+    <span className="bv-club-member-text"><strong>{member.me ? YOU : member.name}</strong>{member.rsvp && <span className="bv-club-rsvp">{rsvpWord(member.rsvp)}</span>}{children}</span>
     <span className="bv-club-member-right">{right}</span>
     {onOpen && <ChevronRight className="bv-club-chevron" aria-hidden="true" />}
   </>;
