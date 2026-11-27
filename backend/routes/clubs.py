@@ -151,6 +151,16 @@ class MeetingUpdate(BaseModel):
         return self
 
 
+class LeaveRequest(BaseModel):
+    model_config = STRICT
+    successor_user_id: UUID | None = None
+
+
+class TransferRequest(BaseModel):
+    model_config = STRICT
+    user_id: UUID
+
+
 class RsvpRequest(BaseModel):
     model_config = STRICT
     status: Literal["going", "maybe", "no"]
@@ -196,6 +206,15 @@ def invite_preview(request: Request, response: Response, token: str, db: Session
     """The join page before signing in: the club's name and size only. An invalid, expired or revoked link is a plain 404."""
     _no_store(response)
     return clubs.invite_preview(db, token)
+
+
+@router.get("/club-invites/code/{code}")
+@limiter.limit("10/minute")
+def invite_preview_by_code(request: Request, response: Response, code: str, db: Session = Depends(get_db)):
+    """The same preview from a short code (typed or scanned), plus the token. Rate-limited because six characters can be guessed; any code that
+    is unknown, expired, used up or revoked is the same plain 404."""
+    _no_store(response)
+    return clubs.code_preview(db, code)
 
 
 @router.get("/clubs/{club_id}")
@@ -249,9 +268,18 @@ def member_remove(request: Request, club_id: int, user_id: UUID, user: User = De
 
 @router.post("/clubs/{club_id}/leave", status_code=204)
 @limiter.limit("30/minute")
-def club_leave(request: Request, club_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    clubs.leave(db, club_id, user)
+def club_leave(request: Request, club_id: int, data: LeaveRequest | None = Body(default=None), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Leave the club. The owner must name a current member as the new owner (`successor_user_id`); non-owners need no body."""
+    clubs.leave(db, club_id, user, data.successor_user_id if data else None)
     return Response(status_code=204)
+
+
+@router.post("/clubs/{club_id}/transfer")
+@limiter.limit("10/minute")
+def club_transfer(request: Request, response: Response, club_id: int, data: TransferRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """The owner hands the club to a current member and becomes an admin. Returns the members."""
+    _no_store(response)
+    return {"items": clubs.transfer_owner(db, club_id, user, data.user_id)}
 
 
 @router.post("/clubs/{club_id}/invites", status_code=201)

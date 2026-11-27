@@ -349,10 +349,12 @@ class ClubInvite(Base):
     __table_args__ = (
         CheckConstraint("max_uses IS NULL OR max_uses BETWEEN 1 AND 1000", name="ck_club_invite_uses"),
         Index("ix_club_invites_club_id", "club_id"),
+        Index("uq_club_invites_code", "code", unique=True, postgresql_where=text("revoked_at IS NULL AND code IS NOT NULL")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
     token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    code: Mapped[str | None] = mapped_column(String(6))      # short code to type or scan; unique among the invites that are not revoked
     club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("users.id", ondelete="SET NULL"))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
