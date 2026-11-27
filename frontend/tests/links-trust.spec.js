@@ -46,6 +46,7 @@ const test = base.extend({
       if (path === "/clubs/5/members") return reply(200, { items: [{ user_id: "00000000-0000-4000-8000-000000000000", name: "Rae", initials: "R", role: "owner", joined_at: "2026-11-01T00:00:00Z", patron: false, me: true, shares_progress: false, progress: null }] });
       if (path === "/clubs/5/books/11/posts") return reply(200, { items: [], next_before: null });
       if (path === "/clubs/5/reports") return reply(200, { items: [] });
+      if (path === "/clubs/5/suggestions" || path === "/clubs/5/meetings") return reply(200, { items: [] });
       if (path.startsWith("/club-invites/")) return reply(404, { detail: "Not found" });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
@@ -113,6 +114,7 @@ test("a fresh account sees no \"Let friends find you?\" sheet on an invite page 
   await expect(sheet).toHaveCount(0);
   await page.goto("/clubs/5");
   await expect(page.getByRole("heading", { name: "Tuesday Readers" }).first()).toBeVisible();
+  await page.waitForLoadState("networkidle");
   await expect(sheet).toHaveCount(0);
   await page.goto("/home");
   await expect(sheet).toBeVisible();
