@@ -153,7 +153,7 @@ test.describe("Scan button on a touch phone", () => {
 
   test("there is no header Scan button on the invite page or the sign-in screens", async ({ page, app }) => {
     await page.goto("/c/" + "x".repeat(24));
-    await expect(page.getByRole("heading", { name: "This page isn’t on the shelf." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "This invite link isn’t working." })).toBeVisible();
     await expect(page.getByRole("button", { name: SCAN_LABEL })).toHaveCount(0);
     app.guest = true;
     await page.goto("/login");

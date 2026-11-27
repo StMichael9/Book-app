@@ -36,6 +36,7 @@ const test = base.extend({
       if (/^\/me\/library\/101\/(reading|attempts)$/.test(path)) return reply(404, { detail: "Not found" });   // background prefetch, not part of this fixture
       const isbn = path.match(/^\/me\/catalogue\/isbn\/(\d+)$/);
       if (isbn) { state.lookups.push(isbn[1]); return reply(200, { isbn13: isbn[1], status: "catalogue", book_id: 5, edition_id: 1, title: "Emma", authors: ["Jane Austen"], cover_url: null, on_shelf: null }); }
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${request.method()} ${path}`);
       return reply(404, { detail: "Not found" });
     });

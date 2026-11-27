@@ -16,6 +16,7 @@ import { SlowReadingNotice } from "../ReadingCards.jsx";
 import HelpMeChoose from "./HelpMeChoose.jsx";
 import ProgressBox from "../ProgressBox.jsx";
 import UpNext from "./UpNext.jsx";
+import WithClub, { clubWithBook, useAfterIdle, useMyClubs } from "../../clubs/WithClub.jsx";
 import { greetingFor, MAX_PINS, progressOf, shortDate, suggestions, useCompact, useNarrow, UP_NEXT_SHOWN, UP_NEXT_SHOWN_COMPACT } from "./homeLogic.js";
 import AuthorLinks from "../../ui-v2/AuthorLinks.jsx";
 import ThumbsPrompt from "../ThumbsPrompt.jsx";
@@ -39,7 +40,7 @@ function ProgressSheet({ read, title, readOnly, onClose, onSaved, onFinished }) 
   </div></NativeDialog>;
 }
 
-function ReadingCard({ read, onSaved, onFinished, readOnly }) {
+function ReadingCard({ read, onSaved, onFinished, readOnly, clubs }) {
   const { entry, attempt } = read, book = entryBook(entry), progress = progressOf(attempt);
   const percent = progress && (progress.max ? Math.min(100, Math.round(100 * progress.value / progress.max)) : null);
   const started = shortDate(attempt.started_on);
@@ -49,6 +50,7 @@ function ReadingCard({ read, onSaved, onFinished, readOnly }) {
     <div className="bv-now-body">
       <h3><Link to={`/my-books/${entry.id}`} state={{ entry }}>{book.title}</Link></h3>
       <p className="bv-author"><AuthorLinks authors={book.authors || []} /></p>
+      <WithClub club={clubWithBook(clubs, entry.book_id ?? book.id)} />
       <progress className="bv-reading-meter" value={percent ?? 0} max="100" aria-label={`Reading progress for ${book.title}`} />
       {(progress || started) && <p className="bv-muted">{[progress?.label, started && `started ${started}`].filter(Boolean).join(" · ")}</p>}
       {!readOnly && <Button variant="quiet" className="bv-soft-action" aria-label={`Update progress for ${book.title}`} onClick={() => setOpen(true)}>Update progress</Button>}
@@ -93,6 +95,8 @@ export default function ReadingHomePage() {
   const current = override.key === key ? override : { key, pins: undefined, reads: {} };
   const [justFinished, setJustFinished] = useState([]), [dot, setDot] = useState(0), swipe = useRef(null);
   const narrow = useNarrow(), compact = useCompact();
+  // The clubs are only for the "With {club}" line, so they are asked for once Reading now has a book and the page has had its idle moment.
+  const clubs = useMyClubs(useAfterIdle(Boolean(request.data?.current_reads?.length)));
   // The books Up next is showing, which "Can't decide?" leaves out. Memoised: a list rebuilt every render would keep redoing that work.
   const pinsNow = override.key === key && override.pins !== undefined ? override.pins : pinned.data, shelfItems = shelf.data?.items;
   const upNextIds = useMemo(() => (Array.isArray(pinsNow) && pinsNow.length ? pinsNow.slice(0, MAX_PINS) : shelfItems ? suggestions(shelfItems, compact ? UP_NEXT_SHOWN_COMPACT : UP_NEXT_SHOWN) : []).map(card => card.entry_id), [pinsNow, shelfItems, compact]);
@@ -133,7 +137,7 @@ export default function ReadingHomePage() {
           <ul className={`bv-now-grid${narrow ? " bv-now-swipe" : ""}`} ref={swipe} onScroll={narrow ? scrolled : undefined}>{cards.map(card => <li key={(card.finished || card.read).entry.id}
             onFocus={narrow ? event => event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" }) : undefined}>{card.finished
             ? <FinishedCard finished={card.finished} readOnly={library.readOnly} onSaved={result => library.rememberEntries([result.entry])} />
-            : <ReadingCard read={card.read} readOnly={library.readOnly} onSaved={saved(card.read)} onFinished={finished(card.read, card.index)} />}</li>)}</ul>
+            : <ReadingCard read={card.read} readOnly={library.readOnly} clubs={clubs} onSaved={saved(card.read)} onFinished={finished(card.read, card.index)} />}</li>)}</ul>
           {narrow && cards.length > 1 && <div className="bv-now-dots" aria-hidden="true">{cards.map((card, index) => <i key={(card.finished || card.read).entry.id} className={index === dot ? "on" : undefined} />)}</div>}
         </> : <div className="bv-muted">{request.data.paused_count ? <p>A book can wait for you. <TextLink to="/my-books?status=paused">Open paused books</TextLink></p> : <p>Nothing started yet. Pick something below, or <TextLink to="/browse">find a book</TextLink>.</p>}</div>}
     </section>
