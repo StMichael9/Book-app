@@ -2,7 +2,7 @@ import enum
 import uuid
 from sqlalchemy import String, Text, Integer, SmallInteger, BigInteger, Boolean, Float, Table, Column, ForeignKey, UniqueConstraint, CheckConstraint, Computed, UUID, Date, DateTime, Index, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from database import Base
 from datetime import date, datetime
 
@@ -425,6 +425,62 @@ class ClubReport(Base):
     reporter_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     reason: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubMeeting(Base):
+    """A club's meeting: when, where (a place and/or an https link) and up to five questions. One upcoming at a time (enforced when created)."""
+    __tablename__ = "club_meetings"
+    __table_args__ = (
+        CheckConstraint("place IS NULL OR char_length(place) <= 200", name="ck_club_meeting_place"),
+        CheckConstraint("link IS NULL OR (link LIKE 'https://%' AND char_length(link) <= 500)", name="ck_club_meeting_link"),
+        CheckConstraint("cardinality(questions) <= 5", name="ck_club_meeting_questions"),
+        Index("ix_club_meetings_club_starts", "club_id", "starts_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    place: Mapped[str | None] = mapped_column(String(200))
+    link: Mapped[str | None] = mapped_column(String(500))
+    questions: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list, server_default=text("'{}'"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubMeetingRsvp(Base):
+    __tablename__ = "club_meeting_rsvps"
+    __table_args__ = (CheckConstraint("status IN ('going', 'maybe', 'no')", name="ck_club_rsvp_status"), Index("ix_club_meeting_rsvps_user", "user_id"))
+
+    meeting_id: Mapped[int] = mapped_column(Integer, ForeignKey("club_meetings.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(5), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubSuggestion(Base):
+    """A member's suggestion for the next book. Closing a vote deletes the winner, so (club, book) is plainly unique."""
+    __tablename__ = "club_suggestions"
+    __table_args__ = (
+        UniqueConstraint("club_id", "book_id", name="uq_club_suggestion_book"),
+        CheckConstraint("note IS NULL OR char_length(note) <= 200", name="ck_club_suggestion_note"),
+        Index("ix_club_suggestions_club_id", "club_id"),
+        Index("ix_club_suggestions_user", "suggested_by"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    club_id: Mapped[int] = mapped_column(Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False)
+    book_id: Mapped[int] = mapped_column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=False)
+    suggested_by: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class ClubVote(Base):
+    __tablename__ = "club_votes"
+    __table_args__ = (Index("ix_club_votes_user", "user_id"),)
+
+    suggestion_id: Mapped[int] = mapped_column(Integer, ForeignKey("club_suggestions.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
 
 
 class BillingCustomer(Base):

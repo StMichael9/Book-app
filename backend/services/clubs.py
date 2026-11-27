@@ -217,6 +217,7 @@ def my_clubs(db: Session, user: User) -> list[dict]:
     checkpoints = _checkpoints(db, [r.club_book_id for r in rows if r.club_book_id])
     new_posts = _unlocked_counts(groups, progress)
     today = _now().date()
+    meeting_at = club_meetings.next_meeting_at(db, [r.id for r in rows])
     items = []
     for r in rows:
         own = progress.get(r.book_id) if r.club_book_id else None
@@ -226,7 +227,7 @@ def my_clubs(db: Session, user: User) -> list[dict]:
                                        "page_count": r.page_count} if r.club_book_id else None,
                       "next_checkpoint": {k: next_cp[k] for k in ("unit", "value", "due_on", "label")} if next_cp else None,
                       "my_progress": _my_progress(own) if own is not None else None,
-                      "new_posts": new_posts.get(r.id, 0), "checkpoint_due_soon": _due_soon(next_cp, today)})
+                      "new_posts": new_posts.get(r.id, 0), "checkpoint_due_soon": _due_soon(next_cp, today), "next_meeting_at": meeting_at.get(r.id)})
     return items
 
 
@@ -250,6 +251,7 @@ def detail(db: Session, club_id: int, user: User, touch: bool = True) -> dict:
               "member_count": count, "club_plus": plus, "member_limit": club.member_limit, "effective_cap": cap,
               "cap": {"free_limit": FREE_CAP, "full": cap is not None and count >= cap},
               "new_posts": _unlocked_counts(groups, progress).get(club_id, 0), "checkpoint_due_soon": _due_soon(next_cp, _now().date()),
+              "next_meeting": club_meetings.next_meeting(db, club_id, user.id),
               "books": [{"id": cb.id, "book_id": cb.book_id, "title": title, "cover_image_url": cover, "page_count": pages, "status": cb.status,
                          "authors": list(names or []), "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
                         for cb, title, cover, pages, names in books]}
@@ -312,8 +314,9 @@ def members(db: Session, club_id: int, user: User) -> list[dict]:
     sharing = [m.user_id for m, _ in rows if m.share_progress or m.user_id == user.id]
     progress = _progress_rows(db, sharing, book_id)
     patrons = entitlements.patron_ids(db, [m.user_id for m, _ in rows])
+    rsvps = club_meetings.member_rsvps(db, club_id)
     return [{"user_id": m.user_id, "name": _name(display_name), "initials": initials(display_name, "member"), "role": m.role,
-             "joined_at": m.joined_at, "patron": m.user_id in patrons, "me": m.user_id == user.id,
+             "joined_at": m.joined_at, "patron": m.user_id in patrons, "me": m.user_id == user.id, "rsvp": rsvps.get(m.user_id),
              "shares_progress": m.share_progress,
              "progress": progress.get(m.user_id) if (m.share_progress or m.user_id == user.id) else None} for m, display_name in rows]
 
@@ -344,6 +347,7 @@ def remove_member(db: Session, club_id: int, user: User, target_id) -> None:
         raise fail(409, "use_leave")
     if target.role == "owner" or (target.role == "admin" and me.role != "owner"):
         raise fail(403, "not_allowed")
+    club_meetings.drop_member_activity(db, club_id, target.user_id)
     db.delete(target)
     db.commit()
 
@@ -352,6 +356,7 @@ def leave(db: Session, club_id: int, user: User) -> None:
     me = member_of(db, club_id, user)
     if me.role == "owner":
         raise fail(409, "owner_cannot_leave")
+    club_meetings.drop_member_activity(db, club_id, me.user_id)
     db.delete(me)
     db.commit()
 
@@ -699,3 +704,6 @@ def review_post(db: Session, club_id: int, user: User, post_id: int, action: str
         db.execute(ClubReport.__table__.delete().where(ClubReport.post_id == post.id))      # a restored post starts clean
     db.commit()
     return {"action": action}
+
+
+from services import club_meetings  # noqa: E402  (imported last: club_meetings uses this module's helpers, this one calls it only at run time)
