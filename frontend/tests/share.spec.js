@@ -38,6 +38,7 @@ const test = base.extend({
       if (/^\/authors\/\d+\/books$/.test(path)) return reply(200, { items: [], total: 0, page: 1, size: 24, pages: 1 });
       if (path === "/u/ada") return reply(200, { display_name: "Ada Reader", initials: "AR", avatar_icon: "feather", avatar_color: "plum", bio: "Quiet reader.", reading_since: 2025, stats: STATS, lists: [{ id: 3, name: "Shared list", description: null, book_count: 1, covers: [] }] });
       if (path === "/u/ada/lists/3") return reply(200, { id: 3, name: "Shared list", description: "Good ones.", owner: { display_name: "Ada Reader", initials: "AR" }, books: [BOOK] });
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);

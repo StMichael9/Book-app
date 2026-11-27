@@ -41,6 +41,7 @@ const test = base.extend({
         if (state.metricsFailOnce) { state.metricsFailOnce = false; return reply(500, { detail: "down" }); }
         return reply(200, metrics(Number(url.searchParams.get("days"))));
       }
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await provide(state);

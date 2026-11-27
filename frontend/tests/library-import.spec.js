@@ -82,6 +82,7 @@ const test = base.extend({
       if (path === "/me/stats") return route.fulfill({ status: 200, json: { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } });
       if (path === "/me/lists") return route.fulfill({ status: 200, json: [] });
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${method} ${path}`);
       return route.fulfill({ status: 500, json: { detail: "Unhandled engineering fixture" } });
     });

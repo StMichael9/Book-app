@@ -10,6 +10,7 @@ import AuthorLinks from "../ui-v2/AuthorLinks.jsx";
 import { useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { useReadingCommand } from "../../hooks/useReadingCommand.js";
 import { ReadingRemovalDialog } from "./ReadingDataControls.jsx";
+import WithClub, { clubWithBook, useMyClubs } from "../clubs/WithClub.jsx";
 import NextReadSection from "./NextReadSection.jsx";
 import { localToday } from "./localToday.js";
 import ImportedSources from "./imports/ImportedSources.jsx";
@@ -74,7 +75,7 @@ export function ReadingWorkspacePage() {
   const navigation = useLibraryNavigation();
   const libraryView = navigation.get(location.state?.libraryReturn);
   const auth = useAuth(), library = useUserBooks();
-  const reader = useReader();
+  const reader = useReader(), clubs = useMyClubs();
   const request = useRequest(() => getReadingWorkspace(entryId), workspaceKey(auth.sessionGeneration, entryId, library.revision));
   const command = useReadingCommand();
   const intent = useRef(null);
@@ -218,7 +219,7 @@ export function ReadingWorkspacePage() {
   const chip = { reading: "Reading", paused: "Paused", finished: "Finished", dnf: "Stopped" }[attempt?.state] || "Not started";
   const identity = (shown, status, menu) => { const info = displayBook(shown); return <div className="bv-reading-id">
     <BookCover book={info} size="medium" priority />
-    <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author"><AuthorLinks authors={info.authors} primary /></p>
+    <div><div className="bv-reading-titlerow"><h1 id="bv-reading-book-title" tabIndex={-1} ref={completeFocus}>{info.title}</h1>{menu}</div><EnglishTitle book={info} /><p className="bv-detail-author"><AuthorLinks authors={info.authors} primary /></p><WithClub club={clubWithBook(clubs, shown.book_id ?? info.id)} />
       {status && <h2 className="bv-reading-chip" tabIndex={-1} ref={statusHeading}>{status}</h2>}</div>
   </div>; };
   // A closing note is written in the Notes section, where every note lives.

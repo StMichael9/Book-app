@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getPublicLoan, loanGivenBack } from "../../api/loans.js";
 import { BookCover, Button, TextLink } from "../ui-v2/primitives.jsx";
+import DeadLink from "../ui-v2/DeadLink.jsx";
 import { day } from "./loanText.js";
 import "../../styles/ui-v2/lending.css";
 
 // /l/:token: what a borrower sees from a lender's link. Public, no account, never indexed. The page holds the one book, the
 // lender's first name and the dates; the server never sends the borrower's own name.
-export default function BorrowerPage({ notFound }) {
+export default function BorrowerPage() {
   const { token } = useParams();
   const [state, setState] = useState({ token: null, loan: null, missing: false }), [thanked, setThanked] = useState(false);
   const [pending, setPending] = useState(false), [failed, setFailed] = useState(false);
@@ -23,7 +24,7 @@ export default function BorrowerPage({ notFound }) {
     return () => { active = false; };
   }, [token]);
   const current = state.token === token;
-  if (current && state.missing) return notFound;
+  if (current && state.missing) return <DeadLink title="This loan link isn’t working." to="/" label="Go to Bookvane">The loan may have ended, or its owner stopped sharing it.</DeadLink>;
   if (!current) return <section className="bv-container bv-borrower" aria-busy="true"><p role="status" className="bv-sr-only">Opening</p></section>;
   const loan = state.loan;
   if (!loan) return <section className="bv-container bv-borrower"><p role="alert">Please try again.</p></section>;

@@ -20,7 +20,7 @@
 .bv-root .bv-dialog.bv-lend-sheet { width: min(480px, calc(100% - 40px)); background: var(--bv-paper); padding: 20px; }
 .bv-root .bv-loan-book { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
 .bv-root .bv-loan-book p { margin: 0; overflow-wrap: anywhere; }
-.bv-root .bv-loan-book-cover { width: 48px; flex: none; }
+.bv-root .bv-loan-book-cover { width: 56px; flex: none; }
 .bv-root .bv-loan-foot { justify-content: flex-end; margin-top: 16px; padding-top: 0; border-top: 0; }
 .bv-root .bv-loan-after { background: var(--bv-sheet); border-radius: 14px; padding: 16px 18px; margin-top: 16px; display: grid; gap: 4px; }
 .bv-root .bv-loan-after p { margin: 0; }

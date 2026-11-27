@@ -150,6 +150,8 @@ export function ReadingPrivacyPage() {
       <li>Deleted data can stay in our backups for a limited time.</li>
       <li>Email <a className="bv-text-link" href="mailto:support@bookvane.me">support@bookvane.me</a> to delete your account.</li>
     </ul></section>
+    <section className="bv-section"><h2>Clubs</h2><p>Members of a club see your name and your posts. They see the page you’re on only if you turn on sharing. Nobody outside the club sees any of it.</p></section>
+    <section className="bv-section"><h2>Lending</h2><p>A borrower’s link shows the book, its cover and your display name. It stops working soon after the loan ends, or as soon as you stop sharing it.</p></section>
     <TextLink to="/settings">Settings</TextLink>
   </div></section>;
 }

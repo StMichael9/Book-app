@@ -5,6 +5,7 @@ import { getInvitePreview, joinClub } from "../../api/clubs.js";
 import { ensureLibraryBook } from "../../api/reading.js";
 import { useAuth } from "../../hooks/AuthContext.jsx";
 import { BookCover, Button } from "../ui-v2/primitives.jsx";
+import DeadLink from "../ui-v2/DeadLink.jsx";
 import { authorLabel, useDocumentTitle, useRequest } from "../ui-v2/data.js";
 import { clubColor, codeOf, members as memberCount, named } from "./clubFormat.js";
 import "../../styles/ui-v2/clubs.css";
@@ -21,14 +22,14 @@ function useNoIndex() {
 
 // /c/:token. Public: someone with the link sees the club's name, size and (when the server sends it) who invited them and what it is reading.
 // Signed in they can join; signed out they are sent to sign up and come back here.
-export default function JoinClubPage({ notFound }) {
+export default function JoinClubPage() {
   useNoIndex();
   const { token } = useParams();
   const auth = useAuth(), navigate = useNavigate();
   const preview = useRequest(() => getInvitePreview(token), `club-invite:${token}`);
   const [addBook, setAddBook] = useState(true), [pending, setPending] = useState(false), [error, setError] = useState(""), [full, setFull] = useState(false);
   useDocumentTitle(preview.data ? `Join ${preview.data.name}` : "Join a club");
-  if (preview.error) return preview.error.status === 404 ? notFound : <section className="bv-container bv-club-join"><p className="bv-field-error" role="alert">This invitation couldn’t load. <button type="button" className="bv-club-link-button" onClick={preview.retry}>Try again</button></p></section>;
+  if (preview.error) return preview.error.status === 404 ? <DeadLink title="This invite link isn’t working." to={auth.isAuthenticated ? "/clubs" : "/"} label={auth.isAuthenticated ? "Your clubs" : "Go to Bookvane"}>It may have expired or been stopped. Ask the person who sent it for a new link.</DeadLink> : <section className="bv-container bv-club-join"><p className="bv-field-error" role="alert">This invitation couldn’t load. <button type="button" className="bv-club-link-button" onClick={preview.retry}>Try again</button></p></section>;
   if (!preview.data) return <section className="bv-container bv-club-join" aria-busy="true"><p className="bv-muted" role="status">Opening invitation…</p></section>;
   const club = preview.data, book = club.current_book, owner = club.owner_name;
   const here = `/c/${token}`, returnTo = encodeURIComponent(here);

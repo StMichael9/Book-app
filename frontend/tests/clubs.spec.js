@@ -84,9 +84,9 @@ test.describe("join page", () => {
     await expect(page.getByText("This club is full right now.", { exact: true })).toBeVisible();
   });
 
-  test("a bad or expired link shows the not-found page", async ({ page, app: _app }) => {
+  test("a bad or expired link says the invite link isn’t working", async ({ page, app: _app }) => {
     await page.goto(`/c/${"x".repeat(24)}`);
-    await expect(page.getByRole("heading", { name: "This page isn’t on the shelf." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "This invite link isn’t working." })).toBeVisible();
   });
 });
 
