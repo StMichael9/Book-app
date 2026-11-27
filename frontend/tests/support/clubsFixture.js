@@ -120,6 +120,8 @@ export const test = base.extend({
         return reply(200, { counts, my_rsvp: body.status });
       }
       if (path === "/clubs/5/suggestions" && method === "GET") return state.suggestions ? reply(200, { items: state.suggestions }) : reply(404, { detail: "Not found" });
+      // Any other club (a club made during the test) has no suggestions yet; the Books panel may ask for them after the page settles.
+      if (/^\/clubs\/\d+\/suggestions$/.test(path) && method === "GET") return reply(200, { items: [] });
       if (path === "/clubs/5/suggestions" && method === "POST") {
         if (state.suggestError) return reply(409, { detail: { code: state.suggestError } });
         const book = BOOKS.find(item => item.id === body.book_id);
