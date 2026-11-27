@@ -7,11 +7,9 @@ from sqlalchemy import text
 
 from test_clubs import counting, world  # noqa: F401  (the clubs fixture and the statement counter)
 
-NOW = datetime.now(timezone.utc)
-
-
 def when(**delta):
-    return (NOW + timedelta(**delta)).isoformat()
+    """A time relative to now, taken when it is called (not when this file is imported: in a long run the two are minutes apart)."""
+    return (datetime.now(timezone.utc) + timedelta(**delta)).isoformat()
 
 
 @pytest.fixture()
@@ -97,12 +95,12 @@ def test_a_meeting_stays_next_for_three_hours_after_it_starts(team):
 
 
 def test_the_earliest_upcoming_meeting_is_the_next_one(team):
-    team.db.execute(text("INSERT INTO club_meetings (club_id, starts_at, questions) VALUES (:c, now() + interval '10 days', '{}'), (:c, now() + interval '2 days', '{}'), "
-                         "(:c, now() - interval '9 days', '{}')"), {"c": team.cid})
+    starts = {name: team.db.scalar(text(f"INSERT INTO club_meetings (club_id, starts_at, questions) VALUES (:c, now() + interval '{offset}', '{{}}') RETURNING starts_at"), {"c": team.cid})
+              for name, offset in (("far", "10 days"), ("near", "2 days"), ("past", "-9 days"))}
     team.db.commit()
     team.as_(team.m1)
     shown = team.client.get(f"/clubs/{team.cid}").json()["next_meeting"]
-    assert abs(datetime.fromisoformat(shown["starts_at"]) - (NOW + timedelta(days=2))).total_seconds() < 60
+    assert datetime.fromisoformat(shown["starts_at"]) == starts["near"]                         # the stored time itself, not a guess from the clock
 
 
 def test_rsvps_count_per_status_and_change(team):
@@ -163,10 +161,10 @@ def test_the_ics_file_has_one_stable_event(team):
 def test_my_clubs_lists_the_next_meeting_time(team):
     team.as_(team.m1)
     assert team.client.get("/me/clubs").json()["items"][0]["next_meeting_at"] is None
-    meet(team, team.owner)
+    created = meet(team, team.owner).json()
     team.as_(team.m1)
     value = team.client.get("/me/clubs").json()["items"][0]["next_meeting_at"]
-    assert abs(datetime.fromisoformat(value) - (NOW + timedelta(days=3))).total_seconds() < 60
+    assert datetime.fromisoformat(value) == datetime.fromisoformat(created["starts_at"])
 
 
 def test_leaving_or_being_removed_clears_that_members_rsvp_and_votes(team):
