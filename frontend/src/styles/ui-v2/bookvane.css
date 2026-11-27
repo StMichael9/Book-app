@@ -553,3 +553,13 @@ body:has(.bv-root) { margin: 0; font-family: var(--bv-body); }
 /* A link inside a sentence: green and bold (the weight is the cue that it is a link, WCAG 1.4.1), underlined only on hover and keyboard focus. */
 .bv-root :is(p, li, .bv-muted, .bv-field-error) :is(.bv-text-link, .bv-link-button, .bv-inline-action), .bv-root :is(p, li) a:not([class]), .bv-root .bv-description-credit a { color: var(--bv-green); font-weight: 700; background: transparent; box-shadow: none; border-radius: 0; }
 .bv-root :is(p, li, .bv-muted, .bv-field-error) :is(.bv-text-link, .bv-link-button, .bv-inline-action):is(:hover, :focus-visible), .bv-root :is(p, li) a:not([class]):is(:hover, :focus-visible), .bv-root .bv-description-credit a:is(:hover, :focus-visible) { background: transparent; box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }
+
+/* "With {club}": a small green line under the author where the book is a club's current book. */
+.bv-root .bv-with-club { margin: 0 0 8px; font-size: var(--bv-fs-helper); font-weight: 600; }
+.bv-root .bv-with-club a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-block: -12px; color: var(--bv-green); border-radius: var(--bv-radius-pill); }
+.bv-root .bv-with-club a:is(:hover, :focus-visible) { background: var(--bv-soft); box-shadow: 0 0 0 4px var(--bv-soft); }
+.bv-root .bv-with-club svg { width: 16px; height: 16px; flex: none; }
+/* A link that no longer works: centred, the outlined spine above the title, one primary button. */
+.bv-root .bv-dead-link { display: grid; justify-items: center; gap: 12px; max-width: 480px; margin: 56px auto; padding: 24px 12px; text-align: center; }
+.bv-root .bv-dead-link h1 { margin: 12px 0 0; font: 400 var(--bv-fs-section)/1.2 var(--bv-display); }
+.bv-root .bv-dead-link p { margin: 0 0 12px; line-height: 1.55; }

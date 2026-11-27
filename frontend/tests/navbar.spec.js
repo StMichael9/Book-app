@@ -29,6 +29,7 @@ const test = base.extend({
       if (path === "/me/home") return reply(200, { current_reads: [], reading_count: 0, paused_count: 0 });
       if (path === "/me/stats" || path === "/me/up-next" || path === "/me/lists" || path === "/me/preferences") return reply(200, path === "/me/stats" ? { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null } : []);
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });

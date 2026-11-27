@@ -52,6 +52,7 @@ const test = base.extend({
       const isbnAt = path.match(/^\/me\/catalogue\/isbn\/(\d+)$/);
       if (isbnAt) return reply(200, { isbn13: isbnAt[1], status: "catalogue", book_id: 7, edition_id: 1, title: "Emma", authors: ["An Author"], cover_url: null, on_shelf: null });
       if (/^\/me\/library\/books\/\d+$/.test(path) && method === "PUT") { state.writes.push({ path, body }); return reply(200, { id: 900, book_id: 7, book: books[6], is_owned: true, is_wanted: false, version: 1, reading_state: null, private_title: null, private_author: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z" }); }
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled request ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, state);

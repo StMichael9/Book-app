@@ -21,6 +21,7 @@ const test = base.extend({
       if (path === "/auth/login") return reply(state.login.status, state.login.json);
       if (path === "/auth/reset-password") return reply(state.reset.status, state.reset.json);
       if (path === "/auth/forgot-password") return reply(state.forgot.status, state.forgot.json);
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${method} ${path}`);
       return reply(404, { detail: "Not found" });
     });

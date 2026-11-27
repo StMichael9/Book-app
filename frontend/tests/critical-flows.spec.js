@@ -138,6 +138,7 @@ const test = base.extend({
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
       if (path === "/me/loans" && route.request().method() === "GET") return route.fulfill({ status: 200, json: { items: [] } }); // My Books and Home ask for open loans; none here
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled API request: ${method} ${path}`);
       return reply(500, { detail: "Unhandled test route" });
     });

@@ -82,6 +82,7 @@ const test = base.extend({
       if (path === "/autocomplete/books") return reply(200, []); // search suggestions as a reader types
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/me/clubs") return reply(200, { items: [] });
       state.errors.push(`Unhandled request: ${method} ${path}`); return reply(500, {});
     });
     await installGenres(page, {}, { batch: false });

@@ -48,6 +48,7 @@ const test = base.extend({
       if (/\/description$/.test(path)) return reply(404, { detail: "Not found" });
       // A book page asks for the author's other books (More by); these fixtures have none.
       if (/^\/authors\/\d+\/books$/.test(path)) return route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, size: 24, pages: 1 } });
+      if (path === "/me/clubs") return route.fulfill({ status: 200, json: { items: [] } });
       state.errors.push(`Unhandled ${request.method()} ${path}`);
       return reply(404, { detail: "Not found" });
     });

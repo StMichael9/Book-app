@@ -239,7 +239,7 @@ test("the borrower's page works signed out: wordmark only, noindex, one tap, tha
   await expect(page.getByText("Thanks! Rae will see that it’s back.")).toBeVisible();
 });
 
-test("a closed loan says so; an unknown link shows the not-found page", async ({ page }) => {
+test("a closed loan says so; an unknown link says the loan link isn’t working", async ({ page }) => {
   await mock(page, { signedIn: false, publicLoan: publicLoan({ state: "closed" }) });
   await page.goto("/l/the-token");
   await expect(page.getByText("This loan is closed.")).toBeVisible();
@@ -247,7 +247,7 @@ test("a closed loan says so; an unknown link shows the not-found page", async ({
   const other = await page.context().newPage();
   await mock(other, { signedIn: false, publicStatus: 404 });
   await other.goto("/l/the-token");
-  await expect(other.getByRole("heading", { name: "This page isn’t on the shelf." })).toBeVisible();
+  await expect(other.getByRole("heading", { name: "This loan link isn’t working." })).toBeVisible();
 });
 
 for (const [name, width, height] of [["390", 390, 844], ["1440", 1440, 900]]) {
