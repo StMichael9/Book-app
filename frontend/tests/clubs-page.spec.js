@@ -510,7 +510,7 @@ test.describe("Books tab", () => {
     await page.getByRole("dialog", { name: "Reading plan" }).getByRole("button", { name: "Save plan", exact: true }).click();
     await expect.poll(() => app.requests.filter(request => request.method === "DELETE" && /\/checkpoints\/\d+$/.test(request.path)).length).toBe(3);
     await expect.poll(() => app.requests.filter(request => request.method === "POST" && request.path === "/clubs/5/books/11/checkpoints").map(request => request.body.value)).toEqual([440]);
-    expect(app.requests.filter(request => request.method === "PATCH" && request.path === "/clubs/5/books/11").map(request => request.body)).toEqual([{ ends_on: "2027-01-02" }]);
+    await expect.poll(() => app.requests.filter(request => request.method === "PATCH" && request.path === "/clubs/5/books/11").map(request => request.body)).toEqual([{ ends_on: "2027-01-02" }]);
   });
 
   test("the Reading plan item in the club menu opens the same sheet", async ({ page, app: _app }) => {
