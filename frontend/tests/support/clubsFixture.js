@@ -92,7 +92,7 @@ export const test = base.extend({
       if (path === "/me/clubs" && method === "POST") { state.newName = body.name; const club = { id: 6, name: body.name, description: body.description, color: body.color, role: "owner", member_count: 1 }; state.clubs.push(club); state.myRole = "owner"; state.count = 1; return reply(201, club); }
       if (path === "/me/clubs/join") return state.joinStatus === 200 ? reply(200, { id: 5, name: "Tuesday Readers", joined: true }) : reply(state.joinStatus, { detail: { code: "club_full" } });
       if (path === `/club-invites/${TOKEN}`) return state.previewStatus === 200 ? reply(200, state.preview) : reply(404, { detail: "Not found" });
-      if (path.startsWith("/club-invites/code/")) return decodeURIComponent(path.split("/").at(-1)) === "K7M4QX" ? reply(200, { ...state.preview, token: TOKEN }) : reply(404, { detail: "Not found" });
+      if (path.startsWith("/club-invites/code/")) return ["K7M4QX", "ACTIVE"].includes(decodeURIComponent(path.split("/").at(-1))) ? reply(200, { ...state.preview, token: TOKEN }) : reply(404, { detail: "Not found" });
       if (path.startsWith("/club-invites/")) return reply(404, { detail: "Not found" });
       if (/^\/clubs\/(5|6)$/.test(path) && method === "GET") return reply(200, detail(Number(path.slice(-1))));
       if (/^\/clubs\/(5|6)$/.test(path) && method === "PATCH") { if (body.member_limit) state.limit = body.member_limit; return reply(200, { id: 5, ...body }); }
@@ -102,6 +102,7 @@ export const test = base.extend({
       if (path === "/clubs/6/members") return reply(200, { items: [{ ...members()[0], me: true, role: "owner", shares_progress: false, progress: null }] });
       if (/^\/clubs\/\d+\/members$/.test(path)) return reply(404, { detail: "Club not found" });
       if (path === "/clubs/5/me") { state.shared = body.share_progress; return reply(200, { share_progress: body.share_progress }); }
+      if (path === "/clubs/5/invites" && method === "GET") return reply(200, state.invites || []);
       if (path === "/clubs/5/invites" && method === "POST") return reply(201, { id: "i-1", url: `https://bookvane.me/c/${TOKEN}?ref=club`, expires_at: "2026-12-05T00:00:00Z", max_uses: null, code: "K7M4QX" });
       if (/^\/clubs\/5\/invites\/[^/]+$/.test(path) && method === "DELETE") return nothing();
       if (path === "/clubs/5/leave") return nothing();

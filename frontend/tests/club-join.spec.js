@@ -63,16 +63,35 @@ test("Scan a QR code: a club link goes to the join page, anything else shows the
 
 // ---- The invite sheet ---------------------------------------------------------------------------------------------------
 
-test("the invite sheet draws a QR code (an SVG) above Share invite link, and shows the code in large letters", async ({ page, app: _app }) => {
+test("the invite sheet draws a QR code (an SVG) above Share invite link as soon as it opens, and shows the code in large letters", async ({ page, app }) => {
   await page.goto("/clubs/5?tab=members");
   await page.getByRole("button", { name: "Invite people" }).click();
   const sheet = page.getByRole("dialog", { name: "Invite people" });
-  await sheet.getByRole("button", { name: "Share invite link" }).click();
   await expect(sheet.locator(".bv-club-qr svg")).toBeVisible({ timeout: 20000 });
   await expect(sheet.getByText("Invite code", { exact: true })).toBeVisible();
   await expect(sheet.locator(".bv-club-code")).toHaveText("K7M4QX");
   const order = await sheet.evaluate(node => { const qr = node.querySelector(".bv-club-qr"), button = [...node.querySelectorAll("button")].find(item => item.textContent === "Share invite link"); return qr.getBoundingClientRect().bottom <= button.getBoundingClientRect().top; });
   expect(order).toBe(true);
+  expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(1);
+});
+
+test("an existing active invite is reused (no new one), expired or revoked ones are not, and Stop this link makes the next open create a fresh one", async ({ page, app }) => {
+  app.invites = [
+    { id: "i-old", code: "OLDOLD", state: "expired", created_at: "2026-10-01T00:00:00Z", expires_at: "2026-10-08T00:00:00Z", max_uses: null, uses: 0 },
+    { id: "i-9", code: "ACTIVE", state: "active", created_at: "2026-11-20T00:00:00Z", expires_at: "2026-12-05T00:00:00Z", max_uses: null, uses: 2 }];
+  await page.goto("/clubs/5?tab=members");
+  await page.getByRole("button", { name: "Invite people" }).click();
+  const sheet = page.getByRole("dialog", { name: "Invite people" });
+  await expect(sheet.locator(".bv-club-code")).toHaveText("ACTIVE");
+  await expect(sheet.locator(".bv-club-qr svg")).toBeVisible({ timeout: 20000 });
+  expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(0);
+  await sheet.getByRole("button", { name: "Stop this link" }).click();
+  await expect.poll(() => sent(app, "DELETE", "/clubs/5/invites/i-9")).toHaveLength(1);
+  await expect(sheet).toHaveCount(0);
+  app.invites = [];
+  await page.getByRole("button", { name: "Invite people" }).click();
+  await expect(page.getByRole("dialog", { name: "Invite people" }).locator(".bv-club-code")).toHaveText("K7M4QX");
+  expect(sent(app, "POST", "/clubs/5/invites")).toHaveLength(1);
 });
 
 // ---- From your shelves --------------------------------------------------------------------------------------------------
@@ -152,7 +171,6 @@ test("no sideways scroll at 320 with the join, invite, shelves and leave sheets 
   expect(await fits()).toBe(true);
   await page.goto("/clubs/5?tab=members");
   await page.getByRole("button", { name: "Invite people" }).click();
-  await page.getByRole("button", { name: "Share invite link" }).click();
   await expect(page.locator(".bv-club-qr svg")).toBeVisible({ timeout: 20000 });
   expect(await fits()).toBe(true);
   await page.goto("/clubs/5?tab=books");

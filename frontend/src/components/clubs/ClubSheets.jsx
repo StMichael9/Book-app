@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { addClubBook, createClub, createInvite, revokeInvite, suggestBook, updateClub } from "../../api/clubs.js";
+import { addClubBook, createClub, createInvite, getInviteByCode, listInvites, revokeInvite, suggestBook, updateClub } from "../../api/clubs.js";
 import { getBookSuggestions } from "../../api/suggest.js";
 import { getLibraryPage } from "../../api/reading.js";
 import { BookCover, Button, NativeDialog } from "../ui-v2/primitives.jsx";
@@ -92,6 +92,25 @@ export function InviteSheet({ open, onClose, clubId, left }) {
     } catch { setError("The link couldn’t be made. Please try again."); }
     setPending(false);
   }
+  // On open, the club's own active invite is used (the list gives its code; the code lookup gives the token for the link). One is made only when there is none,
+  // so opening the sheet again does not pile up invites. If any of that fails, Share invite link still makes one as before.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    (async () => {
+      try {
+        const active = (await listInvites(clubId)).find(item => item.state === "active");
+        if (active) {
+          const preview = await getInviteByCode(active.code);
+          setInvite(current => current || { id: active.id, code: active.code, expires_at: active.expires_at, max_uses: active.max_uses, url: `${window.location.origin}/c/${preview.token}?ref=club` });
+        } else {
+          const made = await createInvite(clubId);
+          setInvite(current => current || made);
+        }
+      } catch { /* Share invite link makes one when it is tapped */ }
+    })();
+  }, [clubId]);
   // The QR code of the invite link: its drawing code is loaded only now, when there is a link to draw.
   useEffect(() => {
     if (!invite?.url) return undefined;
