@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from library_import_models import ImportedLibraryRecord, ImportedReadLink, LibraryImportRun
 from models import Club, ClubMember, EmailSignup, Entitlement, ReadingList, User, UserBook
-from services import billing
+from services import billing, clubs
 
 
 def _cancel_subscriptions(db: Session, user_id) -> None:
@@ -37,8 +37,7 @@ def _hand_over_clubs(db: Session, user_id) -> None:
             continue
         db.execute(delete(ClubMember).where(ClubMember.club_id == club.id, ClubMember.user_id == user_id))
         db.flush()
-        successor.role = "owner"
-        club.owner_id = successor.user_id
+        clubs.pass_ownership(db, club, successor)
     db.flush()
 
 

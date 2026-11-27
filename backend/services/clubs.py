@@ -39,6 +39,10 @@ SEEN_EVERY = timedelta(minutes=1)
 POST_PAGE = 30
 INVITE_DAYS = 14
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{20,64}$")
+CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"        # no 0, O, 1, I or L: easy to read out and to type
+CODE_LENGTH = 6
+CODE_TRIES = 5
+CODE_FORMAT = re.compile(r"^[A-Z0-9]{6}$")
 MODS = ("owner", "admin")
 
 
@@ -217,6 +221,7 @@ def my_clubs(db: Session, user: User) -> list[dict]:
     checkpoints = _checkpoints(db, [r.club_book_id for r in rows if r.club_book_id])
     new_posts = _unlocked_counts(groups, progress)
     today = _now().date()
+    meeting_at = club_meetings.next_meeting_at(db, [r.id for r in rows])
     items = []
     for r in rows:
         own = progress.get(r.book_id) if r.club_book_id else None
@@ -226,7 +231,7 @@ def my_clubs(db: Session, user: User) -> list[dict]:
                                        "page_count": r.page_count} if r.club_book_id else None,
                       "next_checkpoint": {k: next_cp[k] for k in ("unit", "value", "due_on", "label")} if next_cp else None,
                       "my_progress": _my_progress(own) if own is not None else None,
-                      "new_posts": new_posts.get(r.id, 0), "checkpoint_due_soon": _due_soon(next_cp, today)})
+                      "new_posts": new_posts.get(r.id, 0), "checkpoint_due_soon": _due_soon(next_cp, today), "next_meeting_at": meeting_at.get(r.id)})
     return items
 
 
@@ -250,6 +255,7 @@ def detail(db: Session, club_id: int, user: User, touch: bool = True) -> dict:
               "member_count": count, "club_plus": plus, "member_limit": club.member_limit, "effective_cap": cap,
               "cap": {"free_limit": FREE_CAP, "full": cap is not None and count >= cap},
               "new_posts": _unlocked_counts(groups, progress).get(club_id, 0), "checkpoint_due_soon": _due_soon(next_cp, _now().date()),
+              "next_meeting": club_meetings.next_meeting(db, club_id, user.id),
               "books": [{"id": cb.id, "book_id": cb.book_id, "title": title, "cover_image_url": cover, "page_count": pages, "status": cb.status,
                          "authors": list(names or []), "starts_on": cb.starts_on, "ends_on": cb.ends_on, "checkpoints": checkpoints.get(cb.id, [])}
                         for cb, title, cover, pages, names in books]}
@@ -312,8 +318,9 @@ def members(db: Session, club_id: int, user: User) -> list[dict]:
     sharing = [m.user_id for m, _ in rows if m.share_progress or m.user_id == user.id]
     progress = _progress_rows(db, sharing, book_id)
     patrons = entitlements.patron_ids(db, [m.user_id for m, _ in rows])
+    rsvps = club_meetings.member_rsvps(db, club_id)
     return [{"user_id": m.user_id, "name": _name(display_name), "initials": initials(display_name, "member"), "role": m.role,
-             "joined_at": m.joined_at, "patron": m.user_id in patrons, "me": m.user_id == user.id,
+             "joined_at": m.joined_at, "patron": m.user_id in patrons, "me": m.user_id == user.id, "rsvp": rsvps.get(m.user_id),
              "shares_progress": m.share_progress,
              "progress": progress.get(m.user_id) if (m.share_progress or m.user_id == user.id) else None} for m, display_name in rows]
 
@@ -344,14 +351,72 @@ def remove_member(db: Session, club_id: int, user: User, target_id) -> None:
         raise fail(409, "use_leave")
     if target.role == "owner" or (target.role == "admin" and me.role != "owner"):
         raise fail(403, "not_allowed")
+    club_meetings.drop_member_activity(db, club_id, target.user_id)
     db.delete(target)
     db.commit()
 
 
-def leave(db: Session, club_id: int, user: User) -> None:
+def pass_ownership(db: Session, club: Club, successor: ClubMember) -> None:
+    """Make `successor` the owner. The one place that does it (leave, hand-over and Delete account). The previous owner's membership must
+    already be removed or demoted and flushed first: a club has exactly one owner."""
+    successor.role = "owner"
+    club.owner_id = successor.user_id
+
+
+def _lock_members(db: Session, club_id: int, user_ids: list) -> dict:
+    """The club row, then these members' rows, locked in that fixed order and freshly read, so two hand-overs cannot both succeed."""
+    club = db.scalar(select(Club).where(Club.id == club_id).with_for_update().execution_options(populate_existing=True))
+    rows = db.scalars(select(ClubMember).where(ClubMember.club_id == club_id, ClubMember.user_id.in_(user_ids)).order_by(ClubMember.user_id)
+                      .with_for_update().execution_options(populate_existing=True)).all()
+    return {"club": club, **{m.user_id: m for m in rows}}
+
+
+def transfer_owner(db: Session, club_id: int, user: User, target_id) -> list[dict]:
+    """The owner hands the club to a current member; the old owner stays on as an admin."""
+    if member_of(db, club_id, user).role != "owner":
+        raise fail(403, "owner_only")
+    locked = _lock_members(db, club_id, [user.id, target_id])
+    me, target = locked.get(user.id), locked.get(target_id)
+    if me is None or me.role != "owner":
+        db.rollback()
+        raise fail(403, "owner_only")
+    if target is None:
+        db.rollback()
+        raise fail(409, "not_a_member")
+    if target.user_id == user.id:
+        db.rollback()
+        raise fail(409, "already_owner")
+    me.role = "admin"
+    db.flush()                                      # one owner at a time: demote before promoting
+    pass_ownership(db, locked["club"], target)
+    db.commit()
+    return members(db, club_id, user)
+
+
+def leave(db: Session, club_id: int, user: User, successor_id=None) -> None:
+    """A member leaves. The owner may leave only by naming a current member as the new owner; alone, they cannot (delete the club instead)."""
     me = member_of(db, club_id, user)
     if me.role == "owner":
-        raise fail(409, "owner_cannot_leave")
+        count = _member_count(db, club_id)
+        if count < 2:
+            raise fail(409, "only_member")
+        if successor_id is None:
+            raise fail(422, "successor_required")
+        locked = _lock_members(db, club_id, [user.id, successor_id])
+        me, successor = locked.get(user.id), locked.get(successor_id)
+        if me is None or me.role != "owner":
+            db.rollback()
+            raise fail(403, "owner_only")
+        if successor is None or successor.user_id == user.id:
+            db.rollback()
+            raise fail(409, "not_a_member")
+        club_meetings.drop_member_activity(db, club_id, me.user_id)
+        db.delete(me)
+        db.flush()
+        pass_ownership(db, locked["club"], successor)
+        db.commit()
+        return
+    club_meetings.drop_member_activity(db, club_id, me.user_id)
     db.delete(me)
     db.commit()
 
@@ -368,20 +433,34 @@ def _invite_state(invite: ClubInvite, now: datetime) -> str:
     return "active"
 
 
+def _new_code() -> str:
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+
 def create_invite(db: Session, club_id: int, user: User, expires_in_days: int, max_uses: int | None) -> dict:
     moderator(db, club_id, user)
     token = secrets.token_urlsafe(32)
-    invite = ClubInvite(token=token, club_id=club_id, created_by=user.id, expires_at=_now() + timedelta(days=expires_in_days), max_uses=max_uses)
-    db.add(invite)
+    for _ in range(CODE_TRIES):
+        invite = ClubInvite(token=token, code=_new_code(), club_id=club_id, created_by=user.id, expires_at=_now() + timedelta(days=expires_in_days), max_uses=max_uses)
+        try:
+            with db.begin_nested():                 # a collision with another live code undoes only this attempt
+                db.add(invite)
+                db.flush()
+            break
+        except IntegrityError:
+            continue
+    else:
+        db.rollback()
+        raise fail(503, "try_again")
     db.commit()
     base = (settings.frontend_base_url or "https://bookvane.me").rstrip("/")
-    return {"id": invite.id, "url": f"{base}/c/{token}?ref=club", "expires_at": invite.expires_at, "max_uses": invite.max_uses}
+    return {"id": invite.id, "url": f"{base}/c/{token}?ref=club", "code": invite.code, "expires_at": invite.expires_at, "max_uses": invite.max_uses}
 
 
 def list_invites(db: Session, club_id: int, user: User) -> list[dict]:
     moderator(db, club_id, user)
     now = _now()
-    return [{"id": i.id, "created_at": i.created_at, "expires_at": i.expires_at, "max_uses": i.max_uses, "uses": i.uses, "state": _invite_state(i, now)}
+    return [{"id": i.id, "code": i.code, "created_at": i.created_at, "expires_at": i.expires_at, "max_uses": i.max_uses, "uses": i.uses, "state": _invite_state(i, now)}
             for i in db.scalars(select(ClubInvite).where(ClubInvite.club_id == club_id).order_by(ClubInvite.created_at.desc()).limit(50))]
 
 
@@ -407,7 +486,20 @@ def _valid_invite(db: Session, token: str, *, lock: bool = False) -> ClubInvite:
 def invite_preview(db: Session, token: str) -> dict:
     """What the invite page may show before joining: the club's name, description, colour, the owner's display name and the current
     book, never its members, emails or discussion."""
-    invite = _valid_invite(db, token)
+    return _preview(db, _valid_invite(db, token))
+
+
+def code_preview(db: Session, code: str) -> dict:
+    """The same preview from a short code, plus the token so the page can go on to the normal join. Case, dashes and spaces are ignored; anything
+    that does not lead to a live invite is the same plain 404, whatever the reason."""
+    normal = re.sub(r"[\s-]", "", code or "").upper()
+    invite = db.scalar(select(ClubInvite).where(ClubInvite.code == normal, ClubInvite.revoked_at.is_(None))) if CODE_FORMAT.match(normal) else None
+    if invite is None or _invite_state(invite, _now()) != "active":
+        raise HTTPException(404, detail="Not found")
+    return {**_preview(db, invite), "token": invite.token}
+
+
+def _preview(db: Session, invite: ClubInvite) -> dict:
     club = db.get(Club, invite.club_id)
     count = _member_count(db, club.id)
     owner_name = db.scalar(select(User.display_name).where(User.id == club.owner_id))
@@ -699,3 +791,6 @@ def review_post(db: Session, club_id: int, user: User, post_id: int, action: str
         db.execute(ClubReport.__table__.delete().where(ClubReport.post_id == post.id))      # a restored post starts clean
     db.commit()
     return {"action": action}
+
+
+from services import club_meetings  # noqa: E402  (imported last: club_meetings uses this module's helpers, this one calls it only at run time)
