@@ -28,7 +28,7 @@ const test = base.extend({
       if (path === "/me/library") return reply(200, { items: state.entries, counts: { all: state.entries.length, owned: state.entries.length, want: 0, reading: 0, paused: 0, finished: 0, dnf: 0 }, total: state.entries.length, next_cursor: null, facets: {}, index: null });
       if (path === "/me/library/lookup") return reply(200, { items: [] });
       if (path === "/me/loans" && method === "GET") return reply(200, { items: state.loans });
-      if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: false, reading_since: 2026, email_tips: false });
+      if (path === "/me/profile") return reply(200, { display_name: "Rae", bio: null, initials: "R", handle: null, profile_public: false, show_prompt: Boolean(state.showPrompt), reading_since: 2026, email_tips: false });
       if (path === "/me/stats") return reply(200, { year: 2026, books_finished: 0, pages_read: 0, by_month: Array(12).fill(0), top_genres: [], biggest_month: null });
       if (path === "/me/lists") return reply(200, []);
       if (path === "/me/up-next") return reply(404, { detail: "Not found" });
@@ -103,4 +103,17 @@ test("/privacy has the Clubs and Lending sections, word for word", async ({ page
 test("the lend sheet cover is 56px wide", async ({ page, app: _app }) => {
   await page.goto("/privacy");
   expect(await page.evaluate(() => { const probe = document.createElement("div"); probe.className = "bv-loan-book-cover"; document.querySelector("main").append(probe); return probe.getBoundingClientRect().width; })).toBe(56);
+});
+
+test("a fresh account sees no \"Let friends find you?\" sheet on an invite page or the clubs pages, but still sees it on Home", async ({ page, app }) => {
+  app.showPrompt = true;
+  const sheet = page.getByRole("dialog", { name: "Let friends find you?" });
+  await page.goto("/c/gone");
+  await expect(page.getByRole("heading", { level: 1, name: "This invite link isn’t working." })).toBeVisible();
+  await expect(sheet).toHaveCount(0);
+  await page.goto("/clubs/5");
+  await expect(page.getByRole("heading", { name: "Tuesday Readers" }).first()).toBeVisible();
+  await expect(sheet).toHaveCount(0);
+  await page.goto("/home");
+  await expect(sheet).toBeVisible();
 });

@@ -379,7 +379,7 @@ export function ProfilePrompt() {
   const location = useLocation();
   const [asking, setAsking] = useState(false), [handle, setHandle] = useState(""), [error, setError] = useState(""), [pending, setPending] = useState(false);
   const [dismissed, setDismissed] = useState(promptAnswered);
-  const quiet = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname) || location.pathname.startsWith("/my-books/import") || Boolean(reader.gate);
+  const quiet = ["/login", "/register", "/forgot-password", "/reset-password"].includes(location.pathname) || location.pathname.startsWith("/my-books/import") || location.pathname.startsWith("/c/") || location.pathname === "/clubs" || location.pathname.startsWith("/clubs/") || Boolean(reader.gate);
   const open = Boolean(profile?.show_prompt) && !dismissed && !quiet;
   async function finish(changes) {
     setPending(true); setError("");
