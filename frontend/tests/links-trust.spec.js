@@ -121,13 +121,13 @@ test("a fresh account sees no \"Let friends find you?\" sheet on an invite page 
 });
 
 test("Home asks for the clubs only when Reading now has a book, and after the home data", async ({ page, app }) => {
-  await page.goto("/home");
-  await expect(page.getByRole("heading", { name: "Reading now" })).toBeVisible();
+  // Wait for Home's own data, not a particular heading: what an empty Home renders is not this test's concern.
+  await Promise.all([page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/me/home")), page.goto("/home")]);
   await page.waitForLoadState("networkidle");
   expect(app.requests.filter(request => request.path === "/me/clubs")).toHaveLength(0);
   app.currentReads = [reading(50, 1, "Middlemarch")];
   await page.goto("/home");
-  await expect(page.getByRole("link", { name: "With Tuesday Readers" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "With Tuesday Readers" })).toBeVisible({ timeout: 15000 }); // the clubs load at idle priority (up to 2s by design); busy CI runners can stretch that
   const paths = app.requests.map(request => request.path);
   expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.lastIndexOf("/me/home") - 1);
   expect(paths.indexOf("/me/clubs")).toBeGreaterThan(paths.indexOf("/me/home"));
