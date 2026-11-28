@@ -1,0 +1,44 @@
+name: Daily health check
+
+# Runs on GitHub every morning, with no laptop needed. It fails (so GitHub emails the repository owner) when the live API is
+# unhealthy or Neon's monthly compute reaches 95 of the free 100 CU-h. It reads nothing private and changes nothing.
+on:
+  schedule:
+    - cron: "15 17 * * *" # 09:15 Pacific
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Live API answers
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://api.bookvane.me/health) && [ "$code" = "200" ] && { echo "API 200"; exit 0; }
+            echo "API answered ${code:-nothing}; retrying in 30s"; sleep 30
+          done
+          echo "::error::api.bookvane.me/health is not 200"; exit 1
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: backend/data/compute_guard.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Neon compute below 95 CU-h
+        id: compute
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_COMPUTE_STOP_CUH: "95"
+        run: python backend/data/compute_guard.py
+      - name: Alert when compute is high
+        if: ${{ steps.compute.outputs.proceed != 'true' }}
+        run: |
+          echo "::error::Neon compute is at or above 95 of 100 CU-h (or unreadable). Check the Neon console before the monthly reset."
+          exit 1
